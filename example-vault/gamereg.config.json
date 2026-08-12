@@ -1,0 +1,10 @@
+{
+  "locale": "en",
+  "timezone": "America/Sao_Paulo",
+  "day_cutoff": "05:00",
+  "defaults": {
+    "platform": null,
+    "form": "digital",
+    "mode": "solo"
+  }
+}
