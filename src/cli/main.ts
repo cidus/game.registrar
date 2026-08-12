@@ -5,12 +5,12 @@
  * The CLI is the only writer. It never blocks on input: ambiguity is returned,
  * and the interactive menu is a presenter on top of that return value.
  */
-import { Command, CommanderError } from 'commander'
+import { Command, CommanderError, type Argument, type Option } from 'commander'
 
 import { GameregError } from '../core/errors.ts'
 import { version } from '../core/pkg.ts'
 import { loadConfig } from '../core/config.ts'
-import { localeFromEnvironment, resolveLocale, translator } from '../i18n/index.ts'
+import { localeFromEnvironment, localeStrings, resolveLocale, translator } from '../i18n/index.ts'
 import { currentContext } from './context.ts'
 import { emitFailure } from './output.ts'
 import { canonicalizeFlags, createRegistrar, withGlobals } from './register.ts'
@@ -52,7 +52,21 @@ function bootLocale(argv: readonly string[]): string {
 
 export async function run(argv: readonly string[]): Promise<number> {
   const args = canonicalizeFlags(argv)
-  const { t } = translator(bootLocale(args))
+  const locale = bootLocale(args)
+  const { t } = translator(locale)
+  const { commands: localeCommands, flags: localeFlags, arguments: localeArgs } = localeStrings(locale)
+
+  // The active locale's own name for something that is gamereg's own
+  // vocabulary (a command, or an argument placeholder) — never a mix of
+  // locales, never the canonical English name once a translation exists.
+  // Falls back to canonical only when this locale doesn't translate that
+  // particular name — including "gamereg" itself, the binary someone
+  // actually types, which is never a key here and so is never translated.
+  const displayName = (name: string): string => localeCommands[name] ?? name
+  const displayArg = (arg: Argument): string => {
+    const name = (localeArgs[arg.name()] ?? arg.name()) + (arg.variadic ? '...' : '')
+    return arg.required ? `<${name}>` : `[${name}]`
+  }
 
   const program = new Command()
   program
@@ -65,6 +79,52 @@ export async function run(argv: readonly string[]): Promise<number> {
     .helpCommand(false)
     .enablePositionalOptions()
     .exitOverride()
+    .configureHelp({
+      // The command-list line ("Commands:", and break's own nested list).
+      // Shows only the active locale's own name — never canonical + alias
+      // stacked together, and never an arbitrary other locale's spelling.
+      subcommandTerm(cmd) {
+        const cmdArgs = cmd.registeredArguments.map(displayArg).join(' ')
+        return (
+          displayName(cmd.name()) +
+          (cmd.options.length ? ' [options]' : '') +
+          (cmdArgs ? ` ${cmdArgs}` : '')
+        )
+      },
+      // The "Usage: ..." line at the top of a specific command's own
+      // --help — a separate code path from subcommandTerm, including the
+      // ancestor chain for nested commands (break start → gamereg break start).
+      commandUsage(cmd) {
+        const ancestors: string[] = []
+        for (let ancestor = cmd.parent; ancestor !== null; ancestor = ancestor.parent) {
+          ancestors.unshift(displayName(ancestor.name()))
+        }
+        const cmdArgs = cmd.registeredArguments.map(displayArg).join(' ')
+        return [
+          ...ancestors,
+          displayName(cmd.name()),
+          cmd.options.length ? '[options]' : '',
+          cmd.commands.length ? '[command]' : '',
+          cmdArgs,
+        ]
+          .filter((part) => part !== '')
+          .join(' ')
+      },
+      // The flag column. option.flags is the raw string passed to .option(),
+      // e.g. "--vault <path>" or "-q, --quiet" — swap the canonical long
+      // flag for the active locale's own spelling, in place.
+      optionTerm(option: Option) {
+        const canonical = option.long
+        const localized = canonical === undefined ? undefined : localeFlags[canonical]
+        if (canonical === undefined || localized === undefined) return option.flags
+        return option.flags.replace(canonical, localized)
+      },
+      // The bare name in the "Arguments:" section (descriptions there are
+      // already translated via help.arg.*; only the term itself was English).
+      argumentTerm(argument: Argument) {
+        return localeArgs[argument.name()] ?? argument.name()
+      },
+    })
   withGlobals(program, t)
 
   const registrar = createRegistrar(program, t)

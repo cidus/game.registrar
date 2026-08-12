@@ -246,6 +246,43 @@ test('localized command names and flags work regardless of the output locale', (
   assert.equal(run.json['action'], 'session.open')
 })
 
+function help(...args: string[]): string {
+  const result = spawnSync(process.execPath, [MAIN, ...args, '--help'], {
+    encoding: 'utf8',
+    env: { ...process.env, GAMEREG_NON_INTERACTIVE: '1' },
+  })
+  return result.stdout ?? ''
+}
+
+test('--help under --locale en shows canonical vocabulary only', () => {
+  const text = help('start', '--locale', 'en')
+  assert.match(text, /Usage: gamereg start \[options\] <query>/)
+  assert.equal(/\biniciar\b/.test(text), false)
+  assert.equal(/\bconsulta\b/.test(text), false)
+})
+
+test('--help under --locale pt-BR carries no English vocabulary', () => {
+  const text = help('start', '--locale', 'pt-BR')
+  assert.match(text, /Usage: gamereg iniciar \[options\] <consulta>/)
+  assert.match(text, /--acervo <path>/)
+  // The canonical English forms must not leak in alongside the translation.
+  assert.equal(/\bstart\b/.test(text), false)
+  assert.equal(/--vault\b/.test(text), false)
+  assert.equal(/\bquery\b/.test(text), false)
+})
+
+test('a nested group --help stays in one locale, with no stray help-command line', () => {
+  const text = help('break', '--locale', 'pt-BR')
+  assert.match(text, /\bintervalo\b/)
+  assert.equal(text.includes('help [command]'), false)
+  assert.equal(/\bbreak\b/.test(text), false)
+})
+
+test('a nested subcommand --help localizes its whole ancestor chain', () => {
+  const text = help('break', 'start', '--locale', 'pt-BR')
+  assert.match(text, /Usage: gamereg intervalo iniciar \[options\] \[consulta\]/)
+})
+
 test('prose output carries the Registrar voice, JSON never does', () => {
   const root = vault()
   const started = spawnSync(

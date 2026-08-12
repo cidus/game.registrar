@@ -27,7 +27,10 @@ function localAliases(name: string): string[] {
 }
 
 export function registerBreak(registrar: Registrar): void {
-  const group = registrar.command('break', 'help.break')
+  // helpCommand(false) on the program does not propagate to subcommands
+  // (commander does not inherit it) — same reasoning as main.ts: its
+  // wording is commander's, not the Registrar's, and cannot be localized.
+  const group = registrar.command('break', 'help.break').helpCommand(false)
 
   const start = withGlobals(
     group.command('start').description(registrar.t('help.break_start')),

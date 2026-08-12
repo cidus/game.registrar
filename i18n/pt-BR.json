@@ -47,7 +47,14 @@
       "--all": "--tudo",
       "--message": "--mensagem",
       "--text": "--texto",
-      "--run": "--jogatina"
+      "--run": "--jogatina",
+      "--id": "--referencia",
+      "--outcome": "--resultado"
+    },
+    "arguments": {
+      "query": "consulta",
+      "term": "termo",
+      "event_id": "id_evento"
     }
   },
   "help": {

@@ -2,7 +2,8 @@
   "cli": {
     "description": "A register of video game playthroughs.",
     "commands": {},
-    "flags": {}
+    "flags": {},
+    "arguments": {}
   },
   "help": {
     "start": "Open a session for a game.",

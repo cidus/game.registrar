@@ -108,6 +108,37 @@ export function translator(locale: string): Translator {
   }
 }
 
+export type LocaleStrings = {
+  /** This locale's own canonical → localized command names. */
+  commands: Record<string, string>
+  /** This locale's own canonical → localized long flags. */
+  flags: Record<string, string>
+  /** This locale's own canonical → localized argument placeholder names. */
+  arguments: Record<string, string>
+}
+
+/**
+ * One locale's own translations only — unlike `allAliases()`, never merged
+ * across locales. For rendering help in the active locale: showing every
+ * locale's spelling at once, or an arbitrary one, is not localization.
+ */
+export function localeStrings(locale: string): LocaleStrings {
+  const bundle = loadBundle(locale)
+  const asRecord = (value: unknown): Record<string, string> => {
+    if (typeof value !== 'object' || value === null) return {}
+    const out: Record<string, string> = {}
+    for (const [key, translated] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof translated === 'string') out[key] = translated
+    }
+    return out
+  }
+  return {
+    commands: asRecord(lookup(bundle, 'cli.commands')),
+    flags: asRecord(lookup(bundle, 'cli.flags')),
+    arguments: asRecord(lookup(bundle, 'cli.arguments')),
+  }
+}
+
 export type CommandAliases = {
   /** Localized command name → canonical English name. */
   commands: Map<string, string>
