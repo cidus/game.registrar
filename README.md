@@ -33,7 +33,50 @@ Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
 
 ## Status
 
-Specification stage. Nothing implemented yet.
+**Phase 0** — the register, no AI. The CLI records and renders; there is no
+network, no provider, no SQLite, no agent and no site yet. See
+[06-roadmap](docs/spec/06-roadmap.md).
+
+```
+git clone … && cd game.registrar && npm install && npm run build && npm link
+```
+
+Then, from the directory holding your register (or with `--vault <path>`):
+
+```
+gamereg start "hollow knight" --platform Switch
+gamereg break start
+gamereg break end
+gamereg end --break 40m --note "Stuck on Watcher Knights."
+gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_ending
+gamereg verdict "hollow knight" -m "Started as a curiosity and became..."
+gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
+gamereg open · gamereg status · gamereg search "zelda"
+gamereg build · gamereg doctor
+```
+
+A title not on record yet is offered as a new entry when you are at a terminal;
+behind a pipe it exits 4 and `--no-metadata` opens it without asking.
+
+`example-vault/` is a working register with fictional data — the golden files the
+test suite builds against.
+
+### Configuration
+
+`gamereg.config.json` at the vault root, every key optional:
+
+```json
+{
+  "locale": "pt-BR",
+  "timezone": "America/Sao_Paulo",
+  "day_cutoff": "05:00",
+  "defaults": { "platform": "Switch", "form": "digital", "mode": "solo" }
+}
+```
+
+`defaults` fills in what `start` was not told. Platform is taken from the game's
+last run first, then from here; without either, the first run of a game asks for
+`--platform` rather than guessing.
 
 ## Specs
 

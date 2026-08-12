@@ -14,8 +14,16 @@ constrain everything else.
 
 ## Current state
 
-Specification only. No source, no `package.json`. Phase 0 in
-`docs/spec/06-roadmap.md` is the target.
+Phase 0 is implemented: event log, fold with `amend`/`revoke`, duration
+arithmetic, local resolution, the recording and query commands, `verdict`,
+`build` and `doctor`. `npm test` runs the suite (`node --test`, no framework).
+
+One deliberate gap: **image ingestion** (`--photo`, hashing, EXIF strip,
+`cover`) was moved out of phase 0 by decision, so `sharp` is not a dependency
+yet and there is no `gallery` block.
+
+Also not built, as the roadmap intends: providers, SQLite, `query`, `due`,
+`checkin`, `import`, the agent and the site.
 
 ## Non-negotiables
 
