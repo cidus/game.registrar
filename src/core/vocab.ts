@@ -1,0 +1,74 @@
+/**
+ * Controlled vocabularies (docs/spec/01-model.md).
+ *
+ * Stored values are these English tokens. Display labels live in i18n.
+ * An unknown token is a validation error, never a warning.
+ */
+import { GameregError } from './errors.ts'
+
+export const OUTCOME = ['finished', 'abandoned'] as const
+export const COMPLETION_CRITERIA = [
+  'credits',
+  'true_ending',
+  'full_completion',
+  'platinum',
+  'enough',
+  'endless',
+  'abandoned',
+] as const
+export const DIFFICULTY = ['trivial', 'easy', 'normal', 'hard', 'brutal'] as const
+export const FORM = ['physical', 'digital', 'emulator', 'subscription', 'borrowed', 'cloud', 'demo'] as const
+export const MODE = ['solo', 'coop', 'versus', 'mixed'] as const
+export const DATE_PRECISION = ['day', 'month', 'year'] as const
+export const ATTACHMENT_KIND = ['screenshot', 'photo', 'box', 'media', 'other'] as const
+export const EVENT_SOURCE = ['cli', 'chat', 'cron', 'import'] as const
+export const CHECKIN_TRIGGER = ['duration', 'clock', 'day_cutoff'] as const
+export const CHECKIN_OUTCOME = ['snoozed', 'break_started', 'session_closed', 'no_reply'] as const
+export const GAME_STATUS = ['unplayed', 'playing', 'finished', 'abandoned'] as const
+export const HOURS_SOURCE = ['measured', 'stated'] as const
+
+export type Outcome = (typeof OUTCOME)[number]
+export type CompletionCriteria = (typeof COMPLETION_CRITERIA)[number]
+export type Difficulty = (typeof DIFFICULTY)[number]
+export type Form = (typeof FORM)[number]
+export type Mode = (typeof MODE)[number]
+export type DatePrecision = (typeof DATE_PRECISION)[number]
+export type AttachmentKind = (typeof ATTACHMENT_KIND)[number]
+export type EventSource = (typeof EVENT_SOURCE)[number]
+export type CheckinTrigger = (typeof CHECKIN_TRIGGER)[number]
+export type CheckinOutcome = (typeof CHECKIN_OUTCOME)[number]
+export type GameStatus = (typeof GAME_STATUS)[number]
+export type HoursSource = (typeof HOURS_SOURCE)[number]
+
+/** Ratings are 0–11. 11 means the game exceeded the scale; never clamp it. */
+export const RATING_MIN = 0
+export const RATING_MAX = 11
+
+/**
+ * Validates a token against a vocabulary. The thrown error lists every valid
+ * token, because the caller may be a person who guessed, or an agent that
+ * hallucinated — both are helped by the same list.
+ */
+export function checkEnum<T extends string>(
+  field: string,
+  value: string,
+  vocabulary: readonly T[],
+): T {
+  if ((vocabulary as readonly string[]).includes(value)) return value as T
+  throw new GameregError('usage', 'error.enum', {
+    field,
+    value,
+    valid: vocabulary.join(', '),
+  })
+}
+
+export function checkRating(value: number): number {
+  if (!Number.isInteger(value) || value < RATING_MIN || value > RATING_MAX) {
+    throw new GameregError('usage', 'error.rating', {
+      value,
+      min: RATING_MIN,
+      max: RATING_MAX,
+    })
+  }
+  return value
+}
