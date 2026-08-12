@@ -1,0 +1,73 @@
+/**
+ * `gamereg drop <query>` — abandon a run.
+ *
+ * Same shape as `finish`, with `outcome: abandoned` and `abandoned` as the
+ * default criteria. A rating is optional: refusing to rate is data.
+ */
+import type { Command } from 'commander'
+
+import { formatHm } from '../../core/duration.ts'
+import { closeRun, type CloseRunOptions } from '../close-run.ts'
+import { createContext } from '../context.ts'
+import { clock } from '../format.ts'
+import { emit } from '../output.ts'
+import type { Registrar } from '../register.ts'
+import { commit, load } from '../workspace.ts'
+
+type Options = CloseRunOptions & { reason?: string }
+
+export function registerDrop(registrar: Registrar): void {
+  registrar
+    .command('drop', 'help.drop')
+    .argument('<query>', registrar.t('help.arg.query'))
+    .option('--id <ref>', registrar.t('help.opt.id'))
+    .option('--rating <value>', registrar.t('help.opt.rating'))
+    .option('--difficulty <token>', registrar.t('help.opt.difficulty'))
+    .option('--criteria <token>', registrar.t('help.opt.criteria'))
+    .option('--reason <text>', registrar.t('help.opt.reason'))
+    .action(async (query: string, options: Options, command: Command) => {
+      const cli = createContext(command)
+      const workspace = load(cli)
+
+      const { game, run, sessionClosed } = await closeRun(
+        cli,
+        workspace,
+        query,
+        { ...options, note: options.reason },
+        'abandoned',
+        'abandoned',
+      )
+      const events = commit(cli, workspace)
+
+      const prose: string[] = []
+      if (sessionClosed) prose.push(cli.t('prose.finish.session_closed', { time: clock(cli.at) }))
+      prose.push(
+        cli.t('prose.drop.archived', {
+          title: game.title,
+          duration: formatHm(run.minutes),
+          sessions: run.sessions.length,
+        }),
+      )
+      if (options.reason !== undefined) {
+        prose.push(cli.t('prose.drop.reason', { reason: options.reason }))
+      }
+
+      emit(cli, {
+        action: 'run.close',
+        result: {
+          game: { game_id: game.game_id, slug: game.slug, title: game.title },
+          run_id: run.run_id,
+          outcome: run.outcome,
+          completion_criteria: run.completion_criteria,
+          rating: run.rating,
+          difficulty: run.difficulty,
+          ended_on: run.ended_on,
+          minutes: run.minutes,
+          sessions: run.sessions.length,
+          status: game.status,
+        },
+        events,
+        prose,
+      })
+    })
+}
