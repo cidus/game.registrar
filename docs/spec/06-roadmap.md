@@ -7,7 +7,7 @@ Each phase ends with something usable. No phase depends on the next one existing
 **Goal:** prove the data model by living in it for two weeks, from a terminal.
 
 - Event log: append, fold, validate
-- `start`, `end`, `break`, `finish`, `drop`, `past`, `open`, `status`
+- `start`, `end`, `break`, `finish`, `drop`, `past`, `open`, `status`, `verdict`
 - Local-only resolution (steps 1–5 and 7 of the resolution order)
 - `build` producing game notes and `Games.md`
 - Image ingestion: `--photo`, hashing, normalization, EXIF strip, `cover`
@@ -37,7 +37,8 @@ and "how many hours did I spend on RPGs in 2026" is answerable with one command.
 - Agent prompt: message → CLI invocation
 - Code 3 rendered as inline buttons
 - Voice transcription upstream of the CLI
-- `verdict` composition on finish
+- Verdict drafting offered on finish — the command already exists and already
+  accepts prose the user wrote; the agent adds a draft to accept or refuse
 
 **Exit criterion:** an entire game logged start to finish without opening a
 terminal once.

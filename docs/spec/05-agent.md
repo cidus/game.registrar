@@ -12,7 +12,8 @@ Its actual jobs:
 
 1. Turn a message (or a transcript) into a CLI invocation
 2. Present code 3 candidates and relay the choice back
-3. Write prose — session notes verbatim, and the consolidated verdict
+3. Relay prose — session notes verbatim, and the consolidated verdict, which it
+   may draft when asked to
 4. Answer questions by writing SQL for `gamereg query`
 
 That is the whole contract. Every number in every answer comes from the database.
@@ -224,13 +225,21 @@ Two constraints on any persona, whatever the pre-prompt says:
 Two steps, in order:
 
 1. `gamereg finish "..." --rating 9 --difficulty hard --criteria true_ending`
-2. Read the run back, compose the verdict, pipe it to `gamereg verdict`
+2. The verdict, whenever the words arrive, via `gamereg verdict`
 
-**Verdict prompt shape.** Feed the model every session note in order, plus the
-closing impressions, and ask for the arc — how the experience changed over time,
-not a summary of the game. "I liked it at first and found it tedious by the end"
-is the target output. Two to four paragraphs, first person, the user's own
-register. Do not let it review the game; it reviews *the playthrough*.
+**The verdict is not the agent's to write uninvited.** `gamereg verdict` takes
+prose from anywhere — typed at a terminal, dictated, pasted, or drafted by a
+model — and the register does not record which it was. Drafting is an offer, not
+a step: propose it, and file what the user approves. Someone who wants to write
+their own review, or none at all, must be able to have exactly that.
+
+**Verdict prompt shape**, when a draft *is* wanted. Feed the model every session
+note in order, plus the closing impressions, and ask for the arc — how the
+experience changed over time, not a summary of the game. "I liked it at first and
+found it tedious by the end" is the target output. Two to four paragraphs, first
+person, the user's own register. Do not let it review the game; it reviews *the
+playthrough*. Show the draft before filing it: this is the one piece of text in
+the register that claims to be the user's opinion.
 
 ### Questions
 

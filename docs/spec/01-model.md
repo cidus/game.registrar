@@ -70,10 +70,24 @@ Empty is legal — a game with no provider is a first-class game.
 | `run.open` | `run_id`, `game_id`, `platform`, `form`, `mode`, `started_on`, `replay` |
 | `run.close` | `run_id`, `ended_on`, `outcome`, `completion_criteria`, `rating?`, `difficulty?`, `note?` |
 | `run.import` | Historical entry: everything above in one event, plus `hours?` and `date_precision` |
+| `run.verdict` | `run_id`, `text` — the consolidated review of that playthrough |
 
 `run.import` exists because past games have no sessions. It produces a closed run
 whose hours are stated, not computed. Reports must never treat a stated total as
 if it were measured — see `hours_source` in derived state.
+
+`run.verdict` carries prose and nothing else. It is separate from `run.close`
+because the verdict is usually written later — the run ends when you stop
+playing, the words arrive when they arrive — and because a verdict may be
+rewritten without reopening the question of when the run ended. Filing a second
+verdict for the same run replaces the first in the fold; both stay in the file.
+
+**Who wrote it is not modelled.** A verdict typed into a terminal and one drafted
+by an agent are the same event. The envelope's `source` already records which
+channel filed it, and that is as far as the model goes: whether prose is composed
+by a person, by a language model, or by a person editing what a model drafted is
+a question for the layer above (see [05-agent](05-agent.md)). The register stores
+the text.
 
 ### Sessions
 
@@ -232,6 +246,7 @@ type RunState = {
   completion_criteria: string | null
   rating: number | null
   difficulty: string | null
+  verdict: string | null       // latest run.verdict, if any
   sessions: SessionState[]
   minutes: number
   hours_source: 'measured' | 'stated'   // stated = from run.import

@@ -144,8 +144,8 @@ If a session is still open, close it first at `--at` (or now), then append
 `--rating` accepts 0–11 or `none`. `--criteria` and `--difficulty` validate
 against the vocabulary; an invalid token exits 2 and lists valid ones.
 
-This command does **not** write the consolidated verdict — that is the agent's
-job, delivered separately via `gamereg verdict`.
+This command does **not** write the consolidated verdict. That arrives separately,
+whenever the words do, via `gamereg verdict`.
 
 ### `gamereg drop <query>` — abandon a run
 
@@ -162,11 +162,30 @@ gamereg past "chrono trigger" --ended 2011-07 --rating 10
 Emits `run.import`. Date precision is inferred from the shape of the argument:
 `2011` → year, `2011-07` → month, `2011-07-14` → day.
 
-### `gamereg verdict <query> --text <file|->`
+### `gamereg verdict <query>` — file the consolidated review
 
-Writes the consolidated review into the `verdict` block of the game note. Takes
-prose on stdin or from a file. This is the one place LLM-written text enters, and
-it enters as content, never as structured fields.
+```
+gamereg verdict "hollow knight" -m "Started as a curiosity and turned into..."
+gamereg verdict "hollow knight" --text review.md
+gamereg verdict "hollow knight" --text -          # stdin
+gamereg verdict "hollow knight" --run 01K...      # a specific playthrough
+```
+
+Appends `run.verdict`, which the build renders into the `verdict` block of the
+game note. Prose enters as content, never as structured fields — no number in
+the register is ever derived from it.
+
+The text comes from `-m/--message`, from `--text <file>`, or from stdin (`--text -`,
+or no flag at all when stdin is a pipe). Typing it yourself and piping it in from
+somewhere else are the same operation as far as this command is concerned.
+
+`--run` names the playthrough. Omitted, it targets the most recently ended run,
+falling back to the open one when nothing has ended yet — so a verdict written
+right after `finish` lands where it is meant to, even if a replay is already
+under way.
+
+Filing again replaces the previous verdict in the fold. The earlier text stays in
+the log, as everything does.
 
 ## Query commands
 

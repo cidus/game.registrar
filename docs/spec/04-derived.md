@@ -25,6 +25,10 @@ Rules:
 4. An unpaired or nested marker is a hard error — abort the file, report it, do
    not guess.
 5. Content inside a block is never read back. It is output only.
+6. A block with nothing to write is not created. If it already exists it is
+   emptied, never left holding what it used to say — a revoked verdict must
+   disappear from the note, and a note with no verdict must not carry an empty
+   heading forever.
 
 ## Game note
 
@@ -84,6 +88,13 @@ screenshots, links — it is yours.
 
 The frontmatter is **fully regenerated** every build. Never hand-edit it; edits
 will be lost. This is why no YAML round-trip library is needed (D4).
+
+The `verdict` block holds the text of the run's latest `run.verdict` event and
+appears only once one has been filed — by `gamereg verdict`, from a terminal or
+from an agent, indifferently. Prose written by hand *inside* the block is
+overwritten like any generated region; the place for hand-written prose is
+outside the markers, where the build never reaches. When a game has more than one
+run with a verdict, each is rendered in order, headed by the period it covers.
 
 ## Consolidated table
 
