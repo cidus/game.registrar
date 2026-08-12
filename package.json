@@ -1,0 +1,40 @@
+{
+  "name": "gamereg",
+  "version": "0.0.0",
+  "description": "A register of video game playthroughs, kept as an append-only event log and Markdown notes.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "gamereg": "dist/src/cli/main.js"
+  },
+  "files": [
+    "dist/src",
+    "i18n"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.8.6",
+    "commander": "^14.0.1",
+    "luxon": "^3.7.2",
+    "remark-frontmatter": "^5.0.0",
+    "remark-parse": "^11.0.0",
+    "ulid": "^3.0.1",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.1",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^22.15.3",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,280 @@
+{
+  "cli": {
+    "description": "A register of video game playthroughs.",
+    "commands": {},
+    "flags": {}
+  },
+  "help": {
+    "start": "Open a session for a game.",
+    "end": "Close the open session.",
+    "break": "Pause inside the open session.",
+    "break_start": "Open a break.",
+    "break_end": "Close the open break.",
+    "finish": "Close a run as finished.",
+    "drop": "Abandon a run.",
+    "past": "File a game finished in the past.",
+    "open": "List open sessions.",
+    "status": "Vault summary, or one game's state.",
+    "search": "Look a title up without recording anything.",
+    "alias": "Teach another name for a game.",
+    "amend": "Correct an event by appending a patch.",
+    "revoke": "Withdraw an event from the fold.",
+    "build": "Regenerate notes and the consolidated table.",
+    "doctor": "Validate the log and report what is wrong.",
+    "arg": {
+      "query": "Title, fragment or alias.",
+      "term": "Search term.",
+      "event": "Event id."
+    },
+    "opt": {
+      "help": "Show this help.",
+      "version": "Show the version.",
+      "json": "Force JSON output. Implies --non-interactive.",
+      "non_interactive": "Never prompt; return candidates instead.",
+      "yes": "Pre-answer confirmations.",
+      "vault": "Vault root (default: $GAMEREG_VAULT or the working directory).",
+      "locale": "Output language.",
+      "dry_run": "Print the events that would be appended; write nothing.",
+      "at": "Semantic time: ISO, \"2026-08-12 20:14\", 20:14, -90m.",
+      "quiet": "Suppress prose; exit code only.",
+      "id": "Resolve by reference, as game:01K… — no search.",
+      "platform": "Platform. Filters a search; never resolves it.",
+      "form": "physical, digital, emulator, subscription, borrowed, cloud, demo.",
+      "mode": "solo, coop, versus, mixed.",
+      "replay": "Force a new run even when a closed one exists.",
+      "no_metadata": "Create a local-only entry from the raw string.",
+      "note": "Note, in the player's own words.",
+      "break": "Break to deduct: 40m, 1h20, 90.",
+      "rating": "0 to 11, or none.",
+      "difficulty": "trivial, easy, normal, hard, brutal.",
+      "criteria": "credits, true_ending, full_completion, platinum, enough, endless, abandoned.",
+      "outcome": "finished or abandoned.",
+      "reason": "Reason, free text.",
+      "started": "Start date: 2011, 2011-07 or 2011-07-14.",
+      "ended": "End date: 2011, 2011-07 or 2011-07-14.",
+      "hours": "Stated hours, recorded as stated rather than measured.",
+      "add": "The name to teach.",
+      "set": "Field to patch, as key=value. Repeatable.",
+      "force": "Rewrite every derived file, changed or not.",
+      "local_only": "Search the log only. Phase 0 does nothing else.",
+      "message": "The review itself, inline.",
+      "text": "Read the review from a file, or from - for stdin.",
+      "run": "Which playthrough. Defaults to the most recently ended."
+    },
+    "verdict": "File the consolidated review of a playthrough."
+  },
+  "error": {
+    "usage": "{message}",
+    "enum": "{field}: \"{value}\" is not a valid value. Valid: {valid}.",
+    "rating": "rating: {value} is out of range. Expected an integer from {min} to {max}, or none.",
+    "bad_time": "Could not read \"{value}\" as a time. Try 2026-08-12T20:14, \"2026-08-12 20:14\", 20:14 or -90m.",
+    "bad_date": "Could not read \"{value}\" as a date. Try 2011, 2011-07 or 2011-07-14.",
+    "bad_duration": "Could not read \"{value}\" as a duration. Try 90, 40m, 2h or 1h20.",
+    "bad_hours": "Hours must be a positive number, not {value}.",
+    "bad_cutoff": "day_cutoff must look like 05:00, not \"{value}\".",
+    "bad_config": "{file} is not valid JSON.",
+    "corrupt_log": "{file} has an unreadable line at {line}. Run gamereg doctor.",
+    "not_found": "Nothing on record matches \"{query}\".",
+    "not_found_hint": "Nothing on record matches \"{query}\". Add --no-metadata to open a new entry for it.",
+    "ambiguous": "\"{query}\" matches {count} entries on record.",
+    "unknown_id": "No entry matches the reference \"{ref}\".",
+    "provider_unavailable": "Provider lookup is not available in this version. Use --no-metadata.",
+    "no_open_session": "No session is open.",
+    "no_open_session_for": "No session is open for {title}.",
+    "several_open_sessions": "{count} sessions are open. Name one.",
+    "session_already_open": "A session for {title} is already open, filed at {time}.",
+    "no_open_run": "No open run for {title}.",
+    "run_already_closed": "The run for {title} is already closed.",
+    "break_already_open": "A break is already open, since {time}.",
+    "no_open_break": "No break is open.",
+    "negative_duration": "That closing time is before the opening time, or the breaks exceed the session.",
+    "platform_required": "A platform is required for the first run of a game. Pass --platform, or set defaults.platform in {file}.",
+    "unknown_event": "No event on record has the id \"{id}\".",
+    "amend_needs_set": "Nothing to amend. Pass at least one --set key=value.",
+    "cannot_amend_correction": "Corrections cannot themselves be amended. Revoke it instead.",
+    "text_required": "Provide the review with -m, with --text <file>, or on stdin.",
+    "unexpected": "Unexpected failure: {message}",
+    "marker_unpaired": "{file}: the block \"{block}\" opens and never closes.",
+    "marker_nested": "{file}: the block \"{block}\" opens inside another block.",
+    "marker_unopened": "{file}: the block \"{block}\" closes without opening.",
+    "slug_collision": "The slug \"{slug}\" is used by more than one game.",
+    "no_run": "{title} has no run to attach a verdict to.",
+    "unknown_run": "{title} has no run with the id \"{id}\".",
+    "text_file": "{file} does not exist."
+  },
+  "doctor": {
+    "unparseable_line": "Line {line} is not valid JSON.",
+    "not_an_object": "Line {line} is not a JSON object.",
+    "missing_envelope_field": "Line {line} is missing id, ts or type.",
+    "unknown_event_type": "Line {line} has an unknown event type \"{type}\".",
+    "bad_payload": "Event {id} has no data object.",
+    "bad_timestamp": "\"{value}\" is not a readable timestamp.",
+    "incomplete_event": "A {type} event is missing a required field.",
+    "orphan_reference": "A {type} event points at something that does not exist.",
+    "duplicate_game": "Game {game_id} is created more than once.",
+    "duplicate_run": "Run {run_id} is opened more than once.",
+    "duplicate_session": "Session {session_id} is opened more than once.",
+    "run_closed_twice": "Run {run_id} is closed more than once.",
+    "session_closed_twice": "Session {session_id} is closed more than once.",
+    "closed_before_open": "Session {session_id} closes before it opens.",
+    "negative_duration": "A duration works out negative.",
+    "break_outside_session": "Break {break_id} sits outside an open session.",
+    "break_already_open": "Session {session_id} opens a second break while one is open.",
+    "slug_collision": "The slug \"{slug}\" is shared by {count} games."
+  },
+  "prose": {
+    "dry_run": "Nothing was written. The following events would have been appended:",
+    "start": {
+      "filed": "Filed: {title} ({platform}) — session opened at {time}.",
+      "new_run": "Filed: {title} ({platform}) — run opened, session opened at {time}.",
+      "replay": "Filed: {title} ({platform}) — certified copy, run {run}. Session opened at {time}.",
+      "created": "A new entry was opened for \"{title}\". No catalogue was consulted.",
+      "also_open": "Also open: {list}."
+    },
+    "end": {
+      "closed": "Session closed at {time}. Net duration: {duration}. Game total: {total}.",
+      "breaks": "Breaks deducted: {duration}."
+    },
+    "break": {
+      "started": "Break opened at {time}. {title} remains filed as in progress.",
+      "ended": "Break closed at {time}. Duration: {duration}."
+    },
+    "finish": {
+      "approved": "Approved: {title}. {duration} across {sessions} sessions.",
+      "rating": "Rating: {rating}.",
+      "unrated": "No rating recorded.",
+      "session_closed": "The open session was closed at {time} first."
+    },
+    "drop": {
+      "archived": "Archived: {title}. {duration} across {sessions} sessions.",
+      "reason": "Reason: {reason}"
+    },
+    "past": {
+      "filed": "Filed retroactively: {title}, ended {date}.",
+      "hours": "Stated duration: {hours} h — recorded as stated, not measured."
+    },
+    "open": {
+      "none": "No session is open.",
+      "row": "{title} — filed at {time}, open for {duration}.",
+      "row_break": "{title} — filed at {time}, open for {duration}, on a break since {break_time}."
+    },
+    "status": {
+      "vault": "{games} games on record, {runs} runs, {hours} hours.",
+      "playing": "In progress: {list}.",
+      "game": "{title} — {status}, {hours} hours across {runs} runs.",
+      "run": "Run {index}: {started} to {ended}, {duration}, {sessions} sessions.",
+      "run_open": "Run {index}: {started}, still open, {duration}, {sessions} sessions."
+    },
+    "alias": {
+      "added": "\"{alias}\" now refers to {title}."
+    },
+    "search": {
+      "none": "Nothing on record matches \"{query}\".",
+      "header": "{count} entries match \"{query}\":"
+    },
+    "amend": {
+      "done": "Event {id} amended. The original stays on record."
+    },
+    "revoke": {
+      "done": "Event {id} revoked. The original stays on record."
+    },
+    "build": {
+      "done": "{notes} notes and the consolidated table are up to date.",
+      "removed": "{count} notes left over from renames were removed."
+    },
+    "doctor": {
+      "clean": "The register is in order. {events} events, {games} games, {runs} runs.",
+      "header": "{count} irregularities found:",
+      "line": "  - {message}"
+    },
+    "verdict": {
+      "filed": "Verdict filed for {title}. It appears in the note at the next build.",
+      "replaced": "Verdict replaced for {title}. The previous text stays in the log."
+    }
+  },
+  "prompt": {
+    "choose": "Which one?",
+    "create_new": "None of these — open a new entry for \"{query}\"",
+    "cancel": "Cancel",
+    "cancelled": "Cancelled. Nothing was written.",
+    "candidate_local": "{title}{year} — on record, {status}",
+    "candidate_new": "{title}{year}"
+  },
+  "note": {
+    "heading": {
+      "log": "Log",
+      "notes": "Notes",
+      "verdict": "Verdict"
+    },
+    "header": {
+      "total": "{duration} across {sessions} sessions",
+      "total_one": "{duration} in one session"
+    },
+    "sessions": {
+      "date": "Date",
+      "duration": "Duration",
+      "note": "Note",
+      "empty": "No sessions recorded."
+    },
+    "verdict": {
+      "period": "{started} to {ended}",
+      "period_open": "since {started}"
+    }
+  },
+  "table": {
+    "title": "Games",
+    "game": "Game",
+    "platform": "Platform",
+    "started": "Started",
+    "ended": "Ended",
+    "hours": "Hours",
+    "rating": "Rating",
+    "difficulty": "Difficulty",
+    "criteria": "Criteria",
+    "empty": "Nothing on record yet.",
+    "stated_marker": "stated"
+  },
+  "vocab": {
+    "outcome": {
+      "finished": "finished",
+      "abandoned": "abandoned"
+    },
+    "status": {
+      "unplayed": "unplayed",
+      "playing": "playing",
+      "finished": "finished",
+      "abandoned": "abandoned"
+    },
+    "completion_criteria": {
+      "credits": "credits",
+      "true_ending": "true ending",
+      "full_completion": "full completion",
+      "platinum": "platinum",
+      "enough": "enough",
+      "endless": "endless",
+      "abandoned": "abandoned"
+    },
+    "difficulty": {
+      "trivial": "trivial",
+      "easy": "easy",
+      "normal": "normal",
+      "hard": "hard",
+      "brutal": "brutal"
+    },
+    "form": {
+      "physical": "physical",
+      "digital": "digital",
+      "emulator": "emulator",
+      "subscription": "subscription",
+      "borrowed": "borrowed",
+      "cloud": "cloud",
+      "demo": "demo"
+    },
+    "mode": {
+      "solo": "solo",
+      "coop": "co-op",
+      "versus": "versus",
+      "mixed": "mixed"
+    }
+  }
+}

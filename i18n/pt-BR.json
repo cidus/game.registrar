@@ -1,0 +1,326 @@
+{
+  "cli": {
+    "description": "Um registro de partidas de videogame.",
+    "commands": {
+      "start": "iniciar",
+      "end": "encerrar",
+      "break": "intervalo",
+      "finish": "finalizar",
+      "drop": "abandonar",
+      "past": "historico",
+      "search": "buscar",
+      "open": "abertas",
+      "status": "situacao",
+      "build": "construir",
+      "doctor": "auditoria",
+      "alias": "apelido",
+      "amend": "corrigir",
+      "revoke": "revogar",
+      "verdict": "parecer"
+    },
+    "flags": {
+      "--at": "--em",
+      "--note": "--anotacao",
+      "--rating": "--nota",
+      "--difficulty": "--dificuldade",
+      "--criteria": "--criterio",
+      "--platform": "--plataforma",
+      "--form": "--formato",
+      "--mode": "--modo",
+      "--break": "--pausa",
+      "--hours": "--horas",
+      "--started": "--inicio",
+      "--ended": "--fim",
+      "--replay": "--rejogo",
+      "--reason": "--motivo",
+      "--no-metadata": "--sem-metadados",
+      "--dry-run": "--simular",
+      "--yes": "--sim",
+      "--vault": "--acervo",
+      "--locale": "--idioma",
+      "--quiet": "--silencioso",
+      "--non-interactive": "--nao-interativo",
+      "--local-only": "--somente-local",
+      "--add": "--adicionar",
+      "--set": "--definir",
+      "--force": "--forcar",
+      "--all": "--tudo",
+      "--message": "--mensagem",
+      "--text": "--texto",
+      "--run": "--jogatina"
+    }
+  },
+  "help": {
+    "start": "Abre uma sessão de um jogo.",
+    "end": "Encerra a sessão em aberto.",
+    "break": "Intervalo dentro da sessão em aberto.",
+    "break_start": "Abre um intervalo.",
+    "break_end": "Encerra o intervalo em aberto.",
+    "finish": "Encerra uma jogatina como finalizada.",
+    "drop": "Abandona uma jogatina.",
+    "past": "Protocola um jogo finalizado no passado.",
+    "open": "Lista as sessões em aberto.",
+    "status": "Resumo do acervo, ou a situação de um título.",
+    "search": "Consulta um título sem registrar nada.",
+    "alias": "Ensina outro nome para um título.",
+    "amend": "Corrige um evento anexando uma emenda.",
+    "revoke": "Revoga um evento.",
+    "build": "Regenera as notas e a tabela consolidada.",
+    "doctor": "Audita o log e relata o que está irregular.",
+    "arg": {
+      "query": "Título, fragmento ou apelido.",
+      "term": "Termo de busca.",
+      "event": "Id do evento."
+    },
+    "opt": {
+      "help": "Mostra esta ajuda.",
+      "version": "Mostra a versão.",
+      "json": "Força saída JSON. Implica --nao-interativo.",
+      "non_interactive": "Nunca pergunta; devolve os candidatos.",
+      "yes": "Responde antecipadamente às confirmações.",
+      "vault": "Raiz do acervo (padrão: $GAMEREG_VAULT ou o diretório atual).",
+      "locale": "Idioma da saída.",
+      "dry_run": "Mostra os eventos que seriam anexados; não grava nada.",
+      "at": "Horário semântico: ISO, \"2026-08-12 20:14\", 20:14, -90m.",
+      "quiet": "Suprime a prosa; apenas o código de saída.",
+      "id": "Resolve por referência, como game:01K… — sem busca.",
+      "platform": "Plataforma. Filtra a busca; nunca a resolve.",
+      "form": "physical, digital, emulator, subscription, borrowed, cloud, demo.",
+      "mode": "solo, coop, versus, mixed.",
+      "replay": "Força uma jogatina nova mesmo havendo uma encerrada.",
+      "no_metadata": "Cria um registro local a partir do texto informado.",
+      "note": "Anotação, nas palavras de quem jogou.",
+      "break": "Intervalo a descontar: 40m, 1h20, 90.",
+      "rating": "De 0 a 11, ou none.",
+      "difficulty": "trivial, easy, normal, hard, brutal.",
+      "criteria": "credits, true_ending, full_completion, platinum, enough, endless, abandoned.",
+      "outcome": "finished ou abandoned.",
+      "reason": "Motivo, texto livre.",
+      "started": "Data de início: 2011, 2011-07 ou 2011-07-14.",
+      "ended": "Data de término: 2011, 2011-07 ou 2011-07-14.",
+      "hours": "Horas declaradas, registradas como declaradas e não medidas.",
+      "add": "O nome a ensinar.",
+      "set": "Campo a emendar, como chave=valor. Repetível.",
+      "force": "Reescreve todo arquivo derivado, tendo mudado ou não.",
+      "local_only": "Busca apenas no acervo. Na fase 0 não há outra.",
+      "message": "O parecer em si, na própria linha de comando.",
+      "text": "Lê o parecer de um arquivo, ou de - para a entrada padrão.",
+      "run": "Qual jogatina. Por padrão, a encerrada mais recentemente."
+    },
+    "verdict": "Protocola o parecer consolidado de uma jogatina."
+  },
+  "error": {
+    "usage": "{message}",
+    "enum": "{field}: \"{value}\" não é um valor válido. Válidos: {valid}.",
+    "rating": "nota: {value} está fora da faixa. Esperado um inteiro de {min} a {max}, ou none.",
+    "bad_time": "Não foi possível ler \"{value}\" como horário. Tente 2026-08-12T20:14, \"2026-08-12 20:14\", 20:14 ou -90m.",
+    "bad_date": "Não foi possível ler \"{value}\" como data. Tente 2011, 2011-07 ou 2011-07-14.",
+    "bad_duration": "Não foi possível ler \"{value}\" como duração. Tente 90, 40m, 2h ou 1h20.",
+    "bad_hours": "As horas devem ser um número positivo, e não {value}.",
+    "bad_cutoff": "day_cutoff deve ter a forma 05:00, e não \"{value}\".",
+    "bad_config": "{file} não é um JSON válido.",
+    "corrupt_log": "{file} tem uma linha ilegível em {line}. Execute gamereg auditoria.",
+    "not_found": "Nada no acervo corresponde a \"{query}\".",
+    "not_found_hint": "Nada no acervo corresponde a \"{query}\". Use --sem-metadados para abrir um registro novo.",
+    "ambiguous": "\"{query}\" corresponde a {count} registros.",
+    "unknown_id": "Nenhum registro corresponde à referência \"{ref}\".",
+    "provider_unavailable": "Consulta a catálogos externos não existe nesta versão. Use --sem-metadados.",
+    "no_open_session": "Nenhuma sessão em aberto.",
+    "no_open_session_for": "Nenhuma sessão em aberto para {title}.",
+    "several_open_sessions": "Há {count} sessões em aberto. Indique uma.",
+    "session_already_open": "Já há sessão em aberto de {title}, protocolada às {time}.",
+    "no_open_run": "Nenhuma jogatina em aberto de {title}.",
+    "run_already_closed": "A jogatina de {title} já está encerrada.",
+    "break_already_open": "Já há intervalo em aberto, desde as {time}.",
+    "no_open_break": "Nenhum intervalo em aberto.",
+    "negative_duration": "O horário de encerramento antecede o de abertura, ou os intervalos excedem a sessão.",
+    "platform_required": "A plataforma é obrigatória na primeira jogatina de um título. Informe --plataforma, ou defina defaults.platform em {file}.",
+    "unknown_event": "Nenhum evento no acervo tem o id \"{id}\".",
+    "amend_needs_set": "Nada a corrigir. Informe ao menos um --definir chave=valor.",
+    "cannot_amend_correction": "Correções não podem ser corrigidas. Revogue-a.",
+    "text_required": "Forneça o parecer com -m, com --text <arquivo>, ou pela entrada padrão.",
+    "unexpected": "Falha inesperada: {message}",
+    "marker_unpaired": "{file}: o bloco \"{block}\" abre e não fecha.",
+    "marker_nested": "{file}: o bloco \"{block}\" abre dentro de outro bloco.",
+    "marker_unopened": "{file}: o bloco \"{block}\" fecha sem ter aberto.",
+    "slug_collision": "O slug \"{slug}\" é usado por mais de um título.",
+    "no_run": "{title} não tem jogatina à qual anexar um parecer.",
+    "unknown_run": "{title} não tem jogatina com o id \"{id}\".",
+    "text_file": "{file} não existe."
+  },
+  "doctor": {
+    "unparseable_line": "A linha {line} não é JSON válido.",
+    "not_an_object": "A linha {line} não é um objeto JSON.",
+    "missing_envelope_field": "A linha {line} não tem id, ts ou type.",
+    "unknown_event_type": "A linha {line} tem um tipo de evento desconhecido: \"{type}\".",
+    "bad_payload": "O evento {id} não tem objeto data.",
+    "bad_timestamp": "\"{value}\" não é um horário legível.",
+    "incomplete_event": "Um evento {type} está sem um campo obrigatório.",
+    "orphan_reference": "Um evento {type} aponta para algo que não existe.",
+    "duplicate_game": "O título {game_id} é criado mais de uma vez.",
+    "duplicate_run": "A jogatina {run_id} é aberta mais de uma vez.",
+    "duplicate_session": "A sessão {session_id} é aberta mais de uma vez.",
+    "run_closed_twice": "A jogatina {run_id} é encerrada mais de uma vez.",
+    "session_closed_twice": "A sessão {session_id} é encerrada mais de uma vez.",
+    "closed_before_open": "A sessão {session_id} encerra antes de abrir.",
+    "negative_duration": "Uma duração resulta negativa.",
+    "break_outside_session": "O intervalo {break_id} está fora de uma sessão em aberto.",
+    "break_already_open": "A sessão {session_id} abre um segundo intervalo com um já aberto.",
+    "slug_collision": "O slug \"{slug}\" é compartilhado por {count} títulos."
+  },
+  "prose": {
+    "dry_run": "Nada foi gravado. Os eventos abaixo é que seriam anexados:",
+    "start": {
+      "filed": "Protocolada: {title} ({platform}) — sessão aberta às {time}.",
+      "new_run": "Protocolada: {title} ({platform}) — jogatina aberta, sessão aberta às {time}.",
+      "replay": "Protocolada: {title} ({platform}) — segunda via, jogatina {run}. Sessão aberta às {time}.",
+      "created": "Aberto registro novo para \"{title}\". Nenhum catálogo foi consultado.",
+      "also_open": "Também em aberto: {list}."
+    },
+    "end": {
+      "closed": "Sessão encerrada às {time}. Duração líquida: {duration}. Total do título: {total}.",
+      "breaks": "Intervalos descontados: {duration}."
+    },
+    "break": {
+      "started": "Intervalo aberto às {time}. {title} segue constando em andamento.",
+      "ended": "Intervalo encerrado às {time}. Duração: {duration}."
+    },
+    "finish": {
+      "approved": "Deferida: {title}. {duration} em {sessions} sessões.",
+      "rating": "Nota: {rating}.",
+      "unrated": "Sem nota registrada.",
+      "session_closed": "A sessão em aberto foi encerrada às {time} antes disso."
+    },
+    "drop": {
+      "archived": "Arquivada: {title}. {duration} em {sessions} sessões.",
+      "reason": "Motivo: {reason}"
+    },
+    "past": {
+      "filed": "Protocolado retroativamente: {title}, encerrado em {date}.",
+      "hours": "Duração declarada: {hours} h — consta como declarada, não medida."
+    },
+    "open": {
+      "none": "Nenhuma sessão em aberto.",
+      "row": "{title} — protocolada às {time}, aberta há {duration}.",
+      "row_break": "{title} — protocolada às {time}, aberta há {duration}, em intervalo desde as {break_time}."
+    },
+    "status": {
+      "vault": "{games} títulos no acervo, {runs} jogatinas, {hours} horas.",
+      "playing": "Em andamento: {list}.",
+      "game": "{title} — {status}, {hours} horas em {runs} jogatinas.",
+      "run": "Jogatina {index}: de {started} a {ended}, {duration}, {sessions} sessões.",
+      "run_open": "Jogatina {index}: desde {started}, em aberto, {duration}, {sessions} sessões."
+    },
+    "alias": {
+      "added": "\"{alias}\" passa a designar {title}."
+    },
+    "search": {
+      "none": "Nada no acervo corresponde a \"{query}\".",
+      "header": "{count} registros correspondem a \"{query}\":"
+    },
+    "amend": {
+      "done": "Evento {id} corrigido. O original permanece no acervo."
+    },
+    "revoke": {
+      "done": "Evento {id} revogado. O original permanece no acervo."
+    },
+    "build": {
+      "done": "{notes} notas e a tabela consolidada estão em dia.",
+      "removed": "{count} notas remanescentes de renomeações foram removidas."
+    },
+    "doctor": {
+      "clean": "O acervo está em ordem. {events} eventos, {games} títulos, {runs} jogatinas.",
+      "header": "{count} irregularidades encontradas:",
+      "line": "  - {message}"
+    },
+    "verdict": {
+      "filed": "Parecer protocolado para {title}. Constará na nota na próxima construção.",
+      "replaced": "Parecer substituído para {title}. O texto anterior permanece no acervo."
+    }
+  },
+  "prompt": {
+    "choose": "Qual deles?",
+    "create_new": "Nenhum destes — abrir registro novo para \"{query}\"",
+    "cancel": "Cancelar",
+    "cancelled": "Cancelado. Nada foi gravado.",
+    "candidate_local": "{title}{year} — no acervo, {status}",
+    "candidate_new": "{title}{year}"
+  },
+  "note": {
+    "heading": {
+      "log": "Registro",
+      "notes": "Anotações",
+      "verdict": "Parecer"
+    },
+    "header": {
+      "total": "{duration} em {sessions} sessões",
+      "total_one": "{duration} em uma sessão"
+    },
+    "sessions": {
+      "date": "Data",
+      "duration": "Duração",
+      "note": "Anotação",
+      "empty": "Nenhuma sessão registrada."
+    },
+    "verdict": {
+      "period": "de {started} a {ended}",
+      "period_open": "desde {started}"
+    }
+  },
+  "table": {
+    "title": "Jogos",
+    "game": "Título",
+    "platform": "Plataforma",
+    "started": "Início",
+    "ended": "Fim",
+    "hours": "Horas",
+    "rating": "Nota",
+    "difficulty": "Dificuldade",
+    "criteria": "Critério",
+    "empty": "Nada no acervo ainda.",
+    "stated_marker": "declarada"
+  },
+  "vocab": {
+    "outcome": {
+      "finished": "finalizado",
+      "abandoned": "abandonado"
+    },
+    "status": {
+      "unplayed": "não jogado",
+      "playing": "em andamento",
+      "finished": "finalizado",
+      "abandoned": "abandonado"
+    },
+    "completion_criteria": {
+      "credits": "créditos",
+      "true_ending": "final verdadeiro",
+      "full_completion": "100%",
+      "platinum": "platina",
+      "enough": "o bastante",
+      "endless": "sem fim",
+      "abandoned": "abandonado"
+    },
+    "difficulty": {
+      "trivial": "trivial",
+      "easy": "fácil",
+      "normal": "normal",
+      "hard": "difícil",
+      "brutal": "brutal"
+    },
+    "form": {
+      "physical": "física",
+      "digital": "digital",
+      "emulator": "emulador",
+      "subscription": "assinatura",
+      "borrowed": "emprestada",
+      "cloud": "nuvem",
+      "demo": "demo"
+    },
+    "mode": {
+      "solo": "solo",
+      "coop": "cooperativo",
+      "versus": "versus",
+      "mixed": "misto"
+    }
+  }
+}
