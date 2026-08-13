@@ -60,6 +60,7 @@ function fieldsOf(game: IgdbGame): ProviderFields {
   const developer = (game.involved_companies ?? []).find((entry) => entry.developer === true)?.company?.name
   const publisher = (game.involved_companies ?? []).find((entry) => entry.publisher === true)?.company?.name
   return {
+    title: game.name ?? null,
     release_year: yearOf(game),
     developer: developer ?? null,
     publisher: publisher ?? null,

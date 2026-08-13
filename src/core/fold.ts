@@ -13,6 +13,7 @@ import type { DateTime } from 'luxon'
 
 import { minutesBetween } from './duration.ts'
 import type { EventEnvelope } from './events.ts'
+import { normalize } from '../resolve/normalize.ts'
 import { logicalDay, parseISO, type TimeContext } from './time.ts'
 import type {
   CheckinOutcome,
@@ -357,6 +358,18 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           break
         }
         const fields = record(data, 'fields')
+        // A provider-corrected title replaces the stored one wholesale, same
+        // as every other enriched field — but the title just left behind is
+        // still how the user knows this game, so it becomes an alias rather
+        // than disappearing (docs/spec/01-model.md).
+        const title = str(fields, 'title')
+        if (title !== null && title !== game.title) {
+          const previous = normalize(game.title)
+          if (previous !== '' && previous !== normalize(title) && !game.aliases.includes(previous)) {
+            game.aliases.push(previous)
+          }
+          game.title = title
+        }
         const year = num(fields, 'release_year')
         if (year !== null) game.release_year = year
         const developer = str(fields, 'developer')

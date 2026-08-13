@@ -17,6 +17,8 @@ export type ProviderCandidate = {
 }
 
 export type ProviderFields = {
+  /** The provider's own title — `game.enrich` may use it to correct the stored one. */
+  title: string | null
   release_year: number | null
   developer: string | null
   publisher: string | null

@@ -61,10 +61,18 @@ after the event it corrects, even though it describes an earlier moment.
 | `game.create` | `game_id`, `slug`, `title`, `sort_title?`, `release_year?`, `genres[]`, `developer?`, `publisher?`, `platforms[]`, `providers{}`, `aliases[]` |
 | `game.alias` | `game_id`, `alias` — every manual disambiguation emits one |
 | `game.rename` | `game_id`, `slug`, `title?` — old note is deleted by build, not orphaned |
-| `game.enrich` | `game_id`, `provider`, `fields{}`, `cover?` — replaces that provider's fields wholesale |
+| `game.enrich` | `game_id`, `provider`, `fields{}` (may include `title`), `cover?` — replaces that provider's fields wholesale |
 
 `providers` maps provider name to external id: `{"igdb": 7346, "steam": 367520}`.
 Empty is legal — a game with no provider is a first-class game.
+
+**A provider-corrected title replaces the stored one, same as every other
+enriched field.** Unlike `game.rename` — where the old title is simply
+overwritten, since a human chose to type it — `game.enrich` changing the
+title also files the title it replaces as an alias, normalized, so the name
+the user already searches by keeps resolving. No alias is added when the two
+titles are already the same once normalized, or when the game has no
+readable title yet.
 
 ### Runs
 

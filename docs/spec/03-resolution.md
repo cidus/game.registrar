@@ -19,9 +19,10 @@ Stop at the first step that yields exactly one match.
    re-invoking after `gamereg search` — is assumed to have already resolved
    it. The command creates the game from the query text as its title and the
    ref as its `providers` entry, and `gamereg enrich` fills in the rest later
-   from the id already on record (`game.enrich` never touches `title`, so a
-   wrong guess needs `gamereg alias`, not another `enrich` run). A `game:`
-   reference gets no such leniency — that id was supposed to exist, and its
+   from the id already on record — title included: a wrong guess here is
+   corrected by the next `enrich`, which also keeps the guessed title
+   resolvable as an alias (01-model.md). A `game:` reference gets no such
+   leniency — that id was supposed to exist, and its
    absence is `not_found`. Available only where creating a game make sense
    (`start`, `past`), same as `--no-metadata`.
 2. **Implied by open state.** For `end` and `break`, a single open session

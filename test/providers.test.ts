@@ -104,6 +104,7 @@ test('igdb: fetch maps developer, publisher and genres from involved_companies',
   assert.deepEqual(detail, {
     id: '7346',
     fields: {
+      title: 'Hollow Knight',
       release_year: 2017,
       developer: 'Team Cherry',
       publisher: 'Team Cherry Publishing',
@@ -195,6 +196,7 @@ test('rawg: fetch maps developers, publishers and genres', async () => {
   assert.deepEqual(detail, {
     id: '123',
     fields: {
+      title: 'Celeste',
       release_year: 2018,
       developer: 'Extremely OK Games',
       publisher: 'Extremely OK Games',

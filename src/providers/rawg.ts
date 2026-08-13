@@ -48,6 +48,7 @@ function candidateOf(result: RawgSearchResult): ProviderCandidate {
 
 function fieldsOf(result: RawgDetail): ProviderFields {
   return {
+    title: result.name ?? null,
     release_year: yearOf(result.released),
     developer: result.developers?.[0]?.name ?? null,
     publisher: result.publishers?.[0]?.name ?? null,

@@ -215,3 +215,34 @@ test('enrichment never replaces a cover the user chose', () => {
   assert.equal(game?.cover?.sha256, 'abc')
   assert.equal(game?.providers['igdb'], 7346)
 })
+
+test('enrichment corrects the title and files the previous one as an alias', () => {
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'chrono-trigger', title: 'Chrono Triger' }),
+    event('game.enrich', { game_id: 'G1', provider: 'igdb', fields: { id: 2364, title: 'Chrono Trigger' } }),
+  ]
+  const game = fold(events, context).gamesById.get('G1')
+  assert.equal(game?.title, 'Chrono Trigger')
+  assert.deepEqual(game?.aliases, ['chrono triger'])
+})
+
+test('a second enrich with the same title adds no duplicate alias', () => {
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'chrono-trigger', title: 'Chrono Triger' }),
+    event('game.enrich', { game_id: 'G1', provider: 'igdb', fields: { id: 2364, title: 'Chrono Trigger' } }),
+    event('game.enrich', { game_id: 'G1', provider: 'rawg', fields: { id: 99, title: 'Chrono Trigger' } }),
+  ]
+  const game = fold(events, context).gamesById.get('G1')
+  assert.equal(game?.title, 'Chrono Trigger')
+  assert.deepEqual(game?.aliases, ['chrono triger'])
+})
+
+test('enrichment leaves the title untouched when the provider does not carry one', () => {
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'x', title: 'X' }),
+    event('game.enrich', { game_id: 'G1', provider: 'igdb', fields: { id: 7346 } }),
+  ]
+  const game = fold(events, context).gamesById.get('G1')
+  assert.equal(game?.title, 'X')
+  assert.deepEqual(game?.aliases, [])
+})
