@@ -151,6 +151,14 @@ export function createIgdbProvider(root: string, fetchImpl: typeof fetch = fetch
       return games.map(candidateOf)
     },
 
+    async findExact(title: string): Promise<ProviderCandidate[]> {
+      // A literal filter, not IGDB's relevance-ranked full-text `search` —
+      // complete, so an old low-engagement release can't be pushed out of a
+      // truncated result window (see the file-header comment).
+      const games = await query('games', `where name = "${escapeQuery(title)}"; fields ${SEARCH_FIELDS}; limit 500;`)
+      return games.map(candidateOf)
+    },
+
     async fetch(id: string): Promise<ProviderDetail | null> {
       const games = await query('games', `where id = ${id}; fields ${DETAIL_FIELDS};`)
       const game = games[0]

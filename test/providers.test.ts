@@ -63,6 +63,42 @@ test('igdb: search exchanges a token once, then queries games', async () => {
   ])
 })
 
+test('igdb: findExact queries with a literal `where name =`, not the fuzzy search endpoint', async () => {
+  const root = rootWithSecrets({ igdb: { client_id: 'id', client_secret: 'secret' } })
+  const bodies: string[] = []
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    if (String(url).includes('id.twitch.tv')) return jsonResponse({ access_token: 'tok', expires_in: 3600 })
+    bodies.push(String(init?.body ?? ''))
+    return jsonResponse([
+      { id: 7559, name: 'Pac-Man', first_release_date: 378691200, platforms: [{ name: 'Atari 2600' }] },
+    ])
+  }) as typeof fetch
+
+  const provider = createIgdbProvider(root, fetchImpl)
+  const results = await provider.findExact('Pac-Man')
+
+  assert.equal(bodies.length, 1)
+  assert.match(bodies[0]!, /where name = "Pac-Man"/)
+  assert.doesNotMatch(bodies[0]!, /^search /)
+  assert.deepEqual(results, [
+    { id: '7559', title: 'Pac-Man', year: 1982, platforms: ['Atari 2600'], cover_url: null },
+  ])
+})
+
+test('igdb: findExact escapes embedded quotes the same way search does', async () => {
+  const root = rootWithSecrets({ igdb: { client_id: 'id', client_secret: 'secret' } })
+  const bodies: string[] = []
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    if (String(url).includes('id.twitch.tv')) return jsonResponse({ access_token: 'tok', expires_in: 3600 })
+    bodies.push(String(init?.body ?? ''))
+    return jsonResponse([])
+  }) as typeof fetch
+
+  const provider = createIgdbProvider(root, fetchImpl)
+  await provider.findExact('Foo "Bar" Baz')
+  assert.match(bodies[0]!, /where name = "Foo \\"Bar\\" Baz"/)
+})
+
 test('igdb: reuses the token across a second call in the same provider instance', async () => {
   const root = rootWithSecrets({ igdb: { client_id: 'id', client_secret: 'secret' } })
   let tokenCalls = 0
@@ -175,6 +211,20 @@ test('rawg: search queries with the api key and maps results', async () => {
   assert.deepEqual(results, [
     { id: '123', title: 'Celeste', year: 2018, platforms: ['PC'], cover_url: 'https://example.com/celeste.jpg' },
   ])
+})
+
+test('rawg: findExact requests the maximum page size, best-effort widening (no confirmed exact filter)', async () => {
+  const root = rootWithSecrets({ rawg: { api_key: 'key' } })
+  const calls: string[] = []
+  const fetchImpl = (async (url: string | URL) => {
+    calls.push(String(url))
+    return jsonResponse({ results: [] })
+  }) as typeof fetch
+
+  const provider = createRawgProvider(root, fetchImpl)
+  await provider.findExact('Pac-Man')
+  assert.match(calls[0]!, /page_size=40/)
+  assert.match(calls[0]!, /search=Pac-Man/)
 })
 
 test('rawg: fetch maps developers, publishers and genres', async () => {

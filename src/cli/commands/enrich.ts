@@ -98,8 +98,12 @@ export async function findDetail(provider: Provider, game: GameState): Promise<F
     return detail === null ? { kind: 'none' } : { kind: 'match', detail }
   }
 
+  // findExact, not search: a relevance-ranked search can bury an old,
+  // low-engagement release arbitrarily deep and never surface it at any
+  // reasonable page size (confirmed live with IGDB's 1982 Atari 2600
+  // "Pac-Man" — see provider.ts's file comment). findExact is complete.
   const needle = normalize(game.title, { editions: false })
-  const candidates = await provider.search(game.title)
+  const candidates = await provider.findExact(game.title)
   const matches = candidates.filter((candidate) => normalize(candidate.title, { editions: false }) === needle)
   if (matches.length === 0) return { kind: 'none' }
 

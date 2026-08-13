@@ -57,23 +57,20 @@ function unavailable(name: string): Provider {
       missing: `${name.toUpperCase()}_API_KEY`,
     })
   }
-  return { name, search: fail, fetch: fail }
+  return { name, search: fail, fetch: fail, findExact: fail }
 }
 
 /** A provider that is reachable and answers, but has nothing for this title. */
 function noMatch(name: string): Provider {
-  return { name, search: async () => [], fetch: async () => null }
+  return { name, search: async () => [], fetch: async () => null, findExact: async () => [] }
 }
 
 /** A provider that finds an exact match. */
 function matching(name: string, detail: ProviderDetail): Provider {
-  return {
-    name,
-    search: async (query: string) => [
-      { id: detail.id, title: query, year: null, platforms: [], cover_url: null },
-    ],
-    fetch: async () => detail,
-  }
+  const results = async (query: string): Promise<ProviderCandidate[]> => [
+    { id: detail.id, title: query, year: null, platforms: [], cover_url: null },
+  ]
+  return { name, search: results, findExact: results, fetch: async () => detail }
 }
 
 const DETAIL: ProviderDetail = {
@@ -129,7 +126,8 @@ test('a match on the first provider never even asks the second', async () => {
   let asked = false
   const spy: Provider = {
     name: 'rawg',
-    search: async () => {
+    search: async () => [],
+    findExact: async () => {
       asked = true
       return []
     },
@@ -147,11 +145,13 @@ test('a provider title with a trailing (year) still auto-matches the local title
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
 
+  const ff7rCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '1234', title: 'Final Fantasy VII Remake (2020)', year: 2020, platforms: [], cover_url: null },
+  ]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [
-      { id: '1234', title: 'Final Fantasy VII Remake (2020)', year: 2020, platforms: [], cover_url: null },
-    ],
+    search: ff7rCandidates,
+    findExact: ff7rCandidates,
     fetch: async () => ({
       id: '1234',
       fields: {
@@ -181,13 +181,15 @@ test('a "Deluxe Edition" catalog entry does not collide with the base game', asy
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
 
+  const deluxeCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '11169', title: 'Final Fantasy VII Remake', year: 2020, platforms: [], cover_url: null },
+    { id: '134226', title: 'Final Fantasy VII Remake: Deluxe Edition', year: 2020, platforms: [], cover_url: null },
+    { id: '144024', title: 'Final Fantasy VII Remake Intergrade', year: 2021, platforms: [], cover_url: null },
+  ]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [
-      { id: '11169', title: 'Final Fantasy VII Remake', year: 2020, platforms: [], cover_url: null },
-      { id: '134226', title: 'Final Fantasy VII Remake: Deluxe Edition', year: 2020, platforms: [], cover_url: null },
-      { id: '144024', title: 'Final Fantasy VII Remake Intergrade', year: 2021, platforms: [], cover_url: null },
-    ],
+    search: deluxeCandidates,
+    findExact: deluxeCandidates,
     fetch: async (id: string) => ({
       id,
       fields: { title: 'Final Fantasy VII Remake', release_year: 2020, developer: null, publisher: null, genres: [], platforms: [] },
@@ -205,12 +207,14 @@ test('two catalog entries with the exact same title report ambiguous — no gues
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
 
+  const hollowKnightCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '1', title: 'Hollow Knight', year: 2017, platforms: ['Switch'], cover_url: null },
+    { id: '2', title: 'Hollow Knight', year: 2017, platforms: ['PC'], cover_url: null },
+  ]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [
-      { id: '1', title: 'Hollow Knight', year: 2017, platforms: ['Switch'], cover_url: null },
-      { id: '2', title: 'Hollow Knight', year: 2017, platforms: ['PC'], cover_url: null },
-    ],
+    search: hollowKnightCandidates,
+    findExact: hollowKnightCandidates,
     fetch: async () => {
       throw new Error('must not be called: matching must stay ambiguous, never guessed')
     },
@@ -233,12 +237,14 @@ test('bulk (--all) never asks: an ambiguous provider still collapses to skipped'
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
 
+  const bulkCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+  ]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [
-      { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-      { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-    ],
+    search: bulkCandidates,
+    findExact: bulkCandidates,
     fetch: async () => {
       throw new Error('must not be called: bulk never resolves an ambiguity')
     },
@@ -254,12 +260,14 @@ test('an ambiguous first provider still tries the second, which cleanly matches'
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
 
+  const stillAmbiguousCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+  ]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [
-      { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-      { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-    ],
+    search: stillAmbiguousCandidates,
+    findExact: stillAmbiguousCandidates,
     fetch: async () => {
       throw new Error('must not be called: igdb stays ambiguous, never fetched')
     },
@@ -275,22 +283,26 @@ test('ambiguous on every provider in the chain reports the first provider only',
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
 
+  const igdbCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+  ]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [
-      { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-      { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-    ],
+    search: igdbCandidates,
+    findExact: igdbCandidates,
     fetch: async () => {
       throw new Error('must not be called')
     },
   }
+  const rawgCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: 'a', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    { id: 'b', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+  ]
   const rawg: Provider = {
     name: 'rawg',
-    search: async () => [
-      { id: 'a', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-      { id: 'b', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
-    ],
+    search: rawgCandidates,
+    findExact: rawgCandidates,
     fetch: async () => {
       throw new Error('must not be called')
     },
@@ -399,13 +411,15 @@ test('a recorded run platform narrows multiple exact-title matches down to one, 
   const workspace = gameWithPlatform('Atari 2600')
   const game = workspace.state.games[0]!
 
+  const pacManCandidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '1', title: 'Pac-Man', year: 1980, platforms: ['Arcade'], cover_url: null },
+    { id: '2', title: 'Pac-Man', year: 1982, platforms: ['Atari 2600'], cover_url: null },
+    { id: '3', title: 'Pac-Man', year: 1993, platforms: ['Game Boy'], cover_url: null },
+  ]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [
-      { id: '1', title: 'Pac-Man', year: 1980, platforms: ['Arcade'], cover_url: null },
-      { id: '2', title: 'Pac-Man', year: 1982, platforms: ['Atari 2600'], cover_url: null },
-      { id: '3', title: 'Pac-Man', year: 1993, platforms: ['Game Boy'], cover_url: null },
-    ],
+    search: pacManCandidates,
+    findExact: pacManCandidates,
     fetch: async (id: string) => {
       assert.equal(id, '2', 'must fetch only the platform-matching candidate')
       return {
@@ -429,9 +443,11 @@ test('two candidates matching the recorded platform stay ambiguous, sorted first
   const atari2600 = { id: '2', title: 'Pac-Man', year: 1982, platforms: ['Atari 2600'], cover_url: null }
   const atari5200 = { id: '3', title: 'Pac-Man', year: 1982, platforms: ['Atari 5200'], cover_url: null }
 
+  const threePlatformCandidates = async (): Promise<ProviderCandidate[]> => [arcade, atari2600, atari5200]
   const igdb: Provider = {
     name: 'igdb',
-    search: async () => [arcade, atari2600, atari5200],
+    search: threePlatformCandidates,
+    findExact: threePlatformCandidates,
     fetch: async () => {
       throw new Error('must not be called: still ambiguous, never guessed')
     },
@@ -457,6 +473,7 @@ test('a recorded platform matching no candidate falls back to the full, unfilter
   const igdb: Provider = {
     name: 'igdb',
     search: async () => candidates,
+    findExact: async () => candidates,
     fetch: async () => {
       throw new Error('must not be called: nothing matches, stays ambiguous')
     },

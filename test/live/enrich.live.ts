@@ -196,39 +196,69 @@ test(
   },
 )
 
+/** A "Pac-Man" game with one recorded run, real events plus a synthetic one, never written to disk. */
+function pacManWorkspace(platform: string): Workspace {
+  const slug = `pac-man-live-${platform.toLowerCase().replace(/\s+/g, '-')}`
+  const events = [
+    ...readEvents(vault.eventsFile),
+    event('game.create', { game_id: `LIVE-PACMAN-${platform}`, slug, title: 'Pac-Man' }),
+    event('run.import', {
+      run_id: `LIVE-PACMAN-R1-${platform}`,
+      game_id: `LIVE-PACMAN-${platform}`,
+      platform,
+      form: 'physical',
+      mode: 'solo',
+      started_on: '2020-01-01',
+      ended_on: '2020-01-01',
+      date_precision: 'day',
+      outcome: 'finished',
+      completion_criteria: 'enough',
+      replay: false,
+    }),
+  ]
+  return { events, state: fold(events, timeContext(vault)), pending: [] }
+}
+
 test(
-  'igdb: a recorded platform auto-resolves Pac-Man among several exact-title entries',
+  'igdb: findExact surfaces an old, low-engagement release that fuzzy search never would (Pac-Man, Atari 2600)',
   { skip: skipIgdb },
   async () => {
-    // As of writing, IGDB has exactly four entries titled precisely
-    // "Pac-Man" (ids 63639, 198842, 214357, 204387) — Android/iOS, two
-    // handheld-LCD releases, and a Game Boy/3DS one. Only the last carries
-    // "Game Boy", so a game with that platform recorded on a run should
-    // auto-resolve to it without any ambiguity. If IGDB's catalog shape
-    // changes, this is a catalog change, not a regression here.
+    // The regression this test exists for: IGDB's relevance-ranked `search`
+    // never surfaces the 1982 Atari 2600 "Pac-Man" port, even at a fetch
+    // limit of 50 — confirmed live. A literal `where name = "Pac-Man"`
+    // lookup (findExact) finds it immediately, among 53 exact-title
+    // entries, so an exact platform match ("Atari 2600") auto-resolves.
     const cli = fakeCli(vault)
-    const events = [
-      ...readEvents(vault.eventsFile),
-      event('game.create', { game_id: 'LIVE-PACMAN', slug: 'pac-man-live', title: 'Pac-Man' }),
-      event('run.import', {
-        run_id: 'LIVE-PACMAN-R1',
-        game_id: 'LIVE-PACMAN',
-        platform: 'Game Boy',
-        form: 'physical',
-        mode: 'solo',
-        started_on: '2020-01-01',
-        ended_on: '2020-01-01',
-        date_precision: 'day',
-        outcome: 'finished',
-        completion_criteria: 'enough',
-        replay: false,
-      }),
-    ]
-    const workspace: Workspace = { events, state: fold(events, timeContext(vault)), pending: [] }
+    const workspace = pacManWorkspace('Atari 2600')
     const provider = createIgdbProvider(vault.root)
 
-    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'pac-man-live'), [provider], false, false)
-    assert.equal(outcome.kind, 'enriched', `expected the Game Boy release to auto-resolve, got ${JSON.stringify(outcome)}`)
+    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'pac-man-live-atari-2600'), [provider], false, false)
+    assert.equal(outcome.kind, 'enriched', `expected the Atari 2600 release to auto-resolve, got ${JSON.stringify(outcome)}`)
+  },
+)
+
+test(
+  'igdb: a generic recorded platform ("Atari") still can\'t auto-resolve, but puts every Atari release first',
+  { skip: skipIgdb },
+  async () => {
+    // As of writing, IGDB has three "Pac-Man" entries whose platform name
+    // contains "atari" (Atari 2600, Atari 5200, Atari 8-bit) — a bare
+    // "Atari" recorded locally matches all three, so this stays genuinely
+    // ambiguous. What matters is that they're no longer missing from the
+    // list at all (the original bug report), and that they lead it.
+    const cli = fakeCli(vault)
+    const workspace = pacManWorkspace('Atari')
+    const provider = createIgdbProvider(vault.root)
+
+    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'pac-man-live-atari'), [provider], false, false)
+    assert.equal(outcome.kind, 'ambiguous', JSON.stringify(outcome))
+    if (outcome.kind === 'ambiguous') {
+      const leading = outcome.candidates.slice(0, 3)
+      assert.ok(
+        leading.every((candidate) => candidate.platforms.some((p) => p.toLowerCase().includes('atari'))),
+        `expected the first 3 candidates to all be Atari platforms, got ${JSON.stringify(leading)}`,
+      )
+    }
   },
 )
 

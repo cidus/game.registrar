@@ -98,6 +98,15 @@ export function createRawgProvider(root: string, fetchImpl: typeof fetch = fetch
       return body.results.map(candidateOf)
     },
 
+    async findExact(title: string): Promise<ProviderCandidate[]> {
+      // RAWG has no documented exact-title filter, unlike IGDB's `where
+      // name = ...` — this is the same relevance search, just at RAWG's
+      // maximum page size (40), a best-effort widening rather than a true
+      // exact/complete lookup like IGDB's.
+      const body = await get<{ results: RawgSearchResult[] }>('/games', { search: title, page_size: '40' })
+      return body.results.map(candidateOf)
+    },
+
     async fetch(id: string): Promise<ProviderDetail | null> {
       let result: RawgDetail
       try {
