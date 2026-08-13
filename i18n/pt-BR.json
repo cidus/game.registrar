@@ -144,6 +144,8 @@
     "ambiguous": "\"{query}\" corresponde a {count} registros.",
     "unknown_id": "Nenhum registro corresponde à referência \"{ref}\".",
     "provider_unavailable": "Consulta a catálogos externos não existe nesta versão. Use --sem-metadados.",
+    "provider_credential_missing": "{provider} não está configurado: {missing} não foi definido, nem no ambiente nem em gamereg.secrets.json.",
+    "provider_request_failed": "Não foi possível acessar {provider}.",
     "no_open_session": "Nenhuma sessão em aberto.",
     "no_open_session_for": "Nenhuma sessão em aberto para {title}.",
     "several_open_sessions": "Há {count} sessões em aberto. Indique uma.",

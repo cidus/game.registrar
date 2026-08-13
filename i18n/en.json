@@ -87,6 +87,8 @@
     "ambiguous": "\"{query}\" matches {count} entries on record.",
     "unknown_id": "No entry matches the reference \"{ref}\".",
     "provider_unavailable": "Provider lookup is not available in this version. Use --no-metadata.",
+    "provider_credential_missing": "{provider} is not configured: {missing} is not set, in the environment or in gamereg.secrets.json.",
+    "provider_request_failed": "{provider} could not be reached.",
     "no_open_session": "No session is open.",
     "no_open_session_for": "No session is open for {title}.",
     "several_open_sessions": "{count} sessions are open. Name one.",
