@@ -13,6 +13,17 @@ hands them back. Presentation belongs to the caller.
 Stop at the first step that yields exactly one match.
 
 1. **Explicit id.** `--id igdb:7346` or `--id game:01K...`. No search at all.
+   A provider ref with no local match yet is trusted, not searched: a write
+   command never touches the network (00-architecture.md invariant 5), so the
+   caller — a human picking a candidate from a code-3 menu, or an agent
+   re-invoking after `gamereg search` — is assumed to have already resolved
+   it. The command creates the game from the query text as its title and the
+   ref as its `providers` entry, and `gamereg enrich` fills in the rest later
+   from the id already on record (`game.enrich` never touches `title`, so a
+   wrong guess needs `gamereg alias`, not another `enrich` run). A `game:`
+   reference gets no such leniency — that id was supposed to exist, and its
+   absence is `not_found`. Available only where creating a game make sense
+   (`start`, `past`), same as `--no-metadata`.
 2. **Implied by open state.** For `end` and `break`, a single open session
    resolves the target. No query needed.
 3. **Exact alias match.** Normalized lookup against known aliases.

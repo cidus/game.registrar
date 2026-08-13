@@ -14,7 +14,7 @@ import { newId } from '../core/ids.ts'
 import { toISO } from '../core/time.ts'
 import { checkEnum, FORM, MODE, type Form, type Mode } from '../core/vocab.ts'
 import { normalize, uniqueSlug } from '../resolve/normalize.ts'
-import { candidateOf, resolveLocal, type Candidate, type ResolveOptions } from '../resolve/resolve.ts'
+import { candidateOf, parseReference, resolveLocal, type Candidate, type ResolveOptions } from '../resolve/resolve.ts'
 import type { Cli } from './context.ts'
 import { choose } from './prompt.ts'
 
@@ -73,7 +73,12 @@ function ambiguousError(query: string, candidates: readonly Candidate[], truncat
   )
 }
 
-function createGame(cli: Cli, workspace: Workspace, title: string): GameState {
+function createGame(
+  cli: Cli,
+  workspace: Workspace,
+  title: string,
+  providers: Record<string, string> = {},
+): GameState {
   const taken = new Set(workspace.state.games.map((game) => game.slug))
   const gameId = newId()
   stage(cli, workspace, 'game.create', {
@@ -82,7 +87,7 @@ function createGame(cli: Cli, workspace: Workspace, title: string): GameState {
     title,
     genres: [],
     platforms: [],
-    providers: {},
+    providers,
     aliases: [],
   })
   const game = workspace.state.gamesById.get(gameId)
@@ -130,6 +135,17 @@ export async function resolveGame(
   }
 
   if (options.id !== undefined && options.id !== null) {
+    // A provider ref with no local match yet is trusted, never searched: the
+    // caller already resolved it (a `search` hit, or a human picking a
+    // provider candidate from a code-3 menu). No network call here — that
+    // would break invariant 5 — so the game is created from the ref alone,
+    // titled from the query the caller still had to pass, and `enrich`
+    // fills in the rest later from the id already on record. A `game:`
+    // reference gets no such leniency: that ULID was supposed to exist.
+    const reference = parseReference(options.id)
+    if (reference !== null && reference.kind === 'provider' && allowCreate && title !== '') {
+      return createGame(cli, workspace, title, { [reference.provider]: reference.id })
+    }
     throw new GameregError('not_found', 'error.unknown_id', { ref: options.id })
   }
   if (title === '' || !allowCreate) {
