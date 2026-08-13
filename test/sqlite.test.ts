@@ -1,8 +1,7 @@
 /**
  * The `sqlite` target (docs/spec/04-derived.md "SQLite", 07-targets.md
- * "sqlite"). Exercised directly rather than through `gamereg build`, since
- * `sqlite` arrives in phase 1 and `CURRENT_PHASE` in core/vocab.ts stays at 0
- * until json and html land alongside it (see CLAUDE.md).
+ * "sqlite"). Exercised directly, in addition to the golden coverage it gets
+ * through `gamereg build` once declared in example-vault's config.
  */
 import { DatabaseSync } from 'node:sqlite'
 import assert from 'node:assert/strict'

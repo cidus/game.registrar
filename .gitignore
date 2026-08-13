@@ -146,3 +146,6 @@ vite.config.ts.timestamp-*
 .gamereg/
 *.db
 site/
+# ...except the golden fixture: example-vault/ is the committed expected
+# output of every enabled target, sqlite included.
+!/example-vault/data/log.db

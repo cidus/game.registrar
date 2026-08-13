@@ -56,7 +56,7 @@ export const TARGET_PHASE: Record<BuildTarget, 0 | 1 | 3> = {
   site: 3,
 }
 
-export const CURRENT_PHASE = 0
+export const CURRENT_PHASE = 1
 
 export function checkTarget(value: string): BuildTarget {
   const name = checkEnum('build.targets', value, BUILD_TARGET)

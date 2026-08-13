@@ -58,9 +58,11 @@ test('building the example vault reproduces the committed output byte for byte',
 
   for (const file of derivedFiles(root)) {
     assert.equal(existsSync(join(EXAMPLE, file)), true, `${file} is not committed`)
+    // Buffer comparison, not utf8: data/log.db is binary, and decoding it as
+    // text would risk two different files decoding to the same lossy string.
     assert.equal(
-      readFileSync(join(root, file), 'utf8'),
-      readFileSync(join(EXAMPLE, file), 'utf8'),
+      Buffer.compare(readFileSync(join(root, file)), readFileSync(join(EXAMPLE, file))),
+      0,
       file,
     )
   }
@@ -70,15 +72,15 @@ test('a second build is byte-identical to the first, and removes nothing', () =>
   const root = copyExample()
   rebuild(root)
   const files = derivedFiles(root)
-  const first = files.map((file) => readFileSync(join(root, file), 'utf8'))
+  const first = files.map((file) => readFileSync(join(root, file)))
 
   const second = rebuild(root)
   assert.deepEqual(second.removed, [])
   assert.deepEqual(second.written, [])
-  assert.deepEqual(
-    files.map((file) => readFileSync(join(root, file), 'utf8')),
-    first,
-  )
+  const again = files.map((file) => readFileSync(join(root, file)))
+  for (const [index, file] of files.entries()) {
+    assert.equal(Buffer.compare(again[index]!, first[index]!), 0, file)
+  }
 })
 
 test('deleting every derived artifact and rebuilding loses only hand-written prose', () => {

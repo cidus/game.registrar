@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "games": [
+    {
+      "game_id": "01K5A00000000000000000GAM4",
+      "slug": "celeste",
+      "title": "Celeste",
+      "release_year": 2018,
+      "developer": "Extremely OK Games",
+      "publisher": null,
+      "status": "playing"
+    },
+    {
+      "game_id": "01K5A00000000000000000GAM2",
+      "slug": "chrono-trigger",
+      "title": "Chrono Trigger",
+      "release_year": 1995,
+      "developer": "Square",
+      "publisher": null,
+      "status": "finished"
+    },
+    {
+      "game_id": "01K5A00000000000000000GAM1",
+      "slug": "hollow-knight",
+      "title": "Hollow Knight",
+      "release_year": 2017,
+      "developer": "Team Cherry",
+      "publisher": "Team Cherry",
+      "status": "finished"
+    },
+    {
+      "game_id": "01K5A00000000000000000GAM3",
+      "slug": "outer-wilds",
+      "title": "Outer Wilds",
+      "release_year": 2019,
+      "developer": "Mobius Digital",
+      "publisher": null,
+      "status": "abandoned"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "01K5A00000000000000000RUN2",
+      "game_id": "01K5A00000000000000000GAM2",
+      "platform": "SNES",
+      "form": "physical",
+      "mode": "solo",
+      "started_on": "2011-01-01",
+      "ended_on": "2011-07-01",
+      "outcome": "finished",
+      "completion_criteria": "credits",
+      "rating": 10,
+      "difficulty": "normal",
+      "minutes": 1800,
+      "hours_source": "stated",
+      "replay": false
+    },
+    {
+      "run_id": "01K5A00000000000000000RUN1",
+      "game_id": "01K5A00000000000000000GAM1",
+      "platform": "Switch",
+      "form": "digital",
+      "mode": "solo",
+      "started_on": "2026-05-03",
+      "ended_on": "2026-08-12",
+      "outcome": "finished",
+      "completion_criteria": "true_ending",
+      "rating": 9,
+      "difficulty": "hard",
+      "minutes": 538,
+      "hours_source": "measured",
+      "replay": false
+    },
+    {
+      "run_id": "01K5A00000000000000000RUN3",
+      "game_id": "01K5A00000000000000000GAM3",
+      "platform": "PC",
+      "form": "digital",
+      "mode": "solo",
+      "started_on": "2026-06-01",
+      "ended_on": "2026-06-01",
+      "outcome": "abandoned",
+      "completion_criteria": "abandoned",
+      "rating": null,
+      "difficulty": null,
+      "minutes": 90,
+      "hours_source": "measured",
+      "replay": false
+    },
+    {
+      "run_id": "01K5A00000000000000000RUN4",
+      "game_id": "01K5A00000000000000000GAM4",
+      "platform": "Switch",
+      "form": "digital",
+      "mode": "solo",
+      "started_on": "2026-07-20",
+      "ended_on": null,
+      "outcome": null,
+      "completion_criteria": null,
+      "rating": null,
+      "difficulty": null,
+      "minutes": 0,
+      "hours_source": "measured",
+      "replay": false
+    }
+  ],
+  "sessions": [
+    {
+      "session_id": "01K5A00000000000000000SES1",
+      "run_id": "01K5A00000000000000000RUN1",
+      "started_at": "2026-05-03T20:00:00-03:00",
+      "ended_at": "2026-05-03T23:00:00-03:00",
+      "minutes": 150,
+      "logical_day": "2026-05-03",
+      "note": "First hours. Combat feels tight."
+    },
+    {
+      "session_id": "01K5A00000000000000000SES2",
+      "run_id": "01K5A00000000000000000RUN1",
+      "started_at": "2026-05-06T22:00:00-03:00",
+      "ended_at": "2026-05-07T01:30:00-03:00",
+      "minutes": 210,
+      "logical_day": "2026-05-06",
+      "note": "Got lost in Fungal Wastes, in a good way."
+    },
+    {
+      "session_id": "01K5A00000000000000000SES4",
+      "run_id": "01K5A00000000000000000RUN3",
+      "started_at": "2026-06-01T14:00:00-03:00",
+      "ended_at": "2026-06-01T15:30:00-03:00",
+      "minutes": 90,
+      "logical_day": "2026-06-01",
+      "note": "Lost the probe. Twice."
+    },
+    {
+      "session_id": "01K5A00000000000000000SES5",
+      "run_id": "01K5A00000000000000000RUN4",
+      "started_at": "2026-07-20T21:00:00-03:00",
+      "ended_at": null,
+      "minutes": 0,
+      "logical_day": "2026-07-20",
+      "note": null
+    },
+    {
+      "session_id": "01K5A00000000000000000SES3",
+      "run_id": "01K5A00000000000000000RUN1",
+      "started_at": "2026-08-12T20:14:00-03:00",
+      "ended_at": "2026-08-12T23:52:00-03:00",
+      "minutes": 178,
+      "logical_day": "2026-08-12",
+      "note": "Watcher Knights, finally. Hard, but fair."
+    }
+  ]
+}

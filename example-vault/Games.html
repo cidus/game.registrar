@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Games</title>
+<style>:root { color-scheme: light dark; }
+  body { font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }
+  h1 { font-size: 1.1rem; }
+  input[type="search"] { font: inherit; padding: 0.4rem 0.6rem; width: 100%; max-width: 24rem; margin-bottom: 1rem; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid #8884; }
+  th { cursor: pointer; user-select: none; white-space: nowrap; }
+  th[aria-sort="ascending"]::after { content: " \2191"; }
+  th[aria-sort="descending"]::after { content: " \2193"; }
+  td.num { text-align: right; }
+  tbody tr.open td.status { font-style: italic; }</style>
+</head>
+<body>
+<h1>Games</h1>
+<input type="search" id="filter" placeholder="Game">
+<table>
+<thead>
+<tr><th data-key="title">Game</th><th data-key="platform">Platform</th><th data-key="started_on">Started</th><th data-key="ended_on">Ended</th><th data-key="hours">Hours</th><th data-key="rating">Rating</th><th data-key="difficulty">Difficulty</th><th data-key="completion_criteria">Criteria</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+<script>window.__GAMEREG_RUNS__ = [{"title":"Celeste","platform":"Switch","started_on":"2026-07-20","ended_on":null,"minutes":0,"hours":"0.0","hours_source":"measured","rating":null,"difficulty":null,"completion_criteria":null,"open":true},{"title":"Hollow Knight","platform":"Switch","started_on":"2026-05-03","ended_on":"2026-08-12","minutes":538,"hours":"9.0","hours_source":"measured","rating":9,"difficulty":"hard","completion_criteria":"true_ending","open":false},{"title":"Outer Wilds","platform":"PC","started_on":"2026-06-01","ended_on":"2026-06-01","minutes":90,"hours":"1.5","hours_source":"measured","rating":null,"difficulty":null,"completion_criteria":"abandoned","open":false},{"title":"Chrono Trigger","platform":"SNES","started_on":"2011-01","ended_on":"2011-07","minutes":1800,"hours":"30.0","hours_source":"stated","rating":10,"difficulty":"normal","completion_criteria":"credits","open":false}];</script>
+<script>(function () {
+  var data = window.__GAMEREG_RUNS__;
+  var tbody = document.querySelector("tbody");
+  var search = document.getElementById("filter");
+  var headers = Array.prototype.slice.call(document.querySelectorAll("th[data-key]"));
+  var sortKey = null;
+  var sortDir = 1;
+
+  function cell(value) { return value === null || value === undefined ? "" : String(value); }
+
+  function render() {
+    var term = (search.value || "").toLowerCase();
+    var rows = data.filter(function (row) {
+      if (term === "") return true;
+      return (row.title + " " + cell(row.platform)).toLowerCase().indexOf(term) !== -1;
+    });
+    if (sortKey !== null) {
+      rows = rows.slice().sort(function (a, b) {
+        var x = a[sortKey];
+        var y = b[sortKey];
+        if (x === y) return 0;
+        if (x === null || x === undefined) return 1;
+        if (y === null || y === undefined) return -1;
+        return (x < y ? -1 : 1) * sortDir;
+      });
+    }
+    tbody.innerHTML = "";
+    rows.forEach(function (row) {
+      var tr = document.createElement("tr");
+      if (row.open) tr.className = "open";
+      var hours = row.hours + (row.hours_source === "stated" ? " *" : "");
+      var status = row.open ? "playing" : cell(row.completion_criteria);
+      [row.title, cell(row.platform), cell(row.started_on), cell(row.ended_on), hours, cell(row.rating), cell(row.difficulty), status].forEach(
+        function (value, index) {
+          var td = document.createElement("td");
+          td.textContent = value;
+          if (index === 4 || index === 5) td.className = "num";
+          if (index === 7) td.className = "status";
+          tr.appendChild(td);
+        },
+      );
+      tbody.appendChild(tr);
+    });
+  }
+
+  headers.forEach(function (th) {
+    th.addEventListener("click", function () {
+      var key = th.getAttribute("data-key");
+      if (sortKey === key) {
+        sortDir = -sortDir;
+      } else {
+        sortKey = key;
+        sortDir = 1;
+      }
+      headers.forEach(function (other) { other.removeAttribute("aria-sort"); });
+      th.setAttribute("aria-sort", sortDir === 1 ? "ascending" : "descending");
+      render();
+    });
+  });
+  search.addEventListener("input", render);
+  render();
+})();</script>
+</body>
+</html>

@@ -10,7 +10,10 @@
   "build": {
     "targets": [
       "obsidian",
-      "csv"
+      "csv",
+      "sqlite",
+      "json",
+      "html"
     ],
     "csv": {
       "dir": "data"
