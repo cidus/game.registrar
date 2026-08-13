@@ -170,4 +170,6 @@ and exits 0 — the user is not asked to retype the command. It still appends th
 but "which catalog record for an already-known game" (e.g. two IGDB entries
 titled identically for different platform releases). It reuses this same
 exit-3/`candidates[]` shape and the same interactive/non-interactive split
-— see 02-cli.md's `enrich` section for the specifics (`--match <ref>`).
+— see 02-cli.md's `enrich` section for the specifics (`--match <ref>` to
+fetch an exact candidate directly, or a re-typed `<query>` to redo the search
+itself).

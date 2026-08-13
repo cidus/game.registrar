@@ -420,6 +420,23 @@ command line; there is no `--client-secret` flag for exactly that reason.
 Network step, isolated. Appends `game.enrich` and fetches provider cover art.
 Safe to run from cron. Failure here never blocks recording.
 
+`<query>` does two jobs, not one. It first resolves to a local game the
+normal offline way (steps 1–5, 03-resolution.md) — a differently-spelled
+query still finds the right record, since normalization treats "Pacman" and
+"Pac-Man" as equal for that comparison. But the literal string is then also
+what gets sent to the provider's search, in place of the game's currently
+stored title. This is the retry path when a first `enrich` came back with the
+wrong candidates: the stored title ("Pacman", say, from a `start` command
+typed as-is) may search poorly against a provider's own relevance, even
+though it normalizes identically to the right answer. Re-invoking with
+`gamereg enrich "Pac-Man"` sends the better string, and a confident match
+corrects the stored title and files the old spelling as an alias — the
+existing `game.enrich` title-replacement mechanism (01-model.md), not a new
+one. Nothing renames the game just because a differently-spelled `<query>`
+was given; only a successful match does that. Omitted `<query>` (the
+`--all`/cron path) searches with each game's currently stored title,
+unchanged.
+
 When a provider search returns more than one plausible title match for a
 single named game, this is ambiguity, not failure: exit 3 with
 `candidates[]`, same shape as any other resolution ambiguity

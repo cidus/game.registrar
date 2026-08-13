@@ -41,6 +41,17 @@ table (see 03): the user corrects a mis-transcribed title once.
 
 > "começando hollow knight"
 
+**The agent supplies a canonical-ish title, not the raw utterance.** Before
+calling `start`, correct obvious spelling/colloquialism the way `end` already
+corrects obvious transcription errors (below) — "uns pacman no atari" becomes
+`gamereg start "Pac-Man" --platform Atari`, not `"pacman"`. A wrong guess here
+is cheap, not dangerous: `enrich` corrects the stored title and files the
+guess as an alias (01-model.md), and a bad first search can be retried with a
+better `<query>` (02-cli.md's `enrich` section). But a better guess up front
+means the first provider search is more likely to land — provider search
+relevance degrades badly on stray punctuation and spacing, and no amount of
+local filtering recovers a candidate the provider never returned.
+
 `gamereg start "hollow knight" --json` → on code 3, present candidates → re-invoke
 with `--id`.
 
