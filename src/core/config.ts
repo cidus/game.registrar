@@ -29,6 +29,10 @@ export type Config = {
    */
   build: {
     targets: BuildTarget[]
+    csv: {
+      /** Vault-relative directory. Empty means the vault root. */
+      dir: string
+    }
   }
 }
 
@@ -44,6 +48,7 @@ export const DEFAULT_CONFIG: Config = {
   build: {
     // A vault that has never heard of this key still builds notes and the table.
     targets: ['obsidian'],
+    csv: { dir: 'data' },
   },
 }
 
@@ -98,6 +103,13 @@ export function loadConfig(root: string): Config {
         if (!named.includes(name)) named.push(name)
       }
       config.build.targets = named
+    }
+
+    const csv = entries['csv']
+    if (typeof csv === 'object' && csv !== null && !Array.isArray(csv)) {
+      const dir = (csv as Record<string, unknown>)['dir']
+      // Trailing slashes are the user being tidy, not a path component.
+      if (typeof dir === 'string') config.build.csv.dir = dir.replace(/\/+$/, '')
     }
   }
 

@@ -94,6 +94,37 @@ test('a file absent from the manifest is never removed, whatever it looks like',
   assert.equal(existsSync(stray), true)
 })
 
+test('disabling a target cleans up after itself, and moves nothing else', () => {
+  const root = vault(['obsidian', 'csv'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+  assert.equal(existsSync(join(root, 'data', 'runs.csv')), true)
+
+  const note = readFileSync(join(root, 'games', 'sabotage.md'), 'utf8')
+  writeFileSync(
+    join(root, 'gamereg.config.json'),
+    JSON.stringify({ locale: 'en', timezone: 'America/Sao_Paulo', build: { targets: ['obsidian'] } }),
+  )
+  const second = rebuild(root)
+
+  assert.deepEqual(second.removed.sort(), ['data/games.csv', 'data/runs.csv', 'data/sessions.csv'])
+  assert.equal(existsSync(join(root, 'data', 'runs.csv')), false)
+  assert.equal(existsSync(join(root, 'data', 'events.jsonl')), true)
+  assert.equal(readFileSync(join(root, 'games', 'sabotage.md'), 'utf8'), note)
+  assert.equal(readManifest(openVault(root).manifestFile)?.targets['csv'], undefined)
+})
+
+test('a narrowed build says nothing about the targets it was not asked to build', () => {
+  const root = vault(['obsidian', 'csv'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+
+  const narrowed = rebuild(root, ['csv'])
+  assert.deepEqual(narrowed.removed, [])
+  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), true)
+  assert.notEqual(readManifest(openVault(root).manifestFile)?.targets['obsidian'], undefined)
+})
+
 test('the argument narrows a build; a target the vault does not declare is refused', () => {
   const root = vault(['obsidian'])
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
