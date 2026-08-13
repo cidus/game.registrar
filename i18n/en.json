@@ -105,6 +105,7 @@
     "target_not_declared": "\"{name}\" is not among this vault's build.targets: {declared}. The argument narrows a build; it never defines what the vault contains.",
     "target_conflict": "The targets \"{first}\" and \"{second}\" both plan to write {path}.",
     "unimplemented_target": "The build target \"{name}\" is declared but not implemented in this version.",
+    "missing_template": "The shipped template \"{name}\" is not installed alongside this version.",
     "outside_vault": "A build target planned to write outside the vault: {path}.",
     "no_run": "{title} has no run to attach a verdict to.",
     "unknown_run": "{title} has no run with the id \"{id}\".",

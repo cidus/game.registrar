@@ -1,0 +1,78 @@
+filters:
+  and:
+    - file.inFolder("runs")
+    - file.hasTag("gamereg")
+properties:
+  title:
+    displayName: Game
+  completion_criteria:
+    displayName: Criteria
+  hours_source:
+    displayName: Hours from
+views:
+  - type: table
+    name: Finished
+    filters:
+      and:
+        - 'status == "finished"'
+    order:
+      - title
+      - platform
+      - ended_on
+      - hours
+      - rating
+      - difficulty
+      - completion_criteria
+    sort:
+      - property: ended_on
+        direction: DESC
+    summaries:
+      hours: Sum
+  - type: table
+    name: Playing
+    filters:
+      and:
+        - 'status == "playing"'
+    order:
+      - title
+      - platform
+      - started_on
+      - hours
+      - sessions
+    sort:
+      - property: started_on
+        direction: DESC
+  - type: table
+    name: By genre
+    groupBy:
+      property: genres
+    order:
+      - title
+      - platform
+      - ended_on
+      - hours
+      - rating
+    sort:
+      - property: rating
+        direction: DESC
+    summaries:
+      hours: Sum
+  - type: table
+    name: Dropped
+    filters:
+      and:
+        - 'status == "abandoned"'
+    order:
+      - title
+      - platform
+      - ended_on
+      - hours
+      - rating
+  - type: cards
+    name: Shelf
+    filters:
+      and:
+        - 'status != "playing"'
+    sort:
+      - property: ended_on
+        direction: DESC

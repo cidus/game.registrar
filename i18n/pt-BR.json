@@ -157,6 +157,7 @@
     "target_not_declared": "\"{name}\" não está entre os build.targets deste acervo: {declared}. O argumento restringe a construção; nunca define o que o acervo contém.",
     "target_conflict": "Os alvos \"{first}\" e \"{second}\" pretendem gravar o mesmo arquivo: {path}.",
     "unimplemented_target": "O alvo de construção \"{name}\" está declarado, mas não implementado nesta versão.",
+    "missing_template": "O modelo \"{name}\" não está instalado junto desta versão.",
     "outside_vault": "Um alvo de construção pretendeu gravar fora do acervo: {path}.",
     "no_run": "{title} não tem jogatina à qual anexar um parecer.",
     "unknown_run": "{title} não tem jogatina com o id \"{id}\".",

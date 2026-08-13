@@ -10,6 +10,7 @@ import type { VaultState } from '../core/fold.ts'
 import { blocksOf, frontmatter, newNote } from '../render/note.ts'
 import { newRunNote, runNotePath } from '../render/run.ts'
 import { newTable, tableBlocks } from '../render/table.ts'
+import { template } from './templates.ts'
 import type { PlannedFile, Target, TargetContext } from './types.ts'
 
 export const obsidian: Target = {
@@ -54,6 +55,16 @@ export const obsidian: Target = {
       content: newTable(state, bundle),
       policy: 'splice',
       parts: { frontmatter: null, blocks: tableBlocks(state, bundle) },
+    })
+
+    // A base is configuration, not derived data: Obsidian rewrites the file the
+    // moment a column is reordered through the UI, and a build that regenerated
+    // it would silently discard that work every time. Regenerating a note is
+    // safe because prose lives outside the markers; a base has no outside.
+    files.push({
+      path: 'Games.base',
+      content: template('Games.base'),
+      policy: 'seed',
     })
 
     return files

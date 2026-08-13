@@ -125,6 +125,58 @@ test('a narrowed build says nothing about the targets it was not asked to build'
   assert.notEqual(readManifest(openVault(root).manifestFile)?.targets['obsidian'], undefined)
 })
 
+test('a seed is written once and is the user\'s from then on', () => {
+  const root = vault()
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  const first = rebuild(root)
+  assert.equal(first.written.includes('Games.base'), true)
+
+  const base = join(root, 'Games.base')
+  writeFileSync(base, 'views: []\n# reordered a column through the UI\n')
+  const second = rebuild(root)
+
+  assert.equal(second.written.includes('Games.base'), false)
+  assert.match(readFileSync(base, 'utf8'), /reordered a column/)
+})
+
+test('--force is the only path that overwrites a seed', () => {
+  const root = vault()
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+
+  const base = join(root, 'Games.base')
+  writeFileSync(base, 'views: []\n')
+
+  const opened = openVault(root)
+  const state = fold(readEvents(opened.eventsFile), timeContext(opened))
+  build(opened, state, translator('en'), { force: true })
+
+  assert.equal(readFileSync(base, 'utf8').includes('views: []\n'), false)
+  assert.match(readFileSync(base, 'utf8'), /file\.inFolder\("runs"\)/)
+})
+
+test('a seed is never removed, not even when its target is gone', () => {
+  const root = vault(['obsidian'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+
+  writeFileSync(
+    join(root, 'gamereg.config.json'),
+    JSON.stringify({ locale: 'en', timezone: 'America/Sao_Paulo', build: { targets: ['csv'] } }),
+  )
+  const second = rebuild(root)
+
+  assert.equal(second.removed.includes('Games.base'), false)
+  assert.equal(existsSync(join(root, 'Games.base')), true)
+  // The game notes it did own are gone, so this is not simply a build that
+  // forgot to clean.
+  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), false)
+  assert.deepEqual(readManifest(openVault(root).manifestFile)?.targets['obsidian'], {
+    files: [],
+    seeds: ['Games.base'],
+  })
+})
+
 test('the argument narrows a build; a target the vault does not declare is refused', () => {
   const root = vault(['obsidian'])
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
