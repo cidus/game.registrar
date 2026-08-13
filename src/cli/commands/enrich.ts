@@ -48,7 +48,7 @@ function providerChain(root: string, requested: string | undefined): Provider[] 
  * short of that is a skip, never a guess — a wrong auto-enrich attaches the
  * wrong game's history to this one.
  */
-async function findDetail(provider: Provider, game: GameState): Promise<ProviderDetail | null> {
+export async function findDetail(provider: Provider, game: GameState): Promise<ProviderDetail | null> {
   const known = game.providers[provider.name]
   if (known !== undefined) return provider.fetch(String(known))
 
@@ -59,27 +59,33 @@ async function findDetail(provider: Provider, game: GameState): Promise<Provider
   return provider.fetch(matches[0]!.id)
 }
 
-type EnrichOutcome =
+export type EnrichOutcome =
   | { kind: 'enriched'; provider: string }
   | { kind: 'skipped' }
   | { kind: 'failed'; message: string }
 
-async function enrichGame(
+export async function enrichGame(
   cli: Cli,
   workspace: Workspace,
   game: GameState,
   providers: readonly Provider[],
   covers: boolean,
 ): Promise<EnrichOutcome> {
-  let lastFailure: string | null = null
+  // Whether at least one provider actually answered — reachable, credentials
+  // present — regardless of whether it found a match. A provider that is
+  // merely unconfigured (the common case: most vaults set up only one) must
+  // never turn "the working provider found nothing" into a reported failure.
+  let attempted = false
+  const failures: string[] = []
 
   for (const provider of providers) {
     let detail: ProviderDetail | null
     try {
       detail = await findDetail(provider, game)
+      attempted = true
     } catch (error) {
       if (error instanceof GameregError && error.code === 6) {
-        lastFailure = cli.t(error.key, error.params)
+        failures.push(cli.t(error.key, error.params))
         continue
       }
       throw error
@@ -95,7 +101,8 @@ async function enrichGame(
     return { kind: 'enriched', provider: provider.name }
   }
 
-  return lastFailure === null ? { kind: 'skipped' } : { kind: 'failed', message: lastFailure }
+  if (attempted || failures.length === 0) return { kind: 'skipped' }
+  return { kind: 'failed', message: failures.join('; ') }
 }
 
 export function registerEnrich(registrar: Registrar): void {
