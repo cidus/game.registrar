@@ -25,12 +25,14 @@
     "doctor": "Validate the log and report what is wrong.",
     "enrich": "Fetch metadata and cover art from a provider.",
     "query": "Run a read-only SELECT against data/log.db.",
+    "import": "Bulk historical import from a spreadsheet.",
     "arg": {
       "query": "Title, fragment or alias.",
       "term": "Search term.",
       "event": "Event id.",
       "target": "Build only these targets, from build.targets.",
-      "sql": "A single read-only SELECT statement."
+      "sql": "A single read-only SELECT statement.",
+      "csv_file": "Path to the CSV file to import."
     },
     "opt": {
       "help": "Show this help.",
@@ -73,7 +75,8 @@
       "run": "Which playthrough. Defaults to the most recently ended.",
       "provider": "Provider to query: igdb, rawg. Default: igdb, then rawg as fallback.",
       "all_games": "Enrich every game on record.",
-      "covers": "Also fetch and set cover art, unless the cover is source: user."
+      "covers": "Also fetch and set cover art, unless the cover is source: user.",
+      "mapping": "Path to a JSON file mapping gamereg fields to CSV column headers."
     },
     "verdict": "File the consolidated review of a playthrough."
   },
@@ -129,7 +132,9 @@
     "query_multiple_statements": "Only a single statement is allowed. Remove everything after the first semicolon.",
     "query_not_select": "Only a read-only SELECT (or WITH ... SELECT) is allowed.",
     "query_forbidden": "\"{keyword}\" is not allowed in a query. Only a read-only SELECT is allowed.",
-    "query_failed": "The query could not be run: {message}"
+    "query_failed": "The query could not be run: {message}",
+    "import_mapping_incomplete": "The mapping at {file} has no column for \"{field}\", which is required.",
+    "import_row_incomplete": "Row has no value for \"{field}\", which is required."
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
@@ -245,6 +250,11 @@
     "query": {
       "none": "No rows.",
       "count": "{count} rows:"
+    },
+    "import": {
+      "done": "{count} rows imported.",
+      "failed_count": "{count} rows failed. Everything else was written.",
+      "failed": "  row {row}: {message}"
     }
   },
   "prompt": {

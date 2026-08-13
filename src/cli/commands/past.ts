@@ -10,23 +10,11 @@
  */
 import type { Command } from 'commander'
 
-import { hoursToMinutes } from '../../core/duration.ts'
-import { newId } from '../../core/ids.ts'
-import { parseImpreciseDate, type ImpreciseDate } from '../../core/time.ts'
-import {
-  checkEnum,
-  COMPLETION_CRITERIA,
-  DIFFICULTY,
-  FORM,
-  MODE,
-  OUTCOME,
-  type DatePrecision,
-} from '../../core/vocab.ts'
-import { parseRating } from '../close-run.ts'
+import { fileHistoricalRun } from '../historical-run.ts'
 import { createContext } from '../context.ts'
 import { emit } from '../output.ts'
 import type { Registrar } from '../register.ts'
-import { commit, load, resolveGame, stage } from '../workspace.ts'
+import { commit, load } from '../workspace.ts'
 
 type Options = {
   id?: string
@@ -43,11 +31,6 @@ type Options = {
   note?: string
   metadata?: boolean
 }
-
-const COARSENESS: Record<DatePrecision, number> = { year: 2, month: 1, day: 0 }
-
-const coarser = (left: ImpreciseDate, right: ImpreciseDate): DatePrecision =>
-  COARSENESS[left.precision] >= COARSENESS[right.precision] ? left.precision : right.precision
 
 export function registerPast(registrar: Registrar): void {
   registrar
@@ -70,66 +53,26 @@ export function registerPast(registrar: Registrar): void {
       const cli = createContext(command)
       const workspace = load(cli)
 
-      const ended = parseImpreciseDate(options.ended)
-      const started = options.started === undefined ? ended : parseImpreciseDate(options.started)
-
-      const outcome =
-        options.outcome === undefined ? 'finished' : checkEnum('outcome', options.outcome, OUTCOME)
-      const criteria =
-        options.criteria === undefined
-          ? outcome === 'finished'
-            ? 'credits'
-            : 'abandoned'
-          : checkEnum('completion_criteria', options.criteria, COMPLETION_CRITERIA)
-      const difficulty =
-        options.difficulty === undefined
-          ? null
-          : checkEnum('difficulty', options.difficulty, DIFFICULTY)
-      const rating = parseRating(options.rating)
-      const minutes = options.hours === undefined ? null : hoursToMinutes(Number(options.hours))
-
-      const resolved = await resolveGame(cli, workspace, query, {
+      const { game, run, minutes, endedText } = await fileHistoricalRun(cli, workspace, {
+        query,
         id: options.id,
         platform: options.platform,
+        form: options.form,
+        mode: options.mode,
         metadata: options.metadata,
-        allowCreate: true,
-      })
-      const gameId = resolved.game_id
-      const game = workspace.state.gamesById.get(gameId)!
-      const last = game.runs.at(-1)
-
-      const platform = options.platform ?? last?.platform ?? cli.vault.config.defaults.platform
-      const runId = newId()
-
-      stage(cli, workspace, 'run.import', {
-        run_id: runId,
-        game_id: gameId,
-        ...(platform === null || platform === undefined ? {} : { platform }),
-        form:
-          options.form === undefined
-            ? (last?.form ?? cli.vault.config.defaults.form)
-            : checkEnum('form', options.form, FORM),
-        mode:
-          options.mode === undefined
-            ? (last?.mode ?? cli.vault.config.defaults.mode)
-            : checkEnum('mode', options.mode, MODE),
-        started_on: started.date,
-        ended_on: ended.date,
-        date_precision: coarser(started, ended),
-        outcome,
-        completion_criteria: criteria,
-        ...(rating === null ? {} : { rating }),
-        ...(difficulty === null ? {} : { difficulty }),
-        ...(minutes === null ? {} : { hours: minutes / 60 }),
-        ...(options.note === undefined ? {} : { note: options.note }),
-        replay: game.runs.length > 0,
+        ended: options.ended,
+        started: options.started,
+        hours: options.hours,
+        rating: options.rating,
+        difficulty: options.difficulty,
+        criteria: options.criteria,
+        outcome: options.outcome,
+        note: options.note,
       })
 
       const events = commit(cli, workspace)
-      const run = workspace.state.runsById.get(runId)!
-      const final = workspace.state.gamesById.get(gameId)!
 
-      const prose = [cli.t('prose.past.filed', { title: final.title, date: ended.text })]
+      const prose = [cli.t('prose.past.filed', { title: game.title, date: endedText })]
       if (minutes !== null) {
         prose.push(cli.t('prose.past.hours', { hours: (minutes / 60).toFixed(1) }))
       }
@@ -137,8 +80,8 @@ export function registerPast(registrar: Registrar): void {
       emit(cli, {
         action: 'run.import',
         result: {
-          game: { game_id: final.game_id, slug: final.slug, title: final.title },
-          run_id: runId,
+          game: { game_id: game.game_id, slug: game.slug, title: game.title },
+          run_id: run.run_id,
           started_on: run.started_on,
           ended_on: run.ended_on,
           date_precision: run.started_precision,
@@ -148,7 +91,7 @@ export function registerPast(registrar: Registrar): void {
           difficulty: run.difficulty,
           minutes: run.minutes,
           hours_source: run.hours_source,
-          status: final.status,
+          status: game.status,
         },
         events,
         prose,

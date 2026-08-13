@@ -23,6 +23,7 @@ import { registerDrop } from './commands/drop.ts'
 import { registerEnd } from './commands/end.ts'
 import { registerEnrich } from './commands/enrich.ts'
 import { registerFinish } from './commands/finish.ts'
+import { registerImport } from './commands/import.ts'
 import { registerInit } from './commands/init.ts'
 import { registerOpen } from './commands/open.ts'
 import { registerPast } from './commands/past.ts'
@@ -148,6 +149,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerDoctor(registrar)
   registerEnrich(registrar)
   registerQuery(registrar)
+  registerImport(registrar)
 
   try {
     await program.parseAsync([...args])

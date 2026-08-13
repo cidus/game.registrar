@@ -82,12 +82,14 @@
     "doctor": "Audita o log e relata o que está irregular.",
     "enrich": "Busca metadados e capa em um provedor externo.",
     "query": "Executa um SELECT somente leitura em data/log.db.",
+    "import": "Importação retroativa em massa, a partir de uma planilha.",
     "arg": {
       "query": "Título, fragmento ou apelido.",
       "term": "Termo de busca.",
       "event": "Id do evento.",
       "target": "Constrói apenas estes alvos, dentre os de build.targets.",
-      "sql": "Uma única instrução SELECT, somente leitura."
+      "sql": "Uma única instrução SELECT, somente leitura.",
+      "csv_file": "Caminho do arquivo CSV a importar."
     },
     "opt": {
       "help": "Mostra esta ajuda.",
@@ -130,7 +132,8 @@
       "run": "Qual jogatina. Por padrão, a encerrada mais recentemente.",
       "provider": "Provedor a consultar: igdb, rawg. Padrão: igdb, e rawg em seguida.",
       "all_games": "Enriquece todos os títulos do acervo.",
-      "covers": "Também busca e define a capa, a menos que a capa seja source: user."
+      "covers": "Também busca e define a capa, a menos que a capa seja source: user.",
+      "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV."
     },
     "verdict": "Protocola o parecer consolidado de uma jogatina."
   },
@@ -186,7 +189,9 @@
     "query_multiple_statements": "Apenas uma instrução é permitida. Remova tudo após o primeiro ponto e vírgula.",
     "query_not_select": "Apenas um SELECT somente leitura (ou WITH ... SELECT) é permitido.",
     "query_forbidden": "\"{keyword}\" não é permitido em uma consulta. Apenas um SELECT somente leitura é permitido.",
-    "query_failed": "A consulta não pôde ser executada: {message}"
+    "query_failed": "A consulta não pôde ser executada: {message}",
+    "import_mapping_incomplete": "O mapeamento em {file} não tem coluna para \"{field}\", que é obrigatório.",
+    "import_row_incomplete": "A linha não tem valor para \"{field}\", que é obrigatório."
   },
   "doctor": {
     "unparseable_line": "A linha {line} não é JSON válido.",
@@ -302,6 +307,11 @@
     "query": {
       "none": "Nenhuma linha.",
       "count": "{count} linhas:"
+    },
+    "import": {
+      "done": "{count} linhas importadas.",
+      "failed_count": "{count} linhas falharam. O resto foi gravado.",
+      "failed": "  linha {row}: {message}"
     }
   },
   "prompt": {
