@@ -44,7 +44,22 @@ function numerals(tokens: readonly string[]): string[] {
   return tokens.map((token, index) => (index === 0 ? token : romanToArabic(token)))
 }
 
-export function normalize(input: string): string {
+export type NormalizeOptions = {
+  /**
+   * Drop known edition-suffix phrases (`deluxe edition`, `remastered`, …).
+   * On by default — it is what lets a locally-typed "Skyrim Special Edition"
+   * resolve against a single local "Skyrim" record. Provider matching
+   * (`cli/commands/enrich.ts`) turns it off: a catalog frequently carries
+   * "Deluxe Edition" as its own entry with its own id, not looser phrasing of
+   * the same one, and stripping it there collapses two different games into
+   * one normalized string — exactly the case that must stay ambiguous.
+   */
+  editions?: boolean
+}
+
+export function normalize(input: string, options: NormalizeOptions = {}): string {
+  const stripEditions = options.editions ?? true
+
   let text = input.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
   // Dropped for matching, preserved in the stored title — same principle as
@@ -57,10 +72,12 @@ export function normalize(input: string): string {
   text = text.replace(/[^\p{L}\p{N}\s]/gu, ' ')
   text = text.replace(/\s+/g, ' ').trim()
 
-  for (const edition of EDITIONS) {
-    text = text.replace(new RegExp(`(^|\\s)${edition}(\\s|$)`, 'g'), ' ')
+  if (stripEditions) {
+    for (const edition of EDITIONS) {
+      text = text.replace(new RegExp(`(^|\\s)${edition}(\\s|$)`, 'g'), ' ')
+    }
+    text = text.replace(/\s+/g, ' ').trim()
   }
-  text = text.replace(/\s+/g, ' ').trim()
 
   let tokens = text.split(' ').filter((token) => token !== '')
   tokens = tokens.map((token) => (token === 'e' ? 'and' : token))

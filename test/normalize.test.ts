@@ -36,6 +36,16 @@ test('edition suffixes are dropped for matching', () => {
   assert.equal(normalize('Borderlands GOTY'), 'borderlands')
 })
 
+test('{ editions: false } keeps edition suffixes literal, for provider matching', () => {
+  assert.equal(normalize('Skyrim Special Edition', { editions: false }), 'skyrim special edition')
+  assert.notEqual(
+    normalize('Final Fantasy VII Remake', { editions: false }),
+    normalize('Final Fantasy VII Remake: Deluxe Edition', { editions: false }),
+  )
+  // Everything else still applies with editions off: diacritics, case, roman numerals, the trailing-year rule.
+  assert.equal(normalize('Pokémon (1998)', { editions: false }), 'pokemon')
+})
+
 test('roman and arabic numerals are equivalent', () => {
   assert.equal(normalize('Final Fantasy VII'), normalize('Final Fantasy 7'))
   assert.equal(normalize('Grand Theft Auto V'), normalize('Grand Theft Auto 5'))

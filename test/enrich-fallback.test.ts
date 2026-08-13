@@ -168,3 +168,53 @@ test('a provider title with a trailing (year) still auto-matches the local title
   const outcome = await enrichGame(cli, workspace, game, [igdb], false)
   assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
 })
+
+test('a "Deluxe Edition" catalog entry does not collide with the base game', async () => {
+  // Regression: IGDB really does carry "Final Fantasy VII Remake: Deluxe
+  // Edition" as its own entry, with its own id — verified against the live
+  // API. Stripping edition suffixes from provider candidates collapsed both
+  // onto the same normalized string, turning one confident match into a
+  // false ambiguity that made enrich skip a well-known game.
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'ff7r', title: 'Final Fantasy VII Remake' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [
+      { id: '11169', title: 'Final Fantasy VII Remake', year: 2020, platforms: [], cover_url: null },
+      { id: '134226', title: 'Final Fantasy VII Remake: Deluxe Edition', year: 2020, platforms: [], cover_url: null },
+      { id: '144024', title: 'Final Fantasy VII Remake Intergrade', year: 2021, platforms: [], cover_url: null },
+    ],
+    fetch: async (id: string) => ({
+      id,
+      fields: { title: 'Final Fantasy VII Remake', release_year: 2020, developer: null, publisher: null, genres: [], platforms: [] },
+      cover_url: null,
+    }),
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
+})
+
+test('two catalog entries with the exact same title stay ambiguous — no guessing which platform SKU', async () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [
+      { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+      { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    ],
+    fetch: async () => {
+      throw new Error('must not be called: matching must stay ambiguous')
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false)
+  assert.deepEqual(outcome, { kind: 'skipped' })
+})

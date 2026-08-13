@@ -59,8 +59,20 @@ Applied to both sides of every comparison:
 7. Roman ↔ arabic numeral equivalence: `final fantasy vii` ≡ `final fantasy 7`
 8. `&` ≡ `and` ≡ `e`
 
-Rule 6 matters more than it looks. People say "Final Fantasy 7" and databases
-store "VII".
+Rule 7 (roman numerals) matters more than it looks. People say "Final Fantasy
+7" and databases store "VII".
+
+**Rule 6 (edition suffixes) does not apply when matching a provider
+candidate.** A catalog frequently lists an edition as its own entry, with
+its own id — IGDB carries "Final Fantasy VII Remake" and "Final Fantasy VII
+Remake: Deluxe Edition" as two different games, not two spellings of one.
+Stripping the suffix there would collapse them into the same normalized
+string and turn one confident match into a false ambiguity. Provider
+matching (`gamereg enrich`) normalizes with edition-stripping off; every
+other rule, including the trailing-year one, still applies. Local matching
+(steps 3–5) keeps edition-stripping on, since a user typing "Skyrim Special
+Edition" against their own single local "Skyrim" record is exactly the case
+it exists for.
 
 ## Auto-resolution threshold
 

@@ -132,7 +132,7 @@ function ambiguous(games: readonly GameState[]): Resolution {
 /** Every string a game answers to: its title, its sort title, its aliases. */
 function names(game: GameState): string[] {
   const values = [game.title, ...(game.sort_title === null ? [] : [game.sort_title]), ...game.aliases]
-  return values.map(normalize)
+  return values.map((value) => normalize(value))
 }
 
 export function search(state: VaultState, query: string, platform?: string | null): GameState[] {

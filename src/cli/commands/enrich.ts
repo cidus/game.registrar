@@ -47,14 +47,19 @@ function providerChain(root: string, requested: string | undefined): Provider[] 
  * exactly one result, and its normalized title matches exactly. Anything
  * short of that is a skip, never a guess — a wrong auto-enrich attaches the
  * wrong game's history to this one.
+ *
+ * Edition-suffix stripping is off here (`{ editions: false }`), unlike local
+ * resolution: a catalog frequently lists "Deluxe Edition" as its own entry
+ * with its own id — stripping the suffix would collapse it with the base
+ * game and turn one confident match into an ambiguous pair.
  */
 export async function findDetail(provider: Provider, game: GameState): Promise<ProviderDetail | null> {
   const known = game.providers[provider.name]
   if (known !== undefined) return provider.fetch(String(known))
 
-  const needle = normalize(game.title)
+  const needle = normalize(game.title, { editions: false })
   const candidates = await provider.search(game.title)
-  const matches = candidates.filter((candidate) => normalize(candidate.title) === needle)
+  const matches = candidates.filter((candidate) => normalize(candidate.title, { editions: false }) === needle)
   if (matches.length !== 1) return null
   return provider.fetch(matches[0]!.id)
 }
