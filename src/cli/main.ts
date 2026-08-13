@@ -26,6 +26,7 @@ import { registerFinish } from './commands/finish.ts'
 import { registerInit } from './commands/init.ts'
 import { registerOpen } from './commands/open.ts'
 import { registerPast } from './commands/past.ts'
+import { registerQuery } from './commands/query.ts'
 import { registerSearch } from './commands/search.ts'
 import { registerStart } from './commands/start.ts'
 import { registerStatus } from './commands/status.ts'
@@ -146,6 +147,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerBuild(registrar)
   registerDoctor(registrar)
   registerEnrich(registrar)
+  registerQuery(registrar)
 
   try {
     await program.parseAsync([...args])

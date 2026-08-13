@@ -81,11 +81,13 @@
     "build": "Regenera as notas e a tabela consolidada.",
     "doctor": "Audita o log e relata o que está irregular.",
     "enrich": "Busca metadados e capa em um provedor externo.",
+    "query": "Executa um SELECT somente leitura em data/log.db.",
     "arg": {
       "query": "Título, fragmento ou apelido.",
       "term": "Termo de busca.",
       "event": "Id do evento.",
-      "target": "Constrói apenas estes alvos, dentre os de build.targets."
+      "target": "Constrói apenas estes alvos, dentre os de build.targets.",
+      "sql": "Uma única instrução SELECT, somente leitura."
     },
     "opt": {
       "help": "Mostra esta ajuda.",
@@ -178,7 +180,13 @@
     "no_run": "{title} não tem jogatina à qual anexar um parecer.",
     "unknown_run": "{title} não tem jogatina com o id \"{id}\".",
     "text_file": "{file} não existe.",
-    "vault_exists": "{file} já existe. Repita com --sim para sobrescrever."
+    "vault_exists": "{file} já existe. Repita com --sim para sobrescrever.",
+    "log_db_missing": "{file} ainda não existe. Declare \"sqlite\" em build.targets e execute gamereg build.",
+    "query_empty": "Nada para executar. Informe uma única instrução SELECT.",
+    "query_multiple_statements": "Apenas uma instrução é permitida. Remova tudo após o primeiro ponto e vírgula.",
+    "query_not_select": "Apenas um SELECT somente leitura (ou WITH ... SELECT) é permitido.",
+    "query_forbidden": "\"{keyword}\" não é permitido em uma consulta. Apenas um SELECT somente leitura é permitido.",
+    "query_failed": "A consulta não pôde ser executada: {message}"
   },
   "doctor": {
     "unparseable_line": "A linha {line} não é JSON válido.",
@@ -290,6 +298,10 @@
       "none": "Nada para enriquecer.",
       "failed_count": "{count} títulos não puderam ser consultados. O resto foi gravado.",
       "failed": "  {title}: {message}"
+    },
+    "query": {
+      "none": "Nenhuma linha.",
+      "count": "{count} linhas:"
     }
   },
   "prompt": {

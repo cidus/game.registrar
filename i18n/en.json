@@ -24,11 +24,13 @@
     "build": "Regenerate notes and the consolidated table.",
     "doctor": "Validate the log and report what is wrong.",
     "enrich": "Fetch metadata and cover art from a provider.",
+    "query": "Run a read-only SELECT against data/log.db.",
     "arg": {
       "query": "Title, fragment or alias.",
       "term": "Search term.",
       "event": "Event id.",
-      "target": "Build only these targets, from build.targets."
+      "target": "Build only these targets, from build.targets.",
+      "sql": "A single read-only SELECT statement."
     },
     "opt": {
       "help": "Show this help.",
@@ -121,7 +123,13 @@
     "no_run": "{title} has no run to attach a verdict to.",
     "unknown_run": "{title} has no run with the id \"{id}\".",
     "text_file": "{file} does not exist.",
-    "vault_exists": "{file} already exists. Re-run with --yes to overwrite it."
+    "vault_exists": "{file} already exists. Re-run with --yes to overwrite it.",
+    "log_db_missing": "{file} does not exist yet. Declare \"sqlite\" in build.targets and run gamereg build.",
+    "query_empty": "Nothing to run. Provide a single SELECT statement.",
+    "query_multiple_statements": "Only a single statement is allowed. Remove everything after the first semicolon.",
+    "query_not_select": "Only a read-only SELECT (or WITH ... SELECT) is allowed.",
+    "query_forbidden": "\"{keyword}\" is not allowed in a query. Only a read-only SELECT is allowed.",
+    "query_failed": "The query could not be run: {message}"
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
@@ -233,6 +241,10 @@
       "none": "Nothing to enrich.",
       "failed_count": "{count} games could not be reached. Everything else was written.",
       "failed": "  {title}: {message}"
+    },
+    "query": {
+      "none": "No rows.",
+      "count": "{count} rows:"
     }
   },
   "prompt": {
