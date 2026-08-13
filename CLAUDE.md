@@ -186,6 +186,31 @@ Everything phase 0 established still holds, and phase 1 adds to it:
   event payloads stay neutral.
 - Commit messages: conventional commits, English.
 
+## Versioning
+
+SemVer, tied to the roadmap phases in `06-roadmap.md`, not to conventional
+feature-by-feature bumps:
+
+- `0.0.0` — phase 0. `0.1.0` — phase 1. `0.2.0` — phase 2, and so on.
+- `1.0.0` lands only when every phase in `06-roadmap.md` is done, not before.
+- A patch version (`0.x.1`) is a bug fix within an already-tagged phase, not a
+  new phase.
+
+Tagging a finished phase:
+
+1. Commit the phase's work as normal.
+2. Tag the commit that completes the phase: `git tag -a v0.X.0 -m "..."`, with
+   the message summarizing what shipped (see `v0.0.0` for the shape).
+3. Bump `version` in `package.json` **and** `package-lock.json` to the next
+   phase's version (`npm version minor --no-git-tag-version` for a phase bump),
+   as a separate commit — `chore(release): bump version to 0.X.0 for phase N`.
+   This commit is untagged; it marks the start of the next phase's work, not
+   its completion.
+
+Only tag a phase once it is actually done — don't pre-bump speculatively. Never
+tag or push without being asked; versioning is a deliberate, user-triggered
+action in this repo, not something to do alongside an unrelated commit.
+
 ## Language
 
 Repository language is English: code, comments, docs, commit messages, issues.
