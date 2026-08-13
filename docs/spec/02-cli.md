@@ -294,6 +294,40 @@ anything. The user photo remains an attachment on the timeline.
 
 ## Maintenance commands
 
+### `gamereg init`
+
+```
+gamereg init [--locale en] [--timezone America/Sao_Paulo] [--day-cutoff 05:00]
+             [--platform switch] [--form digital] [--mode solo]
+             [--targets obsidian,csv] [--csv-dir data]
+```
+
+Writes `gamereg.config.json` at the vault root (`--vault`, or the working
+directory). Nothing else — every other path in `docs/spec/00-architecture.md`'s
+directory listing is created lazily, by whichever command or target first
+writes into it. `--locale` is the one field with no dedicated flag: it reuses
+the global `--locale`, which already picks the invocation's own output
+language, and writes that same value into `config.locale`.
+
+Every field is optional and falls back, in order, to: the flag, an interactive
+prompt, then the built-in default (`DEFAULT_CONFIG`) — the same
+flag-then-prompt-then-default shape `runDefaults` already uses for `start`.
+Interactivity follows the normal resolution (02-cli.md, "Two independent
+axes"): a human at a terminal is asked for whatever a flag did not answer; a
+machine gets the built-ins and is never blocked.
+
+A vault that already has a config file is left alone: `init` exits 7
+(`needs_confirmation`) and does not touch the file. `--yes` overwrites it —
+and when it does, the existing values seed the prompts instead of the
+built-ins, so re-running `init` interactively behaves like editing the config
+rather than resetting it.
+
+`--targets` validates like `build.targets` elsewhere: an unknown name exits 2
+listing the valid ones, and a later-phase target exits 2 saying so.
+
+This command never touches `data/events.jsonl` and never appends an event —
+there is no state to fold yet, only a vault to declare.
+
 ### `gamereg alias <query> --add <alias>`
 ### `gamereg enrich [<query>] [--provider igdb] [--all] [--covers]`
 
@@ -366,6 +400,7 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `search` | `buscar` |
 | `open` | `abertas` |
 | `due` | `pendencias` |
+| `init` | `inicializar` |
 | `build` | `construir` |
 | `query` | `consultar` |
 | `amend` | `corrigir` |

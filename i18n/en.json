@@ -20,6 +20,7 @@
     "alias": "Teach another name for a game.",
     "amend": "Correct an event by appending a patch.",
     "revoke": "Withdraw an event from the fold.",
+    "init": "Write gamereg.config.json for a new vault.",
     "build": "Regenerate notes and the consolidated table.",
     "doctor": "Validate the log and report what is wrong.",
     "arg": {
@@ -43,6 +44,10 @@
       "platform": "Platform. Filters a search; never resolves it.",
       "form": "physical, digital, emulator, subscription, borrowed, cloud, demo.",
       "mode": "solo, coop, versus, mixed.",
+      "timezone": "IANA timezone, e.g. America/Sao_Paulo.",
+      "day_cutoff": "HH:MM. When the logical day flips for reporting.",
+      "targets": "Comma-separated build targets, e.g. obsidian,csv.",
+      "csv_dir": "Vault-relative directory for the csv target.",
       "replay": "Force a new run even when a closed one exists.",
       "no_metadata": "Create a local-only entry from the raw string.",
       "note": "Note, in the player's own words.",
@@ -109,7 +114,8 @@
     "outside_vault": "A build target planned to write outside the vault: {path}.",
     "no_run": "{title} has no run to attach a verdict to.",
     "unknown_run": "{title} has no run with the id \"{id}\".",
-    "text_file": "{file} does not exist."
+    "text_file": "{file} does not exist.",
+    "vault_exists": "{file} already exists. Re-run with --yes to overwrite it."
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
@@ -210,6 +216,10 @@
     "verdict": {
       "filed": "Verdict filed for {title}. It appears in the note at the next build.",
       "replaced": "Verdict replaced for {title}. The previous text stays in the log."
+    },
+    "init": {
+      "done": "Vault opened at {root}. Targets: {targets}.",
+      "overwritten": "Configuration rewritten at {root}. Targets: {targets}."
     }
   },
   "prompt": {
@@ -218,7 +228,17 @@
     "cancel": "Cancel",
     "cancelled": "Cancelled. Nothing was written.",
     "candidate_local": "{title}{year} — on record, {status}",
-    "candidate_new": "{title}{year}"
+    "candidate_new": "{title}{year}",
+    "init": {
+      "locale": "Locale (blank for the environment's):",
+      "timezone": "Timezone (blank for the environment's):",
+      "day_cutoff": "Day cutoff (HH:MM):",
+      "platform": "Default platform (blank to require one per game):",
+      "form": "Default form:",
+      "mode": "Default mode:",
+      "targets": "Build targets:",
+      "csv_dir": "CSV directory:"
+    }
   },
   "note": {
     "heading": {
