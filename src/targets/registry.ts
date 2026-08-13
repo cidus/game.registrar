@@ -9,9 +9,10 @@ import { GameregError } from '../core/errors.ts'
 import { checkTarget, type BuildTarget } from '../core/vocab.ts'
 import { csv } from './csv.ts'
 import { obsidian } from './obsidian.ts'
+import { sqlite } from './sqlite.ts'
 import type { Target } from './types.ts'
 
-const REGISTRY: readonly Target[] = [obsidian, csv]
+const REGISTRY: readonly Target[] = [obsidian, csv, sqlite]
 
 export function allTargets(): readonly Target[] {
   return REGISTRY
