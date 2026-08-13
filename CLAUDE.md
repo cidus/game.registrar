@@ -5,108 +5,156 @@ Briefing for a coding session on this repository.
 ## What this is
 
 `gamereg` — a CLI that records video game playthroughs into an append-only event
-log, and regenerates Markdown notes, a consolidated table and a SQLite cache from
-that log. An optional chat agent sits on top and does nothing but invoke the CLI.
+log, and regenerates Markdown notes, run notes, a consolidated table and a set of
+other artifacts from that log. An optional chat agent sits on top and does
+nothing but invoke the CLI.
 
 **Read `docs/spec/` before writing code.** Start with `00-architecture.md`
 (decisions and invariants), then `01-model.md` (the data model). Those two
-constrain everything else. For anything touching `build`, add
-`07-targets.md` — the build is a registry of targets, not a single emitter.
+constrain everything else. For anything touching `build`, add `07-targets.md` —
+the build is a registry of targets, not a single emitter.
 
 ## Current state
 
-Phase 0 is implemented: event log, fold with `amend`/`revoke`, duration
-arithmetic, local resolution, the recording and query commands, `verdict`,
-`build` and `doctor`. `npm test` runs the suite (`node --test`, no framework).
+**Phase 0 is done.** Event log with `amend`/`revoke`, fold, duration arithmetic
+with breaks and the logical-day rule, local resolution with alias learning, the
+recording and query commands, `verdict`, `init`, `doctor`, and `build` as a
+target registry with a manifest and ownership-based cleanup. Two targets ship:
+`obsidian` (game notes, run notes, `Games.md`, seeded `Games.base`) and `csv`.
+`example-vault/` is the golden fixture for both. `npm test` runs the suite
+(`node --test`, no framework) — 136 tests, no network, no framework dependency.
 
-One deliberate gap: **image ingestion** (`--photo`, hashing, EXIF strip,
-`cover`) was moved out of phase 0 by decision, so `sharp` is not a dependency
-yet and there is no `gallery` block.
+Phase 0 is complete as scoped in `06-roadmap.md` — image ingestion was moved to
+phase 1 there (it shares `sharp` and the `cover` command with enrichment, so
+splitting it from phase 1 bought nothing). Today there is no `--photo`, no
+`attach`, no `cover`, no `gallery` block, and `assets/` is never written.
+`fold.ts` already handles `game.cover` and the cover-precedence rule, so the
+model side is in place.
 
-**The spec has moved ahead of the code.** `07-targets.md` is new and
-`04-derived.md` was rewritten around it. Not yet implemented, and all of it is
-phase 0:
+## Phase 1 — metadata and querying
 
-- `build` as a target registry with a manifest (`.gamereg/manifest.json`) and
-  ownership-based cleanup. This replaces the `previous_slugs` cleanup path in
-  `render/build.ts` — delete it, do not keep both.
-- Run notes: `runs/<slug>-<started_on>.md`, one per playthrough, fully generated
-- Game notes carry `header`, `verdict` and `runs` blocks, with no session log and
-  aggregate frontmatter; the session log lives in the run note
-- `Games.base` seeded from `templates/`, written once and never regenerated
-- The `csv` target
+The goal, from `06-roadmap.md`: a new game gets a cover and metadata without
+typing anything, and "how many hours did I spend on RPGs in 2026" is answerable
+with one command.
 
-`example-vault/` still holds the fixtures the current code produces. Regenerating
-them is part of the work, not a separate chore — the golden diff *is* the review.
-Nothing outside this repo has ever been built with the old shape, so the fixtures
-are the only thing that needs updating: write the new shape, do not write a
-migration.
+None of it exists yet. `src/providers/` and `src/db/` are empty of files.
 
-Also not built, as the roadmap intends: providers, SQLite, `query`, `due`,
-`checkin`, `import`, the agent and the site.
+### Order of work
+
+1. **Provider credentials** — env var first (`IGDB_CLIENT_ID` etc.), then
+   `gamereg.secrets.json` at the vault root. `init` seeds an empty secrets file
+   and adds it to `.gitignore`, idempotently. No command ever writes a
+   credential it was handed. See *Provider credentials* in `02-cli.md`.
+2. **Provider interface** + `providers/igdb.ts`, then `providers/rawg.ts` as
+   fallback. One common interface, mocked at that interface in tests.
+3. **`enrich [<query>] [--provider igdb] [--all] [--covers]`** — the network
+   step, isolated. Appends `game.enrich`. A failure here never blocks recording
+   and exits 6, not 1 — name the missing/rejected credential in the message.
+4. **Image ingestion** — the pipeline in `04-derived.md` (EXIF read then
+   stripped, normalize, hash the *normalized* bytes, write
+   `assets/<sha[0:2]>/<sha>.webp`, then append). Then `--photo` / `--caption` /
+   `--kind` / `--as-cover` on every recording command, `attach`, `cover`, and the
+   `gallery` block in the game note.
+5. **Resolution step 6** — provider search, with the auto-resolution threshold of
+   `03-resolution.md` honoured exactly: one surviving result *and* an exact
+   normalized title match, or it asks. Alias learning after a code 3 already
+   works and must keep working through the provider path.
+6. **`sqlite` target** — schema and views from `04-derived.md`, rebuilt from
+   scratch every build via `node:sqlite`, byte-comparable across runs.
+7. **`query <sql>`** — read-only, single `SELECT` only, over `data/log.db`.
+8. **`json` and `html` targets** — same tables, same column names as `csv` and
+   `sqlite`. The HTML file is self-contained: no CDN, no network at runtime.
+9. **`import <file.csv> --mapping <file.json>`** — one `run.import` per row,
+   with a `--dry-run` that is documented as the recommended path.
+
+Not in scope for phase 1, decided in `06-roadmap.md`: franchise/series grouping
+(deferred past phase 1) and a backlog view for unplayed games (rejected — the
+register holds what you played, not what you own).
+
+Ship each step with its tests. Do not build all of it and then test.
+
+### Things phase 1 has to touch that are easy to miss
+
+- **`CURRENT_PHASE` in `core/vocab.ts` is `0`**, and `checkTarget` uses it to
+  reject `sqlite`, `json` and `html` with a usage error. Raise it as those
+  targets actually land, not before — the gate is what keeps a half-built target
+  out of a user's `build.targets`.
+- **`build.obsidian.{run_notes,bases}`** appears in the `07-targets.md` config
+  example but `core/config.ts` does not parse it. Either implement the keys or
+  drop them from the spec; do not leave the example lying.
+- **`images.*` config** (`max_edge`, `quality`, `keep_original`, `publish`) has
+  no representation in `core/config.ts` yet. One publish switch, not two — see
+  *Decided* in `06-roadmap.md`.
+- **`gamereg.secrets.json`** is a new file, parallel to `gamereg.config.json`
+  but never touched by `build` or any target — only `init` writes it, and only
+  when absent. Loading it is `core/config.ts`-adjacent, not `targets/`.
+- `csv`, `json` and `sqlite` must not disagree about a column. Where they do, the
+  SQLite schema in `04-derived.md` is right and the other is the bug.
 
 ## Non-negotiables
 
 These come from `00-architecture.md` and are not style preferences:
 
 1. `data/events.jsonl` is append-only. No code path rewrites or deletes a line.
-2. `gamereg build` is idempotent — byte-identical output on a second run.
+2. `gamereg build` is idempotent — byte-identical output on a second run,
+   including binary targets.
 3. Nothing outside `<!-- gamereg:... -->` markers is modified in a note. Test it.
-4. No write command performs network I/O.
+4. No write command performs network I/O. `enrich` is a separate command, and it
+   is the only one that reaches the network.
 5. Every state mutation appends at least one event.
 6. Durations, ratings and session state are computed in code. Never inferred.
 7. Output format and interactivity are two independent axes, both defaulted from
    the environment. The interactive menu is a presenter over the same candidate
    array a JSON caller gets — never a second resolution code path.
 8. A target reads the folded state and the config. Nothing else — not the
-   filesystem, not its own previous output, not another target's.
+   filesystem, not the network, not its own previous output, not another
+   target's.
 9. The build removes only what the manifest says it owns. Never by pattern,
    never a seeded `.base`, and never at all when the manifest is missing.
+10. SQLite is a cache, never a source of truth. Deleting `data/log.db` costs
+    nothing, `query` only reads it, and nothing but the build writes it.
+11. A user cover (`source: user`) is never replaced by enrichment, not even under
+    `--covers --force`. Only `cover --reset` gives provider art back.
+12. GPS and the rest of EXIF are stripped on ingest. Not configurable off.
 
 If a task seems to require breaking one of these, stop and raise it rather than
 working around it.
 
-## Layout to build toward
+## Layout
+
+What exists today, with the phase 1 additions marked:
 
 ```
 src/
-  cli/            commander wiring, one file per command
-  core/           events (append, fold, validate), duration, state
+  cli/            commander wiring, one file per command under commands/
+  core/           events, fold, duration, time, vocab, config, vault, errors
   resolve/        normalization, matching, candidate ranking
-  render/         remark pipeline, marker splicing, note + table emitters
-  targets/        registry, manifest, one file per target
-  db/             SQLite schema, build, query guard
-  providers/      igdb.ts, rawg.ts — phase 1, behind a common interface
+  render/         remark pipeline, marker splicing, note/run/table emitters
+  targets/        registry, manifest, writer, audit; one file per target
+  db/             + phase 1: SQLite schema, build, query guard
+  providers/      + phase 1: igdb.ts, rawg.ts behind a common interface
+  images/         + phase 1: ingest pipeline, hashing, EXIF
   i18n/
 templates/        Games.base and anything else seeded into a vault
 example-vault/    fixtures: fictional events + expected output
 test/
 ```
 
-## Order of work for Phase 0
-
-1. Event envelope + append + ULID + JSONL read/write
-2. Fold to derived state, with `amend` / `revoke` applied
-3. Duration arithmetic, including breaks and the logical-day rule
-4. Enum validation with useful error messages listing valid tokens
-5. `start` / `end` / `break` / `finish` / `drop` / `past` / `open` / `status`
-6. Local resolution (steps 1–5 and 7 of `03-resolution.md`)
-7. remark pipeline and marker splicing
-8. Note and table emitters
-9. Target registry, `build.targets` config, manifest and cleanup
-10. Run notes, and the game note reshaped around them
-11. `csv` target, `Games.base` seed
-12. `doctor`
-
-Ship each step with its tests. Do not build all commands then test.
+`render/` emits Markdown; `targets/` decides what files exist and applies them to
+disk. A target plans, the writer writes — that split is what makes the write
+policies (`replace` / `splice` / `seed`) a property of the artifact rather than
+of the emitter.
 
 ## Testing strategy
 
+Everything phase 0 established still holds, and phase 1 adds to it:
+
 - **Golden files** are the primary tool. `example-vault/` holds a fixture event
-  log and the exact expected output. Any render change shows up as a diff. Every
-  target ships its fixture; a target with no golden file is not done.
-- **Idempotency test:** build, snapshot, build again, assert byte equality.
-  Across every enabled target, binary ones included.
+  log and the exact expected output. Every target ships its fixture; a target
+  with no golden file is not done. That now includes `sqlite`, `json` and `html`.
+- **Idempotency test:** build, snapshot, build again, assert byte equality,
+  across every enabled target, binary ones included. For SQLite this means a
+  fixed page size and no timestamps in the file.
 - **Ownership test:** build with a target enabled, disable it, build again,
   assert its files are gone and nothing else moved. Then delete the manifest and
   assert the build still succeeds and deletes nothing.
@@ -117,13 +165,21 @@ Ship each step with its tests. Do not build all commands then test.
 - **Fold properties:** replaying a log twice yields identical state; an `amend`
   applied to any event produces the same state as if the original had been
   written that way.
-- **No network in unit tests.** Providers are mocked at the interface.
+- **No network in unit tests, ever.** Providers are mocked at the interface, and
+  a test that would open a socket is a bug in the test.
+- **Ingest determinism:** the same photo ingested twice yields the same hash, the
+  same file, and no second write. Assert the stripped EXIF is actually gone.
+- **Query guard:** the SQL allowlist is a security boundary — test what it
+  refuses (multiple statements, `PRAGMA`, `ATTACH`, comments hiding a second
+  statement, `WITH ... DELETE`), not only what it accepts.
 - Use `node:test`. No test framework dependency.
 
 ## Conventions
 
 - TypeScript, ESM, Node 22+. `strict: true`, no `any` in `core/`.
 - Errors carry the exit code from `02-cli.md`. One error class, a `code` field.
+  Phase 1 makes code 6 (`provider_unavailable`) real — it means the local work
+  was still committed.
 - All user-facing strings come from `i18n/`. No hardcoded English in `src/`,
   including error messages.
 - The persona (see `05-agent.md`) belongs to prose output only. JSON output and
@@ -142,4 +198,7 @@ project.
 - A new build target, or a target that needs to read anything but folded state
 - Adding a runtime dependency beyond the stack table in `00-architecture.md`
 - Anything that writes outside the vault root
-- The open questions listed at the end of `06-roadmap.md`
+
+All open questions in `06-roadmap.md` are resolved as of this phase; the
+remaining two items there (retroactive session start, timezone changes while
+travelling) are deferred by design, not blocking anything now.

@@ -328,7 +328,37 @@ listing the valid ones, and a later-phase target exits 2 saying so.
 This command never touches `data/events.jsonl` and never appends an event —
 there is no state to fold yet, only a vault to declare.
 
+`init` also seeds `gamereg.secrets.json` (empty credential fields, one per
+known provider) if absent, and appends its filename to `.gitignore` at the
+vault root, creating `.gitignore` if the vault has none. Both are idempotent:
+re-running `init` never overwrites an existing `gamereg.secrets.json` and never
+duplicates the `.gitignore` line. See *Provider credentials* below.
+
 ### `gamereg alias <query> --add <alias>`
+
+## Provider credentials
+
+Two sources, checked in this order, first one present per key wins:
+
+1. **Environment variables** — `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`,
+   `RAWG_API_KEY`, one variable per credential, named `<PROVIDER>_<FIELD>`.
+2. **`gamereg.secrets.json`** at the vault root, seeded empty by `init` and
+   gitignored by `init`. Same shape as `gamereg.config.json`, keyed by provider:
+
+   ```jsonc
+   { "igdb": { "client_id": "...", "client_secret": "..." }, "rawg": { "api_key": "..." } }
+   ```
+
+The file exists so a vault stays runnable without exporting shell variables;
+the environment variable exists so a credential never has to touch disk if the
+caller (a cron host, a container) is already set up that way. Neither is
+required — a provider with no credential from either source is simply
+unavailable, and `enrich` exits 6 naming which one.
+
+Like `gamereg.config.json`, `gamereg.secrets.json` is read, never written by
+anything but `init`. No command persists a credential it was handed on the
+command line; there is no `--client-secret` flag for exactly that reason.
+
 ### `gamereg enrich [<query>] [--provider igdb] [--all] [--covers]`
 
 Network step, isolated. Appends `game.enrich` and fetches provider cover art.

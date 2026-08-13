@@ -315,11 +315,12 @@ configurable to `false` for location tags specifically.
 
 ### Publication
 
-`images.publish` (default `false`) controls whether attachments are copied into
-the generated site. Covers follow `images.publish_covers`, separately, because
-the licensing question differs: photos you took of your own shelf are yours; box
-art fetched from a provider is not. See the open question in
-[06-roadmap](06-roadmap.md).
+`images.publish` (default `false`) controls whether attachments, covers
+included, are copied into the generated site. One switch, not two: the
+licensing distinction between a user's own photos and provider box art only
+matters for a public, third-party-facing site, and this vault is for personal
+use ([06-roadmap](06-roadmap.md)). Revisit as two switches if the site is ever
+made genuinely public.
 
 When publication is off, the site renders a placeholder and the vault keeps
 everything. The local record is never degraded to satisfy the public one.

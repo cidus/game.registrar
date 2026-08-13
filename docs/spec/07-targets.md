@@ -249,9 +249,9 @@ the run note:
 - Game-level fields the user will want to filter by — `genres`, `developer`,
   `release_year` — are **denormalized onto the run note**. Duplication in derived
   output is free; it regenerates.
-- A game with no runs at all (`status: unplayed`) has no row in a run-level base.
-  If a backlog view is ever wanted, it is a second base over `games/`, not a
-  compromise in this one.
+- A game with no runs at all (`status: unplayed`) has no row in a run-level base,
+  and that stays so: [06-roadmap](06-roadmap.md) decided against a backlog view.
+  The register holds what you played.
 
 Bases rewrites its own YAML when edited through the UI. The seed above is
 therefore written in the shape Obsidian itself produces, and the implementation

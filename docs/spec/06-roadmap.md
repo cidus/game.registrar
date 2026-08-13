@@ -12,10 +12,12 @@ Each phase ends with something usable. No phase depends on the next one existing
 - `build` as a target registry, with ownership tracking
 - `obsidian` target: game notes, run notes, `Games.md`, seeded `Games.base`
 - `csv` target: runs, sessions, games
-- Image ingestion: `--photo`, hashing, normalization, EXIF strip, `cover`
 - Golden-file tests, idempotency test, `doctor`
 
-**Deliberately absent:** network, providers, SQLite, agent, site.
+**Deliberately absent:** network, providers, SQLite, agent, site, image
+ingestion. Image ingestion needs no network, but it shares a dependency
+(`sharp`) and a command (`cover`) with enrichment, and splitting them bought
+nothing — moved to phase 1 below.
 
 `csv` and the Bases seed are here rather than in phase 1 for one reason: the exit
 criterion is two weeks of *looking* at the data, and a static Markdown table is
@@ -31,6 +33,7 @@ faster.
 
 - `providers/igdb.ts`, then `rawg.ts` as fallback
 - `enrich`, cover download via `sharp`
+- Image ingestion: `--photo`, hashing, normalization, EXIF strip, `attach`, `cover`
 - Provider search in resolution (step 6), alias learning
 - `sqlite` target + documented views + `query`
 - `json` and `html` targets
@@ -80,23 +83,24 @@ something went wrong earlier.
 
 Not blocking Phase 0; decide before the phase noted.
 
-1. **Cover and screenshot licensing for the public site.** Box art from a
-   provider is not ours to republish; screenshots of a game are murkier; photos
-   you took of your own shelf are plainly yours. `images.publish` and
-   `images.publish_covers` are separate switches precisely because the answers
-   differ. *Decide before Phase 3.*
-2. **Multi-platform runs.** Started on Switch, finished on PC. Currently
-   `platform` sits on the run. Might need to move to the session. *Watch during
-   Phase 0; the log will show whether it happens.*
-3. **Franchise / series grouping.** Wanted for statistics, absent from the model.
-   Could be a derived tag from provider data rather than a stored field.
-   *Decide during Phase 1.*
-6. **A backlog view.** A game with no runs has no row in a run-level base, which
-   is correct and also means unplayed games are invisible to every query view.
-   A second base over `games/` solves it; whether the register should hold games
-   you have not played at all is the actual question. *Decide during Phase 1.*
 4. **Retroactive session start.** Forgetting to open a session will be far more
    common than forgetting to close one. `--at` covers it, but the chat flow needs
    a natural phrasing. *Design during Phase 2.*
 5. **Timezone changes while travelling.** Events carry offsets, so the data is
    correct; `logical_day` grouping is what gets weird. *Ignore until it bites.*
+
+## Decided
+
+1. **Cover and screenshot licensing for the public site.** Not needed. This
+   vault is for personal use; the site is a maybe-someday extra, not the point
+   of the tool. `images.publish` and `images.publish_covers` collapse into one
+   switch, `images.publish` (default `false`) — see [04-derived](04-derived.md).
+2. **Multi-platform runs.** `platform` stays on the run. It was never moved to
+   the session and phase 0 gave no reason to.
+3. **Franchise / series grouping.** Deferred past Phase 1. Real usage will show
+   whether it's actually wanted before the model or the provider mapping is
+   committed to.
+6. **A backlog view.** No. The register holds what you played, per the non-goal
+   in [00-architecture](00-architecture.md) — it does not know what you own and
+   does not track unplayed games. A game with no runs stays outside the model;
+   there is no second base and no `game.add` without a run.

@@ -117,6 +117,7 @@ game.registrar/              # this repo — MIT, public
 
 my-register/                 # user repo — private
   gamereg.config.json
+  gamereg.secrets.json       # provider credentials (gitignored, see 02-cli.md)
   data/events.jsonl          # source of truth
   data/*.csv                 # derived
   data/log.db                # derived (gitignored)
