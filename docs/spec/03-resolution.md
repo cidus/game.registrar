@@ -129,6 +129,12 @@ of the Kingdom — and Breath of the Wild is also a Wii U game. Treat `--platfor
 as a filter that narrows the list, never as an answer. Implementations that
 assume a platform hint disambiguates will silently pick wrong.
 
+`gamereg enrich` is a deliberate, narrower exception: once a game is already
+identified (an existing local record, or a title that already matched
+exactly), a recorded platform may resolve *which catalog SKU* represents
+it — a different question from *which game*, where this section's rule
+still applies without exception. See 02-cli.md's `enrich` section.
+
 ## Every resolution teaches
 
 When the user picks a candidate after a code 3, the command that follows appends

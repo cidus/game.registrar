@@ -372,3 +372,96 @@ test('applyDetail includes the cover only when --covers is set and the provider 
   const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
   assert.equal(staged!.data['cover'], 'https://example.com/cover.jpg')
 })
+
+/** A game with one recorded run on `platform` — the user-authored signal `findDetail` reads for narrowing. */
+function gameWithPlatform(platform: string): Workspace {
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'pac-man', title: 'Pac-Man' }),
+    event('run.import', {
+      run_id: 'R1',
+      game_id: 'G1',
+      platform,
+      form: 'physical',
+      mode: 'solo',
+      started_on: '2026-01-01',
+      ended_on: '2026-01-01',
+      date_precision: 'day',
+      outcome: 'finished',
+      completion_criteria: 'enough',
+      replay: false,
+    }),
+  ]
+  return { events, state: fold(events, timeContext), pending: [] }
+}
+
+test('a recorded run platform narrows multiple exact-title matches down to one, and auto-resolves', async () => {
+  const cli = fakeCli()
+  const workspace = gameWithPlatform('Atari 2600')
+  const game = workspace.state.games[0]!
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [
+      { id: '1', title: 'Pac-Man', year: 1980, platforms: ['Arcade'], cover_url: null },
+      { id: '2', title: 'Pac-Man', year: 1982, platforms: ['Atari 2600'], cover_url: null },
+      { id: '3', title: 'Pac-Man', year: 1993, platforms: ['Game Boy'], cover_url: null },
+    ],
+    fetch: async (id: string) => {
+      assert.equal(id, '2', 'must fetch only the platform-matching candidate')
+      return {
+        id: '2',
+        fields: { title: 'Pac-Man', release_year: 1982, developer: null, publisher: null, genres: [], platforms: ['Atari 2600'] },
+        cover_url: null,
+      }
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
+})
+
+test('two candidates matching the recorded platform stay ambiguous, sorted first', async () => {
+  const cli = fakeCli()
+  const workspace = gameWithPlatform('Atari')
+  const game = workspace.state.games[0]!
+
+  const arcade = { id: '1', title: 'Pac-Man', year: 1980, platforms: ['Arcade'], cover_url: null }
+  const atari2600 = { id: '2', title: 'Pac-Man', year: 1982, platforms: ['Atari 2600'], cover_url: null }
+  const atari5200 = { id: '3', title: 'Pac-Man', year: 1982, platforms: ['Atari 5200'], cover_url: null }
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [arcade, atari2600, atari5200],
+    fetch: async () => {
+      throw new Error('must not be called: still ambiguous, never guessed')
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
+  assert.equal(outcome.kind, 'ambiguous')
+  if (outcome.kind === 'ambiguous') {
+    assert.deepEqual(outcome.candidates, [atari2600, atari5200, arcade])
+  }
+})
+
+test('a recorded platform matching no candidate falls back to the full, unfiltered list', async () => {
+  const cli = fakeCli()
+  const workspace = gameWithPlatform('Commodore 64')
+  const game = workspace.state.games[0]!
+
+  const candidates: ProviderCandidate[] = [
+    { id: '1', title: 'Pac-Man', year: 1980, platforms: ['Arcade'], cover_url: null },
+    { id: '2', title: 'Pac-Man', year: 1982, platforms: ['Atari 2600'], cover_url: null },
+  ]
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => candidates,
+    fetch: async () => {
+      throw new Error('must not be called: nothing matches, stays ambiguous')
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
+  assert.deepEqual(outcome, { kind: 'ambiguous', provider: 'igdb', candidates })
+})

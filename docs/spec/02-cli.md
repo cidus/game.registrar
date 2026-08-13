@@ -115,6 +115,19 @@ Metadata enrichment does **not** happen here. `run.open` writes only what is
 known locally; `gamereg enrich` runs afterwards, possibly from cron. A start
 command must never fail because IGDB is down.
 
+**Platform, when `--platform` is omitted and none of the fallbacks answer.**
+Resolution order is `--platform` → the game's last run → `config.defaults.platform`.
+When none of those resolve it, a human at a terminal is offered a `select`
+of `config.platforms` (see *Platform vocabulary* below) with a trailing
+"Other" choice for free text — same interactive-fallback shape used
+elsewhere (e.g. `gamereg init`'s prompts). A machine or a human under
+`--json`/`--non-interactive` still gets `error.platform_required`, exit 2,
+unchanged. Whatever is picked or typed becomes this run's platform; if it
+was typed fresh (not already in `config.platforms`), it is also appended
+there before the run is staged, so it is a suggestion next time instead of
+a retyped guess. `gamereg past` never has this fallback — a missing platform
+there is left `null`, not an error, per its own section below.
+
 ### `gamereg end [<query>]` — close a session
 
 ```
@@ -299,7 +312,7 @@ anything. The user photo remains an attachment on the timeline.
 ```
 gamereg init [--locale en] [--timezone America/Sao_Paulo] [--day-cutoff 05:00]
              [--platform switch] [--form digital] [--mode solo]
-             [--targets obsidian,csv] [--csv-dir data]
+             [--targets obsidian,csv] [--csv-dir data] [--platforms switch,pc]
 ```
 
 Writes `gamereg.config.json` at the vault root (`--vault`, or the working
@@ -333,6 +346,49 @@ known provider) if absent, and appends its filename to `.gitignore` at the
 vault root, creating `.gitignore` if the vault has none. Both are idempotent:
 re-running `init` never overwrites an existing `gamereg.secrets.json` and never
 duplicates the `.gitignore` line. See *Provider credentials* below.
+
+## Platform vocabulary
+
+**Not implemented yet** — specified here so the shape is settled before
+someone builds it. `platform` itself stays free text everywhere it already
+is (`01-model.md` deliberately never lists it as a controlled vocabulary,
+and `03-resolution.md`'s "the platform hint filters, it does not resolve"
+is unaffected). This is a *suggestion* list, layered on top, that grows from
+what the user actually types — never a validator that rejects anything.
+
+`gamereg.config.json` gains `platforms: string[]`, default `[]`, alongside
+the existing `defaults.platform`. It is vault **configuration**, not
+event-sourced state: nothing that writes to it appends an event, the same
+way `init` itself "never touches `data/events.jsonl`."
+
+- `gamereg init --platforms switch,pc,...` seeds it non-interactively, comma
+  separated like `--targets`. Interactively (no flag, human at a terminal):
+  a loop of `checkbox()` (already the pattern `askTargets()` in `init.ts`
+  uses) offering the platforms known so far plus a trailing "Other" choice;
+  picking "Other" prompts `input()` for a new name, adds it to the working
+  set (selected), and re-shows the checkbox so another "Other" can be added
+  — repeatable with no new UI primitive, `@inquirer/prompts` (already a
+  dependency) handles this fine as sequential calls, same as every other
+  prompt in `init.ts`. Ends when the user submits without picking "Other"
+  again.
+- `gamereg platform add <name>` / `gamereg platform remove <name>` —
+  subcommands, same shape as `gamereg break start|end`. Rewrite
+  `gamereg.config.json` directly, like `init`; touch nothing else. `add` is
+  idempotent — dedup by `normalize()`, but the original typed casing is what
+  gets stored (same principle as `game.alias`: compare normalized, keep the
+  literal text). `remove` is a no-op, not an error, when the name isn't
+  present — it only edits a suggestion list, nothing it removes was ever
+  load-bearing.
+- `gamereg start`'s interactive platform fallback (see `start`'s section
+  above) reuses the same "known list + Other" shape as a single-choice
+  `select()` (a run has exactly one platform, unlike `init`'s set). A value
+  typed via "Other" there is appended to `config.platforms` before the run
+  is staged — the list grows from actual use, not just from `init`/`platform
+  add`, so typos become progressively less likely without the user ever
+  having to manage the list by hand.
+- Needs pt-BR command-name/flag mapping in `i18n/pt-BR.json`'s tables (same
+  place `break` → `intervalo` lives) — exact wording is an implementation
+  detail, not specified here.
 
 ### `gamereg alias <query> --add <alias>`
 
@@ -373,6 +429,11 @@ candidate directly, skipping search. `--all` never prompts or exits 3 for
 this — an ambiguous provider match during a bulk run is left as-is, same as
 no match at all, so a cron enrich never blocks on a question nobody is
 there to answer.
+
+When title matching alone leaves more than one candidate, the platform
+already recorded on this game's runs narrows it further, and resolves it
+outright when exactly one candidate matches — a stronger signal than the
+platform hint local resolution uses only as a filter (03-resolution.md).
 
 **Never overwrites a cover with `source: user`.** `--covers --force` still
 respects that; only `gamereg cover --reset` gives provider art back.

@@ -57,6 +57,19 @@ export type FindResult =
   | { kind: 'none' }
   | { kind: 'ambiguous'; candidates: ProviderCandidate[] }
 
+/** "Atari" matches "Atari 2600" either direction, after normalizing. */
+function platformMatches(a: string, b: string): boolean {
+  const x = normalize(a)
+  const y = normalize(b)
+  return x === y || x.includes(y) || y.includes(x)
+}
+
+/** What the user actually typed on `start`/`past` — never `game.platforms`, which a prior enrich may have overwritten. */
+function knownPlatforms(game: GameState): string[] {
+  const values = game.runs.map((run) => run.platform).filter((platform): platform is string => platform !== null)
+  return [...new Set(values)]
+}
+
 /**
  * The same auto-resolution threshold as local resolution (03-resolution.md):
  * exactly one result, and its normalized title matches exactly. Anything
@@ -66,6 +79,17 @@ export type FindResult =
  * resolution: a catalog frequently lists "Deluxe Edition" as its own entry
  * with its own id — stripping the suffix would collapse it with the base
  * game and turn one confident match into an ambiguous pair.
+ *
+ * When title matching alone leaves more than one candidate, the platform(s)
+ * already recorded on this game's runs narrow it further — and may resolve
+ * it outright, unlike 03-resolution.md's "the platform hint filters, it
+ * does not resolve" rule for *local* resolution. That rule protects against
+ * picking the wrong game; this is a different, narrower question — the
+ * game is already known, the ambiguity is only which catalog SKU
+ * represents it, and a platform the user already told the tool about is
+ * strong evidence for that. Reads `game.runs[].platform` (what the user
+ * actually typed), never `game.platforms` (which a prior enrich may have
+ * already overwritten with a different provider's data).
  */
 export async function findDetail(provider: Provider, game: GameState): Promise<FindResult> {
   const known = game.providers[provider.name]
@@ -78,7 +102,30 @@ export async function findDetail(provider: Provider, game: GameState): Promise<F
   const candidates = await provider.search(game.title)
   const matches = candidates.filter((candidate) => normalize(candidate.title, { editions: false }) === needle)
   if (matches.length === 0) return { kind: 'none' }
-  if (matches.length > 1) return { kind: 'ambiguous', candidates: matches }
+
+  if (matches.length > 1) {
+    const platforms = knownPlatforms(game)
+    if (platforms.length > 0) {
+      const narrowed = matches.filter((candidate) =>
+        candidate.platforms.some((p) => platforms.some((known) => platformMatches(p, known))),
+      )
+      if (narrowed.length === 1) {
+        const detail = await provider.fetch(narrowed[0]!.id)
+        return detail === null ? { kind: 'none' } : { kind: 'match', detail }
+      }
+      if (narrowed.length > 1) {
+        // Still ambiguous, but nothing is hidden: platform-matching
+        // candidates come first, the rest follow in their original order.
+        const narrowedIds = new Set(narrowed.map((candidate) => candidate.id))
+        const rest = matches.filter((candidate) => !narrowedIds.has(candidate.id))
+        return { kind: 'ambiguous', candidates: [...narrowed, ...rest] }
+      }
+      // narrowed.length === 0: none of the candidates match the known
+      // platform — fall through to the full, unfiltered set. The provider
+      // may simply not carry that particular release.
+    }
+    return { kind: 'ambiguous', candidates: matches }
+  }
 
   const detail = await provider.fetch(matches[0]!.id)
   return detail === null ? { kind: 'none' } : { kind: 'match', detail }

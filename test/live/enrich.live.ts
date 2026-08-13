@@ -134,25 +134,44 @@ test(
 )
 
 test(
-  'igdb: catalog entries that genuinely share a title report ambiguous, never guessed',
+  'igdb: a recorded platform now auto-resolves what used to be ambiguous (Hollow Knight)',
   { skip: skipIgdb },
   async () => {
     // As of writing, IGDB has more than one entry titled exactly "Hollow
-    // Knight" and exactly "Chrono Trigger" (different platform releases).
-    // If IGDB ever deduplicates these, this test starts asserting the wrong
-    // thing — that is a catalog change, not a regression here. `enrichGame`
-    // itself never throws for ambiguity (that's the `.action()` handler's
-    // job, one layer up) — it returns the outcome as a plain value.
+    // Knight" (different platform releases). Before platform-narrowing
+    // existed, this was ambiguous; the fixture's Hollow Knight has a run
+    // recorded on "Switch", which only one of the IGDB entries carries
+    // (the other is PlayStation Vita only) — so it now auto-resolves. If
+    // IGDB's catalog shape changes, this is a catalog change, not a
+    // regression here.
     const cli = fakeCli(vault)
     const workspace = workspaceOf(vault)
     const provider = createIgdbProvider(vault.root)
 
-    for (const slug of ['hollow-knight', 'chrono-trigger']) {
-      const outcome = await enrichGame(cli, workspace, gameNamed(workspace, slug), [provider], false, false)
-      assert.equal(outcome.kind, 'ambiguous', `${slug}: ${JSON.stringify(outcome)} — did IGDB dedupe its entries?`)
-      if (outcome.kind === 'ambiguous') {
-        assert.ok(outcome.candidates.length > 1, `${slug}: expected more than one candidate`)
-      }
+    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'hollow-knight'), [provider], false, false)
+    assert.equal(outcome.kind, 'enriched', `hollow-knight: ${JSON.stringify(outcome)} — did IGDB's catalog change?`)
+  },
+)
+
+test(
+  'igdb: platform narrowing still leaves a genuine catalog ambiguity ambiguous (Chrono Trigger)',
+  { skip: skipIgdb },
+  async () => {
+    // The fixture's Chrono Trigger has a run recorded on "SNES" — an
+    // acronym that isn't a substring of IGDB's platform names ("Super
+    // Nintendo Entertainment System", "Super Famicom"), so platform
+    // narrowing finds no match and correctly falls back to the full,
+    // unfiltered candidate list rather than guessing. `enrichGame` itself
+    // never throws for ambiguity (that's the `.action()` handler's job,
+    // one layer up) — it returns the outcome as a plain value.
+    const cli = fakeCli(vault)
+    const workspace = workspaceOf(vault)
+    const provider = createIgdbProvider(vault.root)
+
+    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'chrono-trigger'), [provider], false, false)
+    assert.equal(outcome.kind, 'ambiguous', `chrono-trigger: ${JSON.stringify(outcome)} — did IGDB dedupe its entries?`)
+    if (outcome.kind === 'ambiguous') {
+      assert.ok(outcome.candidates.length > 1, 'expected more than one candidate')
     }
   },
 )
@@ -174,6 +193,42 @@ test(
     const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
     assert.ok(staged, 'game.enrich event was not staged')
     assert.equal((staged!.data['fields'] as Record<string, unknown>)['id'], '11169')
+  },
+)
+
+test(
+  'igdb: a recorded platform auto-resolves Pac-Man among several exact-title entries',
+  { skip: skipIgdb },
+  async () => {
+    // As of writing, IGDB has exactly four entries titled precisely
+    // "Pac-Man" (ids 63639, 198842, 214357, 204387) — Android/iOS, two
+    // handheld-LCD releases, and a Game Boy/3DS one. Only the last carries
+    // "Game Boy", so a game with that platform recorded on a run should
+    // auto-resolve to it without any ambiguity. If IGDB's catalog shape
+    // changes, this is a catalog change, not a regression here.
+    const cli = fakeCli(vault)
+    const events = [
+      ...readEvents(vault.eventsFile),
+      event('game.create', { game_id: 'LIVE-PACMAN', slug: 'pac-man-live', title: 'Pac-Man' }),
+      event('run.import', {
+        run_id: 'LIVE-PACMAN-R1',
+        game_id: 'LIVE-PACMAN',
+        platform: 'Game Boy',
+        form: 'physical',
+        mode: 'solo',
+        started_on: '2020-01-01',
+        ended_on: '2020-01-01',
+        date_precision: 'day',
+        outcome: 'finished',
+        completion_criteria: 'enough',
+        replay: false,
+      }),
+    ]
+    const workspace: Workspace = { events, state: fold(events, timeContext(vault)), pending: [] }
+    const provider = createIgdbProvider(vault.root)
+
+    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'pac-man-live'), [provider], false, false)
+    assert.equal(outcome.kind, 'enriched', `expected the Game Boy release to auto-resolve, got ${JSON.stringify(outcome)}`)
   },
 )
 

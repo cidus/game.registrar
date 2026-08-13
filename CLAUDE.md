@@ -21,75 +21,77 @@ with breaks and the logical-day rule, local resolution with alias learning, the
 recording and query commands, `verdict`, `init`, `doctor`, and `build` as a
 target registry with a manifest and ownership-based cleanup. Two targets ship:
 `obsidian` (game notes, run notes, `Games.md`, seeded `Games.base`) and `csv`.
-`example-vault/` is the golden fixture for both. `npm test` runs the suite
-(`node --test`, no framework) — 136 tests, no network, no framework dependency.
+`example-vault/` is the golden fixture for both.
 
-Phase 0 is complete as scoped in `06-roadmap.md` — image ingestion was moved to
-phase 1 there (it shares `sharp` and the `cover` command with enrichment, so
-splitting it from phase 1 bought nothing). Today there is no `--photo`, no
-`attach`, no `cover`, no `gallery` block, and `assets/` is never written.
-`fold.ts` already handles `game.cover` and the cover-precedence rule, so the
-model side is in place.
+**Phase 1 is nearly done.** `CURRENT_PHASE` in `core/vocab.ts` is `1`.
+Implemented and tested: provider credentials, `providers/igdb.ts` +
+`providers/rawg.ts` behind a common interface, `enrich` (including provider
+ambiguity handling — a menu or exit 3 + `candidates[]`, `--match <ref>` to
+re-invoke, and platform-aware narrowing/auto-resolution from the game's
+recorded runs), resolution step 6 in `gamereg search` (never in a write
+command — see non-negotiable 4), the `sqlite`/`json`/`html` targets, `query`,
+`import`, and the image ingestion *pipeline* (`src/images/ingest.ts` +
+`exif.ts` — EXIF read then stripped, normalize, hash, write to
+`assets/<sha[0:2]>/<sha>.webp`). `npm test` runs 264 tests (`node --test`, no
+framework, no network). `npm run test:live` (opt-in, real IGDB/RAWG calls,
+skips cleanly with no credentials — see Testing strategy below) adds 6 more;
+run it whenever you touch provider matching.
 
-## Phase 1 — metadata and querying
+**Two things remain before phase 1 is actually done:**
 
-The goal, from `06-roadmap.md`: a new game gets a cover and metadata without
-typing anything, and "how many hours did I spend on RPGs in 2026" is answerable
-with one command.
-
-None of it exists yet. `src/providers/` and `src/db/` are empty of files.
-
-### Order of work
-
-1. **Provider credentials** — env var first (`IGDB_CLIENT_ID` etc.), then
-   `gamereg.secrets.json` at the vault root. `init` seeds an empty secrets file
-   and adds it to `.gitignore`, idempotently. No command ever writes a
-   credential it was handed. See *Provider credentials* in `02-cli.md`.
-2. **Provider interface** + `providers/igdb.ts`, then `providers/rawg.ts` as
-   fallback. One common interface, mocked at that interface in tests.
-3. **`enrich [<query>] [--provider igdb] [--all] [--covers]`** — the network
-   step, isolated. Appends `game.enrich`. A failure here never blocks recording
-   and exits 6, not 1 — name the missing/rejected credential in the message.
-4. **Image ingestion** — the pipeline in `04-derived.md` (EXIF read then
-   stripped, normalize, hash the *normalized* bytes, write
-   `assets/<sha[0:2]>/<sha>.webp`, then append). Then `--photo` / `--caption` /
-   `--kind` / `--as-cover` on every recording command, `attach`, `cover`, and the
-   `gallery` block in the game note.
-5. **Resolution step 6** — provider search, with the auto-resolution threshold of
-   `03-resolution.md` honoured exactly: one surviving result *and* an exact
-   normalized title match, or it asks. Alias learning after a code 3 already
-   works and must keep working through the provider path.
-6. **`sqlite` target** — schema and views from `04-derived.md`, rebuilt from
-   scratch every build via `node:sqlite`, byte-comparable across runs.
-7. **`query <sql>`** — read-only, single `SELECT` only, over `data/log.db`.
-8. **`json` and `html` targets** — same tables, same column names as `csv` and
-   `sqlite`. The HTML file is self-contained: no CDN, no network at runtime.
-9. **`import <file.csv> --mapping <file.json>`** — one `run.import` per row,
-   with a `--dry-run` that is documented as the recommended path.
+1. **Image ingestion's CLI surface.** The pipeline above works and is
+   tested in isolation, but nothing calls it yet: no `--photo` /
+   `--caption` / `--kind` / `--as-cover` on any recording command, no
+   `attach`, no `cover`, no `gallery` block in the game note. `fold.ts`
+   already handles `attachment.add`, `game.cover` and inline
+   `attachments[]` on any event — has since phase 0 — so this is CLI and
+   render work, not model work.
+2. **Platform vocabulary** — requested by the user, **specified but not
+   implemented**. Full spec is in `docs/spec/02-cli.md`'s "Platform
+   vocabulary" section (and a short note under `start`'s section, above
+   it): `gamereg.config.json` gains `platforms: string[]` — a suggestion
+   list, never a validator (`platform` stays free text everywhere it
+   already is; `01-model.md` and `03-resolution.md` are unchanged). New
+   subcommands `gamereg platform add <name>` / `gamereg platform remove
+   <name>`, an interactive multi-select-with-"Other" loop in `gamereg init`,
+   and a single-select-with-"Other" fallback in `gamereg start` when no
+   platform resolves any other way — whatever gets typed via "Other" is
+   appended to `config.platforms` so the list grows from actual use. Read
+   the spec section before starting; it names exact flags, exact command
+   shapes, and the existing `init.ts` prompt patterns (`askTargets()`) to
+   reuse rather than inventing new UI. **This is the next thing to build.**
 
 Not in scope for phase 1, decided in `06-roadmap.md`: franchise/series grouping
 (deferred past phase 1) and a backlog view for unplayed games (rejected — the
 register holds what you played, not what you own).
 
-Ship each step with its tests. Do not build all of it and then test.
+### Things phase 1 already touched, worth knowing before going further
 
-### Things phase 1 has to touch that are easy to miss
-
-- **`CURRENT_PHASE` in `core/vocab.ts` is `0`**, and `checkTarget` uses it to
-  reject `sqlite`, `json` and `html` with a usage error. Raise it as those
-  targets actually land, not before — the gate is what keeps a half-built target
-  out of a user's `build.targets`.
-- **`build.obsidian.{run_notes,bases}`** appears in the `07-targets.md` config
-  example but `core/config.ts` does not parse it. Either implement the keys or
-  drop them from the spec; do not leave the example lying.
-- **`images.*` config** (`max_edge`, `quality`, `keep_original`, `publish`) has
-  no representation in `core/config.ts` yet. One publish switch, not two — see
-  *Decided* in `06-roadmap.md`.
-- **`gamereg.secrets.json`** is a new file, parallel to `gamereg.config.json`
-  but never touched by `build` or any target — only `init` writes it, and only
-  when absent. Loading it is `core/config.ts`-adjacent, not `targets/`.
-- `csv`, `json` and `sqlite` must not disagree about a column. Where they do, the
-  SQLite schema in `04-derived.md` is right and the other is the bug.
+- **`build.obsidian.{run_notes,bases}`** still appears in the `07-targets.md`
+  config example but `core/config.ts` does not parse it — unresolved from
+  phase 0, not addressed this round. Either implement the keys or drop them
+  from the spec; do not leave the example lying.
+- **`images.*` config** (`max_edge`, `quality`, `keep_original`, `publish`) is
+  implemented in `core/config.ts` and used by `src/images/ingest.ts` — the gap
+  is only the CLI surface (item 1 above), not the config plumbing.
+- **`gamereg.secrets.json`** is seeded by `init` (idempotent), gitignored, and
+  read by `core/secrets.ts` — env var wins over the file per field. Never
+  touched by `build` or any target.
+- `csv`, `json` and `sqlite` do not disagree about a column — verified by the
+  golden fixtures in `example-vault/` (all three targets are declared in its
+  `gamereg.config.json` and built from the same fixture log).
+- **Provider ambiguity is a return value, never a guess.** `findDetail` in
+  `src/cli/commands/enrich.ts` returns `match`/`none`/`ambiguous`; a single
+  target surfaces `ambiguous` as a menu (interactive) or exit 3 with
+  `candidates[]` (non-interactive), `--all` always collapses it to `skipped`
+  (never prompts, safe for cron). Edition-suffix stripping is deliberately
+  off for provider matching (`normalize(title, { editions: false })`) —
+  a catalog often lists an edition as its own entry with its own id, and
+  stripping the suffix would falsely collide it with the base game. Platform
+  narrowing reads `game.runs[].platform` (what the user actually typed),
+  never `game.platforms` (which a prior `enrich` may have already overwritten
+  with a different provider's data) — read the doc comment on `findDetail`
+  before changing any of this, it explains the reasoning inline.
 
 ## Non-negotiables
 
