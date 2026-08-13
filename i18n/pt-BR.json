@@ -80,6 +80,7 @@
     "init": "Grava o gamereg.config.json de um acervo novo.",
     "build": "Regenera as notas e a tabela consolidada.",
     "doctor": "Audita o log e relata o que está irregular.",
+    "enrich": "Busca metadados e capa em um provedor externo.",
     "arg": {
       "query": "Título, fragmento ou apelido.",
       "term": "Termo de busca.",
@@ -124,7 +125,10 @@
       "local_only": "Busca apenas no acervo. Na fase 0 não há outra.",
       "message": "O parecer em si, na própria linha de comando.",
       "text": "Lê o parecer de um arquivo, ou de - para a entrada padrão.",
-      "run": "Qual jogatina. Por padrão, a encerrada mais recentemente."
+      "run": "Qual jogatina. Por padrão, a encerrada mais recentemente.",
+      "provider": "Provedor a consultar: igdb, rawg. Padrão: igdb, e rawg em seguida.",
+      "all_games": "Enriquece todos os títulos do acervo.",
+      "covers": "Também busca e define a capa, a menos que a capa seja source: user."
     },
     "verdict": "Protocola o parecer consolidado de uma jogatina."
   },
@@ -279,6 +283,13 @@
     "init": {
       "done": "Acervo aberto em {root}. Alvos: {targets}.",
       "overwritten": "Configuração reescrita em {root}. Alvos: {targets}."
+    },
+    "enrich": {
+      "done": "{title} — enriquecido a partir de {provider}.",
+      "skipped": "{count} títulos não tiveram correspondência confiável em nenhum provedor e ficaram como estavam.",
+      "none": "Nada para enriquecer.",
+      "failed_count": "{count} títulos não puderam ser consultados. O resto foi gravado.",
+      "failed": "  {title}: {message}"
     }
   },
   "prompt": {

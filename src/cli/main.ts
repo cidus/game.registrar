@@ -21,6 +21,7 @@ import { registerBuild } from './commands/build.ts'
 import { registerDoctor } from './commands/doctor.ts'
 import { registerDrop } from './commands/drop.ts'
 import { registerEnd } from './commands/end.ts'
+import { registerEnrich } from './commands/enrich.ts'
 import { registerFinish } from './commands/finish.ts'
 import { registerInit } from './commands/init.ts'
 import { registerOpen } from './commands/open.ts'
@@ -144,6 +145,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerAmend(registrar)
   registerBuild(registrar)
   registerDoctor(registrar)
+  registerEnrich(registrar)
 
   try {
     await program.parseAsync([...args])

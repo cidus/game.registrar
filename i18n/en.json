@@ -23,6 +23,7 @@
     "init": "Write gamereg.config.json for a new vault.",
     "build": "Regenerate notes and the consolidated table.",
     "doctor": "Validate the log and report what is wrong.",
+    "enrich": "Fetch metadata and cover art from a provider.",
     "arg": {
       "query": "Title, fragment or alias.",
       "term": "Search term.",
@@ -67,7 +68,10 @@
       "local_only": "Search the log only. Phase 0 does nothing else.",
       "message": "The review itself, inline.",
       "text": "Read the review from a file, or from - for stdin.",
-      "run": "Which playthrough. Defaults to the most recently ended."
+      "run": "Which playthrough. Defaults to the most recently ended.",
+      "provider": "Provider to query: igdb, rawg. Default: igdb, then rawg as fallback.",
+      "all_games": "Enrich every game on record.",
+      "covers": "Also fetch and set cover art, unless the cover is source: user."
     },
     "verdict": "File the consolidated review of a playthrough."
   },
@@ -222,6 +226,13 @@
     "init": {
       "done": "Vault opened at {root}. Targets: {targets}.",
       "overwritten": "Configuration rewritten at {root}. Targets: {targets}."
+    },
+    "enrich": {
+      "done": "{title} — enriched from {provider}.",
+      "skipped": "{count} games had no confident match at any provider and were left as they were.",
+      "none": "Nothing to enrich.",
+      "failed_count": "{count} games could not be reached. Everything else was written.",
+      "failed": "  {title}: {message}"
     }
   },
   "prompt": {
