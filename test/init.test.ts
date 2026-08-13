@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -149,4 +149,55 @@ test('--dry-run computes the config and writes nothing', () => {
   assert.equal(run.status, 0)
   assert.equal(run.json['dry_run'], true)
   assert.equal(existsSync(join(root, 'gamereg.config.json')), false)
+  assert.equal(existsSync(join(root, 'gamereg.secrets.json')), false)
+  assert.equal(existsSync(join(root, '.gitignore')), false)
+})
+
+test('init seeds an empty secrets file, one entry per known provider', () => {
+  const root = emptyRoot()
+  const run = gamereg(root, 'init')
+  assert.equal(run.status, 0)
+
+  const secretsFile = join(root, 'gamereg.secrets.json')
+  assert.equal(existsSync(secretsFile), true)
+  const secrets = JSON.parse(readFileSync(secretsFile, 'utf8')) as Record<string, unknown>
+  assert.deepEqual(secrets, {
+    igdb: { client_id: '', client_secret: '' },
+    rawg: { api_key: '' },
+  })
+})
+
+test('init appends gamereg.secrets.json to .gitignore, creating it if absent', () => {
+  const root = emptyRoot()
+  gamereg(root, 'init')
+
+  const gitignore = readFileSync(join(root, '.gitignore'), 'utf8')
+  assert.match(gitignore, /^gamereg\.secrets\.json$/m)
+})
+
+test('init preserves an existing .gitignore and does not duplicate the entry', () => {
+  const root = emptyRoot()
+  mkdirSync(root, { recursive: true })
+  writeFileSync(join(root, '.gitignore'), 'node_modules/\n')
+
+  gamereg(root, 'init')
+  const gitignore = readFileSync(join(root, '.gitignore'), 'utf8')
+  assert.match(gitignore, /node_modules\//)
+  assert.equal(gitignore.match(/gamereg\.secrets\.json/g)?.length, 1)
+
+  // Re-running init (--yes, to bypass the vault_exists conflict) must not duplicate it.
+  gamereg(root, 'init', '--yes')
+  const again = readFileSync(join(root, '.gitignore'), 'utf8')
+  assert.equal(again.match(/gamereg\.secrets\.json/g)?.length, 1)
+})
+
+test('re-running init never overwrites an existing secrets file', () => {
+  const root = emptyRoot()
+  gamereg(root, 'init')
+  const secretsFile = join(root, 'gamereg.secrets.json')
+  writeFileSync(secretsFile, JSON.stringify({ igdb: { client_id: 'mine', client_secret: '' }, rawg: { api_key: '' } }))
+
+  gamereg(root, 'init', '--yes')
+  const secrets = JSON.parse(readFileSync(secretsFile, 'utf8')) as Record<string, unknown>
+  assert.deepEqual(secrets, { igdb: { client_id: 'mine', client_secret: '' }, rawg: { api_key: '' } })
 })

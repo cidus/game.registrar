@@ -7,11 +7,12 @@
  */
 import { checkbox, input, select } from '@inquirer/prompts'
 import type { Command } from 'commander'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { CONFIG_FILENAME, type Config } from '../../core/config.ts'
 import { GameregError } from '../../core/errors.ts'
+import { emptySecrets, SECRETS_FILENAME } from '../../core/secrets.ts'
 import {
   BUILD_TARGET,
   checkEnum,
@@ -53,6 +54,27 @@ function parseTargets(value: string): BuildTarget[] {
     if (!named.includes(name)) named.push(name)
   }
   return named
+}
+
+/** Seeded once, empty, so a vault stays runnable without exporting shell variables. Never overwritten. */
+function seedSecrets(root: string): void {
+  const file = join(root, SECRETS_FILENAME)
+  if (existsSync(file)) return
+  writeFileSync(file, `${JSON.stringify(emptySecrets(), null, 2)}\n`, 'utf8')
+}
+
+/** Idempotent: never duplicates the line, creates the file if the vault has none. */
+function ignoreSecrets(root: string): void {
+  const file = join(root, '.gitignore')
+  const line = SECRETS_FILENAME
+  if (!existsSync(file)) {
+    writeFileSync(file, `${line}\n`, 'utf8')
+    return
+  }
+  const contents = readFileSync(file, 'utf8')
+  if (contents.split('\n').some((entry) => entry.trim() === line)) return
+  const withNewline = contents.endsWith('\n') ? contents : `${contents}\n`
+  writeFileSync(file, `${withNewline}${line}\n`, 'utf8')
 }
 
 async function ask(message: string, def: string): Promise<string> {
@@ -164,6 +186,8 @@ export function registerInit(registrar: Registrar): void {
       if (!cli.dryRun) {
         mkdirSync(cli.vault.root, { recursive: true })
         writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
+        seedSecrets(cli.vault.root)
+        ignoreSecrets(cli.vault.root)
       }
 
       emit(cli, {
