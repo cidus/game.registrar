@@ -9,7 +9,7 @@ import { Document, Scalar } from 'yaml'
 import { formatHm, formatHours } from '../core/duration.ts'
 import type { GameState, RunState, SessionState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
-import { frontmatterRange, spliceBlocks, wrapBlock, type BlockContent } from './markers.ts'
+import { wrapBlock, type BlockContent } from './markers.ts'
 
 export const BLOCK_ORDER = ['header', 'verdict', 'sessions'] as const
 
@@ -160,19 +160,4 @@ export function newNote(game: GameState, bundle: Translator): string {
     .join('\n\n')
 
   return `---\n${frontmatter(game)}\n---\n\n${body}\n\n## ${bundle.t('note.heading.notes')}\n`
-}
-
-export function renderNote(existing: string | null, game: GameState, bundle: Translator, file: string): string {
-  if (existing === null || existing.trim() === '') return newNote(game, bundle)
-
-  const spliced = spliceBlocks(existing, blocksOf(game, bundle), file)
-  const range = frontmatterRange(spliced)
-  const yaml = `---\n${frontmatter(game)}\n---`
-
-  const withFrontmatter =
-    range === null
-      ? `${yaml}\n\n${spliced.replace(/^\n+/, '')}`
-      : spliced.slice(0, range.start) + yaml + spliced.slice(range.end)
-
-  return withFrontmatter.endsWith('\n') ? withFrontmatter : `${withFrontmatter}\n`
 }

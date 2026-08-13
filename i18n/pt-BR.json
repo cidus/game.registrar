@@ -77,7 +77,8 @@
     "arg": {
       "query": "Título, fragmento ou apelido.",
       "term": "Termo de busca.",
-      "event": "Id do evento."
+      "event": "Id do evento.",
+      "target": "Constrói apenas estes alvos, dentre os de build.targets."
     },
     "opt": {
       "help": "Mostra esta ajuda.",
@@ -108,7 +109,8 @@
       "hours": "Horas declaradas, registradas como declaradas e não medidas.",
       "add": "O nome a ensinar.",
       "set": "Campo a emendar, como chave=valor. Repetível.",
-      "force": "Reescreve todo arquivo derivado, tendo mudado ou não.",
+      "force": "Reescreve todo arquivo derivado, tendo mudado ou não. Sobrescreve bases semeadas.",
+      "list": "Mostra o que este acervo declara, e o que ele gravou.",
       "local_only": "Busca apenas no acervo. Na fase 0 não há outra.",
       "message": "O parecer em si, na própria linha de comando.",
       "text": "Lê o parecer de um arquivo, ou de - para a entrada padrão.",
@@ -151,6 +153,11 @@
     "marker_nested": "{file}: o bloco \"{block}\" abre dentro de outro bloco.",
     "marker_unopened": "{file}: o bloco \"{block}\" fecha sem ter aberto.",
     "slug_collision": "O slug \"{slug}\" é usado por mais de um título.",
+    "target_phase": "O alvo de construção \"{name}\" chega na fase {phase}. Esta versão constrói alvos da fase 0.",
+    "target_not_declared": "\"{name}\" não está entre os build.targets deste acervo: {declared}. O argumento restringe a construção; nunca define o que o acervo contém.",
+    "target_conflict": "Os alvos \"{first}\" e \"{second}\" pretendem gravar o mesmo arquivo: {path}.",
+    "unimplemented_target": "O alvo de construção \"{name}\" está declarado, mas não implementado nesta versão.",
+    "outside_vault": "Um alvo de construção pretendeu gravar fora do acervo: {path}.",
     "no_run": "{title} não tem jogatina à qual anexar um parecer.",
     "unknown_run": "{title} não tem jogatina com o id \"{id}\".",
     "text_file": "{file} não existe."
@@ -176,7 +183,8 @@
     "slug_collision": "O slug \"{slug}\" é compartilhado por {count} títulos."
   },
   "prose": {
-    "dry_run": "Nada foi gravado. Os eventos abaixo é que seriam anexados:",
+    "dry_run": "Nada foi gravado.",
+    "dry_run_events": "Os eventos abaixo é que seriam anexados:",
     "start": {
       "filed": "Protocolada: {title} ({platform}) — sessão aberta às {time}.",
       "new_run": "Protocolada: {title} ({platform}) — jogatina aberta, sessão aberta às {time}.",
@@ -232,8 +240,14 @@
       "done": "Evento {id} revogado. O original permanece no acervo."
     },
     "build": {
-      "done": "{notes} notas e a tabela consolidada estão em dia.",
-      "removed": "{count} notas remanescentes de renomeações foram removidas."
+      "done": "O acervo está em dia: {targets}, {written} arquivos gravados.",
+      "removed": "{count} arquivos que nenhum alvo mais reivindica foram removidos.",
+      "declares": "Este acervo declara: {targets}.",
+      "owns": "  {target} — {count} arquivos no registro.",
+      "plan": "{count} arquivos seriam gravados:",
+      "plan_line": "  {path} ({target}, {policy})",
+      "failed_count": "{count} alvos falharam. Todo o resto foi gravado.",
+      "failed": "  {target}: {message}"
     },
     "doctor": {
       "clean": "O acervo está em ordem. {events} eventos, {games} títulos, {runs} jogatinas.",
