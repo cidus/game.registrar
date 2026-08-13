@@ -6,11 +6,16 @@
  * interactive menu is a presenter over the array returned here, never a second
  * code path.
  *
- * Phase 0 implements steps 1–5 and 7. Step 6 (provider search) has no
- * implementation yet, so a query with no local match reports not_found.
+ * `resolveLocal` implements steps 1–5 and 7 only — offline and instant, and
+ * that never changes: no write command performs network I/O
+ * (00-architecture.md invariant 5), so a write command's resolution stops at
+ * "not found" rather than reaching a provider. Step 6 (provider search) is
+ * implemented in `gamereg search`, which never writes and is free to ask —
+ * see `providerCandidatesOf` below and its use in cli/commands/search.ts.
  */
 import type { GameState, VaultState } from '../core/fold.ts'
 import type { GameStatus } from '../core/vocab.ts'
+import type { ProviderCandidate } from '../providers/provider.ts'
 import { normalize } from './normalize.ts'
 
 export const CANDIDATE_LIMIT = 8
@@ -23,6 +28,20 @@ export type Candidate = {
   source: 'local' | 'provider'
   in_log: boolean
   status?: GameStatus
+  cover_url?: string | null
+}
+
+/** A provider's own result, shaped as the same candidate the caller already knows how to render. */
+export function candidateFromProvider(provider: string, candidate: ProviderCandidate): Candidate {
+  return {
+    ref: `${provider}:${candidate.id}`,
+    title: candidate.title,
+    year: candidate.year,
+    platforms: candidate.platforms,
+    source: 'provider',
+    in_log: false,
+    cover_url: candidate.cover_url,
+  }
 }
 
 export type Resolution =

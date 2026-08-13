@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { fold, type VaultState } from '../src/core/fold.ts'
-import { CANDIDATE_LIMIT, resolveLocal, search } from '../src/resolve/resolve.ts'
+import { candidateFromProvider, CANDIDATE_LIMIT, resolveLocal, search } from '../src/resolve/resolve.ts'
 import { context, event } from './helpers.ts'
 
 function vault(): VaultState {
@@ -83,9 +83,28 @@ test('the platform hint filters the list without answering it', () => {
   assert.equal(still.kind, 'ambiguous')
 })
 
-test('nothing on record is not_found — phase 0 never asks a provider', () => {
+test('nothing on record is not_found — resolveLocal never asks a provider, even in phase 1', () => {
   assert.equal(resolveLocal(vault(), 'hades').kind, 'not_found')
   assert.equal(resolveLocal(vault(), '   ').kind, 'not_found')
+})
+
+test('a provider candidate is shaped like a local one, ref-prefixed by provider name', () => {
+  const candidate = candidateFromProvider('igdb', {
+    id: '7346',
+    title: 'Hollow Knight',
+    year: 2017,
+    platforms: ['PC'],
+    cover_url: 'https://example.com/cover.jpg',
+  })
+  assert.deepEqual(candidate, {
+    ref: 'igdb:7346',
+    title: 'Hollow Knight',
+    year: 2017,
+    platforms: ['PC'],
+    source: 'provider',
+    in_log: false,
+    cover_url: 'https://example.com/cover.jpg',
+  })
 })
 
 test('candidates are capped at eight and flagged as truncated', () => {
