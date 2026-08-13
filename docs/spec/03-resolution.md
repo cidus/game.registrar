@@ -49,11 +49,15 @@ Applied to both sides of every comparison:
 1. Unicode NFD, strip combining marks (`Pokémon` → `Pokemon`)
 2. Lowercase
 3. Strip punctuation and symbols; collapse whitespace
-4. Strip leading articles: `the`, `a`, `an`, `o`, `a`, `os`, `as`, `um`, `uma`
-5. Normalize edition suffixes: `deluxe edition`, `remastered`, `definitive
+4. Strip a trailing parenthesized release year: `Final Fantasy VII Remake
+   (2020)` ≡ `Final Fantasy VII Remake` — dropped for matching only, and
+   only when parenthesized and trailing; a bare trailing number that is
+   part of the title itself (`Cyberpunk 2077`) is left untouched
+5. Strip leading articles: `the`, `a`, `an`, `o`, `a`, `os`, `as`, `um`, `uma`
+6. Normalize edition suffixes: `deluxe edition`, `remastered`, `definitive
    edition`, `goty` → dropped for matching, preserved in the stored title
-6. Roman ↔ arabic numeral equivalence: `final fantasy vii` ≡ `final fantasy 7`
-7. `&` ≡ `and` ≡ `e`
+7. Roman ↔ arabic numeral equivalence: `final fantasy vii` ≡ `final fantasy 7`
+8. `&` ≡ `and` ≡ `e`
 
 Rule 6 matters more than it looks. People say "Final Fantasy 7" and databases
 store "VII".

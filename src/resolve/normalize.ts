@@ -47,6 +47,12 @@ function numerals(tokens: readonly string[]): string[] {
 export function normalize(input: string): string {
   let text = input.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
+  // Dropped for matching, preserved in the stored title — same principle as
+  // EDITIONS below. Must run before the punctuation strip, which would
+  // otherwise turn "(2020)" into a bare "2020" indistinguishable from a
+  // title that legitimately ends in a number ("Cyberpunk 2077").
+  text = text.replace(/\s*\(\s*(?:19|20)\d{2}\s*\)\s*$/, '')
+
   text = text.replace(/&/g, ' and ')
   text = text.replace(/[^\p{L}\p{N}\s]/gu, ' ')
   text = text.replace(/\s+/g, ' ').trim()

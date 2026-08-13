@@ -18,6 +18,17 @@ test('a leading article is dropped on both sides of the comparison', () => {
   assert.equal(normalize('A'), 'a')
 })
 
+test('a trailing parenthesized release year is dropped for matching', () => {
+  assert.equal(normalize('Final Fantasy VII Remake (2020)'), normalize('Final Fantasy VII Remake'))
+  assert.equal(normalize('XCOM (2012)'), 'xcom')
+  assert.equal(normalize('XCOM ( 2012 )'), 'xcom')
+})
+
+test('a bare trailing number with no parentheses is part of the title, not a year suffix', () => {
+  assert.equal(normalize('Cyberpunk 2077'), 'cyberpunk 2077')
+  assert.equal(normalize('Battlefield 2042'), 'battlefield 2042')
+})
+
 test('edition suffixes are dropped for matching', () => {
   assert.equal(normalize('Skyrim Special Edition'), 'skyrim')
   assert.equal(normalize('Dark Souls Remastered'), 'dark souls')

@@ -139,3 +139,32 @@ test('a match on the first provider never even asks the second', async () => {
   assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
   assert.equal(asked, false)
 })
+
+test('a provider title with a trailing (year) still auto-matches the local title', async () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'ff7r', title: 'Final Fantasy VII Remake' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [
+      { id: '1234', title: 'Final Fantasy VII Remake (2020)', year: 2020, platforms: [], cover_url: null },
+    ],
+    fetch: async () => ({
+      id: '1234',
+      fields: {
+        title: 'Final Fantasy VII Remake',
+        release_year: 2020,
+        developer: null,
+        publisher: null,
+        genres: [],
+        platforms: [],
+      },
+      cover_url: null,
+    }),
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
+})
