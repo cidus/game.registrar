@@ -137,7 +137,7 @@ src/
   i18n/
 templates/        Games.base and anything else seeded into a vault
 example-vault/    fixtures: fictional events + expected output
-test/
+test/             live/ holds opt-in network smoke tests — see Testing strategy
 ```
 
 `render/` emits Markdown; `targets/` decides what files exist and applies them to
@@ -167,6 +167,25 @@ Everything phase 0 established still holds, and phase 1 adds to it:
   written that way.
 - **No network in unit tests, ever.** Providers are mocked at the interface, and
   a test that would open a socket is a bug in the test.
+- **Live smoke test, opt-in only — run it when you touch provider matching.**
+  `npm run test:live` (`test/live/*.live.ts`, deliberately outside the
+  `npm test` glob) hits the real IGDB/RAWG APIs. It exists because a mocked
+  test can only be wrong about a real catalog's shape in the way the person
+  writing it happened to guess — that's exactly how a real bug shipped:
+  IGDB carries "Final Fantasy VII Remake: Deluxe Edition" as its own entry,
+  not looser phrasing of the base game, and no hand-written mock reproduced
+  that. **Run `npm run test:live` whenever you change `normalize()`
+  (`src/resolve/normalize.ts`), `findDetail`/`enrichGame`
+  (`src/cli/commands/enrich.ts`), or a provider's `search`/`fetch`
+  (`src/providers/igdb.ts`, `src/providers/rawg.ts`).** A green `npm test`
+  does not mean matching still works against a real catalog — only this
+  does. It needs real credentials (env vars, or
+  `example-vault/gamereg.secrets.json`, gitignored); every test in the file
+  skips itself cleanly when the credential it needs is absent, so it is
+  always safe to run and safe to skip. It never writes to the committed
+  `example-vault` — everything runs against a throwaway copy. If a test that
+  used to pass starts failing, read the failure before assuming the fix
+  broke something: a provider's catalog can change too.
 - **Ingest determinism:** the same photo ingested twice yields the same hash, the
   same file, and no second write. Assert the stripped EXIF is actually gone.
 - **Query guard:** the SQL allowlist is a security boundary — test what it

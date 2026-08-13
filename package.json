@@ -19,6 +19,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
+    "test:live": "node --test \"test/live/**/*.live.ts\"",
     "prepare": "npm run build"
   },
   "dependencies": {
