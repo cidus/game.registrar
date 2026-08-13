@@ -20,6 +20,8 @@ import {
   RATING_MIN,
 } from '../../core/vocab.ts'
 import { GameregError } from '../../core/errors.ts'
+import { translator } from '../../i18n/index.ts'
+import { auditArtifacts } from '../../targets/audit.ts'
 import { createContext } from '../context.ts'
 import { emit, emitFailure } from '../output.ts'
 import type { Registrar } from '../register.ts'
@@ -70,6 +72,10 @@ export function registerDoctor(registrar: Registrar): void {
         }
       }
     }
+
+    // The derived side: unknown blocks, prose about to be lost, orphans, and
+    // two targets claiming one path. Reports; the build stays out of it.
+    problems.push(...auditArtifacts(cli.vault, state, translator(cli.locale)))
 
     const bySlug = new Map<string, number>()
     for (const game of state.games) bySlug.set(game.slug, (bySlug.get(game.slug) ?? 0) + 1)

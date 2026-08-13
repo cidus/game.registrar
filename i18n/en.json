@@ -129,6 +129,10 @@
     "negative_duration": "A duration works out negative.",
     "break_outside_session": "Break {break_id} sits outside an open session.",
     "break_already_open": "Session {session_id} opens a second break while one is open.",
+    "unknown_block": "{file}: the block \"{block}\" is not one this version writes. It is left untouched.",
+    "run_note_prose": "{file}: a run note carries text outside its markers (\"{text}\"). The next build will lose it.",
+    "orphan_artifact": "{file} looks generated, but no target owns it. The build will never touch it.",
+    "target_failed": "The build target \"{target}\" cannot plan: {message}",
     "slug_collision": "The slug \"{slug}\" is shared by {count} games."
   },
   "prose": {

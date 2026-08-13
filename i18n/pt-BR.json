@@ -181,6 +181,10 @@
     "negative_duration": "Uma duração resulta negativa.",
     "break_outside_session": "O intervalo {break_id} está fora de uma sessão em aberto.",
     "break_already_open": "A sessão {session_id} abre um segundo intervalo com um já aberto.",
+    "unknown_block": "{file}: o bloco \"{block}\" não é dos que esta versão escreve. Fica intocado.",
+    "run_note_prose": "{file}: uma nota de jogatina traz texto fora dos marcadores (\"{text}\"). A próxima construção o perderá.",
+    "orphan_artifact": "{file} parece gerado, mas nenhum alvo o reivindica. A construção nunca o tocará.",
+    "target_failed": "O alvo de construção \"{target}\" não consegue planejar: {message}",
     "slug_collision": "O slug \"{slug}\" é compartilhado por {count} títulos."
   },
   "prose": {

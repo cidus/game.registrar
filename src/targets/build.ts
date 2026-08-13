@@ -99,23 +99,36 @@ export function claimPaths(
   return { owner, planned }
 }
 
-export function build(
+export type BuildPlan = {
+  targets: BuildTarget[]
+  narrowed: boolean
+  plans: Map<BuildTarget, PlannedFile[]>
+  planned: PlannedEntry[]
+  /** Path → the target that claims it. */
+  owner: Map<string, BuildTarget>
+  failed: TargetFailure[]
+}
+
+/**
+ * Steps 1 and 2 on their own, for `--dry-run` and for `doctor`, which want the
+ * answers a plan gives without the writing.
+ */
+export function planBuild(
   vault: Vault,
   state: VaultState,
   bundle: Translator,
   options: BuildOptions = {},
-): BuildResult {
-  const force = options.force === true
+): BuildPlan {
   const declared = vault.config.build.targets
   const narrowed = options.only !== undefined && options.only.length > 0
-  const selected = narrowed ? narrowTo(options.only ?? [], declared) : [...declared]
+  const targets = narrowed ? narrowTo(options.only ?? [], declared) : [...declared]
 
   const context: TargetContext = { config: vault.config, bundle }
   const failed: TargetFailure[] = []
 
   // 1. Plan. A target that cannot plan takes nothing else down with it.
   const plans = new Map<BuildTarget, PlannedFile[]>()
-  for (const name of selected) {
+  for (const name of targets) {
     try {
       plans.set(name, targetByName(name).plan(state, context))
     } catch (error) {
@@ -126,6 +139,24 @@ export function build(
   // 2. Two targets planning one path is a hard error, like a slug collision, and
   //    it is caught before a single byte is written.
   const { owner, planned } = claimPaths(vault, plans)
+
+  return { targets, narrowed, plans, planned, owner, failed }
+}
+
+export function build(
+  vault: Vault,
+  state: VaultState,
+  bundle: Translator,
+  options: BuildOptions = {},
+): BuildResult {
+  const force = options.force === true
+  const declared = vault.config.build.targets
+  const { targets: selected, narrowed, plans, planned, owner, failed } = planBuild(
+    vault,
+    state,
+    bundle,
+    options,
+  )
 
   if (options.dryRun === true) {
     return { targets: selected, planned, written: [], removed: [], failed }
