@@ -1,29 +1,39 @@
 /**
- * `gamereg enrich [<query>] [--provider igdb] [--all] [--covers]` — the
- * network step, isolated (docs/spec/02-cli.md).
+ * `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--covers]`
+ * — the network step, isolated (docs/spec/02-cli.md).
  *
  * The only command that reaches the network (00-architecture.md invariant 5).
  * A provider failure never blocks recording: whatever succeeded is still
  * committed to the log, and only the exit code (6) and the JSON envelope say
  * something did not — the same shape `build` uses for a failed target.
+ *
+ * Ambiguity (more than one plausible provider record) is a return value, not
+ * a silent skip — same contract as every other resolution in this CLI
+ * (03-resolution.md): a human at a terminal gets a menu, a script or agent
+ * gets exit 3 and `candidates[]`, and re-invokes with `--match <ref>`.
+ * `--all` never asks — an ambiguous match during a bulk/cron run is left as
+ * unresolved as no match at all.
  */
 import type { Command } from 'commander'
 
 import { GameregError } from '../../core/errors.ts'
 import type { GameState } from '../../core/fold.ts'
 import { createIgdbProvider } from '../../providers/igdb.ts'
-import type { Provider, ProviderDetail } from '../../providers/provider.ts'
+import type { Provider, ProviderCandidate, ProviderDetail } from '../../providers/provider.ts'
 import { createRawgProvider } from '../../providers/rawg.ts'
 import { normalize } from '../../resolve/normalize.ts'
+import { candidateFromProvider, CANDIDATE_LIMIT, parseReference } from '../../resolve/resolve.ts'
 import type { Cli } from '../context.ts'
 import { createContext } from '../context.ts'
 import { emit, emitFailure } from '../output.ts'
+import { choose } from '../prompt.ts'
 import type { Registrar } from '../register.ts'
-import { commit, load, resolveGame, stage, type Workspace } from '../workspace.ts'
+import { ambiguousError, commit, load, resolveGame, stage, type Workspace } from '../workspace.ts'
 
 type Options = {
   id?: string
   provider?: string
+  match?: string
   all?: boolean
   covers?: boolean
 }
@@ -42,32 +52,71 @@ function providerChain(root: string, requested: string | undefined): Provider[] 
   return KNOWN_PROVIDERS.map((name) => createProvider(name, root))
 }
 
+export type FindResult =
+  | { kind: 'match'; detail: ProviderDetail }
+  | { kind: 'none' }
+  | { kind: 'ambiguous'; candidates: ProviderCandidate[] }
+
 /**
  * The same auto-resolution threshold as local resolution (03-resolution.md):
  * exactly one result, and its normalized title matches exactly. Anything
- * short of that is a skip, never a guess — a wrong auto-enrich attaches the
- * wrong game's history to this one.
+ * short of that is either nothing, or genuine ambiguity — never a guess.
  *
  * Edition-suffix stripping is off here (`{ editions: false }`), unlike local
  * resolution: a catalog frequently lists "Deluxe Edition" as its own entry
  * with its own id — stripping the suffix would collapse it with the base
  * game and turn one confident match into an ambiguous pair.
  */
-export async function findDetail(provider: Provider, game: GameState): Promise<ProviderDetail | null> {
+export async function findDetail(provider: Provider, game: GameState): Promise<FindResult> {
   const known = game.providers[provider.name]
-  if (known !== undefined) return provider.fetch(String(known))
+  if (known !== undefined) {
+    const detail = await provider.fetch(String(known))
+    return detail === null ? { kind: 'none' } : { kind: 'match', detail }
+  }
 
   const needle = normalize(game.title, { editions: false })
   const candidates = await provider.search(game.title)
   const matches = candidates.filter((candidate) => normalize(candidate.title, { editions: false }) === needle)
-  if (matches.length !== 1) return null
-  return provider.fetch(matches[0]!.id)
+  if (matches.length === 0) return { kind: 'none' }
+  if (matches.length > 1) return { kind: 'ambiguous', candidates: matches }
+
+  const detail = await provider.fetch(matches[0]!.id)
+  return detail === null ? { kind: 'none' } : { kind: 'match', detail }
 }
 
 export type EnrichOutcome =
   | { kind: 'enriched'; provider: string }
   | { kind: 'skipped' }
   | { kind: 'failed'; message: string }
+  | { kind: 'ambiguous'; provider: string; candidates: ProviderCandidate[] }
+
+/** Stages the `game.enrich` event. Shared by a clean match, an interactively-picked candidate, and `--match`. */
+export function applyDetail(
+  cli: Cli,
+  workspace: Workspace,
+  game: GameState,
+  provider: string,
+  detail: ProviderDetail,
+  covers: boolean,
+): { kind: 'enriched'; provider: string } {
+  stage(cli, workspace, 'game.enrich', {
+    game_id: game.game_id,
+    provider,
+    fields: { ...detail.fields, id: detail.id },
+    ...(covers && detail.cover_url !== null ? { cover: detail.cover_url } : {}),
+  })
+  return { kind: 'enriched', provider }
+}
+
+/** Shapes an ambiguous provider outcome into the same exit-3 envelope every other resolution ambiguity uses. */
+export function ambiguousOutcomeError(
+  game: GameState,
+  provider: string,
+  candidates: readonly ProviderCandidate[],
+): GameregError {
+  const shaped = candidates.slice(0, CANDIDATE_LIMIT).map((candidate) => candidateFromProvider(provider, candidate))
+  return ambiguousError(game.title, shaped, candidates.length > CANDIDATE_LIMIT)
+}
 
 export async function enrichGame(
   cli: Cli,
@@ -75,6 +124,7 @@ export async function enrichGame(
   game: GameState,
   providers: readonly Provider[],
   covers: boolean,
+  bulk: boolean,
 ): Promise<EnrichOutcome> {
   // Whether at least one provider actually answered — reachable, credentials
   // present — regardless of whether it found a match. A provider that is
@@ -82,11 +132,12 @@ export async function enrichGame(
   // never turn "the working provider found nothing" into a reported failure.
   let attempted = false
   const failures: string[] = []
+  let firstAmbiguous: { provider: string; candidates: ProviderCandidate[] } | null = null
 
   for (const provider of providers) {
-    let detail: ProviderDetail | null
+    let result: FindResult
     try {
-      detail = await findDetail(provider, game)
+      result = await findDetail(provider, game)
       attempted = true
     } catch (error) {
       if (error instanceof GameregError && error.code === 6) {
@@ -95,15 +146,24 @@ export async function enrichGame(
       }
       throw error
     }
-    if (detail === null) continue
 
-    stage(cli, workspace, 'game.enrich', {
-      game_id: game.game_id,
-      provider: provider.name,
-      fields: { ...detail.fields, id: detail.id },
-      ...(covers && detail.cover_url !== null ? { cover: detail.cover_url } : {}),
-    })
-    return { kind: 'enriched', provider: provider.name }
+    if (result.kind === 'none') continue
+    if (result.kind === 'ambiguous') {
+      // Keep trying the rest of the chain — a later provider may still give
+      // a clean unique match. Remember only the first ambiguous set, so the
+      // eventual answer (if the chain never resolves) is deterministic:
+      // igdb before rawg, the configured provider order.
+      firstAmbiguous ??= { provider: provider.name, candidates: result.candidates }
+      continue
+    }
+
+    return applyDetail(cli, workspace, game, provider.name, result.detail, covers)
+  }
+
+  // `--all` never asks: an ambiguous bulk match is left unresolved, same as
+  // no match at all — safe to run unattended.
+  if (firstAmbiguous !== null && !bulk) {
+    return { kind: 'ambiguous', provider: firstAmbiguous.provider, candidates: firstAmbiguous.candidates }
   }
 
   if (attempted || failures.length === 0) return { kind: 'skipped' }
@@ -116,6 +176,7 @@ export function registerEnrich(registrar: Registrar): void {
     .argument('[query]', registrar.t('help.arg.query'))
     .option('--id <ref>', registrar.t('help.opt.id'))
     .option('--provider <name>', registrar.t('help.opt.provider'))
+    .option('--match <ref>', registrar.t('help.opt.match'))
     .option('--all', registrar.t('help.opt.all_games'))
     .option('--covers', registrar.t('help.opt.covers'))
     .action(async (query: string | undefined, options: Options, command: Command) => {
@@ -128,6 +189,32 @@ export function registerEnrich(registrar: Registrar): void {
           value: options.provider,
           valid: KNOWN_PROVIDERS.join(', '),
         })
+      }
+
+      if (options.match !== undefined && options.all === true) {
+        throw new GameregError('usage', 'error.match_with_all')
+      }
+
+      // `--match` is trusted, never searched: the caller already resolved
+      // which catalog record is correct (a human picked it from a menu, or
+      // an agent re-invoked with a ref from an earlier candidates[] list).
+      let forcedDetail: { provider: string; detail: ProviderDetail } | null = null
+      if (options.match !== undefined) {
+        const reference = parseReference(options.match)
+        if (reference === null || reference.kind !== 'provider') {
+          throw new GameregError('usage', 'error.bad_match_ref', { value: options.match })
+        }
+        if (!(KNOWN_PROVIDERS as readonly string[]).includes(reference.provider)) {
+          throw new GameregError('usage', 'error.enum', {
+            field: 'provider',
+            value: reference.provider,
+            valid: KNOWN_PROVIDERS.join(', '),
+          })
+        }
+        const provider = createProvider(reference.provider, cli.vault.root)
+        const detail = await provider.fetch(reference.id)
+        if (detail === null) throw new GameregError('not_found', 'error.unknown_id', { ref: options.match })
+        forcedDetail = { provider: reference.provider, detail }
       }
 
       const targets: GameState[] =
@@ -143,7 +230,39 @@ export function registerEnrich(registrar: Registrar): void {
       const failed: { game_id: string; title: string; message: string }[] = []
 
       for (const game of targets) {
-        const outcome = await enrichGame(cli, workspace, game, providers, covers)
+        if (forcedDetail !== null) {
+          const applied = applyDetail(cli, workspace, game, forcedDetail.provider, forcedDetail.detail, covers)
+          enriched.push({ game_id: game.game_id, title: game.title, provider: applied.provider })
+          continue
+        }
+
+        const outcome = await enrichGame(cli, workspace, game, providers, covers, options.all === true)
+
+        if (outcome.kind === 'ambiguous') {
+          if (!cli.interactive) throw ambiguousOutcomeError(game, outcome.provider, outcome.candidates)
+
+          const candidates = outcome.candidates
+            .slice(0, CANDIDATE_LIMIT)
+            .map((candidate) => candidateFromProvider(outcome.provider, candidate))
+          const choice = await choose(cli, game.title, candidates, false)
+          if (choice.kind !== 'candidate') throw new GameregError('usage', 'prompt.cancelled')
+
+          const chosenRef = parseReference(choice.ref)
+          if (chosenRef === null || chosenRef.kind !== 'provider') {
+            throw new GameregError('error', 'error.unexpected', { message: choice.ref })
+          }
+          const chosenProvider = providers.find((candidate) => candidate.name === chosenRef.provider)
+          if (chosenProvider === undefined) {
+            throw new GameregError('error', 'error.unexpected', { message: chosenRef.provider })
+          }
+          const detail = await chosenProvider.fetch(chosenRef.id)
+          if (detail === null) throw new GameregError('not_found', 'error.unknown_id', { ref: choice.ref })
+
+          const applied = applyDetail(cli, workspace, game, chosenProvider.name, detail, covers)
+          enriched.push({ game_id: game.game_id, title: game.title, provider: applied.provider })
+          continue
+        }
+
         if (outcome.kind === 'enriched') {
           enriched.push({ game_id: game.game_id, title: game.title, provider: outcome.provider })
         } else if (outcome.kind === 'skipped') {

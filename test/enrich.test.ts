@@ -113,3 +113,34 @@ test('--covers alone, with no query and no --all, is still not_found', () => {
   const run = gamereg(root, 'enrich', '--covers')
   assert.equal(run.status, 4)
 })
+
+test('--match combined with --all is a usage error', () => {
+  const root = vault()
+  const run = gamereg(root, 'enrich', '--all', '--match', 'igdb:7346')
+  assert.equal(run.status, 2)
+  assert.equal(run.json['error'], 'usage')
+})
+
+test('--match with a malformed ref (not provider:id) is a usage error', () => {
+  const root = vault()
+  seedGame(root, 'hollow knight')
+  const run = gamereg(root, 'enrich', 'hollow knight', '--match', 'not-a-ref')
+  assert.equal(run.status, 2)
+  assert.equal(run.json['error'], 'usage')
+})
+
+test('--match naming an unknown provider is a usage error listing the valid ones', () => {
+  const root = vault()
+  seedGame(root, 'hollow knight')
+  const run = gamereg(root, 'enrich', 'hollow knight', '--match', 'nonsense:1')
+  assert.equal(run.status, 2)
+  assert.match(String(run.json['message']), /igdb/)
+})
+
+test('--match still goes through normal credential resolution — no bypass', () => {
+  const root = vault()
+  seedGame(root, 'hollow knight')
+  const run = gamereg(root, 'enrich', 'hollow knight', '--match', 'igdb:11169')
+  assert.equal(run.status, 6)
+  assert.equal(run.json['error'], 'provider_unavailable')
+})

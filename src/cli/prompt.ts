@@ -15,12 +15,18 @@ export type Choice = { kind: 'candidate'; ref: string } | { kind: 'create' }
 
 function describe(cli: Cli, candidate: Candidate): string {
   const year = candidate.year === null ? '' : ` (${candidate.year})`
-  const key = candidate.in_log ? 'prompt.candidate_local' : 'prompt.candidate_new'
-  return cli.t(key, {
-    title: candidate.title,
-    year,
-    status: cli.label('status', candidate.status ?? 'unplayed'),
-  })
+  if (candidate.in_log) {
+    return cli.t('prompt.candidate_local', {
+      title: candidate.title,
+      year,
+      status: cli.label('status', candidate.status ?? 'unplayed'),
+    })
+  }
+  // Two provider entries can share the exact title and year (a catalog
+  // often has one entry per platform release) — platforms is what actually
+  // tells them apart in the menu.
+  const platforms = candidate.platforms.length === 0 ? '' : ` [${candidate.platforms.join(', ')}]`
+  return cli.t('prompt.candidate_new', { title: candidate.title, year, platforms })
 }
 
 export async function choose(

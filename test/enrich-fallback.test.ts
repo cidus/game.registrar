@@ -11,14 +11,15 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import type { Cli } from '../src/cli/context.ts'
-import { enrichGame } from '../src/cli/commands/enrich.ts'
+import { ambiguousOutcomeError, applyDetail, enrichGame } from '../src/cli/commands/enrich.ts'
 import type { Workspace } from '../src/cli/workspace.ts'
 import { GameregError } from '../src/core/errors.ts'
 import { fold } from '../src/core/fold.ts'
 import { nowIn } from '../src/core/time.ts'
 import { openVault } from '../src/core/vault.ts'
 import { translator } from '../src/i18n/index.ts'
-import type { Provider, ProviderDetail } from '../src/providers/provider.ts'
+import { CANDIDATE_LIMIT } from '../src/resolve/resolve.ts'
+import type { Provider, ProviderCandidate, ProviderDetail } from '../src/providers/provider.ts'
 import { context as timeContext, event, tempDir } from './helpers.ts'
 
 function fakeCli(): Cli {
@@ -86,7 +87,7 @@ test('a configured provider finding nothing is skipped, never reported as the ne
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [noMatch('igdb'), unavailable('rawg')], false)
+  const outcome = await enrichGame(cli, workspace, game, [noMatch('igdb'), unavailable('rawg')], false, false)
   assert.deepEqual(outcome, { kind: 'skipped' })
 })
 
@@ -95,7 +96,7 @@ test('the order does not matter: an unavailable provider before a reachable no-m
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [unavailable('rawg'), noMatch('igdb')], false)
+  const outcome = await enrichGame(cli, workspace, game, [unavailable('rawg'), noMatch('igdb')], false, false)
   assert.deepEqual(outcome, { kind: 'skipped' })
 })
 
@@ -104,7 +105,7 @@ test('every provider unavailable is reported failed, naming every one of them', 
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), unavailable('rawg')], false)
+  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), unavailable('rawg')], false, false)
   assert.equal(outcome.kind, 'failed')
   if (outcome.kind === 'failed') {
     assert.match(outcome.message, /igdb/i)
@@ -117,7 +118,7 @@ test('a match on the second provider still enriches, even though the first was u
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), matching('rawg', DETAIL)], false)
+  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), matching('rawg', DETAIL)], false, false)
   assert.deepEqual(outcome, { kind: 'enriched', provider: 'rawg' })
 })
 
@@ -135,7 +136,7 @@ test('a match on the first provider never even asks the second', async () => {
     fetch: async () => null,
   }
 
-  const outcome = await enrichGame(cli, workspace, game, [matching('igdb', DETAIL), spy], false)
+  const outcome = await enrichGame(cli, workspace, game, [matching('igdb', DETAIL), spy], false, false)
   assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
   assert.equal(asked, false)
 })
@@ -165,7 +166,7 @@ test('a provider title with a trailing (year) still auto-matches the local title
     }),
   }
 
-  const outcome = await enrichGame(cli, workspace, game, [igdb], false)
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
   assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
 })
 
@@ -194,11 +195,39 @@ test('a "Deluxe Edition" catalog entry does not collide with the base game', asy
     }),
   }
 
-  const outcome = await enrichGame(cli, workspace, game, [igdb], false)
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
   assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
 })
 
-test('two catalog entries with the exact same title stay ambiguous — no guessing which platform SKU', async () => {
+test('two catalog entries with the exact same title report ambiguous — no guessing which platform SKU', async () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [
+      { id: '1', title: 'Hollow Knight', year: 2017, platforms: ['Switch'], cover_url: null },
+      { id: '2', title: 'Hollow Knight', year: 2017, platforms: ['PC'], cover_url: null },
+    ],
+    fetch: async () => {
+      throw new Error('must not be called: matching must stay ambiguous, never guessed')
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
+  assert.deepEqual(outcome, {
+    kind: 'ambiguous',
+    provider: 'igdb',
+    candidates: [
+      { id: '1', title: 'Hollow Knight', year: 2017, platforms: ['Switch'], cover_url: null },
+      { id: '2', title: 'Hollow Knight', year: 2017, platforms: ['PC'], cover_url: null },
+    ],
+  })
+})
+
+test('bulk (--all) never asks: an ambiguous provider still collapses to skipped', async () => {
   const cli = fakeCli()
   const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
@@ -211,10 +240,135 @@ test('two catalog entries with the exact same title stay ambiguous — no guessi
       { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
     ],
     fetch: async () => {
-      throw new Error('must not be called: matching must stay ambiguous')
+      throw new Error('must not be called: bulk never resolves an ambiguity')
     },
   }
 
-  const outcome = await enrichGame(cli, workspace, game, [igdb], false)
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, true)
   assert.deepEqual(outcome, { kind: 'skipped' })
+})
+
+test('an ambiguous first provider still tries the second, which cleanly matches', async () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [
+      { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+      { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    ],
+    fetch: async () => {
+      throw new Error('must not be called: igdb stays ambiguous, never fetched')
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb, matching('rawg', DETAIL)], false, false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'rawg' })
+})
+
+test('ambiguous on every provider in the chain reports the first provider only', async () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [
+      { id: '1', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+      { id: '2', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    ],
+    fetch: async () => {
+      throw new Error('must not be called')
+    },
+  }
+  const rawg: Provider = {
+    name: 'rawg',
+    search: async () => [
+      { id: 'a', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+      { id: 'b', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
+    ],
+    fetch: async () => {
+      throw new Error('must not be called')
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb, rawg], false, false)
+  assert.equal(outcome.kind, 'ambiguous')
+  if (outcome.kind === 'ambiguous') {
+    assert.equal(outcome.provider, 'igdb')
+    assert.equal(outcome.candidates.length, 2)
+  }
+})
+
+test('ambiguousOutcomeError shapes the ambiguous outcome as a code-3 error, same as any other resolution ambiguity', () => {
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const candidates: ProviderCandidate[] = [
+    { id: '1', title: 'Hollow Knight', year: 2017, platforms: ['Switch'], cover_url: null },
+    { id: '2', title: 'Hollow Knight', year: 2017, platforms: ['PC'], cover_url: null },
+  ]
+
+  const error = ambiguousOutcomeError(game, 'igdb', candidates)
+  assert.equal(error.code, 3)
+  assert.equal(error.error, 'ambiguous')
+  const shaped = error.details['candidates'] as { ref: string; source: string; platforms: string[] }[]
+  assert.deepEqual(
+    shaped.map((candidate) => candidate.ref),
+    ['igdb:1', 'igdb:2'],
+  )
+  assert.ok(shaped.every((candidate) => candidate.source === 'provider'))
+  assert.equal(error.details['truncated'], undefined)
+})
+
+test('ambiguousOutcomeError caps candidates at CANDIDATE_LIMIT and flags truncated', () => {
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const candidates: ProviderCandidate[] = Array.from({ length: CANDIDATE_LIMIT + 3 }, (_, index) => ({
+    id: String(index),
+    title: 'Hollow Knight',
+    year: 2017,
+    platforms: [],
+    cover_url: null,
+  }))
+
+  const error = ambiguousOutcomeError(game, 'igdb', candidates)
+  const shaped = error.details['candidates'] as unknown[]
+  assert.equal(shaped.length, CANDIDATE_LIMIT)
+  assert.equal(error.details['truncated'], true)
+})
+
+test('applyDetail stages a game.enrich event and reports the enriched outcome', () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const outcome = applyDetail(cli, workspace, game, 'igdb', DETAIL, false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
+
+  const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
+  assert.ok(staged)
+  assert.equal(staged!.data['provider'], 'igdb')
+  assert.deepEqual(staged!.data['fields'], { ...DETAIL.fields, id: DETAIL.id })
+  assert.equal('cover' in staged!.data, false)
+})
+
+test('applyDetail includes the cover only when --covers is set and the provider has one', () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+  const withCover: ProviderDetail = { ...DETAIL, cover_url: 'https://example.com/cover.jpg' }
+
+  applyDetail(cli, workspace, game, 'igdb', withCover, true)
+  const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
+  assert.equal(staged!.data['cover'], 'https://example.com/cover.jpg')
 })

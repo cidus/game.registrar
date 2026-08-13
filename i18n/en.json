@@ -76,7 +76,8 @@
       "provider": "Provider to query: igdb, rawg. Default: igdb, then rawg as fallback.",
       "all_games": "Enrich every game on record.",
       "covers": "Also fetch and set cover art, unless the cover is source: user.",
-      "mapping": "Path to a JSON file mapping gamereg fields to CSV column headers."
+      "mapping": "Path to a JSON file mapping gamereg fields to CSV column headers.",
+      "match": "Provider ref to fetch directly, as igdb:7346 — skips search."
     },
     "verdict": "File the consolidated review of a playthrough."
   },
@@ -135,7 +136,9 @@
     "query_failed": "The query could not be run: {message}",
     "import_mapping_incomplete": "The mapping at {file} has no column for \"{field}\", which is required.",
     "import_row_incomplete": "Row has no value for \"{field}\", which is required.",
-    "bad_image": "{file} could not be read as an image."
+    "bad_image": "{file} could not be read as an image.",
+    "match_with_all": "--match cannot be combined with --all.",
+    "bad_match_ref": "\"{value}\" is not a provider reference. Expected <provider>:<id>, e.g. igdb:7346."
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
@@ -264,7 +267,7 @@
     "cancel": "Cancel",
     "cancelled": "Cancelled. Nothing was written.",
     "candidate_local": "{title}{year} — on record, {status}",
-    "candidate_new": "{title}{year}",
+    "candidate_new": "{title}{year}{platforms}",
     "init": {
       "locale": "Locale (blank for the environment's):",
       "timezone": "Timezone (blank for the environment's):",

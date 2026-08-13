@@ -37,7 +37,7 @@ import { cpSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { enrichGame } from '../../src/cli/commands/enrich.ts'
+import { applyDetail, enrichGame } from '../../src/cli/commands/enrich.ts'
 import type { Cli } from '../../src/cli/context.ts'
 import type { Workspace } from '../../src/cli/workspace.ts'
 import { readEvents } from '../../src/core/events.ts'
@@ -106,7 +106,7 @@ test('igdb: well-known games with a single clean catalog entry auto-enrich', { s
   const provider = createIgdbProvider(vault.root)
 
   for (const slug of ['outer-wilds', 'celeste']) {
-    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, slug), [provider], false)
+    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, slug), [provider], false, false)
     assert.equal(outcome.kind, 'enriched', `${slug}: ${JSON.stringify(outcome)}`)
   }
 })
@@ -128,27 +128,52 @@ test(
     const workspace: Workspace = { events, state: fold(events, timeContext(vault)), pending: [] }
     const provider = createIgdbProvider(vault.root)
 
-    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'ff7r-live'), [provider], false)
+    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'ff7r-live'), [provider], false, false)
     assert.equal(outcome.kind, 'enriched', JSON.stringify(outcome))
   },
 )
 
 test(
-  'igdb: catalog entries that genuinely share a title stay ambiguous, never guessed',
+  'igdb: catalog entries that genuinely share a title report ambiguous, never guessed',
   { skip: skipIgdb },
   async () => {
     // As of writing, IGDB has more than one entry titled exactly "Hollow
     // Knight" and exactly "Chrono Trigger" (different platform releases).
     // If IGDB ever deduplicates these, this test starts asserting the wrong
-    // thing — that is a catalog change, not a regression here.
+    // thing — that is a catalog change, not a regression here. `enrichGame`
+    // itself never throws for ambiguity (that's the `.action()` handler's
+    // job, one layer up) — it returns the outcome as a plain value.
     const cli = fakeCli(vault)
     const workspace = workspaceOf(vault)
     const provider = createIgdbProvider(vault.root)
 
     for (const slug of ['hollow-knight', 'chrono-trigger']) {
-      const outcome = await enrichGame(cli, workspace, gameNamed(workspace, slug), [provider], false)
-      assert.equal(outcome.kind, 'skipped', `${slug}: ${JSON.stringify(outcome)} — did IGDB dedupe its entries?`)
+      const outcome = await enrichGame(cli, workspace, gameNamed(workspace, slug), [provider], false, false)
+      assert.equal(outcome.kind, 'ambiguous', `${slug}: ${JSON.stringify(outcome)} — did IGDB dedupe its entries?`)
+      if (outcome.kind === 'ambiguous') {
+        assert.ok(outcome.candidates.length > 1, `${slug}: expected more than one candidate`)
+      }
     }
+  },
+)
+
+test(
+  'igdb: --match fetches an exact candidate id directly, skipping search entirely',
+  { skip: skipIgdb },
+  async () => {
+    const cli = fakeCli(vault)
+    const workspace = workspaceOf(vault)
+    const provider = createIgdbProvider(vault.root)
+
+    // 11169 is Final Fantasy VII Remake's real IGDB id (confirmed live).
+    const detail = await provider.fetch('11169')
+    assert.ok(detail, 'IGDB id 11169 should still resolve — did the catalog change?')
+    const applied = applyDetail(cli, workspace, gameNamed(workspace, 'outer-wilds'), provider.name, detail!, false)
+    assert.equal(applied.provider, 'igdb')
+
+    const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
+    assert.ok(staged, 'game.enrich event was not staged')
+    assert.equal((staged!.data['fields'] as Record<string, unknown>)['id'], '11169')
   },
 )
 
@@ -157,6 +182,6 @@ test('rawg: a well-known game auto-enriches', { skip: skipRawg }, async () => {
   const workspace = workspaceOf(vault)
   const provider = createRawgProvider(vault.root)
 
-  const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'celeste'), [provider], false)
+  const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'celeste'), [provider], false, false)
   assert.equal(outcome.kind, 'enriched', JSON.stringify(outcome))
 })

@@ -133,7 +133,8 @@
       "provider": "Provedor a consultar: igdb, rawg. Padrão: igdb, e rawg em seguida.",
       "all_games": "Enriquece todos os títulos do acervo.",
       "covers": "Também busca e define a capa, a menos que a capa seja source: user.",
-      "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV."
+      "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV.",
+      "match": "Referência de provedor a buscar direto, como igdb:7346 — sem busca."
     },
     "verdict": "Protocola o parecer consolidado de uma jogatina."
   },
@@ -192,7 +193,9 @@
     "query_failed": "A consulta não pôde ser executada: {message}",
     "import_mapping_incomplete": "O mapeamento em {file} não tem coluna para \"{field}\", que é obrigatório.",
     "import_row_incomplete": "A linha não tem valor para \"{field}\", que é obrigatório.",
-    "bad_image": "{file} não pôde ser lido como imagem."
+    "bad_image": "{file} não pôde ser lido como imagem.",
+    "match_with_all": "--match não pode ser combinado com --all.",
+    "bad_match_ref": "\"{value}\" não é uma referência de provedor. Esperado <provedor>:<id>, ex.: igdb:7346."
   },
   "doctor": {
     "unparseable_line": "A linha {line} não é JSON válido.",
@@ -321,7 +324,7 @@
     "cancel": "Cancelar",
     "cancelled": "Cancelado. Nada foi gravado.",
     "candidate_local": "{title}{year} — no acervo, {status}",
-    "candidate_new": "{title}{year}",
+    "candidate_new": "{title}{year}{platforms}",
     "init": {
       "locale": "Idioma (em branco para o do ambiente):",
       "timezone": "Fuso horário (em branco para o do ambiente):",

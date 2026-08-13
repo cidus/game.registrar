@@ -64,7 +64,7 @@ export type GameQuery = ResolveOptions & {
   allowCreate?: boolean
 }
 
-function ambiguousError(query: string, candidates: readonly Candidate[], truncated: boolean): GameregError {
+export function ambiguousError(query: string, candidates: readonly Candidate[], truncated: boolean): GameregError {
   return new GameregError(
     'ambiguous',
     'error.ambiguous',

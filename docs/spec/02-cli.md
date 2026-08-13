@@ -359,10 +359,20 @@ Like `gamereg.config.json`, `gamereg.secrets.json` is read, never written by
 anything but `init`. No command persists a credential it was handed on the
 command line; there is no `--client-secret` flag for exactly that reason.
 
-### `gamereg enrich [<query>] [--provider igdb] [--all] [--covers]`
+### `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--covers]`
 
 Network step, isolated. Appends `game.enrich` and fetches provider cover art.
 Safe to run from cron. Failure here never blocks recording.
+
+When a provider search returns more than one plausible title match for a
+single named game, this is ambiguity, not failure: exit 3 with
+`candidates[]`, same shape as any other resolution ambiguity
+(03-resolution.md). A human at a terminal gets the usual menu; a script or
+agent re-invokes with `--match <provider>:<id>` to fetch that exact
+candidate directly, skipping search. `--all` never prompts or exits 3 for
+this — an ambiguous provider match during a bulk run is left as-is, same as
+no match at all, so a cron enrich never blocks on a question nobody is
+there to answer.
 
 **Never overwrites a cover with `source: user`.** `--covers --force` still
 respects that; only `gamereg cover --reset` gives provider art back.
