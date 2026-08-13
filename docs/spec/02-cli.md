@@ -294,6 +294,40 @@ anything. The user photo remains an attachment on the timeline.
 
 ## Maintenance commands
 
+### `gamereg init`
+
+```
+gamereg init [--locale en] [--timezone America/Sao_Paulo] [--day-cutoff 05:00]
+             [--platform switch] [--form digital] [--mode solo]
+             [--targets obsidian,csv] [--csv-dir data]
+```
+
+Writes `gamereg.config.json` at the vault root (`--vault`, or the working
+directory). Nothing else — every other path in `docs/spec/00-architecture.md`'s
+directory listing is created lazily, by whichever command or target first
+writes into it. `--locale` is the one field with no dedicated flag: it reuses
+the global `--locale`, which already picks the invocation's own output
+language, and writes that same value into `config.locale`.
+
+Every field is optional and falls back, in order, to: the flag, an interactive
+prompt, then the built-in default (`DEFAULT_CONFIG`) — the same
+flag-then-prompt-then-default shape `runDefaults` already uses for `start`.
+Interactivity follows the normal resolution (02-cli.md, "Two independent
+axes"): a human at a terminal is asked for whatever a flag did not answer; a
+machine gets the built-ins and is never blocked.
+
+A vault that already has a config file is left alone: `init` exits 7
+(`needs_confirmation`) and does not touch the file. `--yes` overwrites it —
+and when it does, the existing values seed the prompts instead of the
+built-ins, so re-running `init` interactively behaves like editing the config
+rather than resetting it.
+
+`--targets` validates like `build.targets` elsewhere: an unknown name exits 2
+listing the valid ones, and a later-phase target exits 2 saying so.
+
+This command never touches `data/events.jsonl` and never appends an event —
+there is no state to fold yet, only a vault to declare.
+
 ### `gamereg alias <query> --add <alias>`
 ### `gamereg enrich [<query>] [--provider igdb] [--all] [--covers]`
 
@@ -303,9 +337,37 @@ Safe to run from cron. Failure here never blocks recording.
 **Never overwrites a cover with `source: user`.** `--covers --force` still
 respects that; only `gamereg cover --reset` gives provider art back.
 
-### `gamereg build [--site] [--force]`
+### `gamereg build [target...] [--force] [--list]`
 
-Regenerates every derived artifact. Idempotent. See [04-derived](04-derived.md).
+Regenerates every derived artifact. Idempotent.
+
+```
+gamereg build                    # every target in build.targets
+gamereg build csv                # one target, as a convenience while iterating
+gamereg build obsidian csv       # a subset
+gamereg build --list             # what this vault declares, and what it wrote
+```
+
+**The argument narrows a build; it never defines what the vault contains.** Which
+targets exist is `build.targets` in `gamereg.config.json`, defaulting to
+`["obsidian"]`. An unknown target exits 2 and lists the valid ones; a target from
+a later phase exits 2 saying so.
+
+`--force` rewrites every derived file whether it changed or not, and is the only
+path that overwrites a seeded `.base`.
+
+A target that fails does not stop the others: the build finishes, reports what
+failed, and exits 1 having written everything that worked — the same principle as
+code 6, where local work is committed even though the network step was not.
+
+```json
+{ "ok": false, "code": 1, "error": "target_failed",
+  "result": { "written": ["Games.md"], "removed": [],
+              "failed": [{ "target": "sqlite", "message": "..." }] } }
+```
+
+See [04-derived](04-derived.md) for the artifacts and
+[07-targets](07-targets.md) for the target contract.
 
 ### `gamereg amend <event_id> --reason "..." [--set k=v ...]`
 ### `gamereg revoke <event_id> --reason "..."`
@@ -338,6 +400,7 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `search` | `buscar` |
 | `open` | `abertas` |
 | `due` | `pendencias` |
+| `init` | `inicializar` |
 | `build` | `construir` |
 | `query` | `consultar` |
 | `amend` | `corrigir` |

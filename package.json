@@ -12,7 +12,8 @@
   },
   "files": [
     "dist/src",
-    "i18n"
+    "i18n",
+    "templates"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

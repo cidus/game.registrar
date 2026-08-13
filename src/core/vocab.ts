@@ -26,6 +26,7 @@ export const CHECKIN_TRIGGER = ['duration', 'clock', 'day_cutoff'] as const
 export const CHECKIN_OUTCOME = ['snoozed', 'break_started', 'session_closed', 'no_reply'] as const
 export const GAME_STATUS = ['unplayed', 'playing', 'finished', 'abandoned'] as const
 export const HOURS_SOURCE = ['measured', 'stated'] as const
+export const BUILD_TARGET = ['obsidian', 'csv', 'sqlite', 'json', 'html', 'site'] as const
 
 export type Outcome = (typeof OUTCOME)[number]
 export type CompletionCriteria = (typeof COMPLETION_CRITERIA)[number]
@@ -39,6 +40,31 @@ export type CheckinTrigger = (typeof CHECKIN_TRIGGER)[number]
 export type CheckinOutcome = (typeof CHECKIN_OUTCOME)[number]
 export type GameStatus = (typeof GAME_STATUS)[number]
 export type HoursSource = (typeof HOURS_SOURCE)[number]
+export type BuildTarget = (typeof BUILD_TARGET)[number]
+
+/**
+ * The phase in which each build target becomes available
+ * (docs/spec/07-targets.md). Naming a later one is a usage error, not an
+ * unknown name: the vocabulary is complete, the implementation is not.
+ */
+export const TARGET_PHASE: Record<BuildTarget, 0 | 1 | 3> = {
+  obsidian: 0,
+  csv: 0,
+  sqlite: 1,
+  json: 1,
+  html: 1,
+  site: 3,
+}
+
+export const CURRENT_PHASE = 0
+
+export function checkTarget(value: string): BuildTarget {
+  const name = checkEnum('build.targets', value, BUILD_TARGET)
+  if (TARGET_PHASE[name] > CURRENT_PHASE) {
+    throw new GameregError('usage', 'error.target_phase', { name, phase: TARGET_PHASE[name] })
+  }
+  return name
+}
 
 /** Ratings are 0–11. 11 means the game exceeded the scale; never clamp it. */
 export const RATING_MIN = 0

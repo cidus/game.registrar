@@ -9,7 +9,7 @@ import { formatHours } from '../core/duration.ts'
 import type { GameState, RunState, VaultState } from '../core/fold.ts'
 import type { DatePrecision } from '../core/vocab.ts'
 import type { Translator } from '../i18n/index.ts'
-import { spliceBlocks, wrapBlock, type BlockContent } from './markers.ts'
+import { wrapBlock, type BlockContent } from './markers.ts'
 
 export const TABLE_BLOCK = 'table'
 
@@ -80,15 +80,11 @@ export function tableBlock(state: VaultState, bundle: Translator): string {
   ].join('\n')
 }
 
-export function blocksOf(state: VaultState, bundle: Translator): BlockContent[] {
+export function tableBlocks(state: VaultState, bundle: Translator): BlockContent[] {
   return [{ block: TABLE_BLOCK, content: tableBlock(state, bundle) }]
 }
 
-export function renderTable(existing: string | null, state: VaultState, bundle: Translator, file: string): string {
-  const blocks = blocksOf(state, bundle)
-  if (existing === null || existing.trim() === '') {
-    return `# ${bundle.t('table.title')}\n\n${wrapBlock(TABLE_BLOCK, tableBlock(state, bundle))}\n`
-  }
-  const spliced = spliceBlocks(existing, blocks, file)
-  return spliced.endsWith('\n') ? spliced : `${spliced}\n`
+/** The table as it would be created from nothing: a title and the block. */
+export function newTable(state: VaultState, bundle: Translator): string {
+  return `# ${bundle.t('table.title')}\n\n${wrapBlock(TABLE_BLOCK, tableBlock(state, bundle))}\n`
 }

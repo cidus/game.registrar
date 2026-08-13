@@ -4,7 +4,7 @@
  * a diff, which is the single most valuable test in the suite.
  */
 import assert from 'node:assert/strict'
-import { cpSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -12,7 +12,8 @@ import { readEvents } from '../src/core/events.ts'
 import { fold } from '../src/core/fold.ts'
 import { openVault, timeContext } from '../src/core/vault.ts'
 import { translator } from '../src/i18n/index.ts'
-import { build } from '../src/render/build.ts'
+import { build, type BuildResult } from '../src/targets/build.ts'
+import { ownedPaths, readManifest } from '../src/targets/manifest.ts'
 import { findRegions } from '../src/render/markers.ts'
 import { tempDir } from './helpers.ts'
 
@@ -21,24 +22,42 @@ const EXAMPLE = join(import.meta.dirname, '..', 'example-vault')
 function copyExample(): string {
   const dir = join(tempDir('gamereg-golden-'), 'vault')
   cpSync(EXAMPLE, dir, { recursive: true })
+  // The manifest is bookkeeping, not a fixture. A stale one left by a local
+  // build must not decide what these tests see.
+  rmSync(join(dir, '.gamereg'), { recursive: true, force: true })
   return dir
 }
 
-function rebuild(root: string): void {
+function rebuild(root: string): BuildResult {
   const vault = openVault(root)
   const state = fold(readEvents(vault.eventsFile), timeContext(vault))
-  build(vault, state, translator(vault.config.locale ?? 'en'))
+  return build(vault, state, translator(vault.config.locale ?? 'en'))
 }
 
+/**
+ * What the build claims to own. Hardcoding the list would only test that the
+ * test agrees with itself; the manifest is where ownership actually lives.
+ */
 function derivedFiles(root: string): string[] {
-  return ['Games.md', ...readdirSync(join(root, 'games')).sort().map((name) => join('games', name))]
+  const vault = openVault(root)
+  const manifest = readManifest(vault.manifestFile)
+  assert.notEqual(manifest, null, 'the build left no manifest behind')
+  return [...ownedPaths(manifest)].sort()
+}
+
+/** The committed fixtures, listed by building a throwaway copy of them. */
+function goldenFiles(): string[] {
+  const root = copyExample()
+  rebuild(root)
+  return derivedFiles(root)
 }
 
 test('building the example vault reproduces the committed output byte for byte', () => {
   const root = copyExample()
   rebuild(root)
 
-  for (const file of derivedFiles(EXAMPLE)) {
+  for (const file of derivedFiles(root)) {
+    assert.equal(existsSync(join(EXAMPLE, file)), true, `${file} is not committed`)
     assert.equal(
       readFileSync(join(root, file), 'utf8'),
       readFileSync(join(EXAMPLE, file), 'utf8'),
@@ -47,22 +66,28 @@ test('building the example vault reproduces the committed output byte for byte',
   }
 })
 
-test('a second build is byte-identical to the first', () => {
+test('a second build is byte-identical to the first, and removes nothing', () => {
   const root = copyExample()
   rebuild(root)
-  const first = derivedFiles(root).map((file) => readFileSync(join(root, file), 'utf8'))
-  rebuild(root)
-  const second = derivedFiles(root).map((file) => readFileSync(join(root, file), 'utf8'))
-  assert.deepEqual(second, first)
+  const files = derivedFiles(root)
+  const first = files.map((file) => readFileSync(join(root, file), 'utf8'))
+
+  const second = rebuild(root)
+  assert.deepEqual(second.removed, [])
+  assert.deepEqual(second.written, [])
+  assert.deepEqual(
+    files.map((file) => readFileSync(join(root, file), 'utf8')),
+    first,
+  )
 })
 
 test('deleting every derived artifact and rebuilding loses only hand-written prose', () => {
+  const golden = goldenFiles()
   const root = copyExample()
-  rmSync(join(root, 'Games.md'))
-  rmSync(join(root, 'games'), { recursive: true })
+  for (const file of golden) rmSync(join(root, file), { force: true })
   rebuild(root)
 
-  for (const file of derivedFiles(EXAMPLE)) {
+  for (const file of golden.filter((name) => name.endsWith('.md'))) {
     const rebuilt = readFileSync(join(root, file), 'utf8')
     const committed = readFileSync(join(EXAMPLE, file), 'utf8')
 

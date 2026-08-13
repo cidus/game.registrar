@@ -6,22 +6,23 @@ platform: Switch
 release_year: 2018
 developer: Extremely OK Games
 genres: [platformer]
-started_on: 2026-07-20
+first_started_on: 2026-07-20
+runs: 1
 hours: 0.0
-tags: [gamereg]
+tags: [gamereg, gamereg/game]
 ---
 
 <!-- gamereg:begin block=header -->
 **Extremely OK Games** · 2018 · Switch
 <!-- gamereg:end block=header -->
 
-## Log
+## Runs
 
-<!-- gamereg:begin block=sessions -->
-| Date | Duration | Note |
-|---|---|---|
-| 2026-07-20 |  |  |
-<!-- gamereg:end block=sessions -->
+<!-- gamereg:begin block=runs -->
+| Run | Platform | Started | Ended | Hours | Rating | Criteria |
+|---|---|---|---|---|---|---|
+| [[celeste-2026-07-20\|2026]] | Switch | 2026-07-20 |  | 0.0 |  |  |
+<!-- gamereg:end block=runs -->
 
 ## Notes
 

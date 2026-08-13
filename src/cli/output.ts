@@ -39,7 +39,10 @@ export function emit(cli: Cli, outcome: Outcome): void {
   const lines = [...outcome.prose]
   if (cli.dryRun) {
     lines.unshift(cli.t('prose.dry_run'))
-    for (const event of outcome.events) lines.push(`  ${serializeEvent(event)}`)
+    if (outcome.events.length > 0) {
+      lines.push(cli.t('prose.dry_run_events'))
+      for (const event of outcome.events) lines.push(`  ${serializeEvent(event)}`)
+    }
   }
   const text = lines.filter((line) => line !== '').join('\n')
   if (text !== '') process.stdout.write(`${text}\n`)

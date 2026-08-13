@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { GameregError } from './errors.ts'
-import { checkEnum, FORM, MODE, type Form, type Mode } from './vocab.ts'
+import { checkEnum, checkTarget, FORM, MODE, type BuildTarget, type Form, type Mode } from './vocab.ts'
 
 export type Config = {
   locale: string | null
@@ -22,6 +22,18 @@ export type Config = {
     form: Form
     mode: Mode
   }
+  /**
+   * Which artifacts this vault emits. A property of the vault, never of the last
+   * command typed — `gamereg build csv` narrows a build, it does not redefine
+   * what the vault contains (docs/spec/07-targets.md).
+   */
+  build: {
+    targets: BuildTarget[]
+    csv: {
+      /** Vault-relative directory. Empty means the vault root. */
+      dir: string
+    }
+  }
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -32,6 +44,11 @@ export const DEFAULT_CONFIG: Config = {
     platform: null,
     form: 'digital',
     mode: 'solo',
+  },
+  build: {
+    // A vault that has never heard of this key still builds notes and the table.
+    targets: ['obsidian'],
+    csv: { dir: 'data' },
   },
 }
 
@@ -67,6 +84,32 @@ export function loadConfig(root: string): Config {
     }
     if (typeof entries['mode'] === 'string') {
       config.defaults.mode = checkEnum('mode', entries['mode'], MODE)
+    }
+  }
+
+  const build = source['build']
+  if (typeof build === 'object' && build !== null && !Array.isArray(build)) {
+    const entries = build as Record<string, unknown>
+    const targets = entries['targets']
+    if (Array.isArray(targets)) {
+      // Validated like any other enum: an unknown name exits 2 listing the
+      // valid ones, and a later phase's target exits 2 saying so.
+      const named: BuildTarget[] = []
+      for (const value of targets) {
+        if (typeof value !== 'string') {
+          throw new GameregError('usage', 'error.bad_config', { file })
+        }
+        const name = checkTarget(value)
+        if (!named.includes(name)) named.push(name)
+      }
+      config.build.targets = named
+    }
+
+    const csv = entries['csv']
+    if (typeof csv === 'object' && csv !== null && !Array.isArray(csv)) {
+      const dir = (csv as Record<string, unknown>)['dir']
+      // Trailing slashes are the user being tidy, not a path component.
+      if (typeof dir === 'string') config.build.csv.dir = dir.replace(/\/+$/, '')
     }
   }
 

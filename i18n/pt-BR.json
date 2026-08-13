@@ -16,10 +16,15 @@
       "alias": "apelido",
       "amend": "corrigir",
       "revoke": "revogar",
-      "verdict": "parecer"
+      "verdict": "parecer",
+      "init": "inicializar"
     },
     "flags": {
       "--at": "--em",
+      "--timezone": "--fuso",
+      "--day-cutoff": "--corte-do-dia",
+      "--targets": "--alvos",
+      "--csv-dir": "--pasta-csv",
       "--note": "--anotacao",
       "--rating": "--nota",
       "--difficulty": "--dificuldade",
@@ -72,12 +77,14 @@
     "alias": "Ensina outro nome para um título.",
     "amend": "Corrige um evento anexando uma emenda.",
     "revoke": "Revoga um evento.",
+    "init": "Grava o gamereg.config.json de um acervo novo.",
     "build": "Regenera as notas e a tabela consolidada.",
     "doctor": "Audita o log e relata o que está irregular.",
     "arg": {
       "query": "Título, fragmento ou apelido.",
       "term": "Termo de busca.",
-      "event": "Id do evento."
+      "event": "Id do evento.",
+      "target": "Constrói apenas estes alvos, dentre os de build.targets."
     },
     "opt": {
       "help": "Mostra esta ajuda.",
@@ -94,6 +101,10 @@
       "platform": "Plataforma. Filtra a busca; nunca a resolve.",
       "form": "physical, digital, emulator, subscription, borrowed, cloud, demo.",
       "mode": "solo, coop, versus, mixed.",
+      "timezone": "Fuso horário IANA, ex.: America/Sao_Paulo.",
+      "day_cutoff": "HH:MM. Quando o dia lógico vira, para os relatórios.",
+      "targets": "Alvos de construção, separados por vírgula, ex.: obsidian,csv.",
+      "csv_dir": "Diretório do alvo csv, relativo ao acervo.",
       "replay": "Força uma jogatina nova mesmo havendo uma encerrada.",
       "no_metadata": "Cria um registro local a partir do texto informado.",
       "note": "Anotação, nas palavras de quem jogou.",
@@ -108,7 +119,8 @@
       "hours": "Horas declaradas, registradas como declaradas e não medidas.",
       "add": "O nome a ensinar.",
       "set": "Campo a emendar, como chave=valor. Repetível.",
-      "force": "Reescreve todo arquivo derivado, tendo mudado ou não.",
+      "force": "Reescreve todo arquivo derivado, tendo mudado ou não. Sobrescreve bases semeadas.",
+      "list": "Mostra o que este acervo declara, e o que ele gravou.",
       "local_only": "Busca apenas no acervo. Na fase 0 não há outra.",
       "message": "O parecer em si, na própria linha de comando.",
       "text": "Lê o parecer de um arquivo, ou de - para a entrada padrão.",
@@ -151,9 +163,16 @@
     "marker_nested": "{file}: o bloco \"{block}\" abre dentro de outro bloco.",
     "marker_unopened": "{file}: o bloco \"{block}\" fecha sem ter aberto.",
     "slug_collision": "O slug \"{slug}\" é usado por mais de um título.",
+    "target_phase": "O alvo de construção \"{name}\" chega na fase {phase}. Esta versão constrói alvos da fase 0.",
+    "target_not_declared": "\"{name}\" não está entre os build.targets deste acervo: {declared}. O argumento restringe a construção; nunca define o que o acervo contém.",
+    "target_conflict": "Os alvos \"{first}\" e \"{second}\" pretendem gravar o mesmo arquivo: {path}.",
+    "unimplemented_target": "O alvo de construção \"{name}\" está declarado, mas não implementado nesta versão.",
+    "missing_template": "O modelo \"{name}\" não está instalado junto desta versão.",
+    "outside_vault": "Um alvo de construção pretendeu gravar fora do acervo: {path}.",
     "no_run": "{title} não tem jogatina à qual anexar um parecer.",
     "unknown_run": "{title} não tem jogatina com o id \"{id}\".",
-    "text_file": "{file} não existe."
+    "text_file": "{file} não existe.",
+    "vault_exists": "{file} já existe. Repita com --sim para sobrescrever."
   },
   "doctor": {
     "unparseable_line": "A linha {line} não é JSON válido.",
@@ -173,10 +192,15 @@
     "negative_duration": "Uma duração resulta negativa.",
     "break_outside_session": "O intervalo {break_id} está fora de uma sessão em aberto.",
     "break_already_open": "A sessão {session_id} abre um segundo intervalo com um já aberto.",
+    "unknown_block": "{file}: o bloco \"{block}\" não é dos que esta versão escreve. Fica intocado.",
+    "run_note_prose": "{file}: uma nota de jogatina traz texto fora dos marcadores (\"{text}\"). A próxima construção o perderá.",
+    "orphan_artifact": "{file} parece gerado, mas nenhum alvo o reivindica. A construção nunca o tocará.",
+    "target_failed": "O alvo de construção \"{target}\" não consegue planejar: {message}",
     "slug_collision": "O slug \"{slug}\" é compartilhado por {count} títulos."
   },
   "prose": {
-    "dry_run": "Nada foi gravado. Os eventos abaixo é que seriam anexados:",
+    "dry_run": "Nada foi gravado.",
+    "dry_run_events": "Os eventos abaixo é que seriam anexados:",
     "start": {
       "filed": "Protocolada: {title} ({platform}) — sessão aberta às {time}.",
       "new_run": "Protocolada: {title} ({platform}) — jogatina aberta, sessão aberta às {time}.",
@@ -232,8 +256,14 @@
       "done": "Evento {id} revogado. O original permanece no acervo."
     },
     "build": {
-      "done": "{notes} notas e a tabela consolidada estão em dia.",
-      "removed": "{count} notas remanescentes de renomeações foram removidas."
+      "done": "O acervo está em dia: {targets}, {written} arquivos gravados.",
+      "removed": "{count} arquivos que nenhum alvo mais reivindica foram removidos.",
+      "declares": "Este acervo declara: {targets}.",
+      "owns": "  {target} — {count} arquivos no registro.",
+      "plan": "{count} arquivos seriam gravados:",
+      "plan_line": "  {path} ({target}, {policy})",
+      "failed_count": "{count} alvos falharam. Todo o resto foi gravado.",
+      "failed": "  {target}: {message}"
     },
     "doctor": {
       "clean": "O acervo está em ordem. {events} eventos, {games} títulos, {runs} jogatinas.",
@@ -243,6 +273,10 @@
     "verdict": {
       "filed": "Parecer protocolado para {title}. Constará na nota na próxima construção.",
       "replaced": "Parecer substituído para {title}. O texto anterior permanece no acervo."
+    },
+    "init": {
+      "done": "Acervo aberto em {root}. Alvos: {targets}.",
+      "overwritten": "Configuração reescrita em {root}. Alvos: {targets}."
     }
   },
   "prompt": {
@@ -251,12 +285,23 @@
     "cancel": "Cancelar",
     "cancelled": "Cancelado. Nada foi gravado.",
     "candidate_local": "{title}{year} — no acervo, {status}",
-    "candidate_new": "{title}{year}"
+    "candidate_new": "{title}{year}",
+    "init": {
+      "locale": "Idioma (em branco para o do ambiente):",
+      "timezone": "Fuso horário (em branco para o do ambiente):",
+      "day_cutoff": "Corte do dia (HH:MM):",
+      "platform": "Plataforma padrão (em branco para exigir uma por título):",
+      "form": "Formato padrão:",
+      "mode": "Modo padrão:",
+      "targets": "Alvos de construção:",
+      "csv_dir": "Diretório do CSV:"
+    }
   },
   "note": {
     "heading": {
       "log": "Registro",
       "notes": "Anotações",
+      "runs": "Jogatinas",
       "verdict": "Parecer"
     },
     "header": {
@@ -268,6 +313,15 @@
       "duration": "Duração",
       "note": "Anotação",
       "empty": "Nenhuma sessão registrada."
+    },
+    "runs": {
+      "run": "Jogatina",
+      "platform": "Plataforma",
+      "started": "Início",
+      "ended": "Fim",
+      "hours": "Horas",
+      "rating": "Nota",
+      "criteria": "Critério"
     },
     "verdict": {
       "period": "de {started} a {ended}",

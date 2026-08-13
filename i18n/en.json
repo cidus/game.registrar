@@ -20,12 +20,14 @@
     "alias": "Teach another name for a game.",
     "amend": "Correct an event by appending a patch.",
     "revoke": "Withdraw an event from the fold.",
+    "init": "Write gamereg.config.json for a new vault.",
     "build": "Regenerate notes and the consolidated table.",
     "doctor": "Validate the log and report what is wrong.",
     "arg": {
       "query": "Title, fragment or alias.",
       "term": "Search term.",
-      "event": "Event id."
+      "event": "Event id.",
+      "target": "Build only these targets, from build.targets."
     },
     "opt": {
       "help": "Show this help.",
@@ -42,6 +44,10 @@
       "platform": "Platform. Filters a search; never resolves it.",
       "form": "physical, digital, emulator, subscription, borrowed, cloud, demo.",
       "mode": "solo, coop, versus, mixed.",
+      "timezone": "IANA timezone, e.g. America/Sao_Paulo.",
+      "day_cutoff": "HH:MM. When the logical day flips for reporting.",
+      "targets": "Comma-separated build targets, e.g. obsidian,csv.",
+      "csv_dir": "Vault-relative directory for the csv target.",
       "replay": "Force a new run even when a closed one exists.",
       "no_metadata": "Create a local-only entry from the raw string.",
       "note": "Note, in the player's own words.",
@@ -56,7 +62,8 @@
       "hours": "Stated hours, recorded as stated rather than measured.",
       "add": "The name to teach.",
       "set": "Field to patch, as key=value. Repeatable.",
-      "force": "Rewrite every derived file, changed or not.",
+      "force": "Rewrite every derived file, changed or not. Overwrites seeded bases.",
+      "list": "Show what this vault declares, and what it wrote.",
       "local_only": "Search the log only. Phase 0 does nothing else.",
       "message": "The review itself, inline.",
       "text": "Read the review from a file, or from - for stdin.",
@@ -99,9 +106,16 @@
     "marker_nested": "{file}: the block \"{block}\" opens inside another block.",
     "marker_unopened": "{file}: the block \"{block}\" closes without opening.",
     "slug_collision": "The slug \"{slug}\" is used by more than one game.",
+    "target_phase": "The build target \"{name}\" arrives in phase {phase}. This version builds phase 0 targets.",
+    "target_not_declared": "\"{name}\" is not among this vault's build.targets: {declared}. The argument narrows a build; it never defines what the vault contains.",
+    "target_conflict": "The targets \"{first}\" and \"{second}\" both plan to write {path}.",
+    "unimplemented_target": "The build target \"{name}\" is declared but not implemented in this version.",
+    "missing_template": "The shipped template \"{name}\" is not installed alongside this version.",
+    "outside_vault": "A build target planned to write outside the vault: {path}.",
     "no_run": "{title} has no run to attach a verdict to.",
     "unknown_run": "{title} has no run with the id \"{id}\".",
-    "text_file": "{file} does not exist."
+    "text_file": "{file} does not exist.",
+    "vault_exists": "{file} already exists. Re-run with --yes to overwrite it."
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
@@ -121,10 +135,15 @@
     "negative_duration": "A duration works out negative.",
     "break_outside_session": "Break {break_id} sits outside an open session.",
     "break_already_open": "Session {session_id} opens a second break while one is open.",
+    "unknown_block": "{file}: the block \"{block}\" is not one this version writes. It is left untouched.",
+    "run_note_prose": "{file}: a run note carries text outside its markers (\"{text}\"). The next build will lose it.",
+    "orphan_artifact": "{file} looks generated, but no target owns it. The build will never touch it.",
+    "target_failed": "The build target \"{target}\" cannot plan: {message}",
     "slug_collision": "The slug \"{slug}\" is shared by {count} games."
   },
   "prose": {
-    "dry_run": "Nothing was written. The following events would have been appended:",
+    "dry_run": "Nothing was written.",
+    "dry_run_events": "The following events would have been appended:",
     "start": {
       "filed": "Filed: {title} ({platform}) — session opened at {time}.",
       "new_run": "Filed: {title} ({platform}) — run opened, session opened at {time}.",
@@ -180,8 +199,14 @@
       "done": "Event {id} revoked. The original stays on record."
     },
     "build": {
-      "done": "{notes} notes and the consolidated table are up to date.",
-      "removed": "{count} notes left over from renames were removed."
+      "done": "The register is in order: {targets}, {written} files written.",
+      "removed": "{count} files no longer claimed by any target were removed.",
+      "declares": "This vault declares: {targets}.",
+      "owns": "  {target} — {count} files on record.",
+      "plan": "{count} files would be written:",
+      "plan_line": "  {path} ({target}, {policy})",
+      "failed_count": "{count} targets failed. Everything else was written.",
+      "failed": "  {target}: {message}"
     },
     "doctor": {
       "clean": "The register is in order. {events} events, {games} games, {runs} runs.",
@@ -191,6 +216,10 @@
     "verdict": {
       "filed": "Verdict filed for {title}. It appears in the note at the next build.",
       "replaced": "Verdict replaced for {title}. The previous text stays in the log."
+    },
+    "init": {
+      "done": "Vault opened at {root}. Targets: {targets}.",
+      "overwritten": "Configuration rewritten at {root}. Targets: {targets}."
     }
   },
   "prompt": {
@@ -199,12 +228,23 @@
     "cancel": "Cancel",
     "cancelled": "Cancelled. Nothing was written.",
     "candidate_local": "{title}{year} — on record, {status}",
-    "candidate_new": "{title}{year}"
+    "candidate_new": "{title}{year}",
+    "init": {
+      "locale": "Locale (blank for the environment's):",
+      "timezone": "Timezone (blank for the environment's):",
+      "day_cutoff": "Day cutoff (HH:MM):",
+      "platform": "Default platform (blank to require one per game):",
+      "form": "Default form:",
+      "mode": "Default mode:",
+      "targets": "Build targets:",
+      "csv_dir": "CSV directory:"
+    }
   },
   "note": {
     "heading": {
       "log": "Log",
       "notes": "Notes",
+      "runs": "Runs",
       "verdict": "Verdict"
     },
     "header": {
@@ -216,6 +256,15 @@
       "duration": "Duration",
       "note": "Note",
       "empty": "No sessions recorded."
+    },
+    "runs": {
+      "run": "Run",
+      "platform": "Platform",
+      "started": "Started",
+      "ended": "Ended",
+      "hours": "Hours",
+      "rating": "Rating",
+      "criteria": "Criteria"
     },
     "verdict": {
       "period": "{started} to {ended}",
