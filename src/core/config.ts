@@ -34,6 +34,20 @@ export type Config = {
       dir: string
     }
   }
+  /** Image ingestion (docs/spec/04-derived.md "Image ingestion"). */
+  images: {
+    /** Longest side, in pixels, after normalization. */
+    max_edge: number
+    /** WebP quality, 1–100. */
+    quality: number
+    /** Store the untouched original alongside the normalized copy. Off by default. */
+    keep_original: boolean
+    /**
+     * Copy attachments (covers included) into the generated site. One switch,
+     * not two — see "Decided" in 06-roadmap.md.
+     */
+    publish: boolean
+  }
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -49,6 +63,12 @@ export const DEFAULT_CONFIG: Config = {
     // A vault that has never heard of this key still builds notes and the table.
     targets: ['obsidian'],
     csv: { dir: 'data' },
+  },
+  images: {
+    max_edge: 2000,
+    quality: 82,
+    keep_original: false,
+    publish: false,
   },
 }
 
@@ -111,6 +131,15 @@ export function loadConfig(root: string): Config {
       // Trailing slashes are the user being tidy, not a path component.
       if (typeof dir === 'string') config.build.csv.dir = dir.replace(/\/+$/, '')
     }
+  }
+
+  const images = source['images']
+  if (typeof images === 'object' && images !== null && !Array.isArray(images)) {
+    const entries = images as Record<string, unknown>
+    if (typeof entries['max_edge'] === 'number') config.images.max_edge = entries['max_edge']
+    if (typeof entries['quality'] === 'number') config.images.quality = entries['quality']
+    if (typeof entries['keep_original'] === 'boolean') config.images.keep_original = entries['keep_original']
+    if (typeof entries['publish'] === 'boolean') config.images.publish = entries['publish']
   }
 
   return config

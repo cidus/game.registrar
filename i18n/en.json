@@ -134,7 +134,8 @@
     "query_forbidden": "\"{keyword}\" is not allowed in a query. Only a read-only SELECT is allowed.",
     "query_failed": "The query could not be run: {message}",
     "import_mapping_incomplete": "The mapping at {file} has no column for \"{field}\", which is required.",
-    "import_row_incomplete": "Row has no value for \"{field}\", which is required."
+    "import_row_incomplete": "Row has no value for \"{field}\", which is required.",
+    "bad_image": "{file} could not be read as an image."
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
