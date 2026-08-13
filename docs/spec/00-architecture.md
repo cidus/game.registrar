@@ -76,6 +76,22 @@ command aliases live in `i18n/<locale>.json`. `gamereg start` and
 *Why:* the project is public. A Portuguese schema locks adoption to Brazil, and
 renaming keys after 200 files is expensive.
 
+### D8 — The build is a registry of targets
+
+`gamereg build` emits the set of formats the vault declares in
+`build.targets`, from one fold of the log. A target is a pure function from
+folded state to files: it reads no filesystem, performs no network I/O, and never
+reads its own or another target's output. See [07-targets](07-targets.md).
+
+*Why:* a Markdown table cannot be sorted or filtered, and pretending otherwise
+was pushing query-shaped work into a text file. The formats that answer questions
+— a Bases view, a spreadsheet, SQLite — are cheap once emitters are plural, and
+each one is another door out of this tool for the data.
+
+*Accepted cost:* the build now deletes files it no longer plans, which requires
+tracking ownership. That is the only place in the system that removes anything,
+and it is fenced accordingly.
+
 ## Non-goals
 
 - **Not a library manager.** It does not import your Steam account, does not know
@@ -102,10 +118,14 @@ game.registrar/              # this repo — MIT, public
 my-register/                 # user repo — private
   gamereg.config.json
   data/events.jsonl          # source of truth
+  data/*.csv                 # derived
   data/log.db                # derived (gitignored)
   games/*.md                 # derived blocks + hand-written prose
-  assets/<sha>/            # content-addressed images
+  runs/*.md                  # derived, one per playthrough
+  assets/<sha>/              # content-addressed images
   Games.md                   # derived
+  Games.base                 # seeded once, then yours
+  .gamereg/manifest.json     # build bookkeeping (gitignored)
   site/                      # derived (gitignored)
 ```
 
@@ -141,6 +161,10 @@ Breaking any of these is a serious bug, not a preference.
 6. Every state mutation corresponds to at least one event in the log.
 7. Rating arithmetic, hour arithmetic and session state are computed in code,
    never by a language model.
+8. A build target reads only the folded state and the config. Never its own
+   output, never another target's, never the network.
+9. The build never removes a file it does not own. Ownership is recorded in
+   `.gamereg/manifest.json`, never inferred from a filename.
 
 ## Threat model (brief)
 
@@ -153,3 +177,6 @@ reachable by others.
   on record.
 - Anything destructive at the filesystem level (removing derived artifacts) is
   behind an explicit flag and never invoked by the agent.
+- The build removes only files listed in its own manifest as owned by a target
+  and no longer planned by it. It never deletes by pattern, never touches a
+  seeded `.base`, and skips cleanup entirely when the manifest is missing.

@@ -9,11 +9,18 @@ Each phase ends with something usable. No phase depends on the next one existing
 - Event log: append, fold, validate
 - `start`, `end`, `break`, `finish`, `drop`, `past`, `open`, `status`, `verdict`
 - Local-only resolution (steps 1–5 and 7 of the resolution order)
-- `build` producing game notes and `Games.md`
+- `build` as a target registry, with ownership tracking
+- `obsidian` target: game notes, run notes, `Games.md`, seeded `Games.base`
+- `csv` target: runs, sessions, games
 - Image ingestion: `--photo`, hashing, normalization, EXIF strip, `cover`
 - Golden-file tests, idempotency test, `doctor`
 
 **Deliberately absent:** network, providers, SQLite, agent, site.
+
+`csv` and the Bases seed are here rather than in phase 1 for one reason: the exit
+criterion is two weeks of *looking* at the data, and a static Markdown table is
+not something you can look at from an angle. They cost little and they are what
+makes the trial produce an opinion instead of a shrug.
 
 **Exit criterion:** two weeks of real use with no manual file edits and no
 arithmetic that had to be corrected. If the model is wrong, this is when it is
@@ -25,7 +32,8 @@ faster.
 - `providers/igdb.ts`, then `rawg.ts` as fallback
 - `enrich`, cover download via `sharp`
 - Provider search in resolution (step 6), alias learning
-- SQLite build + documented views + `query`
+- `sqlite` target + documented views + `query`
+- `json` and `html` targets
 - `import` for spreadsheet migration
 
 **Exit criterion:** a new game gets a cover and metadata without typing anything,
@@ -83,6 +91,10 @@ Not blocking Phase 0; decide before the phase noted.
 3. **Franchise / series grouping.** Wanted for statistics, absent from the model.
    Could be a derived tag from provider data rather than a stored field.
    *Decide during Phase 1.*
+6. **A backlog view.** A game with no runs has no row in a run-level base, which
+   is correct and also means unplayed games are invisible to every query view.
+   A second base over `games/` solves it; whether the register should hold games
+   you have not played at all is the actual question. *Decide during Phase 1.*
 4. **Retroactive session start.** Forgetting to open a session will be far more
    common than forgetting to close one. `--at` covers it, but the chat flow needs
    a natural phrasing. *Design during Phase 2.*

@@ -303,9 +303,37 @@ Safe to run from cron. Failure here never blocks recording.
 **Never overwrites a cover with `source: user`.** `--covers --force` still
 respects that; only `gamereg cover --reset` gives provider art back.
 
-### `gamereg build [--site] [--force]`
+### `gamereg build [target...] [--force] [--list]`
 
-Regenerates every derived artifact. Idempotent. See [04-derived](04-derived.md).
+Regenerates every derived artifact. Idempotent.
+
+```
+gamereg build                    # every target in build.targets
+gamereg build csv                # one target, as a convenience while iterating
+gamereg build obsidian csv       # a subset
+gamereg build --list             # what this vault declares, and what it wrote
+```
+
+**The argument narrows a build; it never defines what the vault contains.** Which
+targets exist is `build.targets` in `gamereg.config.json`, defaulting to
+`["obsidian"]`. An unknown target exits 2 and lists the valid ones; a target from
+a later phase exits 2 saying so.
+
+`--force` rewrites every derived file whether it changed or not, and is the only
+path that overwrites a seeded `.base`.
+
+A target that fails does not stop the others: the build finishes, reports what
+failed, and exits 1 having written everything that worked — the same principle as
+code 6, where local work is committed even though the network step was not.
+
+```json
+{ "ok": false, "code": 1, "error": "target_failed",
+  "result": { "written": ["Games.md"], "removed": [],
+              "failed": [{ "target": "sqlite", "message": "..." }] } }
+```
+
+See [04-derived](04-derived.md) for the artifacts and
+[07-targets](07-targets.md) for the target contract.
 
 ### `gamereg amend <event_id> --reason "..." [--set k=v ...]`
 ### `gamereg revoke <event_id> --reason "..."`

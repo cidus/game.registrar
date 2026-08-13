@@ -30,6 +30,9 @@ Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
    no API key. The agent is an optional layer.
 4. **Nothing you wrote by hand is ever rewritten.** The build only touches what
    sits between markers.
+5. **One log, several shapes.** The same events become Obsidian notes, a
+   sortable base, a spreadsheet, a database — because a register you cannot
+   query from the angle you want is a diary with extra steps.
 
 ## Status
 
@@ -52,7 +55,7 @@ gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_endi
 gamereg verdict "hollow knight" -m "Started as a curiosity and became..."
 gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
 gamereg open · gamereg status · gamereg search "zelda"
-gamereg build · gamereg doctor
+gamereg build · gamereg build csv · gamereg doctor
 ```
 
 A title not on record yet is offered as a new entry when you are at a terminal;
@@ -78,6 +81,17 @@ test suite builds against.
 last run first, then from here; without either, the first run of a game asks for
 `--platform` rather than guessing.
 
+`build.targets` declares which formats the vault emits, defaulting to
+`["obsidian"]`:
+
+```json
+{ "build": { "targets": ["obsidian", "csv"] } }
+```
+
+`gamereg build` emits all of them; `gamereg build csv` narrows one build without
+changing what the vault contains. See
+[07-targets](docs/spec/07-targets.md).
+
 ## Specs
 
 | Document | Contents |
@@ -86,9 +100,10 @@ last run first, then from here; without either, the first run of a game asks for
 | [01-model](docs/spec/01-model.md) | Entities, JSONL events, enums, derived state |
 | [02-cli](docs/spec/02-cli.md) | Subcommands, flags, exit codes, output contract |
 | [03-resolution](docs/spec/03-resolution.md) | Name resolution and disambiguation |
-| [04-derived](docs/spec/04-derived.md) | Markdown notes, table, SQLite, site |
+| [04-derived](docs/spec/04-derived.md) | Game notes, run notes, table, bases, SQLite |
 | [05-agent](docs/spec/05-agent.md) | Chat layer, voice, check-ins, persona |
 | [06-roadmap](docs/spec/06-roadmap.md) | Delivery phases |
+| [07-targets](docs/spec/07-targets.md) | Build targets: contract, config, ownership |
 
 ## Localization
 

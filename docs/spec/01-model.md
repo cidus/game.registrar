@@ -4,8 +4,8 @@
 
 | Entity | Identity | Meaning |
 |---|---|---|
-| `game` | `game_id` (ULID) | A title. Catalog entry, one Markdown note. |
-| `run` | `run_id` (ULID) | One playthrough of a game, start to end. |
+| `game` | `game_id` (ULID) | A title. Catalog entry, one Markdown note in `games/`. |
+| `run` | `run_id` (ULID) | One playthrough of a game, start to end. One generated note in `runs/`. |
 | `session` | `session_id` (ULID) | One sitting inside a run. |
 | `break` | `break_id` (ULID) | A pause inside a session. |
 | `person` | `person_id` (ULID) | A player. Reserved for phase 4 (board games). |
@@ -13,7 +13,10 @@
 A game has N runs. A run has N sessions. A session has N breaks.
 
 `slug` is the filename (`games/hollow-knight.md`) and is **mutable**. `game_id`
-is identity and is **immutable**. Never key anything on the slug.
+is identity and is **immutable**. Never key anything on the slug. Run notes are
+named from the slug and the start date, so they move when either does — that is a
+build concern, handled by ownership rather than by identity
+(see [07-targets](07-targets.md)).
 
 ## Event envelope
 
