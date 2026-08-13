@@ -8,6 +8,7 @@
 import { GameregError } from '../core/errors.ts'
 import type { VaultState } from '../core/fold.ts'
 import { blocksOf, frontmatter, newNote } from '../render/note.ts'
+import { newRunNote, runNotePath } from '../render/run.ts'
 import { newTable, tableBlocks } from '../render/table.ts'
 import type { PlannedFile, Target, TargetContext } from './types.ts'
 
@@ -35,6 +36,17 @@ export const obsidian: Target = {
         policy: 'splice',
         parts: { frontmatter: frontmatter(game), blocks: blocksOf(game, bundle) },
       })
+
+      // One note per run. `runs/` is data and is written whole; `games/` is
+      // yours. That line has to be somewhere, and a folder boundary makes it
+      // explainable in one sentence.
+      for (const run of game.runs) {
+        files.push({
+          path: runNotePath(game, run),
+          content: newRunNote(game, run, bundle),
+          policy: 'replace',
+        })
+      }
     }
 
     files.push({

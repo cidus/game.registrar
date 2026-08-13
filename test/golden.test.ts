@@ -22,6 +22,9 @@ const EXAMPLE = join(import.meta.dirname, '..', 'example-vault')
 function copyExample(): string {
   const dir = join(tempDir('gamereg-golden-'), 'vault')
   cpSync(EXAMPLE, dir, { recursive: true })
+  // The manifest is bookkeeping, not a fixture. A stale one left by a local
+  // build must not decide what these tests see.
+  rmSync(join(dir, '.gamereg'), { recursive: true, force: true })
   return dir
 }
 

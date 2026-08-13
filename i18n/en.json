@@ -219,6 +219,7 @@
     "heading": {
       "log": "Log",
       "notes": "Notes",
+      "runs": "Runs",
       "verdict": "Verdict"
     },
     "header": {
@@ -230,6 +231,15 @@
       "duration": "Duration",
       "note": "Note",
       "empty": "No sessions recorded."
+    },
+    "runs": {
+      "run": "Run",
+      "platform": "Platform",
+      "started": "Started",
+      "ended": "Ended",
+      "hours": "Hours",
+      "rating": "Rating",
+      "criteria": "Criteria"
     },
     "verdict": {
       "period": "{started} to {ended}",

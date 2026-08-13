@@ -1,24 +1,36 @@
 /**
- * The game note (docs/spec/04-derived.md).
+ * The game note (docs/spec/04-derived.md "Game note").
  *
- * Frontmatter is fully regenerated every build; the generated blocks are
- * spliced; everything else in the file is the user's and is never touched.
+ * The note a person opens, and the only generated file in the vault that also
+ * holds hand-written prose. Frontmatter is fully regenerated every build; the
+ * generated blocks are spliced; everything else in the file is the user's and is
+ * never touched.
+ *
+ * Frontmatter here is **aggregate**, across runs. Per-run values live on the run
+ * note, which is what query views read — and the session log lives there too,
+ * because it belongs to a run and a game with two playthroughs has two of them.
  */
 import { Document, Scalar } from 'yaml'
 
 import { formatHm, formatHours } from '../core/duration.ts'
 import type { GameState, RunState, SessionState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
+import { atPrecision } from './dates.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
+import { runNoteNames, runsInOrder } from './run.ts'
 
-export const BLOCK_ORDER = ['header', 'verdict', 'sessions'] as const
+export const BLOCK_ORDER = ['header', 'verdict', 'runs'] as const
 
-/** The run whose facts head the note: the most recent one. */
-export function leadRun(game: GameState): RunState | null {
+/**
+ * The run whose facts head the note: the most recently ended one, falling back
+ * to the open one when nothing has ended yet. The same rule `gamereg verdict`
+ * uses to pick a playthrough, so the note and the command never disagree.
+ */
+export function latestRun(game: GameState): RunState | null {
   if (game.runs.length === 0) return null
-  const open = game.runs.find((run) => run.open)
-  if (open !== undefined) return open
-  return [...game.runs].sort((left, right) => {
+  const ended = game.runs.filter((run) => run.ended_on !== null)
+  if (ended.length === 0) return game.runs.find((run) => run.open) ?? game.runs[0] ?? null
+  return [...ended].sort((left, right) => {
     const key = `${left.ended_on ?? ''}|${left.run_id}`
     const other = `${right.ended_on ?? ''}|${right.run_id}`
     return key < other ? 1 : key > other ? -1 : 0
@@ -36,12 +48,13 @@ export function allSessions(game: GameState): SessionState[] {
 }
 
 /** Table cells are one line: pipes escaped, newlines flattened. */
-function cell(value: string): string {
-  return value.replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim()
+function cell(value: string | number | null): string {
+  if (value === null) return ''
+  return String(value).replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim()
 }
 
 export function frontmatter(game: GameState): string {
-  const run = leadRun(game)
+  const run = latestRun(game)
   const document = new Document({})
   // Short collections are written inline, as in the specification's example.
   const flow = new Set(['genres', 'platforms', 'providers', 'tags'])
@@ -52,6 +65,11 @@ export function frontmatter(game: GameState): string {
     document.set(key, flow.has(key) ? document.createNode(value, { flow: true }) : value)
   }
 
+  const started = game.runs.map((entry) => entry.started_on).filter((value) => value !== '')
+  const ended = game.runs
+    .map((entry) => entry.ended_on)
+    .filter((value): value is string => value !== null)
+
   set('gamereg_id', game.game_id)
   set('title', game.title)
   set('status', game.status)
@@ -60,23 +78,22 @@ export function frontmatter(game: GameState): string {
   set('developer', game.developer)
   set('publisher', game.publisher)
   set('genres', game.genres)
-  set('started_on', run?.started_on ?? null)
-  set('ended_on', run?.ended_on ?? null)
+  set('first_started_on', started.length === 0 ? null : started.sort()[0])
+  set('last_ended_on', ended.length === 0 ? null : ended.sort()[ended.length - 1])
+  set('runs', game.runs.length)
   // Hours keep their single decimal place, even when it is a zero.
   const hours = new Scalar(Number(formatHours(game.total_minutes)))
   hours.minFractionDigits = 1
   set('hours', hours)
   set('rating', run?.rating ?? null)
-  set('difficulty', run?.difficulty ?? null)
-  set('completion_criteria', run?.completion_criteria ?? null)
   set('providers', game.providers)
-  set('tags', ['gamereg'])
+  set('tags', ['gamereg', 'gamereg/game'])
 
   return document.toString({ lineWidth: 0, flowCollectionPadding: false }).trimEnd()
 }
 
 export function headerBlock(game: GameState, bundle: Translator): string {
-  const run = leadRun(game)
+  const run = latestRun(game)
   const sessions = allSessions(game)
   const parts: string[] = []
 
@@ -105,9 +122,16 @@ export function headerBlock(game: GameState, bundle: Translator): string {
  * The verdicts filed for this game, in the order the runs happened. With more
  * than one, each is headed by the period it covers — a replay deserves its own
  * verdict, and the two must not read as one text.
+ *
+ * The verdict is deliberately rendered here as well as in the run note:
+ * duplication in generated output costs nothing, and the alternative is a vault
+ * where the best thing you wrote about a game is one click away from the page
+ * named after the game.
  */
 export function verdictBlock(game: GameState, bundle: Translator): string {
-  const written = game.runs.filter((run) => run.verdict !== null && run.verdict.trim() !== '')
+  const written = runsInOrder(game).filter(
+    (run) => run.verdict !== null && run.verdict.trim() !== '',
+  )
   if (written.length === 0) return ''
   if (written.length === 1) return (written[0]?.verdict ?? '').trim()
 
@@ -122,18 +146,44 @@ export function verdictBlock(game: GameState, bundle: Translator): string {
     .join('\n\n')
 }
 
-export function sessionsBlock(game: GameState, bundle: Translator): string {
-  const sessions = allSessions(game)
-  if (sessions.length === 0) return bundle.t('note.sessions.empty')
+/** One row per playthrough, each linking to the note that is that playthrough. */
+export function runsBlock(game: GameState, bundle: Translator): string {
+  const runs = runsInOrder(game)
+  if (runs.length === 0) return ''
 
-  const head = `| ${bundle.t('note.sessions.date')} | ${bundle.t('note.sessions.duration')} | ${bundle.t('note.sessions.note')} |`
-  const rule = '|---|---|---|'
-  const rows = sessions.map((session) => {
-    const duration = session.open ? '' : formatHm(session.minutes)
-    return `| ${session.logical_day} | ${duration} | ${cell(session.note ?? '')} |`
+  const names = runNoteNames(game)
+  const head = [
+    bundle.t('note.runs.run'),
+    bundle.t('note.runs.platform'),
+    bundle.t('note.runs.started'),
+    bundle.t('note.runs.ended'),
+    bundle.t('note.runs.hours'),
+    bundle.t('note.runs.rating'),
+    bundle.t('note.runs.criteria'),
+  ]
+
+  const rows = runs.map((run) => {
+    const started = atPrecision(run.started_on, run.started_precision)
+    const hours =
+      run.hours_source === 'stated'
+        ? `${formatHours(run.minutes)} (${bundle.t('table.stated_marker')})`
+        : formatHours(run.minutes)
+    return [
+      `[[${names.get(run.run_id) ?? ''}\\|${started.slice(0, 4)}]]`,
+      cell(run.platform),
+      started,
+      run.ended_on === null ? '' : atPrecision(run.ended_on, run.ended_precision),
+      hours,
+      cell(run.rating),
+      cell(run.completion_criteria),
+    ]
   })
 
-  return [head, rule, ...rows].join('\n')
+  return [
+    `| ${head.join(' | ')} |`,
+    `|${head.map(() => '---').join('|')}|`,
+    ...rows.map((cells) => `| ${cells.join(' | ')} |`),
+  ].join('\n')
 }
 
 export function blocksOf(game: GameState, bundle: Translator): BlockContent[] {
@@ -144,7 +194,7 @@ export function blocksOf(game: GameState, bundle: Translator): BlockContent[] {
       content: verdictBlock(game, bundle),
       heading: bundle.t('note.heading.verdict'),
     },
-    { block: 'sessions', content: sessionsBlock(game, bundle), heading: bundle.t('note.heading.log') },
+    { block: 'runs', content: runsBlock(game, bundle), heading: bundle.t('note.heading.runs') },
   ]
 }
 

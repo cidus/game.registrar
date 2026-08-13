@@ -271,6 +271,7 @@
     "heading": {
       "log": "Registro",
       "notes": "Anotações",
+      "runs": "Jogatinas",
       "verdict": "Parecer"
     },
     "header": {
@@ -282,6 +283,15 @@
       "duration": "Duração",
       "note": "Anotação",
       "empty": "Nenhuma sessão registrada."
+    },
+    "runs": {
+      "run": "Jogatina",
+      "platform": "Plataforma",
+      "started": "Início",
+      "ended": "Fim",
+      "hours": "Horas",
+      "rating": "Nota",
+      "criteria": "Critério"
     },
     "verdict": {
       "period": "de {started} a {ended}",

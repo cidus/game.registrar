@@ -6,23 +6,23 @@ platform: PC
 release_year: 2019
 developer: Mobius Digital
 genres: [adventure]
-started_on: 2026-06-01
-ended_on: 2026-06-01
+first_started_on: 2026-06-01
+last_ended_on: 2026-06-01
+runs: 1
 hours: 1.5
-completion_criteria: abandoned
-tags: [gamereg]
+tags: [gamereg, gamereg/game]
 ---
 
 <!-- gamereg:begin block=header -->
 **Mobius Digital** · 2019 · PC · 1h30 in one session
 <!-- gamereg:end block=header -->
 
-## Log
+## Runs
 
-<!-- gamereg:begin block=sessions -->
-| Date | Duration | Note |
-|---|---|---|
-| 2026-06-01 | 1h30 | Lost the probe. Twice. |
-<!-- gamereg:end block=sessions -->
+<!-- gamereg:begin block=runs -->
+| Run | Platform | Started | Ended | Hours | Rating | Criteria |
+|---|---|---|---|---|---|---|
+| [[outer-wilds-2026-06-01\|2026]] | PC | 2026-06-01 | 2026-06-01 | 1.5 |  | abandoned |
+<!-- gamereg:end block=runs -->
 
 ## Notes

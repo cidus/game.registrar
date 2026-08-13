@@ -7,13 +7,12 @@ release_year: 2017
 developer: Team Cherry
 publisher: Team Cherry
 genres: [metroidvania, action]
-started_on: 2026-05-03
-ended_on: 2026-08-12
+first_started_on: 2026-05-03
+last_ended_on: 2026-08-12
+runs: 1
 hours: 9.0
 rating: 9
-difficulty: hard
-completion_criteria: true_ending
-tags: [gamereg]
+tags: [gamereg, gamereg/game]
 ---
 
 > Written by hand, above the first block. The build must never touch this line.
@@ -35,15 +34,13 @@ file it again.
 
 Also written by hand, between two generated blocks.
 
-## Log
+## Runs
 
-<!-- gamereg:begin block=sessions -->
-| Date | Duration | Note |
-|---|---|---|
-| 2026-05-03 | 2h30 | First hours. Combat feels tight. |
-| 2026-05-06 | 3h30 | Got lost in Fungal Wastes, in a good way. |
-| 2026-08-12 | 2h58 | Watcher Knights, finally. Hard, but fair. |
-<!-- gamereg:end block=sessions -->
+<!-- gamereg:begin block=runs -->
+| Run | Platform | Started | Ended | Hours | Rating | Criteria |
+|---|---|---|---|---|---|---|
+| [[hollow-knight-2026-05-03\|2026]] | Switch | 2026-05-03 | 2026-08-12 | 9.0 | 9 | true_ending |
+<!-- gamereg:end block=runs -->
 
 ## Notes
 

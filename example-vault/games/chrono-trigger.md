@@ -6,23 +6,24 @@ platform: SNES
 release_year: 1995
 developer: Square
 genres: [jrpg]
-started_on: 2011-01-01
-ended_on: 2011-07-01
+first_started_on: 2011-01-01
+last_ended_on: 2011-07-01
+runs: 1
 hours: 30.0
 rating: 10
-difficulty: normal
-completion_criteria: credits
-tags: [gamereg]
+tags: [gamereg, gamereg/game]
 ---
 
 <!-- gamereg:begin block=header -->
 **Square** · 1995 · SNES · 30h00 across 0 sessions
 <!-- gamereg:end block=header -->
 
-## Log
+## Runs
 
-<!-- gamereg:begin block=sessions -->
-No sessions recorded.
-<!-- gamereg:end block=sessions -->
+<!-- gamereg:begin block=runs -->
+| Run | Platform | Started | Ended | Hours | Rating | Criteria |
+|---|---|---|---|---|---|---|
+| [[chrono-trigger-2011-01\|2011]] | SNES | 2011-01 | 2011-07 | 30.0 (stated) | 10 | credits |
+<!-- gamereg:end block=runs -->
 
 ## Notes
