@@ -18,7 +18,6 @@ import { GameregError } from '../../core/errors.ts'
 import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider } from '../../providers/provider.ts'
 import { createRawgProvider } from '../../providers/rawg.ts'
-import { normalize } from '../../resolve/normalize.ts'
 import { platformTable, samePlatform, type PlatformTable } from '../../core/platforms.ts'
 import { candidateFromProvider, candidateOf, search, CANDIDATE_LIMIT, type Candidate } from '../../resolve/resolve.ts'
 import { createContext } from '../context.ts'
@@ -48,6 +47,21 @@ export function rankByOwnership(candidates: readonly Candidate[], table: Platfor
   return [...candidates].sort((left, right) => score(right) - score(left))
 }
 
+/**
+ * Canonicalized on both sides, same as the local path (`matchesPlatform`,
+ * resolve.ts) — a raw string match would miss "PSX" against a provider that
+ * spells it "PlayStation", the exact case the built-in table's synonyms
+ * exist to cover.
+ */
+export function matchesPlatformHint(
+  candidate: { platforms: readonly string[] },
+  platform: string | undefined,
+  table: PlatformTable,
+): boolean {
+  if (platform === undefined || platform === '') return true
+  return candidate.platforms.some((name) => samePlatform(name, platform, table))
+}
+
 /** Tries each provider in order; the first to return anything wins. Unconfigured providers are skipped, not fatal. */
 async function providerCandidates(
   root: string,
@@ -63,10 +77,7 @@ async function providerCandidates(
       if (error instanceof GameregError && error.code === 6) continue
       throw error
     }
-    const filtered =
-      platform === undefined || platform === ''
-        ? results
-        : results.filter((candidate) => candidate.platforms.some((name) => normalize(name) === normalize(platform)))
+    const filtered = results.filter((candidate) => matchesPlatformHint(candidate, platform, table))
     if (filtered.length > 0) {
       const shaped = filtered.map((candidate) => candidateFromProvider(provider.name, candidate))
       return rankByOwnership(shaped, table)

@@ -11,7 +11,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { rankByOwnership } from '../src/cli/commands/search.ts'
+import { matchesPlatformHint, rankByOwnership } from '../src/cli/commands/search.ts'
 import { platformTable } from '../src/core/platforms.ts'
 import type { Candidate } from '../src/resolve/resolve.ts'
 import { tempDir } from './helpers.ts'
@@ -99,4 +99,11 @@ test('rankByOwnership is a no-op when nothing is configured, or when nothing mat
 
   const configured = platformTable([{ name: 'PlayStation 5', aliases: [] }])
   assert.deepEqual(rankByOwnership(candidates, configured).map((c) => c.ref), ['a', 'b'])
+})
+
+test('matchesPlatformHint canonicalizes both sides — a provider spelling "PlayStation" still matches "PSX"', () => {
+  const table = platformTable()
+  assert.equal(matchesPlatformHint({ platforms: ['PlayStation'] }, 'PSX', table), true)
+  assert.equal(matchesPlatformHint({ platforms: ['PlayStation 4'] }, 'PSX', table), false)
+  assert.equal(matchesPlatformHint({ platforms: ['PlayStation'] }, undefined, table), true)
 })
