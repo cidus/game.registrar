@@ -80,7 +80,7 @@
       "message": "The review itself, inline.",
       "text": "Read the review from a file, or from - for stdin.",
       "run": "Which playthrough. Defaults to the most recently ended.",
-      "provider": "Provider to query: igdb, rawg. Default: igdb, then rawg as fallback.",
+      "provider": "Provider to query: igdb. Default: igdb.",
       "all_games": "Enrich every game on record.",
       "covers": "Also fetch and set cover art, unless the cover is source: user.",
       "mapping": "Path to a JSON file mapping gamereg fields to CSV column headers.",

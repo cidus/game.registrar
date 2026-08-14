@@ -1,6 +1,5 @@
 /**
- * IGDB provider (docs/spec/06-roadmap.md phase 1). Primary metadata source;
- * `rawg.ts` is the fallback.
+ * IGDB provider (docs/spec/06-roadmap.md phase 1). The metadata source.
  *
  * IGDB sits behind Twitch's OAuth2 client-credentials flow: a token is
  * exchanged once per process and reused for every call the command makes,

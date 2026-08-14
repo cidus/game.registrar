@@ -27,11 +27,11 @@ function vault(): string {
   return root
 }
 
-/** No IGDB_ / RAWG_ variables left over from the host environment, and no secrets file. */
+/** No IGDB_ variables left over from the host environment, and no secrets file. */
 function gamereg(root: string, ...args: string[]): Run {
   const env: Record<string, string | undefined> = { ...process.env, GAMEREG_NON_INTERACTIVE: '1', NO_COLOR: '1' }
   for (const key of Object.keys(env)) {
-    if (key.startsWith('IGDB_') || key.startsWith('RAWG_')) delete env[key]
+    if (key.startsWith('IGDB_')) delete env[key]
   }
   const result = spawnSync(process.execPath, [MAIN, '--vault', root, '--json', ...args], { encoding: 'utf8', env })
   const stdout = result.stdout ?? ''
@@ -99,7 +99,7 @@ test('missing credentials fail with code 6, naming the missing env var, and writ
   assert.equal(after, before)
 })
 
-test('with no --provider, both igdb and rawg are tried before failing', () => {
+test('with no --provider, the default chain is tried before failing', () => {
   const root = vault()
   seedGame(root, 'chrono trigger')
 

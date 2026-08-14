@@ -163,7 +163,6 @@ test('init seeds an empty secrets file, one entry per known provider', () => {
   const secrets = JSON.parse(readFileSync(secretsFile, 'utf8')) as Record<string, unknown>
   assert.deepEqual(secrets, {
     igdb: { client_id: '', client_secret: '' },
-    rawg: { api_key: '' },
   })
 })
 
@@ -195,9 +194,9 @@ test('re-running init never overwrites an existing secrets file', () => {
   const root = emptyRoot()
   gamereg(root, 'init')
   const secretsFile = join(root, 'gamereg.secrets.json')
-  writeFileSync(secretsFile, JSON.stringify({ igdb: { client_id: 'mine', client_secret: '' }, rawg: { api_key: '' } }))
+  writeFileSync(secretsFile, JSON.stringify({ igdb: { client_id: 'mine', client_secret: '' } }))
 
   gamereg(root, 'init', '--yes')
   const secrets = JSON.parse(readFileSync(secretsFile, 'utf8')) as Record<string, unknown>
-  assert.deepEqual(secrets, { igdb: { client_id: 'mine', client_secret: '' }, rawg: { api_key: '' } })
+  assert.deepEqual(secrets, { igdb: { client_id: 'mine', client_secret: '' } })
 })

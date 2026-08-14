@@ -641,13 +641,13 @@ not specified here.
 
 Two sources, checked in this order, first one present per key wins:
 
-1. **Environment variables** — `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`,
-   `RAWG_API_KEY`, one variable per credential, named `<PROVIDER>_<FIELD>`.
+1. **Environment variables** — `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`, one
+   variable per credential, named `<PROVIDER>_<FIELD>`.
 2. **`gamereg.secrets.json`** at the vault root, seeded empty by `init` and
    gitignored by `init`. Same shape as `gamereg.config.json`, keyed by provider:
 
    ```jsonc
-   { "igdb": { "client_id": "...", "client_secret": "..." }, "rawg": { "api_key": "..." } }
+   { "igdb": { "client_id": "...", "client_secret": "..." } }
    ```
 
 The file exists so a vault stays runnable without exporting shell variables;

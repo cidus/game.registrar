@@ -17,7 +17,6 @@ import type { Command } from 'commander'
 import { GameregError } from '../../core/errors.ts'
 import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider } from '../../providers/provider.ts'
-import { createRawgProvider } from '../../providers/rawg.ts'
 import { platformTable, samePlatform, type PlatformTable } from '../../core/platforms.ts'
 import { candidateFromProvider, candidateOf, search, CANDIDATE_LIMIT, type Candidate } from '../../resolve/resolve.ts'
 import { createContext } from '../context.ts'
@@ -28,7 +27,7 @@ import { load } from '../workspace.ts'
 type Options = { platform?: string; localOnly?: boolean }
 
 function providers(root: string): Provider[] {
-  return [createIgdbProvider(root), createRawgProvider(root)]
+  return [createIgdbProvider(root)]
 }
 
 /**

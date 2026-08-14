@@ -2,10 +2,11 @@
  * `enrichGame`'s provider fallback (src/cli/commands/enrich.ts) — unit-level,
  * with fake providers, so it never touches real credentials or the network.
  *
- * Regression coverage for a real bug: with only IGDB configured, enriching a
- * game IGDB had no confident match for was reported as "rawg is not
+ * Regression coverage for a real bug: enriching a game the first provider
+ * had no confident match for was reported as "the second provider is not
  * configured" — a working provider's honest "nothing found" was getting
  * overwritten by the *next* provider in the chain simply being unconfigured.
+ * Providers below are fakes named "fallback", not a specific real one.
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -85,7 +86,7 @@ test('a configured provider finding nothing is skipped, never reported as the ne
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [noMatch('igdb'), unavailable('rawg')], false, false)
+  const outcome = await enrichGame(cli, workspace, game, [noMatch('igdb'), unavailable('fallback')], false, false)
   assert.deepEqual(outcome, { kind: 'skipped' })
 })
 
@@ -94,7 +95,7 @@ test('the order does not matter: an unavailable provider before a reachable no-m
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [unavailable('rawg'), noMatch('igdb')], false, false)
+  const outcome = await enrichGame(cli, workspace, game, [unavailable('fallback'), noMatch('igdb')], false, false)
   assert.deepEqual(outcome, { kind: 'skipped' })
 })
 
@@ -103,11 +104,11 @@ test('every provider unavailable is reported failed, naming every one of them', 
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), unavailable('rawg')], false, false)
+  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), unavailable('fallback')], false, false)
   assert.equal(outcome.kind, 'failed')
   if (outcome.kind === 'failed') {
     assert.match(outcome.message, /igdb/i)
-    assert.match(outcome.message, /rawg/i)
+    assert.match(outcome.message, /fallback/i)
   }
 })
 
@@ -116,8 +117,8 @@ test('a match on the second provider still enriches, even though the first was u
   const workspace = fakeWorkspace()
   const game = workspace.state.games[0]!
 
-  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), matching('rawg', DETAIL)], false, false)
-  assert.deepEqual(outcome, { kind: 'enriched', provider: 'rawg' })
+  const outcome = await enrichGame(cli, workspace, game, [unavailable('igdb'), matching('fallback', DETAIL)], false, false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'fallback' })
 })
 
 test('a match on the first provider never even asks the second', async () => {
@@ -126,7 +127,7 @@ test('a match on the first provider never even asks the second', async () => {
   const game = workspace.state.games[0]!
   let asked = false
   const spy: Provider = {
-    name: 'rawg',
+    name: 'fallback',
     search: async () => [],
     findExact: async () => {
       asked = true
@@ -308,8 +309,8 @@ test('an ambiguous first provider still tries the second, which cleanly matches'
     },
   }
 
-  const outcome = await enrichGame(cli, workspace, game, [igdb, matching('rawg', DETAIL)], false, false)
-  assert.deepEqual(outcome, { kind: 'enriched', provider: 'rawg' })
+  const outcome = await enrichGame(cli, workspace, game, [igdb, matching('fallback', DETAIL)], false, false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'fallback' })
 })
 
 test('ambiguous on every provider in the chain reports the first provider only', async () => {
@@ -330,20 +331,20 @@ test('ambiguous on every provider in the chain reports the first provider only',
       throw new Error('must not be called')
     },
   }
-  const rawgCandidates = async (): Promise<ProviderCandidate[]> => [
+  const fallbackCandidates = async (): Promise<ProviderCandidate[]> => [
     { id: 'a', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
     { id: 'b', title: 'Hollow Knight', year: 2017, platforms: [], cover_url: null },
   ]
-  const rawg: Provider = {
-    name: 'rawg',
-    search: rawgCandidates,
-    findExact: rawgCandidates,
+  const fallback: Provider = {
+    name: 'fallback',
+    search: fallbackCandidates,
+    findExact: fallbackCandidates,
     fetch: async () => {
       throw new Error('must not be called')
     },
   }
 
-  const outcome = await enrichGame(cli, workspace, game, [igdb, rawg], false, false)
+  const outcome = await enrichGame(cli, workspace, game, [igdb, fallback], false, false)
   assert.equal(outcome.kind, 'ambiguous')
   if (outcome.kind === 'ambiguous') {
     assert.equal(outcome.provider, 'igdb')

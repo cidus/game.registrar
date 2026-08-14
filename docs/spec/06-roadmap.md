@@ -31,7 +31,7 @@ faster.
 
 ## Phase 1 — Metadata and querying
 
-- `providers/igdb.ts`, then `rawg.ts` as fallback
+- `providers/igdb.ts`
 - `enrich`, cover download via `sharp`
 - Image ingestion: `--photo`, hashing, normalization, EXIF strip, `attach`, `cover`
 - Provider search in resolution (step 6), alias learning

@@ -1,7 +1,6 @@
 /**
- * Providers, mocked at the fetch boundary (docs/spec/00-architecture.md D5) —
- * never a real socket. `fetchImpl` is injected into both providers for
- * exactly this reason.
+ * The IGDB provider, mocked at the fetch boundary (docs/spec/00-architecture.md
+ * D5) — never a real socket. `fetchImpl` is injected for exactly this reason.
  */
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
@@ -10,7 +9,6 @@ import { test } from 'node:test'
 
 import { GameregError } from '../src/core/errors.ts'
 import { createIgdbProvider } from '../src/providers/igdb.ts'
-import { createRawgProvider } from '../src/providers/rawg.ts'
 import { tempDir } from './helpers.ts'
 
 function rootWithSecrets(secrets: Record<string, Record<string, string>>): string {
@@ -180,97 +178,6 @@ test('igdb: a non-ok token response fails with provider_unavailable', async () =
   await assert.rejects(provider.search('zelda'), (error: unknown) => {
     assert.ok(error instanceof GameregError)
     assert.equal(error.code, 6)
-    return true
-  })
-})
-
-test('rawg: search queries with the api key and maps results', async () => {
-  const root = rootWithSecrets({ rawg: { api_key: 'key' } })
-  const calls: string[] = []
-  const fetchImpl = (async (url: string | URL) => {
-    calls.push(String(url))
-    return jsonResponse({
-      results: [
-        {
-          id: 123,
-          name: 'Celeste',
-          released: '2018-01-25',
-          platforms: [{ platform: { name: 'PC' } }],
-          background_image: 'https://example.com/celeste.jpg',
-        },
-      ],
-    })
-  }) as typeof fetch
-
-  const provider = createRawgProvider(root, fetchImpl)
-  const results = await provider.search('celeste')
-
-  assert.equal(calls.length, 1)
-  assert.match(calls[0]!, /api\.rawg\.io\/api\/games\?/)
-  assert.match(calls[0]!, /key=key/)
-  assert.deepEqual(results, [
-    { id: '123', title: 'Celeste', year: 2018, platforms: ['PC'], cover_url: 'https://example.com/celeste.jpg' },
-  ])
-})
-
-test('rawg: findExact requests the maximum page size, best-effort widening (no confirmed exact filter)', async () => {
-  const root = rootWithSecrets({ rawg: { api_key: 'key' } })
-  const calls: string[] = []
-  const fetchImpl = (async (url: string | URL) => {
-    calls.push(String(url))
-    return jsonResponse({ results: [] })
-  }) as typeof fetch
-
-  const provider = createRawgProvider(root, fetchImpl)
-  await provider.findExact('Pac-Man')
-  assert.match(calls[0]!, /page_size=40/)
-  assert.match(calls[0]!, /search=Pac-Man/)
-})
-
-test('rawg: fetch maps developers, publishers and genres', async () => {
-  const root = rootWithSecrets({ rawg: { api_key: 'key' } })
-  const fetchImpl = (async () =>
-    jsonResponse({
-      id: 123,
-      name: 'Celeste',
-      released: '2018-01-25',
-      platforms: [{ platform: { name: 'PC' } }],
-      developers: [{ name: 'Extremely OK Games' }],
-      publishers: [{ name: 'Extremely OK Games' }],
-      genres: [{ name: 'Platformer' }],
-      background_image: 'https://example.com/celeste.jpg',
-    })) as typeof fetch
-
-  const provider = createRawgProvider(root, fetchImpl)
-  const detail = await provider.fetch('123')
-  assert.deepEqual(detail, {
-    id: '123',
-    fields: {
-      title: 'Celeste',
-      release_year: 2018,
-      developer: 'Extremely OK Games',
-      publisher: 'Extremely OK Games',
-      genres: ['Platformer'],
-      platforms: ['PC'],
-    },
-    cover_url: 'https://example.com/celeste.jpg',
-  })
-})
-
-test('rawg: fetch returns null on a 404', async () => {
-  const root = rootWithSecrets({ rawg: { api_key: 'key' } })
-  const fetchImpl = (async () => jsonResponse({}, false, 404)) as typeof fetch
-  const provider = createRawgProvider(root, fetchImpl)
-  assert.equal(await provider.fetch('999999'), null)
-})
-
-test('rawg: missing credentials fail with provider_unavailable naming the env var', async () => {
-  const root = tempDir()
-  const provider = createRawgProvider(root, (async () => jsonResponse({})) as typeof fetch)
-  await assert.rejects(provider.search('celeste'), (error: unknown) => {
-    assert.ok(error instanceof GameregError)
-    assert.equal(error.code, 6)
-    assert.equal(error.params['missing'], 'RAWG_API_KEY')
     return true
   })
 })

@@ -104,8 +104,8 @@ export async function ingestImage(vault: Vault, sourcePath: string, config: Conf
  * response is not thrown — it is `null`, and the caller falls back to storing
  * the bare URL, same as before this existed.
  *
- * `fetchImpl` is injected the same way `providers/igdb.ts` and `rawg.ts` do
- * it, so tests mock at this boundary and never open a socket.
+ * `fetchImpl` is injected the same way `providers/igdb.ts` does it, so tests
+ * mock at this boundary and never open a socket.
  */
 export async function ingestUrl(
   vault: Vault,

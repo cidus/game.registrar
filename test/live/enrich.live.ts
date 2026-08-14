@@ -15,17 +15,17 @@
  * instead, specifically to catch the next surprise like that one.
  *
  * WHEN TO RUN THIS: whenever you touch `normalize()` (src/resolve/normalize.ts),
- * `findDetail`/`enrichGame` (src/cli/commands/enrich.ts), or a provider's
- * `search`/`fetch` (src/providers/igdb.ts, src/providers/rawg.ts). A green
- * `npm test` does not mean matching still works against a real catalog —
- * only this does. If you don't have credentials configured, that's fine:
- * every test below skips itself, cleanly, and says so.
+ * `findDetail`/`enrichGame` (src/cli/commands/enrich.ts), or the provider's
+ * `search`/`fetch` (src/providers/igdb.ts). A green `npm test` does not mean
+ * matching still works against a real catalog — only this does. If you
+ * don't have credentials configured, that's fine: every test below skips
+ * itself, cleanly, and says so.
  *
  * CREDENTIALS: reads example-vault/gamereg.secrets.json (gitignored, never
  * committed — see .gitignore's exception for example-vault/data/log.db,
- * which does NOT cover this file) or IGDB_CLIENT_ID/IGDB_CLIENT_SECRET/
- * RAWG_API_KEY in the environment. Never writes to the committed
- * example-vault: everything here runs against a throwaway copy.
+ * which does NOT cover this file) or IGDB_CLIENT_ID/IGDB_CLIENT_SECRET in
+ * the environment. Never writes to the committed example-vault: everything
+ * here runs against a throwaway copy.
  *
  * If a test that used to pass here starts failing, it is not necessarily a
  * regression in this codebase — a provider's catalog can change (a game
@@ -47,7 +47,6 @@ import { nowIn } from '../../src/core/time.ts'
 import { openVault, timeContext, type Vault } from '../../src/core/vault.ts'
 import { translator } from '../../src/i18n/index.ts'
 import { createIgdbProvider } from '../../src/providers/igdb.ts'
-import { createRawgProvider } from '../../src/providers/rawg.ts'
 import { event, tempDir } from '../helpers.ts'
 
 const EXAMPLE = join(import.meta.dirname, '..', '..', 'example-vault')
@@ -95,10 +94,8 @@ function gameNamed(workspace: Workspace, slug: string): GameState {
 
 const vault = liveVault()
 const igdb = resolveProviderCredentials(vault.root, 'igdb', PROVIDER_CREDENTIAL_FIELDS.igdb)
-const rawg = resolveProviderCredentials(vault.root, 'rawg', PROVIDER_CREDENTIAL_FIELDS.rawg)
 
 const skipIgdb = igdb.ok ? false : 'IGDB credentials not configured (IGDB_CLIENT_ID/IGDB_CLIENT_SECRET, or example-vault/gamereg.secrets.json)'
-const skipRawg = rawg.ok ? false : 'RAWG credentials not configured (RAWG_API_KEY, or example-vault/gamereg.secrets.json)'
 
 test('igdb: well-known games with a single clean catalog entry auto-enrich', { skip: skipIgdb }, async () => {
   const cli = fakeCli(vault)
@@ -267,12 +264,3 @@ test(
     }
   },
 )
-
-test('rawg: a well-known game auto-enriches', { skip: skipRawg }, async () => {
-  const cli = fakeCli(vault)
-  const workspace = workspaceOf(vault)
-  const provider = createRawgProvider(vault.root)
-
-  const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'celeste'), [provider], false, false)
-  assert.equal(outcome.kind, 'enriched', JSON.stringify(outcome))
-})

@@ -20,7 +20,6 @@ export const SECRETS_FILENAME = 'gamereg.secrets.json'
 /** Every known provider and the credential fields it needs, in the shape `init` seeds. */
 export const PROVIDER_CREDENTIAL_FIELDS = {
   igdb: ['client_id', 'client_secret'],
-  rawg: ['api_key'],
 } as const
 
 export type ProviderName = keyof typeof PROVIDER_CREDENTIAL_FIELDS

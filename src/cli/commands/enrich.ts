@@ -27,7 +27,6 @@ import {
 import { ingestUrl } from '../../images/ingest.ts'
 import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider, ProviderCandidate, ProviderDetail } from '../../providers/provider.ts'
-import { createRawgProvider } from '../../providers/rawg.ts'
 import { normalize } from '../../resolve/normalize.ts'
 import { candidateFromProvider, CANDIDATE_LIMIT, parseReference } from '../../resolve/resolve.ts'
 import type { Cli } from '../context.ts'
@@ -45,15 +44,14 @@ type Options = {
   covers?: boolean
 }
 
-const KNOWN_PROVIDERS = ['igdb', 'rawg'] as const
+const KNOWN_PROVIDERS = ['igdb'] as const
 
 function createProvider(name: string, root: string): Provider {
   if (name === 'igdb') return createIgdbProvider(root)
-  if (name === 'rawg') return createRawgProvider(root)
   throw new GameregError('usage', 'error.enum', { field: 'provider', value: name, valid: KNOWN_PROVIDERS.join(', ') })
 }
 
-/** No `--provider`: try every known provider in order, igdb first, rawg as fallback. */
+/** No `--provider`: try every known provider in order. */
 function providerChain(root: string, requested: string | undefined): Provider[] {
   if (requested !== undefined) return [createProvider(requested, root)]
   return KNOWN_PROVIDERS.map((name) => createProvider(name, root))
@@ -195,8 +193,8 @@ async function coverField(
 /**
  * Stages the `game.enrich` event. Shared by a clean match, an
  * interactively-picked candidate, and `--match`. `fetchImpl` is injected the
- * same way `providers/igdb.ts` and `rawg.ts` do it, threaded down to the
- * cover download, so tests mock at this boundary and never open a socket.
+ * same way `providers/igdb.ts` does it, threaded down to the cover download,
+ * so tests mock at this boundary and never open a socket.
  */
 export async function applyDetail(
   cli: Cli,
@@ -262,8 +260,8 @@ export async function enrichGame(
     if (result.kind === 'ambiguous') {
       // Keep trying the rest of the chain — a later provider may still give
       // a clean unique match. Remember only the first ambiguous set, so the
-      // eventual answer (if the chain never resolves) is deterministic:
-      // igdb before rawg, the configured provider order.
+      // eventual answer (if the chain never resolves) is deterministic: the
+      // configured provider order.
       firstAmbiguous ??= { provider: provider.name, candidates: result.candidates }
       continue
     }

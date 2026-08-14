@@ -143,7 +143,7 @@
       "message": "O parecer em si, na própria linha de comando.",
       "text": "Lê o parecer de um arquivo, ou de - para a entrada padrão.",
       "run": "Qual jogatina. Por padrão, a encerrada mais recentemente.",
-      "provider": "Provedor a consultar: igdb, rawg. Padrão: igdb, e rawg em seguida.",
+      "provider": "Provedor a consultar: igdb. Padrão: igdb.",
       "all_games": "Enriquece todos os títulos do acervo.",
       "covers": "Também busca e define a capa, a menos que a capa seja source: user.",
       "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV.",

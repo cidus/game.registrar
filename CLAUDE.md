@@ -67,26 +67,26 @@ also carry a denormalized `cover` property now (`render/assets.ts`'s
 `image:` at.
 
 **Phase 1 is done.** `CURRENT_PHASE` in `core/vocab.ts` is `1`.
-Implemented and tested: provider credentials, `providers/igdb.ts` +
-`providers/rawg.ts` behind a common interface (**RAWG appears offline as of
-2026-08** — `api.rawg.io` and `rawg.io` both time out; `rawg.ts` is left in
-place, since an unconfigured/unreachable provider already degrades cleanly,
-but is not receiving further updates — see its file comment), `enrich` (including provider
-ambiguity handling — a menu or exit 3 + `candidates[]`, `--match <ref>` to
-re-invoke, platform-aware narrowing/auto-resolution from the game's recorded
-runs, and a literal `<query>` — when given — driving the provider search
-directly instead of the resolved game's stored title, so a retyped query is
-the retry path for a poor first search), resolution step 6 in `gamereg
-search` (never in a write command — see non-negotiable 4), the
-`sqlite`/`json`/`html` targets, `query`, `import`, the image ingestion
-*pipeline* (`src/images/ingest.ts` + `exif.ts` — EXIF read then stripped,
-normalize, hash, write to `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**,
-**provider cover download** and the **platform vocabulary** (all below).
-`npm test` runs 333 tests (`node --test`, no framework, no network).
-`npm run test:live` (opt-in, real IGDB/RAWG calls, skips cleanly with no
-credentials — see Testing strategy below) adds 8 more; run it whenever you
-touch provider matching. Its RAWG cases will likely fail on a timeout rather
-than skip, per the note above — not a regression if so.
+Implemented and tested: provider credentials, `providers/igdb.ts` behind a
+common `Provider` interface (RAWG was implemented alongside it as a fallback,
+found offline in 2026-08 — `api.rawg.io`/`rawg.io` both timed out — and
+removed entirely rather than kept unmaintained; `PROVIDER_CREDENTIAL_FIELDS`
+in `core/secrets.ts` and `KNOWN_PROVIDERS` in `cli/commands/enrich.ts` are
+the two places a future second provider would join, the same shape RAWG
+used), `enrich` (including provider ambiguity handling — a menu or exit 3 +
+`candidates[]`, `--match <ref>` to re-invoke, platform-aware
+narrowing/auto-resolution from the game's recorded runs, and a literal
+`<query>` — when given — driving the provider search directly instead of
+the resolved game's stored title, so a retyped query is the retry path for
+a poor first search), resolution step 6 in `gamereg search` (never in a
+write command — see non-negotiable 4), the `sqlite`/`json`/`html` targets,
+`query`, `import`, the image ingestion *pipeline* (`src/images/ingest.ts` +
+`exif.ts` — EXIF read then stripped, normalize, hash, write to
+`assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**, **provider cover
+download** and the **platform vocabulary** (all below). `npm test` runs 333
+tests (`node --test`, no framework, no network). `npm run test:live`
+(opt-in, real IGDB calls, skips cleanly with no credentials — see Testing
+strategy below) adds 8 more; run it whenever you touch provider matching.
 
 Tagged `v0.1.0`. `package.json` reads `0.2.0`, marking phase 2's start — see
 Versioning below for what a patch on an already-tagged phase does to that
@@ -157,8 +157,8 @@ not phase 2 work, hence `v0.1.1` rather than folding into `v0.2.0`.
   "failure here never blocks recording" for `enrich` as a whole.
 - **`fetchImpl` is injected**, default global `fetch`, threaded from
   `enrichGame`/`applyDetail` down to `ingestUrl` — the same pattern
-  `providers/igdb.ts` and `rawg.ts` already use, so unit tests mock at this
-  boundary instead of opening a socket (`test/enrich-fallback.test.ts`).
+  `providers/igdb.ts` already uses, so unit tests mock at this boundary
+  instead of opening a socket (`test/enrich-fallback.test.ts`).
 - **`game.enrich`'s `cover` field changes shape**, from a bare URL string to
   `{ url, sha256? }`. `fold.ts` reads *both* shapes forever — an old
   string-only event still folds exactly as it always did — because the log
@@ -294,7 +294,7 @@ src/
   render/         remark pipeline, marker splicing, note/run/table emitters
   targets/        registry, manifest, writer, audit; one file per target
   db/             + phase 1: SQLite schema, build, query guard
-  providers/      + phase 1: igdb.ts, rawg.ts behind a common interface
+  providers/      + phase 1: igdb.ts behind a common interface
   images/         + phase 1: ingest pipeline, hashing, EXIF
   i18n/
 templates/        Game Database.base and anything else seeded into a vault
@@ -331,15 +331,15 @@ Everything phase 0 established still holds, and phase 1 adds to it:
   a test that would open a socket is a bug in the test.
 - **Live smoke test, opt-in only — run it when you touch provider matching.**
   `npm run test:live` (`test/live/*.live.ts`, deliberately outside the
-  `npm test` glob) hits the real IGDB/RAWG APIs. It exists because a mocked
+  `npm test` glob) hits the real IGDB API. It exists because a mocked
   test can only be wrong about a real catalog's shape in the way the person
   writing it happened to guess — that's exactly how a real bug shipped:
   IGDB carries "Final Fantasy VII Remake: Deluxe Edition" as its own entry,
   not looser phrasing of the base game, and no hand-written mock reproduced
   that. **Run `npm run test:live` whenever you change `normalize()`
   (`src/resolve/normalize.ts`), `findDetail`/`enrichGame`
-  (`src/cli/commands/enrich.ts`), or a provider's `search`/`fetch`
-  (`src/providers/igdb.ts`, `src/providers/rawg.ts`).** A green `npm test`
+  (`src/cli/commands/enrich.ts`), or the provider's `search`/`fetch`
+  (`src/providers/igdb.ts`).** A green `npm test`
   does not mean matching still works against a real catalog — only this
   does. It needs real credentials (env vars, or
   `example-vault/gamereg.secrets.json`, gitignored); every test in the file
