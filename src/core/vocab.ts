@@ -61,7 +61,11 @@ export const CURRENT_PHASE = 1
 export function checkTarget(value: string): BuildTarget {
   const name = checkEnum('build.targets', value, BUILD_TARGET)
   if (TARGET_PHASE[name] > CURRENT_PHASE) {
-    throw new GameregError('usage', 'error.target_phase', { name, phase: TARGET_PHASE[name] })
+    throw new GameregError('usage', 'error.target_phase', {
+      name,
+      phase: TARGET_PHASE[name],
+      current: CURRENT_PHASE,
+    })
   }
   return name
 }

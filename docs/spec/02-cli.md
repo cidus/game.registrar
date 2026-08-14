@@ -293,6 +293,13 @@ gamereg search "zelda" [--platform switch] [--provider igdb] [--local-only]
 Never writes. Returns candidates in the same shape used by code 3. This is what
 the agent calls when it wants to look something up without recording anything.
 
+A local match answers on its own; only an empty local result falls through to
+provider search — resolution step 6 (03-resolution.md), which lives here and in
+no write command. `--provider` narrows that fallback to a single catalog and
+rejects an unknown name as a usage error, exactly as on `enrich`; with no
+`--provider`, every configured provider is tried in order. `--local-only` skips
+step 6 altogether, which also makes `--provider` moot.
+
 ### `gamereg open` — list open sessions
 
 ### `gamereg due [--at <time>]`
