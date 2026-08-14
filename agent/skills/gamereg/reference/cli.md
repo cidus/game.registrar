@@ -162,11 +162,16 @@ Every open session.
 ### `gamereg search`
 
 ```text
-gamereg search <term> --platform --local-only
+gamereg search <term> --platform --provider --local-only
 ```
 
 Never writes. Returns candidates in the same shape as exit code 3. This is what
 you call to look something up without recording anything.
+
+It is the one non-recording command that may reach a provider. `--local-only`
+keeps it to the log; `--provider <name>` narrows the chain, and today `igdb` is
+the only name that exists — a misspelling is a usage error, not a quiet fall
+back to local results.
 
 ### `gamereg query`
 
