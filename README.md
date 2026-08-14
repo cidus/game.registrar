@@ -36,9 +36,13 @@ Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
 
 ## Status
 
-**Phase 0** — the register, no AI. The CLI records and renders; there is no
-network, no provider, no SQLite, no agent and no site yet. See
-[06-roadmap](docs/spec/06-roadmap.md).
+**Phase 1 done, hardening before phase 2.** The CLI records, enriches titles
+and cover art from IGDB, ingests your own photos, and regenerates Obsidian
+notes and a sortable Base, CSV, JSON, an HTML table and a SQLite cache — all
+from one event log. No chat agent and no published site yet. See
+[06-roadmap](docs/spec/06-roadmap.md) and the tagged
+[releases](https://github.com/cidus/game.registrar/releases) for what
+shipped in each phase.
 
 ```
 git clone … && cd game.registrar && npm install && npm run build && npm link
@@ -47,19 +51,30 @@ git clone … && cd game.registrar && npm install && npm run build && npm link
 Then, from the directory holding your register (or with `--vault <path>`):
 
 ```
+gamereg init
 gamereg start "hollow knight" --platform Switch
 gamereg break start
 gamereg break end
-gamereg end --break 40m --note "Stuck on Watcher Knights."
+gamereg end --break 40m --note "Stuck on Watcher Knights." --photo boss.jpg
 gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_ending
 gamereg verdict "hollow knight" -m "Started as a curiosity and became..."
 gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
+gamereg enrich --all --covers
 gamereg open · gamereg status · gamereg search "zelda"
+gamereg query "select title, hours from games order by hours desc limit 5"
 gamereg build · gamereg build csv · gamereg doctor
 ```
 
 A title not on record yet is offered as a new entry when you are at a terminal;
 behind a pipe it exits 4 and `--no-metadata` opens it without asking.
+`gamereg enrich` needs IGDB credentials — `gamereg init` seeds an empty
+`gamereg.secrets.json` for them; nothing else in the CLI ever touches the
+network.
+
+Open **`obsidian/`** inside your register as the Obsidian vault, not the
+register's own root — that folder is everything the `obsidian` target
+writes (notes, the consolidated table, the Base), kept separate from the
+event log, credentials and build bookkeeping sitting one level up.
 
 `example-vault/` is a working register with fictional data — the golden files the
 test suite builds against.
@@ -77,9 +92,11 @@ test suite builds against.
 }
 ```
 
-`defaults` fills in what `start` was not told. Platform is taken from the game's
-last run first, then from here; without either, the first run of a game asks for
-`--platform` rather than guessing.
+`defaults` fills in what `start` was not told. Platform is taken from the
+game's last run first, then from here, then from a single-platform match
+against the catalog once the game is enriched; without any of those, `start`
+opens the session with no platform recorded rather than asking — `end`,
+`finish` and `drop` settle it later, once there is a catalog to narrow from.
 
 `build.targets` declares which formats the vault emits, defaulting to
 `["obsidian"]`:

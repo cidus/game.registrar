@@ -45,10 +45,10 @@ tests (`node --test`, no framework, no network). `npm run test:live`
 (opt-in, real IGDB calls, skips cleanly with no credentials — see Testing
 strategy below) adds 8 more; run it whenever you touch provider matching.
 
-Tagged `v0.1.0`, `v0.1.1`. `package.json` reads `0.1.3` — still hardening
-phase 1 (see *Obsidian layout, Bases fixes, and provider cleanup* below for
-what shipped since `v0.1.1`); phase 2 has not started. See Versioning below
-for what a patch on an already-tagged phase does to the number.
+Tagged `v0.1.0`, `v0.1.1`, `v0.1.2`. `package.json` reads `0.1.3` — still
+hardening phase 1 (see *Obsidian layout, Bases fixes, and provider cleanup*
+below for what shipped in `v0.1.2`); phase 2 has not started. See Versioning
+below for what a patch on an already-tagged phase does to the number.
 
 ### Image ingestion's CLI surface, as built
 
@@ -134,12 +134,13 @@ not phase 2 work, hence `v0.1.1` rather than folding into `v0.2.0`.
   a one-off manual check, since `npm run test:live` intentionally stays
   narrow (see its file comment).
 
-### Obsidian layout, Bases fixes, and provider cleanup — since v0.1.1
+### Obsidian layout, Bases fixes, and provider cleanup — v0.1.2
 
-Shipped across several rounds, not tagged yet — `package.json` moved
-`0.1.1` → `0.1.2` → `0.1.3` without a corresponding tag for the middle one,
-since the work kept going before it was called done. All of it is a patch
-on phase 1, not phase 2 (chat and voice) — see Versioning below.
+Shipped across several rounds within `v0.1.2` — search platform ranking,
+`start --past-hours`/`past`'s stated baseline, and the amend fix landed
+first under that version number too; see the `v0.1.2` tag/release for the
+complete list. All of it is a patch on phase 1, not phase 2 (chat and
+voice) — see Versioning below.
 
 Everything the `obsidian` target writes now lives under `obsidian/`, not the
 vault root — `obsidian/games/`, `obsidian/runs/`, `obsidian/Game List.md`,
