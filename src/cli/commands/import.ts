@@ -138,7 +138,13 @@ export function registerImport(registrar: Registrar): void {
         const lineNumber = index + 2 // header is line 1
         try {
           const input = rowInput(row, mapping)
-          const { game, run } = await fileHistoricalRun(cli, workspace, input)
+          const { game, run } = await fileHistoricalRun(
+            cli,
+            workspace,
+            input,
+            { attachments: [], photos: [], suggestedAt: null },
+            false,
+          )
           imported.push({ row: lineNumber, game_id: game.game_id, run_id: run.run_id, title: game.title })
         } catch (error) {
           const message = error instanceof GameregError ? cli.t(error.key, error.params) : String(error)

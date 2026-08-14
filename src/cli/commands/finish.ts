@@ -6,6 +6,7 @@
 import type { Command } from 'commander'
 
 import { formatHm } from '../../core/duration.ts'
+import { attachmentProse, attachmentResult, collectAttachments, suggestedAtProse } from '../attachments.ts'
 import { closeRun, type CloseRunOptions } from '../close-run.ts'
 import { createContext } from '../context.ts'
 import { clock } from '../format.ts'
@@ -13,6 +14,8 @@ import { emit } from '../output.ts'
 import { platformProse, rememberPlatform } from '../platform.ts'
 import type { Registrar } from '../register.ts'
 import { commit, load } from '../workspace.ts'
+
+type Options = CloseRunOptions & { kind?: string; asCover?: boolean }
 
 export function registerFinish(registrar: Registrar): void {
   registrar
@@ -24,9 +27,14 @@ export function registerFinish(registrar: Registrar): void {
     .option('--criteria <token>', registrar.t('help.opt.criteria'))
     .option('--note <text>', registrar.t('help.opt.note'))
     .option('--platform <name>', registrar.t('help.opt.platform'))
-    .action(async (query: string, options: CloseRunOptions, command: Command) => {
+    .option('--photo <path>', registrar.t('help.opt.photo'))
+    .option('--caption <text>', registrar.t('help.opt.caption'))
+    .option('--kind <kind>', registrar.t('help.opt.kind'))
+    .option('--as-cover', registrar.t('help.opt.as_cover'))
+    .action(async (query: string, options: Options, command: Command) => {
       const cli = createContext(command)
       const workspace = load(cli)
+      const bundle = await collectAttachments(cli, command, options.kind)
 
       const { game, run, sessionClosed, platform } = await closeRun(
         cli,
@@ -35,6 +43,8 @@ export function registerFinish(registrar: Registrar): void {
         options,
         'finished',
         'credits',
+        bundle,
+        options.asCover === true,
       )
       const events = commit(cli, workspace)
       rememberPlatform(cli, platform)
@@ -54,6 +64,8 @@ export function registerFinish(registrar: Registrar): void {
           : cli.t('prose.finish.rating', { rating: run.rating }),
       )
       if (platform !== null) prose.push(platformProse(cli, platform))
+      prose.push(...attachmentProse(cli, bundle.photos, options.asCover === true))
+      prose.push(...suggestedAtProse(cli, bundle.suggestedAt))
 
       emit(cli, {
         action: 'run.close',
@@ -70,6 +82,7 @@ export function registerFinish(registrar: Registrar): void {
           minutes: run.minutes,
           sessions: run.sessions.length,
           status: game.status,
+          ...(bundle.photos.length === 0 ? {} : { attachments: bundle.photos.map(attachmentResult) }),
         },
         events,
         prose,

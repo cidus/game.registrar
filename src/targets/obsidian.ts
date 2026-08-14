@@ -33,9 +33,9 @@ export const obsidian: Target = {
     for (const game of state.games) {
       files.push({
         path: `games/${game.slug}.md`,
-        content: newNote(game, bundle),
+        content: newNote(state, game, bundle),
         policy: 'splice',
-        parts: { frontmatter: frontmatter(game), blocks: blocksOf(game, bundle) },
+        parts: { frontmatter: frontmatter(game), blocks: blocksOf(state, game, bundle) },
       })
 
       // One note per run. `runs/` is data and is written whole; `games/` is

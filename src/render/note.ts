@@ -13,13 +13,19 @@
 import { Document, Scalar } from 'yaml'
 
 import { formatHm, formatHours } from '../core/duration.ts'
-import type { GameState, RunState, SessionState } from '../core/fold.ts'
+import { attachmentsOfGame, type GameState, type RunState, type SessionState, type VaultState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
 import { atPrecision } from './dates.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 import { runNoteNames, runsInOrder } from './run.ts'
 
-export const BLOCK_ORDER = ['header', 'verdict', 'runs'] as const
+export const BLOCK_ORDER = ['header', 'verdict', 'runs', 'gallery'] as const
+
+/** Every attachment is normalized to WebP by the ingestion pipeline, so the
+ * hash alone determines the path (docs/spec/04-derived.md "Content addressing"). */
+function assetPath(sha256: string): string {
+  return `assets/${sha256.slice(0, 2)}/${sha256}.webp`
+}
 
 /**
  * The run whose facts head the note: the most recently ended one, falling back
@@ -130,7 +136,30 @@ export function headerBlock(game: GameState, bundle: Translator): string {
     )
   }
 
-  return parts.join(' · ')
+  const lines: string[] = []
+  // Only a locally ingested cover has a file to embed. A provider cover is a
+  // URL, not an asset on disk — enrich never runs the ingestion pipeline.
+  if (game.cover?.sha256 != null) lines.push(`![[${assetPath(game.cover.sha256)}]]`)
+  lines.push(parts.join(' · '))
+  return lines.join('\n')
+}
+
+/**
+ * Every photo on this game's timeline, oldest first (docs/spec/04-derived.md
+ * "Game note", the Gallery block).
+ */
+export function galleryBlock(state: VaultState, game: GameState, bundle: Translator): string {
+  const items = attachmentsOfGame(state, game)
+  if (items.length === 0) return ''
+
+  return items
+    .map(({ attachment, at }) => {
+      const date = (attachment.captured_at ?? at).slice(0, 10)
+      const caption = cell(attachment.caption)
+      const line = caption === '' ? date : bundle.t('note.gallery.captioned', { date, caption })
+      return `![[${assetPath(attachment.sha256)}]]\n*${line}*`
+    })
+    .join('\n\n')
 }
 
 /**
@@ -201,7 +230,7 @@ export function runsBlock(game: GameState, bundle: Translator): string {
   ].join('\n')
 }
 
-export function blocksOf(game: GameState, bundle: Translator): BlockContent[] {
+export function blocksOf(state: VaultState, game: GameState, bundle: Translator): BlockContent[] {
   return [
     { block: 'header', content: headerBlock(game, bundle) },
     {
@@ -210,12 +239,17 @@ export function blocksOf(game: GameState, bundle: Translator): BlockContent[] {
       heading: bundle.t('note.heading.verdict'),
     },
     { block: 'runs', content: runsBlock(game, bundle), heading: bundle.t('note.heading.runs') },
+    {
+      block: 'gallery',
+      content: galleryBlock(state, game, bundle),
+      heading: bundle.t('note.heading.gallery'),
+    },
   ]
 }
 
 /** A brand new note: frontmatter, the blocks in canonical order, a place to write. */
-export function newNote(game: GameState, bundle: Translator): string {
-  const blocks = blocksOf(game, bundle).filter((entry) => entry.content.trim() !== '')
+export function newNote(state: VaultState, game: GameState, bundle: Translator): string {
+  const blocks = blocksOf(state, game, bundle).filter((entry) => entry.content.trim() !== '')
   const body = blocks
     .map((entry) =>
       entry.heading === undefined

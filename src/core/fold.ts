@@ -664,3 +664,51 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
 
   return state
 }
+
+/** The game an event belongs to, by its `game_id`, `run_id` or `session_id` — whichever it carries. */
+export function gameOfEvent(state: VaultState, event: EventEnvelope): GameState | null {
+  const data = event.data
+  const gameId = str(data, 'game_id')
+  if (gameId !== null) return state.gamesById.get(gameId) ?? null
+  const runId = str(data, 'run_id')
+  const sessionId = str(data, 'session_id')
+  const run = runId !== null ? state.runsById.get(runId) : state.runsById.get(state.sessionsById.get(sessionId ?? '')?.run_id ?? '')
+  return run === undefined ? null : (state.gamesById.get(run.game_id) ?? null)
+}
+
+export type GameAttachment = { attachment: Attachment; at: string }
+
+/**
+ * Every attachment on this game's timeline, chronological: filed directly
+ * against the game (`attach <game>`, `cover --photo`/`--from`) plus anything
+ * inline or retroactively added to an event that belongs to one of its runs
+ * or sessions.
+ *
+ * `state.attachments` (built by the main fold above) is keyed by *target* — an
+ * event id, or a game id — with no notion of which game an event belongs to.
+ * This walks the events once to resolve that ownership, the same way
+ * `gameOfSession` does for a single session, and de-duplicates by hash: the
+ * same photo attached at two levels is one entry in the gallery.
+ */
+export function attachmentsOfGame(state: VaultState, game: GameState): GameAttachment[] {
+  const collected: GameAttachment[] = []
+  const seen = new Set<string>()
+
+  const add = (target: string, at: string): void => {
+    for (const attachment of state.attachments.get(target) ?? []) {
+      if (seen.has(attachment.sha256)) continue
+      seen.add(attachment.sha256)
+      collected.push({ attachment, at })
+    }
+  }
+
+  add(game.game_id, '')
+
+  for (const event of state.eventsById.values()) {
+    if (!state.attachments.has(event.id)) continue
+    if (gameOfEvent(state, event)?.game_id !== game.game_id) continue
+    add(event.id, str(event.data, 'at') ?? event.ts)
+  }
+
+  return collected.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0))
+}

@@ -4,6 +4,8 @@
  * If a session is still open it is closed first, at the same instant. The
  * consolidated verdict is not written here — that is a separate step.
  */
+import type { AttachmentBundle } from './attachments.ts'
+import { stageCoverFromFirst } from './attachments.ts'
 import { GameregError } from '../core/errors.ts'
 import type { GameState, RunState } from '../core/fold.ts'
 import { logicalDay, toISO } from '../core/time.ts'
@@ -56,6 +58,8 @@ export async function closeRun(
   options: CloseRunOptions,
   outcome: Outcome,
   defaultCriteria: CompletionCriteria,
+  attachments: AttachmentBundle,
+  asCover: boolean,
 ): Promise<CloseRunResult> {
   const resolved = await resolveGame(cli, workspace, query, { id: options.id, allowCreate: false })
   const gameId = resolved.game_id
@@ -101,7 +105,9 @@ export async function closeRun(
     ...(difficulty === null ? {} : { difficulty }),
     ...(options.note === undefined ? {} : { note: options.note }),
     at: toISO(cli.at),
+    ...(attachments.attachments.length === 0 ? {} : { attachments: attachments.attachments }),
   })
+  if (asCover) stageCoverFromFirst(cli, workspace, gameId, attachments.photos)
 
   return {
     game: workspace.state.gamesById.get(gameId)!,

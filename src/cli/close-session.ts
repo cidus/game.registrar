@@ -8,7 +8,7 @@ import type { DateTime } from 'luxon'
 
 import { minutesBetween, parseDuration } from '../core/duration.ts'
 import { GameregError } from '../core/errors.ts'
-import type { SessionState } from '../core/fold.ts'
+import type { Attachment, SessionState } from '../core/fold.ts'
 import { parseISO, toISO } from '../core/time.ts'
 import type { Cli } from './context.ts'
 import { stage, type Workspace } from './workspace.ts'
@@ -18,6 +18,8 @@ export type CloseInput = {
   /** `--break 40m`, additive with logged breaks. */
   breakText?: string | undefined
   note?: string | undefined
+  /** `--photo` on `end`. Never populated when auto-closing from `finish`/`drop`. */
+  attachments?: readonly Attachment[] | undefined
 }
 
 export type CloseResult = {
@@ -56,6 +58,7 @@ export function closeSession(
     at: toISO(input.at),
     ...(declared > 0 ? { break_minutes: declared } : {}),
     ...(input.note === undefined ? {} : { note: input.note }),
+    ...(input.attachments === undefined || input.attachments.length === 0 ? {} : { attachments: input.attachments }),
   })
 
   return { minutes: net, breakMinutes: logged + declared }

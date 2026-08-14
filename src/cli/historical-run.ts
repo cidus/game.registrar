@@ -6,6 +6,8 @@
  * CSV and a game finished from the command line are indistinguishable once
  * they land in the log.
  */
+import type { AttachmentBundle } from './attachments.ts'
+import { stageCoverFromFirst } from './attachments.ts'
 import { hoursToMinutes } from '../core/duration.ts'
 import { newId } from '../core/ids.ts'
 import type { GameState, RunState } from '../core/fold.ts'
@@ -59,6 +61,8 @@ export async function fileHistoricalRun(
   cli: Cli,
   workspace: Workspace,
   input: HistoricalRunInput,
+  attachments: AttachmentBundle,
+  asCover: boolean,
 ): Promise<HistoricalRunResult> {
   const ended = parseImpreciseDate(input.ended)
   const started = input.started === undefined ? ended : parseImpreciseDate(input.started)
@@ -110,7 +114,9 @@ export async function fileHistoricalRun(
     ...(minutes === null ? {} : { hours: minutes / 60 }),
     ...(input.note === undefined ? {} : { note: input.note }),
     replay: game.runs.length > 0,
+    ...(attachments.attachments.length === 0 ? {} : { attachments: attachments.attachments }),
   })
+  if (asCover) stageCoverFromFirst(cli, workspace, gameId, attachments.photos)
 
   const run = workspace.state.runsById.get(runId)!
   const final = workspace.state.gamesById.get(gameId)!

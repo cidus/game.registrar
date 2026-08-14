@@ -10,6 +10,7 @@ import { GameregError } from '../../core/errors.ts'
 import { newId } from '../../core/ids.ts'
 import type { PlatformSource } from '../../core/platforms.ts'
 import { logicalDay, toISO } from '../../core/time.ts'
+import { attachmentProse, attachmentResult, collectAttachments, stageCoverFromFirst, suggestedAtProse } from '../attachments.ts'
 import { createContext } from '../context.ts'
 import { clock, clockOf, list } from '../format.ts'
 import { emit } from '../output.ts'
@@ -34,6 +35,8 @@ type Options = {
   mode?: string
   replay?: boolean
   metadata?: boolean
+  kind?: string
+  asCover?: boolean
 }
 
 export function registerStart(registrar: Registrar): void {
@@ -46,9 +49,14 @@ export function registerStart(registrar: Registrar): void {
     .option('--mode <mode>', registrar.t('help.opt.mode'))
     .option('--replay', registrar.t('help.opt.replay'))
     .option('--no-metadata', registrar.t('help.opt.no_metadata'))
+    .option('--photo <path>', registrar.t('help.opt.photo'))
+    .option('--caption <text>', registrar.t('help.opt.caption'))
+    .option('--kind <kind>', registrar.t('help.opt.kind'))
+    .option('--as-cover', registrar.t('help.opt.as_cover'))
     .action(async (query: string, options: Options, command: Command) => {
       const cli = createContext(command)
       const workspace = load(cli)
+      const bundle = await collectAttachments(cli, command, options.kind)
 
       const resolved = await resolveGame(cli, workspace, query, {
         id: options.id,
@@ -97,7 +105,9 @@ export function registerStart(registrar: Registrar): void {
         session_id: sessionId,
         run_id: runId,
         at: toISO(cli.at),
+        ...(bundle.attachments.length === 0 ? {} : { attachments: bundle.attachments }),
       })
+      if (options.asCover === true) stageCoverFromFirst(cli, workspace, gameId, bundle.photos)
 
       const events = commit(cli, workspace)
       const game = workspace.state.gamesById.get(gameId)!
@@ -136,6 +146,8 @@ export function registerStart(registrar: Registrar): void {
         )
       }
       if (others.length > 0) prose.push(cli.t('prose.start.also_open', { list: list(others) }))
+      prose.push(...attachmentProse(cli, bundle.photos, options.asCover === true))
+      prose.push(...suggestedAtProse(cli, bundle.suggestedAt))
 
       emit(cli, {
         action: 'session.open',
@@ -150,6 +162,7 @@ export function registerStart(registrar: Registrar): void {
           mode: run.mode,
           replay: run.replay,
           run_opened: openedRun,
+          ...(bundle.photos.length === 0 ? {} : { attachments: bundle.photos.map(attachmentResult) }),
         },
         events,
         prose,

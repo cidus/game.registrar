@@ -27,6 +27,8 @@
     "enrich": "Fetch metadata and cover art from a provider.",
     "query": "Run a read-only SELECT against data/log.db.",
     "import": "Bulk historical import from a spreadsheet.",
+    "attach": "Attach a photo to an event or a game, after the fact.",
+    "cover": "Set, promote or reset a game's cover.",
     "arg": {
       "query": "Title, fragment or alias.",
       "term": "Search term.",
@@ -35,7 +37,8 @@
       "sql": "A single read-only SELECT statement.",
       "csv_file": "Path to the CSV file to import.",
       "platform_name": "platform name",
-      "platform_synonyms": "other spellings that mean the same platform"
+      "platform_synonyms": "other spellings that mean the same platform",
+      "attach_target": "Event id, or a game query."
     },
     "opt": {
       "help": "Show this help.",
@@ -81,7 +84,13 @@
       "covers": "Also fetch and set cover art, unless the cover is source: user.",
       "mapping": "Path to a JSON file mapping gamereg fields to CSV column headers.",
       "match": "Provider ref to fetch directly, as igdb:7346 — skips search.",
-      "platforms": "Platforms this vault suggests, comma separated"
+      "platforms": "Platforms this vault suggests, comma separated",
+      "photo": "Attach a photo. Repeatable.",
+      "caption": "Caption for the preceding --photo. Repeatable.",
+      "kind": "screenshot, photo, box, media, other.",
+      "as_cover": "Also promote the first photo to the game's cover, source: user.",
+      "from": "Promote an attachment already on record, by its hash.",
+      "reset": "Give provider art back. The user's photo stays on the timeline."
     },
     "verdict": "File the consolidated review of a playthrough.",
     "platform_add": "Add a platform, with any number of synonyms.",
@@ -144,7 +153,12 @@
     "import_row_incomplete": "Row has no value for \"{field}\", which is required.",
     "bad_image": "{file} could not be read as an image.",
     "match_with_all": "--match cannot be combined with --all.",
-    "bad_match_ref": "\"{value}\" is not a provider reference. Expected <provider>:<id>, e.g. igdb:7346."
+    "bad_match_ref": "\"{value}\" is not a provider reference. Expected <provider>:<id>, e.g. igdb:7346.",
+    "as_cover_without_photo": "--as-cover promotes a photo attached in this same command. Pass --photo too.",
+    "no_photo_to_attach": "Provide at least one --photo.",
+    "cover_needs_source": "Provide the cover with --photo <file>, --from <hash>, or --reset.",
+    "cover_too_many_sources": "Only one of --photo, --from or --reset is allowed.",
+    "unknown_attachment": "No attachment on {title} has the hash \"{value}\"."
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
@@ -279,6 +293,20 @@
       "none": "No platforms configured. They will be learned as you record them.",
       "row": "{platform} — {runs} run(s). Synonyms: {aliases}",
       "row_bare": "{platform} — {runs} run(s)."
+    },
+    "attachment": {
+      "one": "1 photo attached.",
+      "many": "{count} photos attached.",
+      "cover": "The first photo is now the cover, source: user.",
+      "suggested_at": "The photo's own clock says {time} — pass --at to use it."
+    },
+    "attach": {
+      "done": "Attached to {title}."
+    },
+    "cover": {
+      "set": "Cover set for {title}, from the photo.",
+      "promoted": "Cover set for {title}, from an attachment already on record.",
+      "reset": "Cover reset for {title}. The photo stays on the timeline; the next enrich brings provider art back."
     }
   },
   "prompt": {
@@ -310,7 +338,11 @@
       "log": "Log",
       "notes": "Notes",
       "runs": "Runs",
-      "verdict": "Verdict"
+      "verdict": "Verdict",
+      "gallery": "Gallery"
+    },
+    "gallery": {
+      "captioned": "{date} — {caption}"
     },
     "header": {
       "total": "{duration} across {sessions} sessions",

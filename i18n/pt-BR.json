@@ -90,6 +90,8 @@
     "enrich": "Busca metadados e capa em um provedor externo.",
     "query": "Executa um SELECT somente leitura em data/log.db.",
     "import": "Importação retroativa em massa, a partir de uma planilha.",
+    "attach": "Anexa uma foto a um evento ou a um título, depois do fato.",
+    "cover": "Define, promove ou reseta a capa de um título.",
     "arg": {
       "query": "Título, fragmento ou apelido.",
       "term": "Termo de busca.",
@@ -98,7 +100,8 @@
       "sql": "Uma única instrução SELECT, somente leitura.",
       "csv_file": "Caminho do arquivo CSV a importar.",
       "platform_name": "nome da plataforma",
-      "platform_synonyms": "outras grafias que significam a mesma plataforma"
+      "platform_synonyms": "outras grafias que significam a mesma plataforma",
+      "attach_target": "Id de evento, ou uma busca por título."
     },
     "opt": {
       "help": "Mostra esta ajuda.",
@@ -144,7 +147,13 @@
       "covers": "Também busca e define a capa, a menos que a capa seja source: user.",
       "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV.",
       "match": "Referência de provedor a buscar direto, como igdb:7346 — sem busca.",
-      "platforms": "Plataformas que este acervo sugere, separadas por vírgula"
+      "platforms": "Plataformas que este acervo sugere, separadas por vírgula",
+      "photo": "Anexa uma foto. Repetível.",
+      "caption": "Legenda para o --photo anterior. Repetível.",
+      "kind": "screenshot, photo, box, media, other.",
+      "as_cover": "Também promove a primeira foto a capa do título, source: user.",
+      "from": "Promove um anexo já registrado, pelo seu hash.",
+      "reset": "Devolve a capa ao provedor. A foto do usuário permanece na linha do tempo."
     },
     "verdict": "Protocola o parecer consolidado de uma jogatina.",
     "platform": "Gerencia a lista de plataformas sugeridas.",
@@ -343,6 +352,20 @@
       "none": "Nenhuma plataforma configurada. Elas serão aprendidas conforme você registra.",
       "row": "{platform} — {runs} jogatina(s). Sinônimos: {aliases}",
       "row_bare": "{platform} — {runs} jogatina(s)."
+    },
+    "attachment": {
+      "one": "1 foto anexada.",
+      "many": "{count} fotos anexadas.",
+      "cover": "A primeira foto agora é a capa, source: user.",
+      "suggested_at": "O relógio da própria foto diz {time} — use --at para aplicar."
+    },
+    "attach": {
+      "done": "Anexado a {title}."
+    },
+    "cover": {
+      "set": "Capa definida para {title}, a partir da foto.",
+      "promoted": "Capa definida para {title}, a partir de um anexo já registrado.",
+      "reset": "Capa resetada para {title}. A foto permanece na linha do tempo; o próximo enrich devolve a arte do provedor."
     }
   },
   "prompt": {
@@ -374,7 +397,11 @@
       "log": "Registro",
       "notes": "Anotações",
       "runs": "Jogatinas",
-      "verdict": "Parecer"
+      "verdict": "Parecer",
+      "gallery": "Galeria"
+    },
+    "gallery": {
+      "captioned": "{date} — {caption}"
     },
     "header": {
       "total": "{duration} em {sessions} sessões",

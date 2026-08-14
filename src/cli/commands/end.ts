@@ -8,6 +8,7 @@ import type { Command } from 'commander'
 
 import { formatHm } from '../../core/duration.ts'
 import { toISO } from '../../core/time.ts'
+import { attachmentProse, attachmentResult, collectAttachments, stageCoverFromFirst, suggestedAtProse } from '../attachments.ts'
 import { closeSession } from '../close-session.ts'
 import { createContext } from '../context.ts'
 import { clock } from '../format.ts'
@@ -21,6 +22,8 @@ type Options = {
   break?: string
   note?: string
   platform?: string
+  kind?: string
+  asCover?: boolean
 }
 
 export function registerEnd(registrar: Registrar): void {
@@ -31,9 +34,14 @@ export function registerEnd(registrar: Registrar): void {
     .option('--break <duration>', registrar.t('help.opt.break'))
     .option('--note <text>', registrar.t('help.opt.note'))
     .option('--platform <name>', registrar.t('help.opt.platform'))
+    .option('--photo <path>', registrar.t('help.opt.photo'))
+    .option('--caption <text>', registrar.t('help.opt.caption'))
+    .option('--kind <kind>', registrar.t('help.opt.kind'))
+    .option('--as-cover', registrar.t('help.opt.as_cover'))
     .action(async (query: string | undefined, options: Options, command: Command) => {
       const cli = createContext(command)
       const workspace = load(cli)
+      const bundle = await collectAttachments(cli, command, options.kind)
 
       const session = await targetSession(cli, workspace, query ?? null, { id: options.id })
       const sessionId = session.session_id
@@ -43,7 +51,9 @@ export function registerEnd(registrar: Registrar): void {
         at: cli.at,
         breakText: options.break,
         note: options.note,
+        attachments: bundle.attachments,
       })
+      if (options.asCover === true) stageCoverFromFirst(cli, workspace, game.game_id, bundle.photos)
 
       // The platform question belongs here, not at `start`: by now the game has
       // usually been enriched, so the catalog can narrow it.
@@ -66,6 +76,8 @@ export function registerEnd(registrar: Registrar): void {
         prose.push(cli.t('prose.end.breaks', { duration: formatHm(closed.break_minutes) }))
       }
       if (settled !== null) prose.push(platformProse(cli, settled))
+      prose.push(...attachmentProse(cli, bundle.photos, options.asCover === true))
+      prose.push(...suggestedAtProse(cli, bundle.suggestedAt))
 
       emit(cli, {
         action: 'session.close',
@@ -80,6 +92,7 @@ export function registerEnd(registrar: Registrar): void {
           game_total_minutes: total,
           platform: workspace.state.runsById.get(closed.run_id)?.platform ?? null,
           ...(settled === null ? {} : { platform_source: settled.source }),
+          ...(bundle.photos.length === 0 ? {} : { attachments: bundle.photos.map(attachmentResult) }),
         },
         events,
         prose,

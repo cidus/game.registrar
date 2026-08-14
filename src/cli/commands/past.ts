@@ -10,6 +10,7 @@
  */
 import type { Command } from 'commander'
 
+import { attachmentProse, attachmentResult, collectAttachments, suggestedAtProse } from '../attachments.ts'
 import { fileHistoricalRun } from '../historical-run.ts'
 import { createContext } from '../context.ts'
 import { emit } from '../output.ts'
@@ -30,6 +31,8 @@ type Options = {
   mode?: string
   note?: string
   metadata?: boolean
+  kind?: string
+  asCover?: boolean
 }
 
 export function registerPast(registrar: Registrar): void {
@@ -49,26 +52,37 @@ export function registerPast(registrar: Registrar): void {
     .option('--mode <mode>', registrar.t('help.opt.mode'))
     .option('--note <text>', registrar.t('help.opt.note'))
     .option('--no-metadata', registrar.t('help.opt.no_metadata'))
+    .option('--photo <path>', registrar.t('help.opt.photo'))
+    .option('--caption <text>', registrar.t('help.opt.caption'))
+    .option('--kind <kind>', registrar.t('help.opt.kind'))
+    .option('--as-cover', registrar.t('help.opt.as_cover'))
     .action(async (query: string, options: Options, command: Command) => {
       const cli = createContext(command)
       const workspace = load(cli)
+      const bundle = await collectAttachments(cli, command, options.kind)
 
-      const { game, run, minutes, endedText } = await fileHistoricalRun(cli, workspace, {
-        query,
-        id: options.id,
-        platform: options.platform,
-        form: options.form,
-        mode: options.mode,
-        metadata: options.metadata,
-        ended: options.ended,
-        started: options.started,
-        hours: options.hours,
-        rating: options.rating,
-        difficulty: options.difficulty,
-        criteria: options.criteria,
-        outcome: options.outcome,
-        note: options.note,
-      })
+      const { game, run, minutes, endedText } = await fileHistoricalRun(
+        cli,
+        workspace,
+        {
+          query,
+          id: options.id,
+          platform: options.platform,
+          form: options.form,
+          mode: options.mode,
+          metadata: options.metadata,
+          ended: options.ended,
+          started: options.started,
+          hours: options.hours,
+          rating: options.rating,
+          difficulty: options.difficulty,
+          criteria: options.criteria,
+          outcome: options.outcome,
+          note: options.note,
+        },
+        bundle,
+        options.asCover === true,
+      )
 
       const events = commit(cli, workspace)
 
@@ -76,6 +90,8 @@ export function registerPast(registrar: Registrar): void {
       if (minutes !== null) {
         prose.push(cli.t('prose.past.hours', { hours: (minutes / 60).toFixed(1) }))
       }
+      prose.push(...attachmentProse(cli, bundle.photos, options.asCover === true))
+      prose.push(...suggestedAtProse(cli, bundle.suggestedAt))
 
       emit(cli, {
         action: 'run.import',
@@ -92,6 +108,7 @@ export function registerPast(registrar: Registrar): void {
           minutes: run.minutes,
           hours_source: run.hours_source,
           status: game.status,
+          ...(bundle.photos.length === 0 ? {} : { attachments: bundle.photos.map(attachmentResult) }),
         },
         events,
         prose,

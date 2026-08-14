@@ -16,8 +16,10 @@ import { emitFailure } from './output.ts'
 import { canonicalizeFlags, createRegistrar, withGlobals } from './register.ts'
 import { registerAlias } from './commands/alias.ts'
 import { registerAmend } from './commands/amend.ts'
+import { registerAttach } from './commands/attach.ts'
 import { registerBreak } from './commands/break.ts'
 import { registerBuild } from './commands/build.ts'
+import { registerCover } from './commands/cover.ts'
 import { registerDoctor } from './commands/doctor.ts'
 import { registerDrop } from './commands/drop.ts'
 import { registerEnd } from './commands/end.ts'
@@ -147,6 +149,8 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerPlatform(registrar)
   registerAlias(registrar)
   registerAmend(registrar)
+  registerAttach(registrar)
+  registerCover(registrar)
   registerBuild(registrar)
   registerDoctor(registrar)
   registerEnrich(registrar)

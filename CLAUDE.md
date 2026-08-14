@@ -23,7 +23,7 @@ target registry with a manifest and ownership-based cleanup. Two targets ship:
 `obsidian` (game notes, run notes, `Games.md`, seeded `Games.base`) and `csv`.
 `example-vault/` is the golden fixture for both.
 
-**Phase 1 is nearly done.** `CURRENT_PHASE` in `core/vocab.ts` is `1`.
+**Phase 1 is done.** `CURRENT_PHASE` in `core/vocab.ts` is `1`.
 Implemented and tested: provider credentials, `providers/igdb.ts` +
 `providers/rawg.ts` behind a common interface, `enrich` (including provider
 ambiguity handling — a menu or exit 3 + `candidates[]`, `--match <ref>` to
@@ -32,24 +32,68 @@ runs, and a literal `<query>` — when given — driving the provider search
 directly instead of the resolved game's stored title, so a retyped query is
 the retry path for a poor first search), resolution step 6 in `gamereg
 search` (never in a write command — see non-negotiable 4), the
-`sqlite`/`json`/`html` targets, `query`, `import`, and the image ingestion
+`sqlite`/`json`/`html` targets, `query`, `import`, the image ingestion
 *pipeline* (`src/images/ingest.ts` + `exif.ts` — EXIF read then stripped,
-normalize, hash, write to `assets/<sha[0:2]>/<sha>.webp`), and the **platform
-vocabulary** (see below). `npm test` runs 303 tests (`node --test`, no
-framework, no network). `npm run test:live`
+normalize, hash, write to `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**
+and the **platform vocabulary** (both below). `npm test` runs 328 tests
+(`node --test`, no framework, no network). `npm run test:live`
 (opt-in, real IGDB/RAWG calls, skips cleanly with no credentials — see
 Testing strategy below) adds 8 more; run it whenever you touch provider
 matching.
 
-**One thing remains before phase 1 is actually done:**
+`package.json` still reads `0.1.0` and phase 1 is not tagged — tagging is a
+deliberate, user-triggered step (see Versioning below), not something a
+session does on finishing the last item.
 
-1. **Image ingestion's CLI surface.** The pipeline above works and is
-   tested in isolation, but nothing calls it yet: no `--photo` /
-   `--caption` / `--kind` / `--as-cover` on any recording command, no
-   `attach`, no `cover`, no `gallery` block in the game note. `fold.ts`
-   already handles `attachment.add`, `game.cover` and inline
-   `attachments[]` on any event — has since phase 0 — so this is CLI and
-   render work, not model work. **This is the next thing to build.**
+### Image ingestion's CLI surface, as built
+
+Shipped this round. `fold.ts` already handled `attachment.add`, `game.cover`
+and inline `attachments[]` on any event since phase 0; this round was CLI and
+render work on top of that, not model work.
+
+- **`--photo <path>` / `--caption <text>` / `--kind <k>` / `--as-cover`** are
+  on `start`, `end`, `finish`, `drop` and `past`. `--photo` and `--caption`
+  are both repeatable, and `--caption` captions the `--photo` immediately
+  before it — `cli/attachments.ts`'s `photoSpecsFrom()` walks the
+  invocation's own raw argv to pair them, because Commander's own
+  accumulation collects repeated options into independent arrays and loses
+  which caption went with which photo. `--kind` is a single value that
+  applies to every photo in that invocation, not paired per-photo — the CLI
+  doc marks only `--photo`/`--caption` as repeatable.
+- **Each photo lands on that command's own terminal event**: `session.open`
+  for `start`, `session.close` for `end`, `run.close` for `finish`/`drop`,
+  `run.import` for `past` — never on the incidental `session.close` that
+  `finish`/`drop` auto-close on the way to `run.close`.
+- **`gamereg attach <target> --photo ...`** resolves `<target>` as an event id
+  first, a game query otherwise, per `02-cli.md`.
+- **`gamereg cover <query>`** takes exactly one of `--photo` (ingest and
+  promote), `--from <hash>` (promote an attachment already on this game's
+  timeline — validated against it, not accepted blind) or `--reset` (appends
+  `game.cover` with `source: provider` and nothing else; it does not restore
+  a specific prior URL, it just un-sets the user override so the next
+  `enrich --covers` can set one again).
+- **`core/fold.ts` gained `attachmentsOfGame()` and `gameOfEvent()`.**
+  `state.attachments` is keyed by *target* (an event id, or a game id) with
+  no notion of which game an event belongs to; these walk the events once to
+  resolve that ownership — the same thing `gameOfSession` does for one
+  session — and `attachmentsOfGame` de-duplicates by hash, chronological,
+  oldest first.
+- **The game note's header embeds the cover** (`![[assets/<sha[0:2]>/<sha>.webp]]`,
+  above the existing text line) when `game.cover.sha256` is set — i.e. a
+  locally ingested, `source: user` cover. A `source: provider` cover is a URL
+  with no local file, `enrich` never runs the ingestion pipeline, so nothing
+  is embedded for one.
+- **The `gallery` block** is new in `render/note.ts`'s `BLOCK_ORDER` and
+  `blocksOf()`, rendered from `attachmentsOfGame()`. Every attachment is
+  normalized to WebP by the pipeline, so the embed path is always
+  `assets/<sha[0:2]>/<sha>.webp` — no `ext` needs to travel with a cover
+  pointer.
+- **`example-vault/` was not extended** with a photo fixture this round —
+  the golden-file risk (a real, deterministically-hashed image checked into
+  the fixture) outweighed the benefit given `test/attachments.test.ts` and
+  `test/photo-cli.test.ts` already cover the fold ownership logic, the
+  render output and the full CLI surface end to end. Worth adding later if a
+  golden test for the gallery block specifically becomes valuable.
 
 ### The platform vocabulary, as built
 

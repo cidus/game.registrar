@@ -84,12 +84,12 @@ test('a block this version does not write is reported, and stays reported after 
   rebuild(root)
 
   const file = join(root, 'games', 'sabotage.md')
-  appendFileSync(file, '\n<!-- gamereg:begin block=gallery -->\nfuture content\n<!-- gamereg:end block=gallery -->\n')
+  appendFileSync(file, '\n<!-- gamereg:begin block=achievements -->\nfuture content\n<!-- gamereg:end block=achievements -->\n')
 
   const found = audit(root)
   assert.equal(found.length, 1)
   assert.equal(found[0]?.key, 'doctor.unknown_block')
-  assert.deepEqual(found[0]?.params, { file: 'games/sabotage.md', block: 'gallery' })
+  assert.deepEqual(found[0]?.params, { file: 'games/sabotage.md', block: 'achievements' })
 
   // The build never removes what it does not recognize.
   rebuild(root)
