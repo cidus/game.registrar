@@ -11,7 +11,7 @@ import type { DateTime } from 'luxon'
 import { openVault, timeContext, type Vault } from '../core/vault.ts'
 import { nowIn, parseAt, type TimeContext } from '../core/time.ts'
 import { localeFromEnvironment, resolveLocale, translator, type Translator } from '../i18n/index.ts'
-import type { EventSource } from '../core/vocab.ts'
+import { checkEnum, EVENT_SOURCE, type EventSource } from '../core/vocab.ts'
 
 export type GlobalOptions = {
   json?: boolean
@@ -77,6 +77,19 @@ export function isJson(options: GlobalOptions): boolean {
   return options.json === true || process.stdout.isTTY !== true
 }
 
+/**
+ * `GAMEREG_SOURCE` is set by whatever invokes the CLI — a gateway sets `chat`,
+ * cron sets `cron` (docs/spec/01-model.md, the envelope). It is validated
+ * rather than cast because it is the one part of the envelope that comes from
+ * outside this repo, and the log is append-only: a typo here is written into
+ * every event that invocation appends and can never be rewritten.
+ */
+function sourceFromEnvironment(): EventSource {
+  const value = process.env['GAMEREG_SOURCE']
+  if (value === undefined || value === '') return 'cli'
+  return checkEnum('GAMEREG_SOURCE', value, EVENT_SOURCE)
+}
+
 let latest: Cli | null = null
 
 /** The context of the running command, for reporting an error in its locale. */
@@ -103,7 +116,7 @@ export function createContext(command: Command): Cli {
     quiet: options.quiet === true,
     dryRun: options.dryRun === true,
     yes: options.yes === true,
-    source: (process.env['GAMEREG_SOURCE'] as EventSource | undefined) ?? 'cli',
+    source: sourceFromEnvironment(),
     t: bundle.t,
     label: bundle.label,
     locale,

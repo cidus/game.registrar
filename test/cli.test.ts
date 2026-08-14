@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -362,6 +362,48 @@ test('a nested group --help stays in one locale, with no stray help-command line
 test('a nested subcommand --help localizes its whole ancestor chain', () => {
   const text = help('break', 'start', '--locale', 'pt-BR')
   assert.match(text, /Usage: gamereg intervalo iniciar \[options\] \[consulta\]/)
+})
+
+/**
+ * The envelope's `source` is how a gateway says an event came from chat rather
+ * than from a terminal (docs/spec/01-model.md). It is the one field that
+ * arrives from outside the repo, and the log is append-only — a typo has to be
+ * refused before it is written, not noticed afterwards.
+ */
+function withSource(root: string, source: string, ...args: string[]): Run {
+  const result = spawnSync(process.execPath, [MAIN, '--vault', root, '--json', ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, GAMEREG_NON_INTERACTIVE: '1', NO_COLOR: '1', GAMEREG_SOURCE: source },
+  })
+  const stdout = result.stdout ?? ''
+  let json: Record<string, unknown> = {}
+  try {
+    json = JSON.parse(stdout.trim()) as Record<string, unknown>
+  } catch {
+    json = {}
+  }
+  return { status: result.status ?? 1, json, stdout, stderr: result.stderr ?? '' }
+}
+
+test('GAMEREG_SOURCE stamps the events an invocation appends', () => {
+  const root = vault()
+  const started = withSource(root, 'chat', 'start', 'tunic', '--no-metadata', '--at', '2026-05-03 20:00')
+  assert.equal(started.status, 0, started.stdout)
+
+  const lines = readFileSync(join(root, 'data', 'events.jsonl'), 'utf8').trim().split('\n')
+  for (const line of lines) {
+    assert.equal((JSON.parse(line) as { source: string }).source, 'chat')
+  }
+})
+
+test('an unknown GAMEREG_SOURCE is refused before anything is written', () => {
+  const root = vault()
+  const started = withSource(root, 'telegram', 'start', 'tunic', '--no-metadata', '--at', '2026-05-03 20:00')
+  assert.equal(started.status, 2)
+  assert.equal(started.json['error'], 'usage')
+  // The valid tokens are listed, because the caller may well be a machine.
+  assert.match(String(started.json['message']), /chat/)
+  assert.equal(existsSync(join(root, 'data', 'events.jsonl')), false)
 })
 
 test('prose output carries the Registrar voice, JSON never does', () => {
