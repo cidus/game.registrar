@@ -1,6 +1,6 @@
 {
   "name": "gamereg",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A register of video game playthroughs, kept as an append-only event log and Markdown notes.",
   "license": "MIT",
   "type": "module",
