@@ -87,3 +87,53 @@ test('a syntactically invalid SELECT fails at execution, not as a crash', () => 
   assert.equal(run.status, 2)
   assert.equal(run.json['error'], 'usage')
 })
+
+test('--schema reports every table and view with its columns', () => {
+  const root = builtVault()
+  const run = gamereg(root, 'query', '--schema')
+  assert.equal(run.status, 0, run.stdout)
+  assert.equal(run.json['action'], 'query.schema')
+
+  const named = (relations: unknown): Map<string, string[]> =>
+    new Map(
+      (relations as { name: string; columns: { name: string }[] }[]).map((relation) => [
+        relation.name,
+        relation.columns.map((column) => column.name),
+      ]),
+    )
+
+  const tables = named(result(run)['tables'])
+  const views = named(result(run)['views'])
+
+  for (const table of ['games', 'runs', 'sessions', 'breaks', 'aliases', 'events']) {
+    assert.ok(tables.has(table), `missing table ${table}`)
+  }
+  assert.deepEqual(tables.get('breaks'), ['break_id', 'session_id', 'started_at', 'ended_at', 'minutes'])
+
+  // A view's columns come from its SELECT list, which is exactly what a caller
+  // writing SQL cannot guess from the table definitions.
+  assert.ok(views.has('v_finished'))
+  assert.ok(views.get('v_finished')?.includes('hours'))
+  assert.ok(views.get('v_by_genre')?.includes('mean_rating'))
+})
+
+test('--schema is not a statement, and refuses to be given one', () => {
+  const root = builtVault()
+  const run = gamereg(root, 'query', 'SELECT 1', '--schema')
+  assert.equal(run.status, 2)
+  assert.equal(run.json['error'], 'usage')
+})
+
+test('query with neither a statement nor --schema says what is missing', () => {
+  const root = builtVault()
+  const run = gamereg(root, 'query')
+  assert.equal(run.status, 2)
+  assert.equal(run.json['error'], 'usage')
+})
+
+test('--schema needs the database like any other query does', () => {
+  const root = emptyVault()
+  const run = gamereg(root, 'query', '--schema')
+  assert.equal(run.status, 2)
+  assert.match(String(run.json['message']), /build/)
+})

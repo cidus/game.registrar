@@ -154,7 +154,8 @@
       "kind": "screenshot, photo, box, media, other.",
       "as_cover": "Também promove a primeira foto a capa do título, source: user.",
       "from": "Promove um anexo já registrado, pelo seu hash.",
-      "reset": "Devolve a capa ao provedor. A foto do usuário permanece na linha do tempo."
+      "reset": "Devolve a capa ao provedor. A foto do usuário permanece na linha do tempo.",
+      "schema": "Relata as tabelas, visões e colunas disponíveis para consulta."
     },
     "verdict": "Protocola o parecer consolidado de uma jogatina.",
     "platform": "Gerencia a lista de plataformas sugeridas.",
@@ -218,6 +219,7 @@
     "query_not_select": "Apenas um SELECT somente leitura (ou WITH ... SELECT) é permitido.",
     "query_forbidden": "\"{keyword}\" não é permitido em uma consulta. Apenas um SELECT somente leitura é permitido.",
     "query_failed": "A consulta não pôde ser executada: {message}",
+    "query_schema_with_sql": "--schema relata o esquema; não executa instrução. Informe um ou outro.",
     "import_mapping_incomplete": "O mapeamento em {file} não tem coluna para \"{field}\", que é obrigatório.",
     "import_row_incomplete": "A linha não tem valor para \"{field}\", que é obrigatório.",
     "bad_image": "{file} não pôde ser lido como imagem.",
@@ -347,7 +349,9 @@
     },
     "query": {
       "none": "Nenhuma linha.",
-      "count": "{count} linhas:"
+      "count": "{count} linhas:",
+      "schema_tables": "Tabelas:",
+      "schema_views": "Visões:"
     },
     "import": {
       "done": "{count} linhas importadas.",

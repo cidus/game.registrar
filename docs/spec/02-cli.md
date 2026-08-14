@@ -91,6 +91,20 @@ yesterday if that would place it in the future beyond `day_cutoff`); `-90m`,
 `-2h` (relative to now). Ambiguity resolves toward the past — you file things
 after they happen, never before.
 
+### Environment
+
+| Variable | Effect |
+|---|---|
+| `GAMEREG_VAULT` | Vault root, when `--vault` is not passed |
+| `GAMEREG_NON_INTERACTIVE` | Never prompt. What a gateway sets once, per above |
+| `GAMEREG_SOURCE` | The envelope's `source` on every event this invocation appends: `cli` (default), `chat`, `cron`, `import` |
+
+`GAMEREG_SOURCE` is validated against the vocabulary, and an unknown value is a
+usage error (code 2) rather than a value that gets written. It is the one part
+of the event envelope supplied from outside, and the log is append-only: a typo
+here would be recorded permanently on every event of that invocation, and no
+later command could take it back.
+
 ## Recording commands
 
 ### `gamereg start <query>` — open a session
@@ -347,9 +361,22 @@ Vault summary, or one game's state.
 
 ### `gamereg query <sql>`
 
+```
+gamereg query "SELECT title, hours FROM v_finished ORDER BY rating DESC"
+gamereg query --schema
+```
+
 Runs read-only SQL against `data/log.db`. Rejects anything that is not a single
 `SELECT`. This is how question-answering works — the agent writes SQL, the
 database does the arithmetic, and no number is ever hallucinated.
+
+**`--schema`** reports the tables and views with their columns, and runs no
+statement — passing both is a usage error (code 2). It answers the question a
+caller has to answer before it can write any SQL at all, and it answers it from
+the database rather than from a copy of the schema kept somewhere else, which is
+the only version that cannot drift. Columns of a computed view expression carry
+no `type`, because SQLite declares none. Like any other `query`, it needs
+`data/log.db` to exist.
 
 ## Attachments
 
