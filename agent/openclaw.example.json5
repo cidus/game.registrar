@@ -1,0 +1,66 @@
+// Example OpenClaw configuration for the Registrar (docs/spec/05-agent.md).
+//
+// Copy the parts you need into ~/.openclaw/openclaw.json5. Nothing here is a
+// secret: the bot token and the chat id belong on the host, not in this
+// repository, the same way gamereg.secrets.json does.
+//
+// Only keys verified against the OpenClaw documentation appear below. The
+// environment gamereg needs (GAMEREG_VAULT, GAMEREG_SOURCE,
+// GAMEREG_NON_INTERACTIVE) is set on the gateway *process*, which the commands
+// it spawns inherit — see README.md. Do not try to set it here.
+{
+  agents: {
+    defaults: {
+      workspace: "~/.openclaw/workspace",
+    },
+  },
+
+  channels: {
+    telegram: {
+      enabled: true,
+      botToken: "PUT_YOUR_BOT_TOKEN_HERE",
+
+      // The sender allowlist. Non-negotiable on any channel: the agent has
+      // shell access and the channel is reachable by anyone who finds the bot.
+      // Your own numeric Telegram id, not your @username.
+      allowFrom: ["PUT_YOUR_NUMERIC_CHAT_ID_HERE"],
+
+      capabilities: {
+        // Exit code 3 is rendered as inline buttons — the whole point of the
+        // chat flow. "allowlist" scopes them to the senders above.
+        inlineButtons: "allowlist",
+      },
+    },
+  },
+
+  tools: {
+    media: {
+      // Voice notes are transcribed here, upstream of gamereg. The CLI never
+      // touches audio and must never be asked to.
+      audio: { enabled: true },
+
+      models: [
+        // Pick one. Transcribed game titles are unreliable either way, which
+        // is what the alias table exists for — the user corrects a mangled
+        // title once and the register remembers.
+        //
+        // Hosted: better on pt-BR out of the box, but the audio leaves the
+        // machine.
+        {
+          provider: "openrouter",
+          model: "openai/whisper-large-v3-turbo",
+          capabilities: ["audio"],
+        },
+
+        // Local: nothing leaves the host, no per-minute cost, more setup.
+        // Verify the provider spelling against your OpenClaw version before
+        // relying on this one.
+        // {
+        //   provider: "whisper-local",
+        //   model: "large-v3",
+        //   capabilities: ["audio"],
+        // },
+      ],
+    },
+  },
+}
