@@ -34,16 +34,16 @@ the retry path for a poor first search), resolution step 6 in `gamereg
 search` (never in a write command — see non-negotiable 4), the
 `sqlite`/`json`/`html` targets, `query`, `import`, the image ingestion
 *pipeline* (`src/images/ingest.ts` + `exif.ts` — EXIF read then stripped,
-normalize, hash, write to `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**
-and the **platform vocabulary** (both below). `npm test` runs 328 tests
-(`node --test`, no framework, no network). `npm run test:live`
-(opt-in, real IGDB/RAWG calls, skips cleanly with no credentials — see
-Testing strategy below) adds 8 more; run it whenever you touch provider
-matching.
+normalize, hash, write to `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**,
+**provider cover download** and the **platform vocabulary** (all below).
+`npm test` runs 333 tests (`node --test`, no framework, no network).
+`npm run test:live` (opt-in, real IGDB/RAWG calls, skips cleanly with no
+credentials — see Testing strategy below) adds 8 more; run it whenever you
+touch provider matching.
 
-`package.json` still reads `0.1.0` and phase 1 is not tagged — tagging is a
-deliberate, user-triggered step (see Versioning below), not something a
-session does on finishing the last item.
+Tagged `v0.1.0`. `package.json` reads `0.2.0`, marking phase 2's start — see
+Versioning below for what a patch on an already-tagged phase does to that
+number.
 
 ### Image ingestion's CLI surface, as built
 
@@ -79,10 +79,9 @@ render work on top of that, not model work.
   session — and `attachmentsOfGame` de-duplicates by hash, chronological,
   oldest first.
 - **The game note's header embeds the cover** (`![[assets/<sha[0:2]>/<sha>.webp]]`,
-  above the existing text line) when `game.cover.sha256` is set — i.e. a
-  locally ingested, `source: user` cover. A `source: provider` cover is a URL
-  with no local file, `enrich` never runs the ingestion pipeline, so nothing
-  is embedded for one.
+  above the existing text line) when `game.cover.sha256` is set. That is
+  every `source: user` cover, and, since the v0.1.1 patch below, every
+  `source: provider` cover too — `--covers` downloads it, not only its URL.
 - **The `gallery` block** is new in `render/note.ts`'s `BLOCK_ORDER` and
   `blocksOf()`, rendered from `attachmentsOfGame()`. Every attachment is
   normalized to WebP by the pipeline, so the embed path is always
@@ -94,6 +93,41 @@ render work on top of that, not model work.
   `test/photo-cli.test.ts` already cover the fold ownership logic, the
   render output and the full CLI surface end to end. Worth adding later if a
   golden test for the gallery block specifically becomes valuable.
+
+### Provider cover download — v0.1.1 patch
+
+`docs/spec/06-roadmap.md`'s own phase 1 line item — "`enrich`, cover download
+via `sharp`" — had never actually been built: `--covers` stored only the
+provider's raw URL, and (per the previous section) nothing rendered for a
+URL-only cover. This patch closes that gap; it is a bug fix within phase 1,
+not phase 2 work, hence `v0.1.1` rather than folding into `v0.2.0`.
+
+- **`images/ingest.ts` is now two entry points over one shared pipeline.**
+  `ingestBuffer()` (normalize, hash, write) is what both `ingestImage()`
+  (reads a local file — unchanged) and the new `ingestUrl()` (fetches a URL)
+  call. `ingestUrl` never throws: a network error, a non-`ok` response, or
+  bytes `sharp` cannot parse all resolve to `null`, matching 02-cli.md's
+  "failure here never blocks recording" for `enrich` as a whole.
+- **`fetchImpl` is injected**, default global `fetch`, threaded from
+  `enrichGame`/`applyDetail` down to `ingestUrl` — the same pattern
+  `providers/igdb.ts` and `rawg.ts` already use, so unit tests mock at this
+  boundary instead of opening a socket (`test/enrich-fallback.test.ts`).
+- **`game.enrich`'s `cover` field changes shape**, from a bare URL string to
+  `{ url, sha256? }`. `fold.ts` reads *both* shapes forever — an old
+  string-only event still folds exactly as it always did — because the log
+  is append-only and nothing rewrites a line already written (non-negotiable
+  1). No schema bump: this is additive, tolerant parsing, not a breaking
+  change.
+- **A `source: user` cover is never even fetched.** `applyDetail` checks
+  `game.cover?.source === 'user'` before calling `ingestUrl` — the fold would
+  discard the result anyway (01-model.md "Cover precedence"), so skipping the
+  network call is free correctness, not an optimization worth re-litigating.
+- **Verified against real IGDB** (credentials in `example-vault/gamereg.secrets.json`,
+  gitignored) in addition to the mocked unit tests: `enrich --match --covers`
+  against Hollow Knight's real catalog entry downloads, normalizes, hashes,
+  writes `assets/`, and the header embed renders it. Not a committed test —
+  a one-off manual check, since `npm run test:live` intentionally stays
+  narrow (see its file comment).
 
 ### The platform vocabulary, as built
 

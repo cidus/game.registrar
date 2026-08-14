@@ -216,6 +216,38 @@ test('enrichment never replaces a cover the user chose', () => {
   assert.equal(game?.providers['igdb'], 7346)
 })
 
+test('a downloaded provider cover carries both the url and the sha256', () => {
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'x', title: 'X' }),
+    event('game.enrich', {
+      game_id: 'G1',
+      provider: 'igdb',
+      fields: { id: 7346 },
+      cover: { url: 'https://example/art.jpg', sha256: 'a'.repeat(64) },
+    }),
+  ]
+  const game = fold(events, context).gamesById.get('G1')
+  assert.equal(game?.cover?.source, 'provider')
+  assert.equal(game?.cover?.url, 'https://example/art.jpg')
+  assert.equal(game?.cover?.sha256, 'a'.repeat(64))
+})
+
+test('a downloaded provider cover is still never allowed to replace a user cover', () => {
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'x', title: 'X' }),
+    event('game.cover', { game_id: 'G1', sha256: 'abc', source: 'user' }),
+    event('game.enrich', {
+      game_id: 'G1',
+      provider: 'igdb',
+      fields: { id: 7346 },
+      cover: { url: 'https://example/art.jpg', sha256: 'a'.repeat(64) },
+    }),
+  ]
+  const game = fold(events, context).gamesById.get('G1')
+  assert.equal(game?.cover?.source, 'user')
+  assert.equal(game?.cover?.sha256, 'abc')
+})
+
 test('enrichment corrects the title and files the previous one as an alias', () => {
   const events = [
     event('game.create', { game_id: 'G1', slug: 'chrono-trigger', title: 'Chrono Triger' }),

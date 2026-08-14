@@ -33,18 +33,11 @@ export type IngestResult = {
 }
 
 /**
- * Reads a file from disk, normalizes it, and writes it into `assets/` if its
- * hash is not already there. Performs no event-log I/O — the caller appends
- * whatever event carries the resulting attachment record.
+ * The pipeline itself, shared by every source of bytes — a local `--photo`
+ * file, or a provider's cover URL (`ingestUrl` below). `label` is only for
+ * `error.bad_image`, so the message names whatever the caller was ingesting.
  */
-export async function ingestImage(vault: Vault, sourcePath: string, config: Config = vault.config): Promise<IngestResult> {
-  let input: Buffer
-  try {
-    input = readFileSync(sourcePath)
-  } catch (cause) {
-    throw new GameregError('usage', 'error.text_file', { file: sourcePath }, { cause })
-  }
-
+async function ingestBuffer(vault: Vault, input: Buffer, config: Config, label: string): Promise<IngestResult> {
   const source = sharp(input)
   const metadata = await source.metadata()
   const capturedAt = readCapturedAt(metadata.exif)
@@ -62,7 +55,7 @@ export async function ingestImage(vault: Vault, sourcePath: string, config: Conf
       .webp({ quality: config.images.quality })
       .toBuffer()
   } catch (cause) {
-    throw new GameregError('usage', 'error.bad_image', { file: sourcePath }, { cause })
+    throw new GameregError('usage', 'error.bad_image', { file: label }, { cause })
   }
 
   const sha256 = createHash('sha256').update(normalized).digest('hex')
@@ -86,4 +79,58 @@ export async function ingestImage(vault: Vault, sourcePath: string, config: Conf
   }
 
   return { sha256, ext: 'webp', captured_at: capturedAt, written, path: relative.split('\\').join('/') }
+}
+
+/**
+ * Reads a file from disk, normalizes it, and writes it into `assets/` if its
+ * hash is not already there. Performs no event-log I/O — the caller appends
+ * whatever event carries the resulting attachment record.
+ */
+export async function ingestImage(vault: Vault, sourcePath: string, config: Config = vault.config): Promise<IngestResult> {
+  let input: Buffer
+  try {
+    input = readFileSync(sourcePath)
+  } catch (cause) {
+    throw new GameregError('usage', 'error.text_file', { file: sourcePath }, { cause })
+  }
+  return ingestBuffer(vault, input, config, sourcePath)
+}
+
+/**
+ * Downloads a provider's cover art and runs it through the same pipeline as
+ * `--photo` (docs/spec/06-roadmap.md, phase 1: "enrich, cover download via
+ * sharp"). Best-effort: `enrich`'s own contract is that a provider failure
+ * never blocks recording (02-cli.md), so a network error or an unparseable
+ * response is not thrown — it is `null`, and the caller falls back to storing
+ * the bare URL, same as before this existed.
+ *
+ * `fetchImpl` is injected the same way `providers/igdb.ts` and `rawg.ts` do
+ * it, so tests mock at this boundary and never open a socket.
+ */
+export async function ingestUrl(
+  vault: Vault,
+  url: string,
+  config: Config = vault.config,
+  fetchImpl: typeof fetch = fetch,
+): Promise<IngestResult | null> {
+  let response: Response
+  try {
+    response = await fetchImpl(url)
+  } catch {
+    return null
+  }
+  if (!response.ok) return null
+
+  let input: Buffer
+  try {
+    input = Buffer.from(await response.arrayBuffer())
+  } catch {
+    return null
+  }
+
+  try {
+    return await ingestBuffer(vault, input, config, url)
+  } catch {
+    return null
+  }
 }

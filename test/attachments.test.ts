@@ -166,6 +166,17 @@ test('a user cover is embedded at the top of the header block; a provider cover 
   assert.equal(providerHeader.includes('![['), false)
 })
 
+test('a downloaded provider cover (has a sha256) embeds the same as a user one', () => {
+  const events = baseLog()
+  const sha = 'd'.repeat(64)
+  const state = fold(
+    [...events, event('game.enrich', { game_id: 'G1', provider: 'igdb', fields: {}, cover: { url: 'https://example.com/x.jpg', sha256: sha } })],
+    context,
+  )
+  const header = headerBlock(state.gamesById.get('G1')!, bundle)
+  assert.match(header, new RegExp(`^!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\]\\]\\n`))
+})
+
 test('gameOfEvent resolves through run_id and session_id, not only a direct game_id', () => {
   const events = baseLog()
   const sessionClose = event('session.close', { session_id: 'S1', at: '2026-05-03T22:00:00-03:00' })

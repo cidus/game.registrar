@@ -24,6 +24,7 @@ import {
   samePlatform,
   type PlatformTable,
 } from '../../core/platforms.ts'
+import { ingestUrl } from '../../images/ingest.ts'
 import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider, ProviderCandidate, ProviderDetail } from '../../providers/provider.ts'
 import { createRawgProvider } from '../../providers/rawg.ts'
@@ -170,20 +171,48 @@ export type EnrichOutcome =
   | { kind: 'failed'; message: string }
   | { kind: 'ambiguous'; provider: string; candidates: ProviderCandidate[] }
 
-/** Stages the `game.enrich` event. Shared by a clean match, an interactively-picked candidate, and `--match`. */
-export function applyDetail(
+/**
+ * `--covers` downloads the provider's cover art through the same pipeline as
+ * `--photo` (docs/spec/06-roadmap.md, phase 1) — not just the URL. A user
+ * cover is never spent a network call on, since it would be discarded by the
+ * fold regardless (01-model.md "Cover precedence"). A failed download falls
+ * back to the bare URL, same as before this existed: `ingestUrl` never
+ * throws, so a provider serving a broken image never blocks the metadata
+ * from committing.
+ */
+async function coverField(
+  cli: Cli,
+  game: GameState,
+  detail: ProviderDetail,
+  covers: boolean,
+  fetchImpl: typeof fetch,
+): Promise<{ url: string; sha256?: string } | null> {
+  if (!covers || detail.cover_url === null || game.cover?.source === 'user') return null
+  const ingested = await ingestUrl(cli.vault, detail.cover_url, undefined, fetchImpl)
+  return ingested === null ? { url: detail.cover_url } : { url: detail.cover_url, sha256: ingested.sha256 }
+}
+
+/**
+ * Stages the `game.enrich` event. Shared by a clean match, an
+ * interactively-picked candidate, and `--match`. `fetchImpl` is injected the
+ * same way `providers/igdb.ts` and `rawg.ts` do it, threaded down to the
+ * cover download, so tests mock at this boundary and never open a socket.
+ */
+export async function applyDetail(
   cli: Cli,
   workspace: Workspace,
   game: GameState,
   provider: string,
   detail: ProviderDetail,
   covers: boolean,
-): { kind: 'enriched'; provider: string } {
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ kind: 'enriched'; provider: string }> {
+  const cover = await coverField(cli, game, detail, covers, fetchImpl)
   stage(cli, workspace, 'game.enrich', {
     game_id: game.game_id,
     provider,
     fields: { ...detail.fields, id: detail.id },
-    ...(covers && detail.cover_url !== null ? { cover: detail.cover_url } : {}),
+    ...(cover === null ? {} : { cover }),
   })
   return { kind: 'enriched', provider }
 }
@@ -206,6 +235,7 @@ export async function enrichGame(
   covers: boolean,
   bulk: boolean,
   searchTerm: string = game.title,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<EnrichOutcome> {
   // Whether at least one provider actually answered — reachable, credentials
   // present — regardless of whether it found a match. A provider that is
@@ -238,7 +268,7 @@ export async function enrichGame(
       continue
     }
 
-    return applyDetail(cli, workspace, game, provider.name, result.detail, covers)
+    return applyDetail(cli, workspace, game, provider.name, result.detail, covers, fetchImpl)
   }
 
   // `--all` never asks: an ambiguous bulk match is left unresolved, same as
@@ -312,7 +342,7 @@ export function registerEnrich(registrar: Registrar): void {
 
       for (const game of targets) {
         if (forcedDetail !== null) {
-          const applied = applyDetail(cli, workspace, game, forcedDetail.provider, forcedDetail.detail, covers)
+          const applied = await applyDetail(cli, workspace, game, forcedDetail.provider, forcedDetail.detail, covers)
           enriched.push({ game_id: game.game_id, title: game.title, provider: applied.provider })
           continue
         }
@@ -345,7 +375,7 @@ export function registerEnrich(registrar: Registrar): void {
           const detail = await chosenProvider.fetch(chosenRef.id)
           if (detail === null) throw new GameregError('not_found', 'error.unknown_id', { ref: choice.ref })
 
-          const applied = applyDetail(cli, workspace, game, chosenProvider.name, detail, covers)
+          const applied = await applyDetail(cli, workspace, game, chosenProvider.name, detail, covers)
           enriched.push({ game_id: game.game_id, title: game.title, provider: applied.provider })
           continue
         }

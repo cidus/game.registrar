@@ -392,9 +392,14 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           game.providers[provider] = providerId
         }
         // A user cover is never replaced by enrichment (01-model, cover precedence).
-        const cover = str(data, 'cover')
-        if (cover !== null && game.cover?.source !== 'user') {
-          game.cover = { sha256: null, url: cover, source: 'provider' }
+        // `cover` was a bare URL string before the download pipeline existed;
+        // both shapes are read forever, since the log is append-only and an
+        // old `game.enrich` event still folds exactly as it did when written.
+        const coverRaw = data['cover']
+        const coverUrl = typeof coverRaw === 'string' && coverRaw !== '' ? coverRaw : str(record(data, 'cover'), 'url')
+        const coverSha = str(record(data, 'cover'), 'sha256')
+        if ((coverUrl !== null || coverSha !== null) && game.cover?.source !== 'user') {
+          game.cover = { sha256: coverSha, url: coverUrl, source: 'provider' }
         }
         break
       }

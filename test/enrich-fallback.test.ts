@@ -9,6 +9,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import sharp from 'sharp'
 
 import type { Cli } from '../src/cli/context.ts'
 import { ambiguousOutcomeError, applyDetail, enrichGame } from '../src/cli/commands/enrich.ts'
@@ -445,13 +446,13 @@ test('an omitted searchTerm falls back to the game\'s currently stored title', a
   assert.deepEqual(seenQueries, ['Pacman'])
 })
 
-test('applyDetail stages a game.enrich event and reports the enriched outcome', () => {
+test('applyDetail stages a game.enrich event and reports the enriched outcome', async () => {
   const cli = fakeCli()
   const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
 
-  const outcome = applyDetail(cli, workspace, game, 'igdb', DETAIL, false)
+  const outcome = await applyDetail(cli, workspace, game, 'igdb', DETAIL, false)
   assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
 
   const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
@@ -461,16 +462,55 @@ test('applyDetail stages a game.enrich event and reports the enriched outcome', 
   assert.equal('cover' in staged!.data, false)
 })
 
-test('applyDetail includes the cover only when --covers is set and the provider has one', () => {
+test('applyDetail downloads and ingests the cover when --covers is set and the provider has one', async () => {
   const cli = fakeCli()
   const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
   const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
   const game = workspace.state.games[0]!
   const withCover: ProviderDetail = { ...DETAIL, cover_url: 'https://example.com/cover.jpg' }
 
-  applyDetail(cli, workspace, game, 'igdb', withCover, true)
+  const pixel = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 1, g: 2, b: 3 } } }).png().toBuffer()
+  const fakeFetch: typeof fetch = async () => new Response(pixel, { status: 200 })
+
+  await applyDetail(cli, workspace, game, 'igdb', withCover, true, fakeFetch)
   const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
-  assert.equal(staged!.data['cover'], 'https://example.com/cover.jpg')
+  const cover = staged!.data['cover'] as { url: string; sha256: string }
+  assert.equal(cover.url, 'https://example.com/cover.jpg')
+  assert.match(cover.sha256, /^[0-9a-f]{64}$/)
+})
+
+test('applyDetail falls back to the bare URL when the cover download fails, never blocking the metadata', async () => {
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+  const withCover: ProviderDetail = { ...DETAIL, cover_url: 'https://example.com/cover.jpg' }
+  const brokenFetch: typeof fetch = async () => new Response('not an image', { status: 200 })
+
+  await applyDetail(cli, workspace, game, 'igdb', withCover, true, brokenFetch)
+  const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
+  assert.deepEqual(staged!.data['cover'], { url: 'https://example.com/cover.jpg' })
+})
+
+test('applyDetail never spends a network call on a cover the fold would discard anyway (source: user)', async () => {
+  const cli = fakeCli()
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' }),
+    event('game.cover', { game_id: 'G1', sha256: 'a'.repeat(64), source: 'user' }),
+  ]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+  const withCover: ProviderDetail = { ...DETAIL, cover_url: 'https://example.com/cover.jpg' }
+  let called = false
+  const spyFetch: typeof fetch = async () => {
+    called = true
+    return new Response('', { status: 200 })
+  }
+
+  await applyDetail(cli, workspace, game, 'igdb', withCover, true, spyFetch)
+  assert.equal(called, false)
+  const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
+  assert.equal('cover' in staged!.data, false)
 })
 
 /** A game with one recorded run on `platform` — the user-authored signal `findDetail` reads for narrowing. */

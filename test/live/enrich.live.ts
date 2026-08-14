@@ -193,7 +193,7 @@ test(
     // 11169 is Final Fantasy VII Remake's real IGDB id (confirmed live).
     const detail = await provider.fetch('11169')
     assert.ok(detail, 'IGDB id 11169 should still resolve — did the catalog change?')
-    const applied = applyDetail(cli, workspace, gameNamed(workspace, 'outer-wilds'), provider.name, detail!, false)
+    const applied = await applyDetail(cli, workspace, gameNamed(workspace, 'outer-wilds'), provider.name, detail!, false)
     assert.equal(applied.provider, 'igdb')
 
     const staged = workspace.pending.find((entry) => entry.type === 'game.enrich')
