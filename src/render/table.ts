@@ -1,5 +1,5 @@
 /**
- * `Games.md` — one row per run, so replays appear separately
+ * `Game List.md` — one row per run, so replays appear separately
  * (docs/spec/04-derived.md).
  *
  * Sorted by `ended_on` descending, open runs first. Stated hours are marked, so

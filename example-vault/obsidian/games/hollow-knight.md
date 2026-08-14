@@ -39,7 +39,7 @@ Also written by hand, between two generated blocks.
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[hollow-knight-2026-05-03\|2026]] | Nintendo Switch | 2026-05-03 | 2026-08-12 | 9.0 | 9 | true_ending |
+| [[2026-05-03-hollow-knight\|2026]] | Nintendo Switch | 2026-05-03 | 2026-08-12 | 9.0 | 9 | true_ending |
 <!-- gamereg:end block=runs -->
 
 ## Notes

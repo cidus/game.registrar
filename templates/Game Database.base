@@ -46,6 +46,7 @@ views:
     name: By genre
     groupBy:
       property: genres
+      direction: ASC
     order:
       - title
       - platform
@@ -73,6 +74,11 @@ views:
     filters:
       and:
         - 'status != "playing"'
+    image: cover
+    order:
+      - title
+      - platform
+      - rating
     sort:
       - property: ended_on
         direction: DESC

@@ -100,8 +100,8 @@ test('deleting every derived artifact and rebuilding loses only hand-written pro
   }
 
   // The frontmatter is regenerated too, so it must come back identical.
-  const rebuilt = readFileSync(join(root, 'games', 'hollow-knight.md'), 'utf8')
-  const committed = readFileSync(join(EXAMPLE, 'games', 'hollow-knight.md'), 'utf8')
+  const rebuilt = readFileSync(join(root, 'obsidian', 'games', 'hollow-knight.md'), 'utf8')
+  const committed = readFileSync(join(EXAMPLE, 'obsidian', 'games', 'hollow-knight.md'), 'utf8')
   const frontmatter = (source: string): string => source.split('---')[1] ?? ''
   assert.equal(frontmatter(rebuilt), frontmatter(committed))
 })

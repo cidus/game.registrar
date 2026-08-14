@@ -22,7 +22,7 @@ tags: [gamereg, gamereg/game]
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[outer-wilds-2026-06-01\|2026]] | PC | 2026-06-01 | 2026-06-01 | 1.5 |  | abandoned |
+| [[2026-06-01-outer-wilds\|2026]] | PC | 2026-06-01 | 2026-06-01 | 1.5 |  | abandoned |
 <!-- gamereg:end block=runs -->
 
 ## Notes

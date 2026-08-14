@@ -20,7 +20,10 @@ import type { PlannedFile } from './types.ts'
 
 const MARKER = /<!--\s*gamereg:begin\s+block=/i
 
-/** Where a generated Markdown artifact can live, besides the vault root. */
+/** Everything the `obsidian` target writes lives under here (07-targets.md). */
+const OBSIDIAN_ROOT = 'obsidian'
+
+/** Where a generated Markdown artifact can live, besides `OBSIDIAN_ROOT` itself. */
 const SEARCHED = ['games', 'runs']
 
 function problem(key: string, params: Record<string, unknown>): FoldProblem {
@@ -46,12 +49,14 @@ function outsideMarkers(source: string, file: string): string[] {
 
 function markdownFiles(vault: Vault): string[] {
   const found: string[] = []
+  const base = join(vault.root, OBSIDIAN_ROOT)
+  if (!existsSync(base)) return found
 
-  for (const entry of readdirSync(vault.root, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name.endsWith('.md')) found.push(entry.name)
+  for (const entry of readdirSync(base, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.md')) found.push(`${OBSIDIAN_ROOT}/${entry.name}`)
   }
   for (const name of SEARCHED) {
-    const dir = join(vault.root, name)
+    const dir = join(base, name)
     if (!existsSync(dir)) continue
     for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue

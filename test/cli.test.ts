@@ -184,7 +184,7 @@ test('--replay opens a second run, and the table gets a second line', () => {
 
   gamereg(root, 'end', '--at', '2027-01-01 21:00')
   gamereg(root, 'build')
-  const table = readFileSync(join(root, 'Games.md'), 'utf8')
+  const table = readFileSync(join(root, 'obsidian', 'Game List.md'), 'utf8')
   assert.equal(table.split('[[celeste').length - 1, 2)
 })
 

@@ -1,10 +1,11 @@
 /**
  * The run note (docs/spec/04-derived.md "Run note").
  *
- * `runs/<slug>-<started_on>.md`, one per playthrough. Fully generated, no prose,
- * safe to delete. It exists to be a row: it is what makes a playthrough
- * addressable, queryable and linkable, and it is why a replay can appear in a
- * query view at all.
+ * `runs/<started_on>-<slug>.md`, one per playthrough — date first, so a plain
+ * filename sort in the file explorer is a chronological one. Fully generated,
+ * no prose, safe to delete. It exists to be a row: it is what makes a
+ * playthrough addressable, queryable and linkable, and it is why a replay can
+ * appear in a query view at all.
  *
  * Unlike a game note this file is written whole and never parsed back. The
  * markers are emitted anyway, so both kinds of note read the same and a block
@@ -15,6 +16,7 @@ import { Document, Scalar } from 'yaml'
 import { formatHm, formatHours } from '../core/duration.ts'
 import type { GameState, RunState, SessionState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
+import { assetPath } from './assets.ts'
 import { atPrecision } from './dates.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 
@@ -32,15 +34,17 @@ export function runsInOrder(game: GameState): RunState[] {
 /**
  * `run_id` → note basename, without the extension.
  *
- * `<slug>-<started_on>` at the stored precision, so `chrono-trigger-2011` and
- * not `chrono-trigger-2011-01-01`. Two runs of one game starting on the same
- * date — vanishingly rare, but possible — take `-2`, `-3` in ULID order. Two
- * *different* games cannot collide here, since the slug differs.
+ * `<started_on>-<slug>` at the stored precision, so `2011-chrono-trigger` and
+ * not `2011-01-01-chrono-trigger`. Date first, so filenames sort
+ * chronologically in a plain file listing — the same reason `sort` on the
+ * run note's own frontmatter exists at all. Two runs of one game starting on
+ * the same date — vanishingly rare, but possible — take `-2`, `-3` in ULID
+ * order. Two *different* games cannot collide here, since the slug differs.
  */
 export function runNoteNames(game: GameState): Map<string, string> {
   const byBase = new Map<string, RunState[]>()
   for (const run of [...game.runs].sort((left, right) => (left.run_id < right.run_id ? -1 : 1))) {
-    const base = `${game.slug}-${atPrecision(run.started_on, run.started_precision)}`
+    const base = `${atPrecision(run.started_on, run.started_precision)}-${game.slug}`
     byBase.set(base, [...(byBase.get(base) ?? []), run])
   }
 
@@ -52,7 +56,7 @@ export function runNoteNames(game: GameState): Map<string, string> {
 }
 
 export function runNotePath(game: GameState, run: RunState): string {
-  return `runs/${runNoteNames(game).get(run.run_id) ?? `${game.slug}-${run.started_on}`}.md`
+  return `runs/${runNoteNames(game).get(run.run_id) ?? `${run.started_on}-${game.slug}`}.md`
 }
 
 /** `playing` while open, the outcome afterwards — spelled as the game's status. */
@@ -87,6 +91,12 @@ export function runFrontmatter(game: GameState, run: RunState): string {
   set('gamereg_id', game.game_id)
   set('title', game.title)
   set('game', `[[${game.slug}]]`)
+  // Denormalized so a Bases cards view (the Shelf, 07-targets.md) has an
+  // `image` property to point at — cards read a property, not the game
+  // note's own header block. Only a locally ingested cover has a file to
+  // link; a provider cover that is still URL-only has nothing here yet,
+  // the same rule the game note's header embed already follows.
+  set('cover', game.cover?.sha256 == null ? null : `[[${assetPath(game.cover.sha256)}]]`)
   set('status', runStatus(run))
   set('platform', run.platform)
   set('form', run.form)

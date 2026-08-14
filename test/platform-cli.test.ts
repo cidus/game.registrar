@@ -229,7 +229,7 @@ test('a name added later fixes the whole history, with no amend and no rewrite',
   gamereg(root, 'platform', 'add', '3DO')
   gamereg(root, 'build')
 
-  const note = readFileSync(join(root, 'games', 'gex.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'gex.md'), 'utf8')
   assert.match(note, /^platform: 3DO$/m)
   // The log still says what was typed. Non-negotiable 1.
   const opened = events(root).find((event) => event['type'] === 'run.open')!
@@ -246,6 +246,6 @@ test('a run with no platform renders as absence, never as an empty claim', () =>
   gamereg(root, 'end', '--at', '2026-05-03 22:00')
   gamereg(root, 'build')
 
-  const note = readFileSync(join(root, 'games', 'tunic.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'tunic.md'), 'utf8')
   assert.equal(/^platform:/m.test(note), false)
 })

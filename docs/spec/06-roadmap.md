@@ -10,7 +10,7 @@ Each phase ends with something usable. No phase depends on the next one existing
 - `start`, `end`, `break`, `finish`, `drop`, `past`, `open`, `status`, `verdict`
 - Local-only resolution (steps 1–5 and 7 of the resolution order)
 - `build` as a target registry, with ownership tracking
-- `obsidian` target: game notes, run notes, `Games.md`, seeded `Games.base`
+- `obsidian` target: game notes, run notes, `Game List.md`, seeded `Game Database.base`
 - `csv` target: runs, sessions, games
 - Golden-file tests, idempotency test, `doctor`
 

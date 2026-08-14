@@ -10,6 +10,11 @@ limited to these: which targets a vault emits, the contract they obey and how
 ownership of generated files is tracked are in [07-targets](07-targets.md). The
 rules below on markers and determinism bind **every** target.
 
+Paths below (`games/<slug>.md`, `runs/...`, `Game List.md`, `Game
+Database.base`) are written relative to `obsidian/`, the target's own folder
+— see [07-targets](07-targets.md)'s `obsidian` section for why, and for the
+one path (`assets/`) that stays reachable from outside it.
+
 ## Marker protocol
 
 Generated regions are delimited by HTML comments, which are invisible in rendered
@@ -131,7 +136,7 @@ two playthroughs has two of them.
 
 ## Run note
 
-`runs/<slug>-<started_on>.md` — one per run. **Fully generated, no prose, safe to
+`runs/<started_on>-<slug>.md` — one per run. **Fully generated, no prose, safe to
 delete.** This file exists to be a row: it is what makes a playthrough
 addressable, queryable and linkable.
 
@@ -141,6 +146,7 @@ gamereg_run_id: 01K2W8F3QJ7Y0M9V4R6NBTZHW3
 gamereg_id: 01K2W8F3QJ7Y0M9V4R6NBTZHW2
 title: Hollow Knight
 game: "[[hollow-knight]]"
+cover: "[[assets/e3/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.webp]]"
 status: finished
 platform: Switch
 form: digital
@@ -185,16 +191,23 @@ Started as a curiosity and turned into the best thing I played this year...
 afterwards. It is spelled the same as the game's status so a single filter
 expression works against either folder.
 
-`release_year`, `developer` and `genres` are **denormalized from the game**. Bases
-has no joins, and filtering runs by genre is the single most obvious question a
-register gets asked. Denormalized derived data is free; it regenerates.
+`release_year`, `developer`, `genres` and `cover` are **denormalized from the
+game**. Bases has no joins, and filtering runs by genre is the single most
+obvious question a register gets asked. Denormalized derived data is free; it
+regenerates. `cover` is the one exception that isn't always present: it only
+exists once the game has a locally ingested cover (`game.cover.sha256`) —
+the same condition the game note's own header embed already requires. It
+exists so a Bases cards view (the "Shelf" in `Game Database.base`,
+[07-targets](07-targets.md)) has an `image` property to point at; cards read
+a property, not the game note's header block.
 
 ### Filename
 
-`<slug>-<started_on>`, with `started_on` at its stored precision:
-`hollow-knight-2026-05-03.md`, `chrono-trigger-2011.md`. Two runs of the same game
-starting on the same date — vanishingly rare, but possible — take `-2`, `-3`
-suffixes in ULID order.
+`<started_on>-<slug>`, with `started_on` at its stored precision:
+`2026-05-03-hollow-knight.md`, `2011-chrono-trigger.md`. Date first, so a
+plain filename sort in a file explorer is a chronological one. Two runs of the
+same game starting on the same date — vanishingly rare, but possible — take
+`-2`, `-3` suffixes in ULID order.
 
 The name is derived, so it moves when the slug or the start date does. That is
 handled by ownership, not by special-casing: the old file was written by this
@@ -216,7 +229,7 @@ the user should hear it before the build does it.
 
 ## Consolidated table
 
-`Games.md` — one row per run, not per game, so replays appear separately.
+`Game List.md` — one row per run, not per game, so replays appear separately.
 
 ```markdown
 <!-- gamereg:begin block=table -->
@@ -229,14 +242,14 @@ the user should hear it before the build does it.
 Sorted by `ended_on` descending, open runs first. Imported runs are marked so
 stated hours are never confused with measured ones.
 
-This table is now the *plain* view of what `Games.base` shows interactively, and
-it stays: it renders on GitHub, in any Markdown viewer, in the published site,
-and in Obsidian versions without Bases. It is the artifact that still works when
-nothing else is installed.
+This table is now the *plain* view of what `Game Database.base` shows
+interactively, and it stays: it renders on GitHub, in any Markdown viewer, in
+the published site, and in Obsidian versions without Bases. It is the
+artifact that still works when nothing else is installed.
 
 ## Bases
 
-`Games.base` is seeded once and never regenerated, because a base is
+`Game Database.base` is seeded once and never regenerated, because a base is
 configuration rather than derived data. The seed, the rationale and the query
 shape are in [07-targets](07-targets.md).
 

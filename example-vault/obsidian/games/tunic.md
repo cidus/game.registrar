@@ -21,7 +21,7 @@ tags: [gamereg, gamereg/game]
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[tunic-2026-08-15\|2026]] |  | 2026-08-15 |  | 2.5 |  |  |
+| [[2026-08-15-tunic\|2026]] |  | 2026-08-15 |  | 2.5 |  |  |
 <!-- gamereg:end block=runs -->
 
 ## Notes

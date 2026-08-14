@@ -5,7 +5,7 @@
  * asserted here is what it refuses to remove.
  */
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -15,6 +15,7 @@ import { openVault, timeContext, vaultPath, type Vault } from '../src/core/vault
 import { translator } from '../src/i18n/index.ts'
 import { build, claimPaths, type BuildResult } from '../src/targets/build.ts'
 import { readManifest, serializeManifest } from '../src/targets/manifest.ts'
+import { ensureAssetsLink } from '../src/targets/obsidian.ts'
 import type { PlannedFile } from '../src/targets/types.ts'
 import { event, tempDir } from './helpers.ts'
 
@@ -50,14 +51,14 @@ test('a rename moves the note, and ownership removes the one left behind', () =>
   const root = vault()
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
   rebuild(root)
-  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), true)
+  assert.equal(existsSync(join(root, 'obsidian', 'games', 'sabotage.md')), true)
 
   record(root, event('game.rename', { game_id: '01K5A00000000000000000GAMA', slug: 'sea-of-stars', title: 'Sea of Stars' }))
   const second = rebuild(root)
 
-  assert.deepEqual(second.removed, ['games/sabotage.md'])
-  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), false)
-  assert.equal(existsSync(join(root, 'games', 'sea-of-stars.md')), true)
+  assert.deepEqual(second.removed, ['obsidian/games/sabotage.md'])
+  assert.equal(existsSync(join(root, 'obsidian', 'games', 'sabotage.md')), false)
+  assert.equal(existsSync(join(root, 'obsidian', 'games', 'sea-of-stars.md')), true)
 })
 
 test('a missing manifest is not an error: everything is written and nothing is removed', () => {
@@ -71,14 +72,14 @@ test('a missing manifest is not an error: everything is written and nothing is r
 
   // Ownership was never reconstructed by guessing from the filename.
   assert.deepEqual(second.removed, [])
-  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), true)
+  assert.equal(existsSync(join(root, 'obsidian', 'games', 'sabotage.md')), true)
   // The new manifest claims what this build planned, and nothing it inherited.
   const manifest = readManifest(openVault(root).manifestFile)
-  assert.deepEqual(manifest?.targets['obsidian']?.files.includes('games/sabotage.md'), false)
+  assert.deepEqual(manifest?.targets['obsidian']?.files.includes('obsidian/games/sabotage.md'), false)
 
   // The orphan stays an orphan, for doctor to report. The build never guesses.
   assert.deepEqual(rebuild(root).removed, [])
-  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), true)
+  assert.equal(existsSync(join(root, 'obsidian', 'games', 'sabotage.md')), true)
 })
 
 test('a file absent from the manifest is never removed, whatever it looks like', () => {
@@ -86,7 +87,7 @@ test('a file absent from the manifest is never removed, whatever it looks like',
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
   rebuild(root)
 
-  const stray = join(root, 'games', 'written-by-hand.md')
+  const stray = join(root, 'obsidian', 'games', 'written-by-hand.md')
   writeFileSync(stray, '<!-- gamereg:begin block=header -->\n<!-- gamereg:end block=header -->\n')
   const second = rebuild(root)
 
@@ -100,7 +101,7 @@ test('disabling a target cleans up after itself, and moves nothing else', () => 
   rebuild(root)
   assert.equal(existsSync(join(root, 'data', 'runs.csv')), true)
 
-  const note = readFileSync(join(root, 'games', 'sabotage.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'sabotage.md'), 'utf8')
   writeFileSync(
     join(root, 'gamereg.config.json'),
     JSON.stringify({ locale: 'en', timezone: 'America/Sao_Paulo', build: { targets: ['obsidian'] } }),
@@ -110,7 +111,7 @@ test('disabling a target cleans up after itself, and moves nothing else', () => 
   assert.deepEqual(second.removed.sort(), ['data/games.csv', 'data/runs.csv', 'data/sessions.csv'])
   assert.equal(existsSync(join(root, 'data', 'runs.csv')), false)
   assert.equal(existsSync(join(root, 'data', 'events.jsonl')), true)
-  assert.equal(readFileSync(join(root, 'games', 'sabotage.md'), 'utf8'), note)
+  assert.equal(readFileSync(join(root, 'obsidian', 'games', 'sabotage.md'), 'utf8'), note)
   assert.equal(readManifest(openVault(root).manifestFile)?.targets['csv'], undefined)
 })
 
@@ -121,7 +122,7 @@ test('a narrowed build says nothing about the targets it was not asked to build'
 
   const narrowed = rebuild(root, ['csv'])
   assert.deepEqual(narrowed.removed, [])
-  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), true)
+  assert.equal(existsSync(join(root, 'obsidian', 'games', 'sabotage.md')), true)
   assert.notEqual(readManifest(openVault(root).manifestFile)?.targets['obsidian'], undefined)
 })
 
@@ -129,13 +130,13 @@ test('a seed is written once and is the user\'s from then on', () => {
   const root = vault()
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
   const first = rebuild(root)
-  assert.equal(first.written.includes('Games.base'), true)
+  assert.equal(first.written.includes('obsidian/Game Database.base'), true)
 
-  const base = join(root, 'Games.base')
+  const base = join(root, 'obsidian', 'Game Database.base')
   writeFileSync(base, 'views: []\n# reordered a column through the UI\n')
   const second = rebuild(root)
 
-  assert.equal(second.written.includes('Games.base'), false)
+  assert.equal(second.written.includes('obsidian/Game Database.base'), false)
   assert.match(readFileSync(base, 'utf8'), /reordered a column/)
 })
 
@@ -144,7 +145,7 @@ test('--force is the only path that overwrites a seed', () => {
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
   rebuild(root)
 
-  const base = join(root, 'Games.base')
+  const base = join(root, 'obsidian', 'Game Database.base')
   writeFileSync(base, 'views: []\n')
 
   const opened = openVault(root)
@@ -166,14 +167,14 @@ test('a seed is never removed, not even when its target is gone', () => {
   )
   const second = rebuild(root)
 
-  assert.equal(second.removed.includes('Games.base'), false)
-  assert.equal(existsSync(join(root, 'Games.base')), true)
+  assert.equal(second.removed.includes('obsidian/Game Database.base'), false)
+  assert.equal(existsSync(join(root, 'obsidian', 'Game Database.base')), true)
   // The game notes it did own are gone, so this is not simply a build that
   // forgot to clean.
-  assert.equal(existsSync(join(root, 'games', 'sabotage.md')), false)
+  assert.equal(existsSync(join(root, 'obsidian', 'games', 'sabotage.md')), false)
   assert.deepEqual(readManifest(openVault(root).manifestFile)?.targets['obsidian'], {
     files: [],
-    seeds: ['Games.base'],
+    seeds: ['obsidian/Game Database.base'],
   })
 })
 
@@ -187,8 +188,8 @@ test('two targets planning the same path is a hard error, caught before any writ
   const opened = openVault(vault())
   const file = (path: string): PlannedFile => ({ path, content: '', policy: 'replace' })
   const plans = new Map([
-    ['obsidian', [file('Games.md')]],
-    ['csv', [file('Games.md')]],
+    ['obsidian', [file('obsidian/Game List.md')]],
+    ['csv', [file('obsidian/Game List.md')]],
   ] as [never, PlannedFile[]][])
 
   assert.throws(() => claimPaths(opened, plans), /error\.target_conflict/)
@@ -197,15 +198,18 @@ test('two targets planning the same path is a hard error, caught before any writ
 test('a target may not plan a path outside the vault', () => {
   const opened: Vault = openVault(vault())
   assert.throws(() => vaultPath(opened, '../escaped.md'), /error\.outside_vault/)
-  assert.throws(() => vaultPath(opened, 'games/../../escaped.md'), /error\.outside_vault/)
-  assert.equal(vaultPath(opened, 'games/ok.md'), join(opened.root, 'games', 'ok.md'))
+  assert.throws(() => vaultPath(opened, 'obsidian/games/../../../escaped.md'), /error\.outside_vault/)
+  assert.equal(vaultPath(opened, 'obsidian/games/ok.md'), join(opened.root, 'obsidian', 'games', 'ok.md'))
 })
 
 test('the manifest is data: sorted keys, forward slashes, one trailing newline', () => {
   const text = serializeManifest({
     schema: 1,
     targets: {
-      obsidian: { files: ['games/b.md', 'Games.md', 'games/a.md'], seeds: ['Games.base'] },
+      obsidian: {
+        files: ['obsidian/games/b.md', 'obsidian/Game List.md', 'obsidian/games/a.md'],
+        seeds: ['obsidian/Game Database.base'],
+      },
       csv: { files: ['data/runs.csv'], seeds: [] },
     },
   })
@@ -213,8 +217,45 @@ test('the manifest is data: sorted keys, forward slashes, one trailing newline',
   assert.equal(text.endsWith('}\n'), true)
   assert.equal(text.includes('\r'), false)
   assert.equal(Object.keys(JSON.parse(text).targets).join(','), 'csv,obsidian')
-  assert.deepEqual(JSON.parse(text).targets.obsidian.files, ['Games.md', 'games/a.md', 'games/b.md'])
+  assert.deepEqual(JSON.parse(text).targets.obsidian.files, [
+    'obsidian/Game List.md',
+    'obsidian/games/a.md',
+    'obsidian/games/b.md',
+  ])
   assert.equal('seeds' in JSON.parse(text).targets.csv, false)
+})
+
+test('a build with obsidian enabled links obsidian/assets to ../assets, so embeds resolve inside the narrower vault', () => {
+  const root = vault()
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+
+  const link = join(root, 'obsidian', 'assets')
+  assert.equal(lstatSync(link).isSymbolicLink(), true)
+  assert.equal(readlinkSync(link), '../assets')
+
+  // Idempotent: a second build does not touch a link that is already there.
+  rebuild(root)
+  assert.equal(readlinkSync(link), '../assets')
+})
+
+test('ensureAssetsLink never clobbers something already at the path', () => {
+  const root = vault()
+  mkdirSync(join(root, 'obsidian'), { recursive: true })
+  writeFileSync(join(root, 'obsidian', 'assets'), 'not a symlink')
+
+  ensureAssetsLink(openVault(root))
+
+  assert.equal(lstatSync(join(root, 'obsidian', 'assets')).isSymbolicLink(), false)
+  assert.equal(readFileSync(join(root, 'obsidian', 'assets'), 'utf8'), 'not a symlink')
+})
+
+test('a build with obsidian disabled never creates the assets link', () => {
+  const root = vault(['csv'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+
+  assert.equal(existsSync(join(root, 'obsidian')), false)
 })
 
 test('an unreadable manifest is treated as a missing one', () => {

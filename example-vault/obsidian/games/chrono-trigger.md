@@ -23,7 +23,7 @@ tags: [gamereg, gamereg/game]
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[chrono-trigger-2011-01\|2011]] | Super Nintendo | 2011-01 | 2011-07 | 30.0 (stated) | 10 | credits |
+| [[2011-01-chrono-trigger\|2011]] | Super Nintendo | 2011-01 | 2011-07 | 30.0 (stated) | 10 | credits |
 <!-- gamereg:end block=runs -->
 
 ## Notes

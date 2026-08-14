@@ -83,13 +83,13 @@ test('a block this version does not write is reported, and stays reported after 
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
   rebuild(root)
 
-  const file = join(root, 'games', 'sabotage.md')
+  const file = join(root, 'obsidian', 'games', 'sabotage.md')
   appendFileSync(file, '\n<!-- gamereg:begin block=achievements -->\nfuture content\n<!-- gamereg:end block=achievements -->\n')
 
   const found = audit(root)
   assert.equal(found.length, 1)
   assert.equal(found[0]?.key, 'doctor.unknown_block')
-  assert.deepEqual(found[0]?.params, { file: 'games/sabotage.md', block: 'achievements' })
+  assert.deepEqual(found[0]?.params, { file: 'obsidian/games/sabotage.md', block: 'achievements' })
 
   // The build never removes what it does not recognize.
   rebuild(root)
@@ -107,13 +107,13 @@ test('prose typed into a run note is reported before the next build loses it', (
   )
   rebuild(root)
 
-  const file = join(root, 'runs', 'sabotage-2026-05-03.md')
+  const file = join(root, 'obsidian', 'runs', '2026-05-03-sabotage.md')
   appendFileSync(file, '\nTyped in by hand.\n')
 
   const found = audit(root)
   assert.equal(found.length, 1)
   assert.equal(found[0]?.key, 'doctor.run_note_prose')
-  assert.equal(found[0]?.params['file'], 'runs/sabotage-2026-05-03.md')
+  assert.equal(found[0]?.params['file'], 'obsidian/runs/2026-05-03-sabotage.md')
 })
 
 test('a file that looks generated but is owned by no target is an orphan', () => {
@@ -122,14 +122,14 @@ test('a file that looks generated but is owned by no target is an orphan', () =>
   rebuild(root)
 
   writeFileSync(
-    join(root, 'games', 'ghost.md'),
+    join(root, 'obsidian', 'games', 'ghost.md'),
     '<!-- gamereg:begin block=header -->\nleftover\n<!-- gamereg:end block=header -->\n',
   )
 
   const found = audit(root)
   assert.equal(found.length, 1)
   assert.equal(found[0]?.key, 'doctor.orphan_artifact')
-  assert.equal(found[0]?.params['file'], 'games/ghost.md')
+  assert.equal(found[0]?.params['file'], 'obsidian/games/ghost.md')
 })
 
 test('a hand-written note with no markers at all is not an orphan', () => {
@@ -137,7 +137,7 @@ test('a hand-written note with no markers at all is not an orphan', () => {
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
   rebuild(root)
 
-  writeFileSync(join(root, 'games', 'scratch.md'), '# Just some notes\n\nNothing generated here.\n')
+  writeFileSync(join(root, 'obsidian', 'games', 'scratch.md'), '# Just some notes\n\nNothing generated here.\n')
 
   assert.deepEqual(audit(root), [])
 })

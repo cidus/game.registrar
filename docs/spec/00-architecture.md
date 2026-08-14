@@ -121,14 +121,25 @@ my-register/                 # user repo — private
   data/events.jsonl          # source of truth
   data/*.csv                 # derived
   data/log.db                # derived (gitignored)
-  games/*.md                 # derived blocks + hand-written prose
-  runs/*.md                  # derived, one per playthrough
   assets/<sha>/              # content-addressed images
-  Games.md                   # derived
-  Games.base                 # seeded once, then yours
+  obsidian/                  # the obsidian target's own folder — open *this* in Obsidian
+    games/*.md                 # derived blocks + hand-written prose
+    runs/<started_on>-<slug>.md  # derived, one per playthrough, date-first so a plain sort is chronological
+    Game List.md                # derived
+    Game Database.base          # seeded once, then yours
+    assets/                    # symlink to ../assets (07-targets.md)
   .gamereg/manifest.json     # build bookkeeping (gitignored)
   site/                      # derived (gitignored)
 ```
+
+Everything the `obsidian` target writes lands under `obsidian/`, so opening that
+folder — not the repo root — as the Obsidian vault shows only what Obsidian
+should see: no `data/`, no `gamereg.secrets.json`, no `.gamereg/`. `assets/`
+itself stays at the vault root regardless — it is written directly by image
+ingestion (`--photo`), not by any build target, and a future non-Obsidian
+target would want it too. The symlink at `obsidian/assets` is what makes an
+embed inside a game note (`![[assets/<sha>...]]`) resolve once Obsidian's own
+vault root has moved one level down; see 07-targets.md's `obsidian` section.
 
 *Why separate:* your notes are personal. In one repo you either publish your
 diary alongside the code, or you never publish the code.

@@ -21,7 +21,7 @@ tags: [gamereg, gamereg/game]
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[celeste-2026-07-20\|2026]] | Nintendo Switch | 2026-07-20 |  | 0.0 |  |  |
+| [[2026-07-20-celeste\|2026]] | Nintendo Switch | 2026-07-20 |  | 0.0 |  |  |
 <!-- gamereg:end block=runs -->
 
 ## Notes

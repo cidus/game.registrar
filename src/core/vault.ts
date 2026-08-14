@@ -14,11 +14,7 @@ import type { TimeContext } from './time.ts'
 export type Vault = {
   root: string
   eventsFile: string
-  gamesDir: string
-  runsDir: string
   dataDir: string
-  tableFile: string
-  assetsDir: string
   /** Build bookkeeping. Gitignored, and the only file the build reads back. */
   manifestFile: string
   config: Config
@@ -29,11 +25,7 @@ export function openVault(rootOverride?: string | undefined): Vault {
   return {
     root,
     eventsFile: join(root, 'data', 'events.jsonl'),
-    gamesDir: join(root, 'games'),
-    runsDir: join(root, 'runs'),
     dataDir: join(root, 'data'),
-    tableFile: join(root, 'Games.md'),
-    assetsDir: join(root, 'assets'),
     manifestFile: join(root, '.gamereg', 'manifest.json'),
     config: loadConfig(root),
   }

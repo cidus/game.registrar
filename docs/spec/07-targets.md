@@ -61,8 +61,8 @@ exactly three because there are exactly three kinds of file in the vault.
 
 | Policy | Meaning | Used by |
 |---|---|---|
-| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `runs/*.md`, CSV, SQLite, JSON, HTML |
-| `splice` | Only the regions between `gamereg` markers are written. Everything else is preserved byte-identical. | `games/*.md`, `Games.md` |
+| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, CSV, SQLite, JSON, HTML |
+| `splice` | Only the regions between `gamereg` markers are written. Everything else is preserved byte-identical. | `obsidian/games/*.md`, `obsidian/Game List.md` |
 | `seed` | Written if absent. Never overwritten, never removed. | `*.base` |
 
 `seed` is the exception to "every derived artifact is regenerated", and it is
@@ -128,7 +128,7 @@ caretaker's index, and only the writer touches it.
 
 | Target | Produces | Phase |
 |---|---|---|
-| `obsidian` | `games/*.md`, `runs/*.md`, `Games.md`, `*.base` | 0 |
+| `obsidian` | `obsidian/games/*.md`, `obsidian/runs/*.md`, `obsidian/Game List.md`, `obsidian/Game Database.base` | 0 |
 | `csv` | `data/runs.csv`, `data/sessions.csv`, `data/games.csv` | 0 |
 | `sqlite` | `data/log.db` | 1 |
 | `json` | `data/export.json` | 1 |
@@ -140,11 +140,27 @@ caretaker's index, and only the writer touches it.
 The vault as Obsidian reads it: notes, the consolidated table, and the Bases that
 make them queryable. Detailed in [04-derived](04-derived.md).
 
+Everything this target writes lives under `obsidian/` — that folder, not the
+vault root, is what a user opens as their Obsidian vault, so `data/`,
+`gamereg.secrets.json` and `.gamereg/` never show up in the file explorer or get
+indexed. Every path below (`games/`, `runs/`, `Game List.md`, `Game Database.base`,
+`file.inFolder("runs")`) is written relative to `obsidian/`, exactly as if it
+were the vault root — because from inside Obsidian, once it is, it is.
+
+The one thing that lives outside `obsidian/` on purpose is `assets/`: image
+ingestion (`--photo`) writes there directly, independent of any build target
+(00-architecture.md, *Two repositories*), so it has to stay reachable from a
+vault root that never moves even if `build.targets` changes entirely. The
+build keeps `obsidian/assets` as a symlink to `../assets` — created once,
+left alone forever after, so an embed (`![[assets/<sha>...]]`) resolves
+without `render/note.ts` needing to know it is one folder deeper than it
+used to be.
+
 The important structural point is **one note per run**, in `runs/`, alongside the
 one note per game in `games/`. The reason is mechanical: Bases produces one row
 per file, and the row worth having is a playthrough, not a title. Without run
 notes, a replay cannot appear as its own row in any query view — the same reason
-`Games.md` has always been one row per run.
+`Game List.md` has always been one row per run.
 
 ### `csv`
 
@@ -197,7 +213,7 @@ in a second pass, outside the contract above.
 plugin — no community plugin, nothing to install, and a plain-text artifact that
 belongs in git.
 
-The build seeds `Games.base` and does not touch it again. **A base is
+The build seeds `Game Database.base` and does not touch it again. **A base is
 configuration, not derived data:** the moment a user reorders a column or adds a
 view through the Obsidian UI, Obsidian rewrites the file, and a build that
 regenerated it would silently discard that work every time. Regenerating a note
@@ -235,20 +251,29 @@ views:
     name: By genre
     groupBy:
       property: genres
+      direction: ASC
     order: [title, rating, hours]
   - type: cards
     name: Shelf
     filters:
       and:
         - 'status != "playing"'
+    image: cover
+    order: [title, platform, rating]
 ```
+
+`image: cover` is the one view-level setting a `.base` file needs for a cards
+gallery — cards always show the file name as the card's own title regardless
+of `order` (a known Obsidian limitation, not a `gamereg` choice: nothing in
+Bases lets a card's header show anything but the filename), so `title` in
+`order` is what makes the game's actual name visible on the card at all.
 
 Two consequences of Bases having no joins, both already handled by the shape of
 the run note:
 
 - Game-level fields the user will want to filter by — `genres`, `developer`,
-  `release_year` — are **denormalized onto the run note**. Duplication in derived
-  output is free; it regenerates.
+  `release_year`, `cover` — are **denormalized onto the run note**. Duplication
+  in derived output is free; it regenerates.
 - A game with no runs at all (`status: unplayed`) has no row in a run-level base,
   and that stays so: [06-roadmap](06-roadmap.md) decided against a backlog view.
   The register holds what you played.

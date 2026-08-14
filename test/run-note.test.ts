@@ -72,8 +72,8 @@ test('the filename carries the precision the date was recorded at', () => {
   record(root, game('chrono-trigger', 'Chrono Trigger'), imported('01K5A0000000000000000RUNA', '2011-01-01', 'year'))
   rebuild(root)
 
-  assert.equal(existsSync(join(root, 'runs', 'chrono-trigger-2011.md')), true)
-  assert.equal(existsSync(join(root, 'runs', 'chrono-trigger-2011-01-01.md')), false)
+  assert.equal(existsSync(join(root, 'obsidian', 'runs', '2011-chrono-trigger.md')), true)
+  assert.equal(existsSync(join(root, 'obsidian', 'runs', '2011-01-01-chrono-trigger.md')), false)
 })
 
 test('two runs starting on the same date take -2, in ULID order', () => {
@@ -86,8 +86,8 @@ test('two runs starting on the same date take -2, in ULID order', () => {
   )
   rebuild(root)
 
-  const first = readFileSync(join(root, 'runs', 'chrono-trigger-2011.md'), 'utf8')
-  const second = readFileSync(join(root, 'runs', 'chrono-trigger-2011-2.md'), 'utf8')
+  const first = readFileSync(join(root, 'obsidian', 'runs', '2011-chrono-trigger.md'), 'utf8')
+  const second = readFileSync(join(root, 'obsidian', 'runs', '2011-chrono-trigger-2.md'), 'utf8')
   assert.match(first, /gamereg_run_id: 01K5A0000000000000000RUNA/)
   assert.match(second, /gamereg_run_id: 01K5A0000000000000000RUNB/)
 })
@@ -97,7 +97,7 @@ test('a run note is written whole: nothing typed into it survives', () => {
   record(root, game('chrono-trigger', 'Chrono Trigger'), imported('01K5A0000000000000000RUNA', '2011-01-01', 'day'))
   rebuild(root)
 
-  const file = join(root, 'runs', 'chrono-trigger-2011-01-01.md')
+  const file = join(root, 'obsidian', 'runs', '2011-01-01-chrono-trigger.md')
   writeFileSync(file, `${readFileSync(file, 'utf8')}\nTyped in by hand, about to be lost.\n`)
   rebuild(root)
 
@@ -109,13 +109,13 @@ test('amending the start date moves the note, and ownership removes the old one'
   const run = imported('01K5A0000000000000000RUNA', '2011-01-01', 'day')
   record(root, game('chrono-trigger', 'Chrono Trigger'), run)
   rebuild(root)
-  assert.equal(existsSync(join(root, 'runs', 'chrono-trigger-2011-01-01.md')), true)
+  assert.equal(existsSync(join(root, 'obsidian', 'runs', '2011-01-01-chrono-trigger.md')), true)
 
   record(root, event('event.amend', { target: run.id, reason: 'it was July', patch: { started_on: '2011-07-14' } }))
   const second = rebuild(root)
 
-  assert.deepEqual(second.removed, ['runs/chrono-trigger-2011-01-01.md'])
-  assert.equal(existsSync(join(root, 'runs', 'chrono-trigger-2011-07-14.md')), true)
+  assert.deepEqual(second.removed, ['obsidian/runs/2011-01-01-chrono-trigger.md'])
+  assert.equal(existsSync(join(root, 'obsidian', 'runs', '2011-07-14-chrono-trigger.md')), true)
 })
 
 test('the game note carries the runs table and no session log', () => {
@@ -123,10 +123,10 @@ test('the game note carries the runs table and no session log', () => {
   record(root, game('chrono-trigger', 'Chrono Trigger'), imported('01K5A0000000000000000RUNA', '2011-01-01', 'year'))
   rebuild(root)
 
-  const note = readFileSync(join(root, 'games', 'chrono-trigger.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'chrono-trigger.md'), 'utf8')
   assert.equal(note.includes('block=sessions'), false)
   assert.match(note, /block=runs/)
-  assert.match(note, /\[\[chrono-trigger-2011\\\|2011\]\]/)
+  assert.match(note, /\[\[2011-chrono-trigger\\\|2011\]\]/)
 
   // Aggregate, across runs: no per-run field is left on the game note.
   assert.match(note, /^runs: 1$/m)

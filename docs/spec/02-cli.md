@@ -736,7 +736,7 @@ code 6, where local work is committed even though the network step was not.
 
 ```json
 { "ok": false, "code": 1, "error": "target_failed",
-  "result": { "written": ["Games.md"], "removed": [],
+  "result": { "written": ["obsidian/Game List.md"], "removed": [],
               "failed": [{ "target": "sqlite", "message": "..." }] } }
 ```
 

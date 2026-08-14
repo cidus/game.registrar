@@ -34,7 +34,7 @@ function date(value: string | null, precision: DatePrecision | null): string | n
   return value
 }
 
-/** Same order as `Games.md`: open runs first, then by `ended_on` descending. */
+/** Same order as `Game List.md`: open runs first, then by `ended_on` descending. */
 function rowsOf(state: VaultState): Row[] {
   const pairs: { game: GameState; run: RunState }[] = state.games.flatMap((game) =>
     game.runs.map((run) => ({ game, run })),

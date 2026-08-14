@@ -96,7 +96,7 @@ test('--as-cover on start sets the cover, source: user, and enrich can never ove
   run(root, 'finish', 'celeste', '--rating', '9', '--at', '2026-05-03 22:00')
   run(root, 'build')
 
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.match(note, /## Gallery/)
   assert.match(note, /!\[\[assets\/\w{2}\/\w{64}\.webp\]\]/)
 })
@@ -152,7 +152,7 @@ test('gamereg attach to a game query attaches to the game directly', async () =>
   assert.equal(attached.status, 0)
 
   run(root, 'build')
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.match(note, /## Gallery/)
 })
 
@@ -206,7 +206,7 @@ test('gamereg cover --reset appends source: provider without deleting the earlie
 
   // The photo itself is still on the timeline — it was an attachment, not only a cover pointer.
   run(root, 'build')
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.match(note, /## Gallery/)
 })
 

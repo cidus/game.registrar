@@ -46,6 +46,7 @@ views:
     name: By genre
     groupBy:
       property: genres
+      direction: ASC
     order:
       - title
       - platform

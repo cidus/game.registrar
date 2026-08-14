@@ -60,7 +60,7 @@ test('a verdict is filed from the command line, with no model anywhere near it',
   assert.equal((filed.json['result'] as { replaced: boolean }).replaced, false)
 
   run(root, 'build')
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.match(note, /## Verdict\n\n<!-- gamereg:begin block=verdict -->\nHard in the way I wanted it to be\./)
 })
 
@@ -80,7 +80,7 @@ test('the text can arrive from a file or from stdin', () => {
   assert.equal(piped.status, 0)
 
   run(root, 'build')
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.match(note, /Piped in from somewhere else\./)
   assert.equal(note.includes('Written elsewhere'), false)
 })
@@ -98,7 +98,7 @@ test('filing again replaces the verdict, and the earlier text stays in the log',
   assert.match(log, /Second thoughts\./)
 
   run(root, 'build')
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.equal(note.includes('First thoughts.'), false)
   assert.match(note, /Second thoughts\./)
 })
@@ -112,7 +112,7 @@ test('revoking a verdict empties the block instead of leaving it stale', () => {
   run(root, 'revoke', (filed.json['events'] as string[])[0]!, '--reason', 'not what I meant')
   run(root, 'build')
 
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.equal(note.includes('Withdrawn later.'), false)
   assert.match(note, /<!-- gamereg:begin block=verdict -->\n<!-- gamereg:end block=verdict -->/)
 })
@@ -122,7 +122,7 @@ test('a note with no verdict does not carry an empty heading', () => {
   played(root)
   run(root, 'build')
 
-  const note = readFileSync(join(root, 'games', 'celeste.md'), 'utf8')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
   assert.equal(note.includes('## Verdict'), false)
   assert.equal(note.includes('block=verdict'), false)
 })

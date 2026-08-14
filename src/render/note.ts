@@ -15,17 +15,12 @@ import { Document, Scalar } from 'yaml'
 import { formatHm, formatHours } from '../core/duration.ts'
 import { attachmentsOfGame, type GameState, type RunState, type SessionState, type VaultState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
+import { assetPath } from './assets.ts'
 import { atPrecision } from './dates.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 import { runNoteNames, runsInOrder } from './run.ts'
 
 export const BLOCK_ORDER = ['header', 'verdict', 'runs', 'gallery'] as const
-
-/** Every attachment is normalized to WebP by the ingestion pipeline, so the
- * hash alone determines the path (docs/spec/04-derived.md "Content addressing"). */
-function assetPath(sha256: string): string {
-  return `assets/${sha256.slice(0, 2)}/${sha256}.webp`
-}
 
 /**
  * The run whose facts head the note: the most recently ended one, falling back
