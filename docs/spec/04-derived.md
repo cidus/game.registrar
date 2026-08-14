@@ -54,6 +54,7 @@ generated file in the vault that also holds hand-written prose.
 ---
 gamereg_id: 01K2W8F3QJ7Y0M9V4R6NBTZHW2
 title: Hollow Knight
+aliases: [Hollow Knight]
 status: finished
 platform: Switch
 release_year: 2017
@@ -102,6 +103,12 @@ screenshots, links — it is yours.
 
 The frontmatter is **fully regenerated** every build. Never hand-edit it; edits
 will be lost. This is why no YAML round-trip library is needed (D4).
+
+`aliases: [title]` is Obsidian's own frontmatter property, not `gamereg`'s —
+the filename is the slug (01-model.md, filesystem-safe by construction, not
+pretty), so this is what makes the quick switcher and search surface the note
+by the title a person actually types, without touching the slug or anything
+that keys on it.
 
 Frontmatter here is **aggregate**, across runs: `hours` is the total, `status`
 follows the status derivation in [01-model](01-model.md), `rating` is that of the

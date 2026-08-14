@@ -1,6 +1,7 @@
 ---
 gamereg_id: 01K5A00000000000000000GAM4
 title: Celeste
+aliases: [Celeste]
 status: playing
 platform: Nintendo Switch
 release_year: 2018

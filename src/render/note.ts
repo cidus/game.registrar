@@ -73,7 +73,7 @@ export function frontmatter(game: GameState): string {
   const run = latestRun(game)
   const document = new Document({})
   // Short collections are written inline, as in the specification's example.
-  const flow = new Set(['genres', 'platforms', 'providers', 'tags'])
+  const flow = new Set(['aliases', 'genres', 'platforms', 'providers', 'tags'])
   const set = (key: string, value: unknown): void => {
     if (value === null || value === undefined) return
     if (Array.isArray(value) && value.length === 0) return
@@ -88,6 +88,10 @@ export function frontmatter(game: GameState): string {
 
   set('gamereg_id', game.game_id)
   set('title', game.title)
+  // The filename is the slug (01-model.md — filesystem-safe, not pretty). This
+  // is what makes the quick switcher find the note by the title people
+  // actually type, Obsidian's own mechanism for exactly that gap.
+  set('aliases', [game.title])
   set('status', game.status)
   set('platform', recordedPlatform(game))
   set('release_year', game.release_year)

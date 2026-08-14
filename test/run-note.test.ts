@@ -133,4 +133,8 @@ test('the game note carries the runs table and no session log', () => {
   assert.match(note, /^first_started_on: 2011-01-01$/m)
   assert.equal(/^difficulty:/m.test(note), false)
   assert.equal(/^completion_criteria:/m.test(note), false)
+
+  // Obsidian's own alias field, not gamereg's — the filename is the slug, so
+  // this is what lets the quick switcher find the note by the title itself.
+  assert.match(note, /^aliases: \[Chrono Trigger\]$/m)
 })

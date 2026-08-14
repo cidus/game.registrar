@@ -1,6 +1,7 @@
 ---
 gamereg_id: 01K5A00000000000000000GAM2
 title: Chrono Trigger
+aliases: [Chrono Trigger]
 status: finished
 platform: Super Nintendo
 release_year: 1995

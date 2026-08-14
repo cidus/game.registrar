@@ -1,6 +1,7 @@
 ---
 gamereg_id: 01K5A00000000000000000GAM3
 title: Outer Wilds
+aliases: [Outer Wilds]
 status: abandoned
 platform: PC
 release_year: 2019

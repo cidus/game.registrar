@@ -1,6 +1,7 @@
 ---
 gamereg_id: 01K5A00000000000000000GAM5
 title: Tunic
+aliases: [Tunic]
 status: playing
 release_year: 2022
 developer: Andrew Shouldice

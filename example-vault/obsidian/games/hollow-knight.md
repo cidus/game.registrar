@@ -1,6 +1,7 @@
 ---
 gamereg_id: 01K5A00000000000000000GAM1
 title: Hollow Knight
+aliases: [Hollow Knight]
 status: finished
 platform: Nintendo Switch
 release_year: 2017
