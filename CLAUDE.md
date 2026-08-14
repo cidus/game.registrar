@@ -392,16 +392,24 @@ feature-by-feature bumps:
 - A patch version (`0.x.1`) is a bug fix within an already-tagged phase, not a
   new phase.
 
-Tagging a finished phase:
+Tagging a finished phase (or patch — same steps, `v0.X.Y`):
 
 1. Commit the phase's work as normal.
 2. Tag the commit that completes the phase: `git tag -a v0.X.0 -m "..."`, with
-   the message summarizing what shipped (see `v0.0.0` for the shape).
+   the message summarizing what shipped (see `v0.0.0` for the shape). This
+   message is also the release notes in step 4 — write it accordingly, not
+   as a terse label.
 3. Bump `version` in `package.json` **and** `package-lock.json` to the next
    phase's version (`npm version minor --no-git-tag-version` for a phase bump),
    as a separate commit — `chore(release): bump version to 0.X.0 for phase N`.
    This commit is untagged; it marks the start of the next phase's work, not
    its completion.
+4. `git push && git push --tags`, then publish the tag as a GitHub Release —
+   `gh release create v0.X.Y --title "v0.X.Y — <short summary>" --notes-from-tag`.
+   `--notes-from-tag` reuses the annotated tag message from step 2 verbatim, so
+   there is exactly one place the release description is written, not two that
+   can drift apart. The most-recently-created release is what GitHub marks
+   "Latest", so create any out-of-order backfill tags oldest first.
 
 Only tag a phase once it is actually done — don't pre-bump speculatively. Never
 tag or push without being asked; versioning is a deliberate, user-triggered
