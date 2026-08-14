@@ -25,8 +25,8 @@ import {
   type PlatformTable,
 } from '../../core/platforms.ts'
 import { ingestUrl } from '../../images/ingest.ts'
-import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider, ProviderCandidate, ProviderDetail } from '../../providers/provider.ts'
+import { createProvider, isKnownProvider, providerChain, unknownProvider } from '../../providers/registry.ts'
 import { normalize } from '../../resolve/normalize.ts'
 import { candidateFromProvider, CANDIDATE_LIMIT, parseReference } from '../../resolve/resolve.ts'
 import type { Cli } from '../context.ts'
@@ -42,19 +42,6 @@ type Options = {
   match?: string
   all?: boolean
   covers?: boolean
-}
-
-const KNOWN_PROVIDERS = ['igdb'] as const
-
-function createProvider(name: string, root: string): Provider {
-  if (name === 'igdb') return createIgdbProvider(root)
-  throw new GameregError('usage', 'error.enum', { field: 'provider', value: name, valid: KNOWN_PROVIDERS.join(', ') })
-}
-
-/** No `--provider`: try every known provider in order. */
-function providerChain(root: string, requested: string | undefined): Provider[] {
-  if (requested !== undefined) return [createProvider(requested, root)]
-  return KNOWN_PROVIDERS.map((name) => createProvider(name, root))
 }
 
 export type FindResult =
@@ -292,12 +279,8 @@ export function registerEnrich(registrar: Registrar): void {
       const cli = createContext(command)
       const workspace = load(cli)
 
-      if (options.provider !== undefined && !(KNOWN_PROVIDERS as readonly string[]).includes(options.provider)) {
-        throw new GameregError('usage', 'error.enum', {
-          field: 'provider',
-          value: options.provider,
-          valid: KNOWN_PROVIDERS.join(', '),
-        })
+      if (options.provider !== undefined && !isKnownProvider(options.provider)) {
+        throw unknownProvider(options.provider)
       }
 
       if (options.match !== undefined && options.all === true) {
@@ -313,13 +296,7 @@ export function registerEnrich(registrar: Registrar): void {
         if (reference === null || reference.kind !== 'provider') {
           throw new GameregError('usage', 'error.bad_match_ref', { value: options.match })
         }
-        if (!(KNOWN_PROVIDERS as readonly string[]).includes(reference.provider)) {
-          throw new GameregError('usage', 'error.enum', {
-            field: 'provider',
-            value: reference.provider,
-            valid: KNOWN_PROVIDERS.join(', '),
-          })
-        }
+        if (!isKnownProvider(reference.provider)) throw unknownProvider(reference.provider)
         const provider = createProvider(reference.provider, cli.vault.root)
         const detail = await provider.fetch(reference.id)
         if (detail === null) throw new GameregError('not_found', 'error.unknown_id', { ref: options.match })

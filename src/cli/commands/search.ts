@@ -11,12 +11,16 @@
  * A provider that is merely unconfigured degrades to "no provider results",
  * silently: most vaults never set up credentials, and search must keep
  * working locally regardless.
+ *
+ * `--provider <name>` narrows the chain to one catalog, exactly as it does on
+ * `enrich`, and rejects an unknown name the same way — both commands read the
+ * same list (providers/registry.ts) so they can never disagree about which
+ * providers exist.
  */
 import type { Command } from 'commander'
 
 import { GameregError } from '../../core/errors.ts'
-import { createIgdbProvider } from '../../providers/igdb.ts'
-import type { Provider } from '../../providers/provider.ts'
+import { isKnownProvider, providerChain, unknownProvider } from '../../providers/registry.ts'
 import { platformTable, samePlatform, type PlatformTable } from '../../core/platforms.ts'
 import { candidateFromProvider, candidateOf, search, CANDIDATE_LIMIT, type Candidate } from '../../resolve/resolve.ts'
 import { createContext } from '../context.ts'
@@ -24,11 +28,7 @@ import { emit } from '../output.ts'
 import type { Registrar } from '../register.ts'
 import { load } from '../workspace.ts'
 
-type Options = { platform?: string; localOnly?: boolean }
-
-function providers(root: string): Provider[] {
-  return [createIgdbProvider(root)]
-}
+type Options = { platform?: string; provider?: string; localOnly?: boolean }
 
 /**
  * Highest first, by how many of a candidate's platforms this vault owns
@@ -66,9 +66,10 @@ async function providerCandidates(
   root: string,
   term: string,
   platform: string | undefined,
+  requested: string | undefined,
   table: PlatformTable,
 ): Promise<Candidate[]> {
-  for (const provider of providers(root)) {
+  for (const provider of providerChain(root, requested)) {
     let results
     try {
       results = await provider.search(term)
@@ -90,9 +91,18 @@ export function registerSearch(registrar: Registrar): void {
     .command('search', 'help.search')
     .argument('<term>', registrar.t('help.arg.term'))
     .option('--platform <name>', registrar.t('help.opt.platform'))
+    .option('--provider <name>', registrar.t('help.opt.provider'))
     .option('--local-only', registrar.t('help.opt.local_only'))
     .action(async (term: string, options: Options, command: Command) => {
       const cli = createContext(command)
+
+      // Rejected before anything is loaded or searched: a misspelled provider
+      // is a usage error, not a search that quietly falls back to local
+      // results and looks like it worked.
+      if (options.provider !== undefined && !isKnownProvider(options.provider)) {
+        throw unknownProvider(options.provider)
+      }
+
       const workspace = load(cli)
       const table = platformTable(cli.vault.config.platforms)
 
@@ -101,7 +111,13 @@ export function registerSearch(registrar: Registrar): void {
       let truncated = found.length > CANDIDATE_LIMIT
 
       if (candidates.length === 0 && options.localOnly !== true) {
-        const fromProviders = await providerCandidates(cli.vault.root, term, options.platform, table)
+        const fromProviders = await providerCandidates(
+          cli.vault.root,
+          term,
+          options.platform,
+          options.provider,
+          table,
+        )
         candidates = fromProviders.slice(0, CANDIDATE_LIMIT)
         truncated = fromProviders.length > CANDIDATE_LIMIT
       }

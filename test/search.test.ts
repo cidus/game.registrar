@@ -66,6 +66,21 @@ test('no local match, no provider configured: falls through cleanly to no result
   assert.deepEqual(result(run)['candidates'], [])
 })
 
+test('--provider igdb narrows the fallback chain; unconfigured is still no results, not an error', () => {
+  const root = vault()
+  const run = gamereg(root, 'search', 'something nobody has heard of', '--provider', 'igdb')
+  assert.equal(run.status, 0)
+  assert.deepEqual(result(run)['candidates'], [])
+})
+
+test('an unknown --provider is a usage error listing the valid ones, same as enrich', () => {
+  const root = vault()
+  const run = gamereg(root, 'search', 'zelda', '--provider', 'nonsense')
+  assert.equal(run.status, 2)
+  assert.equal(run.json['error'], 'usage')
+  assert.match(String(run.json['message']), /igdb/)
+})
+
 test('--local-only skips the provider fallback and behaves the same with nothing configured', () => {
   const root = vault()
   const run = gamereg(root, 'search', 'something nobody has heard of', '--local-only')

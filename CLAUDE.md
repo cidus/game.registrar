@@ -28,7 +28,7 @@ Implemented and tested: provider credentials, `providers/igdb.ts` behind a
 common `Provider` interface (RAWG was implemented alongside it as a fallback,
 found offline in 2026-08 — `api.rawg.io`/`rawg.io` both timed out — and
 removed entirely rather than kept unmaintained; `PROVIDER_CREDENTIAL_FIELDS`
-in `core/secrets.ts` and `KNOWN_PROVIDERS` in `cli/commands/enrich.ts` are
+in `core/secrets.ts` and `KNOWN_PROVIDERS` in `providers/registry.ts` are
 the two places a future second provider would join, the same shape RAWG
 used), `enrich` (including provider ambiguity handling — a menu or exit 3 +
 `candidates[]`, `--match <ref>` to re-invoke, platform-aware
@@ -36,11 +36,13 @@ narrowing/auto-resolution from the game's recorded runs, and a literal
 `<query>` — when given — driving the provider search directly instead of
 the resolved game's stored title, so a retyped query is the retry path for
 a poor first search), resolution step 6 in `gamereg search` (never in a
-write command — see non-negotiable 4), the `sqlite`/`json`/`html` targets,
+write command — see non-negotiable 4; `search --provider <name>` narrows
+that fallback to one catalog exactly as `enrich --provider` does, both
+reading `providers/registry.ts`), the `sqlite`/`json`/`html` targets,
 `query`, `import`, the image ingestion *pipeline* (`src/images/ingest.ts` +
 `exif.ts` — EXIF read then stripped, normalize, hash, write to
 `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**, **provider cover
-download** and the **platform vocabulary** (all below). `npm test` runs 344
+download** and the **platform vocabulary** (all below). `npm test` runs 346
 tests (`node --test`, no framework, no network). `npm run test:live`
 (opt-in, real IGDB calls, skips cleanly with no credentials — see Testing
 strategy below) adds 8 more; run it whenever you touch provider matching.
@@ -189,8 +191,9 @@ not need to change — they were already relative to what is now
   offline since before this was first noted here — `api.rawg.io` and
   `rawg.io` both timed out — and was never going to receive further
   updates. `PROVIDER_CREDENTIAL_FIELDS` (`core/secrets.ts`) and
-  `KNOWN_PROVIDERS` (`cli/commands/enrich.ts`) now list only `igdb`; that's
-  where a future second provider would join, the same shape RAWG used.
+  `KNOWN_PROVIDERS` (`providers/registry.ts`, which is where `enrich` used to
+  keep it) now list only `igdb`; that's where a future second provider would
+  join, the same shape RAWG used.
 
 ### The platform vocabulary, as built
 
