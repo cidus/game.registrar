@@ -2,6 +2,15 @@
  * RAWG provider (docs/spec/06-roadmap.md phase 1). Fallback when IGDB is
  * unavailable or a title is not on it. Simple key-in-query-string REST API,
  * no token exchange.
+ *
+ * As of 2026-08, api.rawg.io appears offline — requests time out, and
+ * rawg.io itself does the same. Left in place since a provider with no
+ * credential configured already degrades to "unavailable" cleanly (the
+ * existing behavior for anyone who never set up RAWG), and removing it
+ * outright is a bigger decision than this observation warrants on its own.
+ * Not receiving further updates (see 2026-08-14 in `search()`'s IGDB
+ * counterpart, `igdb.ts`, which now widens and ranks its raw fetch — that
+ * change was deliberately not mirrored here).
  */
 import { GameregError } from '../core/errors.ts'
 import { PROVIDER_CREDENTIAL_FIELDS, resolveProviderCredentials } from '../core/secrets.ts'

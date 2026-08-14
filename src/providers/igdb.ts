@@ -14,6 +14,12 @@ import type { Provider, ProviderCandidate, ProviderDetail, ProviderFields } from
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
 const API_URL = 'https://api.igdb.com/v4'
 
+// Wider than resolve.ts's CANDIDATE_LIMIT (8) on purpose: the caller
+// (cli/commands/search.ts) ranks this raw window by platform ownership
+// before truncating to the display cap, so a platform-tagged match ranked
+// below IGDB's own top 8 by relevance is still there to be found.
+const SEARCH_FETCH_LIMIT = 24
+
 const SEARCH_FIELDS = 'name,first_release_date,platforms.name,cover.url'
 const DETAIL_FIELDS =
   'name,first_release_date,platforms.name,cover.url,genres.name,involved_companies.company.name,involved_companies.developer,involved_companies.publisher'
@@ -147,7 +153,10 @@ export function createIgdbProvider(root: string, fetchImpl: typeof fetch = fetch
     name: 'igdb',
 
     async search(query_: string): Promise<ProviderCandidate[]> {
-      const games = await query('games', `search "${escapeQuery(query_)}"; fields ${SEARCH_FIELDS}; limit 8;`)
+      const games = await query(
+        'games',
+        `search "${escapeQuery(query_)}"; fields ${SEARCH_FIELDS}; limit ${SEARCH_FETCH_LIMIT};`,
+      )
       return games.map(candidateOf)
     },
 

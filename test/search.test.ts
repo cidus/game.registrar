@@ -11,6 +11,9 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { rankByOwnership } from '../src/cli/commands/search.ts'
+import { platformTable } from '../src/core/platforms.ts'
+import type { Candidate } from '../src/resolve/resolve.ts'
 import { tempDir } from './helpers.ts'
 
 const MAIN = join(import.meta.dirname, '..', 'src', 'cli', 'main.ts')
@@ -68,4 +71,32 @@ test('--local-only skips the provider fallback and behaves the same with nothing
   const run = gamereg(root, 'search', 'something nobody has heard of', '--local-only')
   assert.equal(run.status, 0)
   assert.deepEqual(result(run)['candidates'], [])
+})
+
+function candidate(ref: string, platforms: string[]): Candidate {
+  return { ref, title: ref, year: null, platforms, source: 'provider', in_log: false }
+}
+
+test('rankByOwnership floats the candidate matching config.platforms to the top, order otherwise preserved', () => {
+  const table = platformTable([{ name: 'PlayStation 5', aliases: ['PS5'] }])
+  const candidates = [
+    candidate('a', ['Game Boy Color']),
+    candidate('b', ['PlayStation 5', 'PC (Microsoft Windows)']),
+    candidate('c', ['Xbox Series X|S']),
+  ]
+
+  const ranked = rankByOwnership(candidates, table)
+  assert.deepEqual(
+    ranked.map((c) => c.ref),
+    ['b', 'a', 'c'],
+  )
+})
+
+test('rankByOwnership is a no-op when nothing is configured, or when nothing matches', () => {
+  const empty = platformTable([])
+  const candidates = [candidate('a', ['Switch']), candidate('b', ['PC (Microsoft Windows)'])]
+  assert.deepEqual(rankByOwnership(candidates, empty).map((c) => c.ref), ['a', 'b'])
+
+  const configured = platformTable([{ name: 'PlayStation 5', aliases: [] }])
+  assert.deepEqual(rankByOwnership(candidates, configured).map((c) => c.ref), ['a', 'b'])
 })

@@ -19,7 +19,7 @@ import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider } from '../../providers/provider.ts'
 import { createRawgProvider } from '../../providers/rawg.ts'
 import { normalize } from '../../resolve/normalize.ts'
-import { platformTable } from '../../core/platforms.ts'
+import { platformTable, samePlatform, type PlatformTable } from '../../core/platforms.ts'
 import { candidateFromProvider, candidateOf, search, CANDIDATE_LIMIT, type Candidate } from '../../resolve/resolve.ts'
 import { createContext } from '../context.ts'
 import { emit } from '../output.ts'
@@ -32,8 +32,29 @@ function providers(root: string): Provider[] {
   return [createIgdbProvider(root), createRawgProvider(root)]
 }
 
+/**
+ * Highest first, by how many of a candidate's platforms this vault owns
+ * (`config.platforms`) — a preference, never a filter: nothing is dropped,
+ * only reordered, the same way `platformGroups()` already prefers owned
+ * platforms when offering a closing prompt (02-cli.md, *What gets offered*).
+ * A vault with nothing configured yet (`table.configured` empty) scores
+ * everything zero and the provider's own relevance order survives untouched
+ * — `Array.prototype.sort` is stable, so ties never reshuffle.
+ */
+export function rankByOwnership(candidates: readonly Candidate[], table: PlatformTable): Candidate[] {
+  if (table.configured.length === 0) return [...candidates]
+  const score = (candidate: Candidate): number =>
+    candidate.platforms.filter((name) => table.configured.some((owned) => samePlatform(name, owned, table))).length
+  return [...candidates].sort((left, right) => score(right) - score(left))
+}
+
 /** Tries each provider in order; the first to return anything wins. Unconfigured providers are skipped, not fatal. */
-async function providerCandidates(root: string, term: string, platform: string | undefined): Promise<Candidate[]> {
+async function providerCandidates(
+  root: string,
+  term: string,
+  platform: string | undefined,
+  table: PlatformTable,
+): Promise<Candidate[]> {
   for (const provider of providers(root)) {
     let results
     try {
@@ -46,7 +67,10 @@ async function providerCandidates(root: string, term: string, platform: string |
       platform === undefined || platform === ''
         ? results
         : results.filter((candidate) => candidate.platforms.some((name) => normalize(name) === normalize(platform)))
-    if (filtered.length > 0) return filtered.map((candidate) => candidateFromProvider(provider.name, candidate))
+    if (filtered.length > 0) {
+      const shaped = filtered.map((candidate) => candidateFromProvider(provider.name, candidate))
+      return rankByOwnership(shaped, table)
+    }
   }
   return []
 }
@@ -60,18 +84,14 @@ export function registerSearch(registrar: Registrar): void {
     .action(async (term: string, options: Options, command: Command) => {
       const cli = createContext(command)
       const workspace = load(cli)
+      const table = platformTable(cli.vault.config.platforms)
 
-      const found = search(
-        workspace.state,
-        term,
-        options.platform,
-        platformTable(cli.vault.config.platforms),
-      )
+      const found = search(workspace.state, term, options.platform, table)
       let candidates: Candidate[] = found.slice(0, CANDIDATE_LIMIT).map(candidateOf)
       let truncated = found.length > CANDIDATE_LIMIT
 
       if (candidates.length === 0 && options.localOnly !== true) {
-        const fromProviders = await providerCandidates(cli.vault.root, term, options.platform)
+        const fromProviders = await providerCandidates(cli.vault.root, term, options.platform, table)
         candidates = fromProviders.slice(0, CANDIDATE_LIMIT)
         truncated = fromProviders.length > CANDIDATE_LIMIT
       }
@@ -91,6 +111,7 @@ export function registerSearch(registrar: Registrar): void {
                   : cli.t('prompt.candidate_new', {
                       title: candidate.title,
                       year: candidate.year === null ? '' : ` (${candidate.year})`,
+                      platforms: candidate.platforms.length === 0 ? '' : ` [${candidate.platforms.join(', ')}]`,
                     }),
               ),
             ]

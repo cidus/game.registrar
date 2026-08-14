@@ -25,7 +25,10 @@ target registry with a manifest and ownership-based cleanup. Two targets ship:
 
 **Phase 1 is done.** `CURRENT_PHASE` in `core/vocab.ts` is `1`.
 Implemented and tested: provider credentials, `providers/igdb.ts` +
-`providers/rawg.ts` behind a common interface, `enrich` (including provider
+`providers/rawg.ts` behind a common interface (**RAWG appears offline as of
+2026-08** — `api.rawg.io` and `rawg.io` both time out; `rawg.ts` is left in
+place, since an unconfigured/unreachable provider already degrades cleanly,
+but is not receiving further updates — see its file comment), `enrich` (including provider
 ambiguity handling — a menu or exit 3 + `candidates[]`, `--match <ref>` to
 re-invoke, platform-aware narrowing/auto-resolution from the game's recorded
 runs, and a literal `<query>` — when given — driving the provider search
@@ -39,7 +42,8 @@ normalize, hash, write to `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**,
 `npm test` runs 333 tests (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB/RAWG calls, skips cleanly with no
 credentials — see Testing strategy below) adds 8 more; run it whenever you
-touch provider matching.
+touch provider matching. Its RAWG cases will likely fail on a timeout rather
+than skip, per the note above — not a regression if so.
 
 Tagged `v0.1.0`. `package.json` reads `0.2.0`, marking phase 2's start — see
 Versioning below for what a patch on an already-tagged phase does to that
