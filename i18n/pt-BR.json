@@ -441,6 +441,7 @@
   },
   "table": {
     "title": "Jogos",
+    "cover": "Capa",
     "game": "Título",
     "platform": "Plataforma",
     "started": "Início",

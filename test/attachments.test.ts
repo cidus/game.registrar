@@ -11,6 +11,7 @@ import type { EventEnvelope } from '../src/core/events.ts'
 import { attachmentsOfGame, fold, gameOfEvent } from '../src/core/fold.ts'
 import { translator } from '../src/i18n/index.ts'
 import { galleryBlock, headerBlock } from '../src/render/note.ts'
+import { tableBlock } from '../src/render/table.ts'
 import { context, event } from './helpers.ts'
 
 const bundle = translator('en')
@@ -175,6 +176,21 @@ test('a downloaded provider cover (has a sha256) embeds the same as a user one',
   )
   const header = headerBlock(state.gamesById.get('G1')!, bundle)
   assert.match(header, new RegExp(`^!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\]\\]\\n`))
+})
+
+test('the consolidated table embeds a reduced cover, only once one is locally ingested', () => {
+  const events = baseLog()
+  const withoutCover = tableBlock(fold(events, context), bundle)
+  const g1Row = withoutCover.split('\n').find((line) => line.includes('hollow-knight'))!
+  assert.match(g1Row, /^\|\s*\|/) // the cover column is the first, and empty
+
+  const sha = 'e'.repeat(64)
+  const withCover = tableBlock(
+    fold([...events, event('game.cover', { game_id: 'G1', sha256: sha, source: 'user' })], context),
+    bundle,
+  )
+  const coveredRow = withCover.split('\n').find((line) => line.includes('hollow-knight'))!
+  assert.match(coveredRow, new RegExp(`^\\|\\s*!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\\\\\|32\\]\\]\\s*\\|`))
 })
 
 test('gameOfEvent resolves through run_id and session_id, not only a direct game_id', () => {

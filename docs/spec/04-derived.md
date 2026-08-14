@@ -240,11 +240,16 @@ the user should hear it before the build does it.
 
 ```markdown
 <!-- gamereg:begin block=table -->
-| Game | Platform | Started | Ended | Hours | Rating | Difficulty | Criteria |
-|---|---|---|---|---|---|---|---|
-| [[hollow-knight\|Hollow Knight]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | hard | true_ending |
+| Cover | Game | Platform | Started | Ended | Hours | Rating | Difficulty | Criteria |
+|---|---|---|---|---|---|---|---|---|
+| ![[assets/e3/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.webp\|32]] | [[hollow-knight\|Hollow Knight]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | hard | true_ending |
 <!-- gamereg:end block=table -->
 ```
+
+`Cover` is empty for a game whose cover is not locally ingested yet — same
+rule the game note's header embed and the run note's `cover` property both
+follow. It embeds at a reduced width (Obsidian's own `|<width>` sizing on
+`![[...]]`), since a table row is not the place for a full-size image.
 
 Sorted by `ended_on` descending, open runs first. Imported runs are marked so
 stated hours are never confused with measured ones.

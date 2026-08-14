@@ -9,7 +9,11 @@ import { formatHours } from '../core/duration.ts'
 import type { GameState, RunState, VaultState } from '../core/fold.ts'
 import type { DatePrecision } from '../core/vocab.ts'
 import type { Translator } from '../i18n/index.ts'
+import { assetPath } from './assets.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
+
+/** Small enough for a table row; Obsidian's own `|<width>` embed sizing. */
+const COVER_WIDTH = 32
 
 export const TABLE_BLOCK = 'table'
 
@@ -46,6 +50,7 @@ export function tableBlock(state: VaultState, bundle: Translator): string {
   if (rows.length === 0) return bundle.t('table.empty')
 
   const head = [
+    bundle.t('table.cover'),
     bundle.t('table.game'),
     bundle.t('table.platform'),
     bundle.t('table.started'),
@@ -61,7 +66,11 @@ export function tableBlock(state: VaultState, bundle: Translator): string {
       run.hours_source !== 'measured'
         ? `${formatHours(run.minutes)} (${bundle.t('table.stated_marker')})`
         : formatHours(run.minutes)
+    // Only a locally ingested cover has a file to embed — same rule the game
+    // note's own header and the Shelf base view already follow.
+    const cover = game.cover?.sha256 == null ? '' : `![[${assetPath(game.cover.sha256)}\\|${COVER_WIDTH}]]`
     return [
+      cover,
       `[[${game.slug}\\|${cell(game.title)}]]`,
       cell(run.platform),
       date(run.started_on, run.started_precision),

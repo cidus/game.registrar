@@ -377,6 +377,7 @@
   },
   "table": {
     "title": "Games",
+    "cover": "Cover",
     "game": "Game",
     "platform": "Platform",
     "started": "Started",
