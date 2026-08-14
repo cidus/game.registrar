@@ -23,49 +23,6 @@ target registry with a manifest and ownership-based cleanup. Two targets ship:
 `obsidian` (game notes, run notes, `Game List.md`, seeded `Game Database.base`)
 and `csv`. `example-vault/` is the golden fixture for both.
 
-**The `obsidian` target writes everything under `obsidian/`** (2026-08), not
-the vault root — `obsidian/games/`, `obsidian/runs/`, `obsidian/Game List.md`,
-`obsidian/Game Database.base`. That folder, not the repo root, is what gets
-opened as the Obsidian vault, so `data/`, `gamereg.secrets.json` and
-`.gamereg/` stay out of it. `assets/` itself still lives at the vault root —
-written directly by image ingestion, independent of any target — and
-`gamereg build` keeps `obsidian/assets` as a symlink to `../assets`
-(`targets/obsidian.ts`'s `ensureAssetsLink`, called once from `build.ts`
-whenever `obsidian` is among the targets built) so `![[assets/<sha>...]]`
-still resolves. See 07-targets.md's `obsidian` section for the full
-reasoning, including why paths *inside* the Bases seed
-(`file.inFolder("runs")`) did not need to change — they were already
-relative to what is now `obsidian/`, not to the vault root.
-
-**`Games.md`/`Games.base` are now `Game List.md`/`Game Database.base`**
-(2026-08) — both used to display as bare "Games" in Obsidian's file explorer
-and quick switcher, indistinguishable at a glance. `templates/Games.base` was
-renamed to `templates/Game Database.base` to match; `templates.ts`'s
-`template()` call site in `obsidian.ts` takes the new name as a plain string
-key, nothing structural.
-
-**The `By genre` view in `Game Database.base` had a real bug**, found live in
-Obsidian for Mac: `groupBy` needs both `property` *and* `direction` — every
-real example found while researching this (including kepano's own vault,
-`kepano/kepano-obsidian`) always pairs them, and omitting `direction` failed
-to parse the whole file, not just that view. Also worth knowing for next
-time: Bases' cards view always shows the file name as a card's own title, with
-no YAML way to override it — confirmed against the official
-`obsidianmd/obsidian-help` source and kepano's own `.base` files, not just
-inference. The `image` property (`image: cover`) is a genuine, distinct
-view-level key, found in `kepano/kepano-obsidian`'s `Templates/Bases/Attachments.base` —
-not something inferred from a property's shape in `order:`.
-
-**Run notes are named `<started_on>-<slug>.md`, date first** (2026-08), not
-`<slug>-<started_on>.md` — so a plain filename sort in Obsidian's file
-explorer is a chronological one. `render/run.ts`'s `runNoteNames()` is the
-one place that matters; `render/note.ts`'s wikilinks and `obsidian.ts`'s
-`PlannedFile.path` both call it, so nothing else needed to change. Run notes
-also carry a denormalized `cover` property now (`render/assets.ts`'s
-`assetPath()`, shared with the game note to avoid a circular import between
-`note.ts` and `run.ts`) — it's what `Game Database.base`'s Shelf view points
-`image:` at.
-
 **Phase 1 is done.** `CURRENT_PHASE` in `core/vocab.ts` is `1`.
 Implemented and tested: provider credentials, `providers/igdb.ts` behind a
 common `Provider` interface (RAWG was implemented alongside it as a fallback,
@@ -83,14 +40,15 @@ write command — see non-negotiable 4), the `sqlite`/`json`/`html` targets,
 `query`, `import`, the image ingestion *pipeline* (`src/images/ingest.ts` +
 `exif.ts` — EXIF read then stripped, normalize, hash, write to
 `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**, **provider cover
-download** and the **platform vocabulary** (all below). `npm test` runs 333
+download** and the **platform vocabulary** (all below). `npm test` runs 344
 tests (`node --test`, no framework, no network). `npm run test:live`
 (opt-in, real IGDB calls, skips cleanly with no credentials — see Testing
 strategy below) adds 8 more; run it whenever you touch provider matching.
 
-Tagged `v0.1.0`. `package.json` reads `0.2.0`, marking phase 2's start — see
-Versioning below for what a patch on an already-tagged phase does to that
-number.
+Tagged `v0.1.0`, `v0.1.1`. `package.json` reads `0.1.3` — still hardening
+phase 1 (see *Obsidian layout, Bases fixes, and provider cleanup* below for
+what shipped since `v0.1.1`); phase 2 has not started. See Versioning below
+for what a patch on an already-tagged phase does to the number.
 
 ### Image ingestion's CLI surface, as built
 
@@ -175,6 +133,63 @@ not phase 2 work, hence `v0.1.1` rather than folding into `v0.2.0`.
   writes `assets/`, and the header embed renders it. Not a committed test —
   a one-off manual check, since `npm run test:live` intentionally stays
   narrow (see its file comment).
+
+### Obsidian layout, Bases fixes, and provider cleanup — since v0.1.1
+
+Shipped across several rounds, not tagged yet — `package.json` moved
+`0.1.1` → `0.1.2` → `0.1.3` without a corresponding tag for the middle one,
+since the work kept going before it was called done. All of it is a patch
+on phase 1, not phase 2 (chat and voice) — see Versioning below.
+
+Everything the `obsidian` target writes now lives under `obsidian/`, not the
+vault root — `obsidian/games/`, `obsidian/runs/`, `obsidian/Game List.md`,
+`obsidian/Game Database.base`. That folder, not the repo root, is what gets
+opened as the Obsidian vault, so `data/`, `gamereg.secrets.json` and
+`.gamereg/` stay out of it. `assets/` itself still lives at the vault
+root — written directly by image ingestion, independent of any target —
+and `gamereg build` keeps `obsidian/assets` as a symlink to `../assets`
+(`targets/obsidian.ts`'s `ensureAssetsLink`, called once from `build.ts`
+whenever `obsidian` is among the targets built) so `![[assets/<sha>...]]`
+still resolves. Paths *inside* the Bases seed (`file.inFolder("runs")`) did
+not need to change — they were already relative to what is now
+`obsidian/`, not the vault root. See 07-targets.md's `obsidian` section.
+
+- **`Games.md`/`Games.base` renamed to `Game List.md`/`Game Database.base`**
+  — both used to display as bare "Games" in Obsidian's file explorer and
+  quick switcher, indistinguishable at a glance. `templates/Games.base` was
+  renamed to `templates/Game Database.base` to match.
+- **The `By genre` view in `Game Database.base` had a real bug**, found live
+  in Obsidian for Mac: `groupBy` needs both `property` *and* `direction` —
+  every real example found while researching this (including kepano's own
+  vault, `kepano/kepano-obsidian`) always pairs them, and omitting
+  `direction` failed to parse the whole file, not just that view.
+- **Bases' cards view always shows the file name as a card's own title**,
+  with no YAML way to override it — confirmed against the official
+  `obsidianmd/obsidian-help` source and kepano's own `.base` files, not just
+  inference. The `image` property (`image: cover`) is a genuine, distinct
+  view-level key, found in `kepano/kepano-obsidian`'s
+  `Templates/Bases/Attachments.base` — not something inferred from a
+  property's shape in `order:`.
+- **Run notes are named `<started_on>-<slug>.md`, date first**, not
+  `<slug>-<started_on>.md` — a plain filename sort in the file explorer is
+  now chronological. `render/run.ts`'s `runNoteNames()` is the one place
+  that mattered; `render/note.ts`'s wikilinks and `obsidian.ts`'s
+  `PlannedFile.path` both already called it.
+- **Run notes carry a denormalized `cover` property**
+  (`render/assets.ts`'s `assetPath()`, shared with the game note to avoid a
+  circular import between `note.ts` and `run.ts`), populated only once a
+  game has a locally-ingested cover. It's what `Game Database.base`'s Shelf
+  view points `image:` at — the game note's own header embed and
+  `Game List.md`'s reduced-width Cover column follow the same rule.
+- **Game notes carry an Obsidian `aliases: [title]`** — the filename is the
+  slug (filesystem-safe, not pretty), so this is what lets the quick
+  switcher find a note by the title someone actually types.
+- **RAWG removed entirely** (`src/providers/rawg.ts` deleted). It had been
+  offline since before this was first noted here — `api.rawg.io` and
+  `rawg.io` both timed out — and was never going to receive further
+  updates. `PROVIDER_CREDENTIAL_FIELDS` (`core/secrets.ts`) and
+  `KNOWN_PROVIDERS` (`cli/commands/enrich.ts`) now list only `igdb`; that's
+  where a future second provider would join, the same shape RAWG used.
 
 ### The platform vocabulary, as built
 
