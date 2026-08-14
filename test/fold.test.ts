@@ -132,6 +132,47 @@ test('an imported run states its hours instead of measuring them', () => {
   assert.equal(run?.open, false)
 })
 
+test('a run.open with a stated baseline stays open, and mixes with sessions logged on it later', () => {
+  const events = [
+    event('game.create', { game_id: 'G3', slug: 'opus-magnum', title: 'Opus Magnum' }),
+    event('run.open', {
+      run_id: 'R10',
+      game_id: 'G3',
+      platform: 'Steam',
+      started_on: '2026-01-01',
+      date_precision: 'year',
+      replay: false,
+      hours: 30,
+    }),
+  ]
+
+  const openOnly = fold(events, context).runsById.get('R10')
+  assert.equal(openOnly?.stated_minutes, 1800)
+  assert.equal(openOnly?.minutes, 1800)
+  assert.equal(openOnly?.hours_source, 'stated')
+  assert.equal(openOnly?.open, true)
+  assert.equal(openOnly?.sessions.length, 0)
+
+  const withSession = [
+    ...events,
+    event('session.open', { session_id: 'S9', run_id: 'R10', at: '2026-08-14T20:00:00-03:00' }),
+    event('session.close', { session_id: 'S9', at: '2026-08-14T21:30:00-03:00' }),
+  ]
+
+  const mixed = fold(withSession, context).runsById.get('R10')
+  assert.equal(mixed?.stated_minutes, 1800)
+  assert.equal(mixed?.minutes, 1890)
+  assert.equal(mixed?.hours_source, 'mixed')
+})
+
+test('an ordinary run.open, with no stated hours, is measured as before', () => {
+  const state = fold(log(), context)
+  const run = state.runsById.get('R1')
+  assert.equal(run?.stated_minutes, 0)
+  assert.equal(run?.hours_source, 'measured')
+  assert.equal(run?.minutes, 180)
+})
+
 test('replaying the log twice yields identical state', () => {
   const events = log()
   assert.deepEqual(fold(events, context).games, fold(events, context).games)

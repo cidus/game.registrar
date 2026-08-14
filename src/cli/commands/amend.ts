@@ -7,22 +7,37 @@
 import type { Command } from 'commander'
 
 import { GameregError } from '../../core/errors.ts'
+import { canonicalPlatform, platformTable } from '../../core/platforms.ts'
 import { createContext } from '../context.ts'
 import { emit } from '../output.ts'
 import type { Registrar } from '../register.ts'
+import type { Cli } from '../context.ts'
 import { commit, load, stage } from '../workspace.ts'
 
 type AmendOptions = { reason?: string; set?: string[] }
 type RevokeOptions = { reason?: string }
 
-/** `--set rating=9` yields a number; `--set note=hello` yields a string. */
-function parsePatch(pairs: readonly string[]): Record<string, unknown> {
+/**
+ * `--set rating=9` yields a number; `--set note=hello` yields a string.
+ *
+ * `platform` is special-cased through `canonicalPlatform()`, the same
+ * boundary every other `--platform` input goes through (02-cli.md, *Platform
+ * vocabulary*): `amend` is the documented fix path for a wrong platform
+ * inference, and a patch that skipped canonicalization would leave the log
+ * holding whatever spelling was typed instead of data clean at rest.
+ */
+function parsePatch(cli: Cli, pairs: readonly string[]): Record<string, unknown> {
   const patch: Record<string, unknown> = {}
+  const table = platformTable(cli.vault.config.platforms)
   for (const pair of pairs) {
     const index = pair.indexOf('=')
     if (index <= 0) throw new GameregError('usage', 'error.amend_needs_set')
     const key = pair.slice(0, index)
     const raw = pair.slice(index + 1)
+    if (key === 'platform') {
+      patch[key] = canonicalPlatform(raw, table)
+      continue
+    }
     try {
       patch[key] = JSON.parse(raw)
     } catch {
@@ -52,7 +67,7 @@ export function registerAmend(registrar: Registrar): void {
       const pairs = options.set ?? []
       if (pairs.length === 0) throw new GameregError('usage', 'error.amend_needs_set')
 
-      const patch = parsePatch(pairs)
+      const patch = parsePatch(cli, pairs)
       stage(cli, workspace, 'event.amend', { target: eventId, reason: options.reason, patch })
       const events = commit(cli, workspace)
 

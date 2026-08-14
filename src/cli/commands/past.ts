@@ -19,7 +19,7 @@ import { commit, load } from '../workspace.ts'
 
 type Options = {
   id?: string
-  ended: string
+  ended?: string
   started?: string
   hours?: string
   rating?: string
@@ -39,7 +39,7 @@ export function registerPast(registrar: Registrar): void {
   registrar
     .command('past', 'help.past')
     .argument('<query>', registrar.t('help.arg.query'))
-    .requiredOption('--ended <date>', registrar.t('help.opt.ended'))
+    .option('--ended <date>', registrar.t('help.opt.ended'))
     .option('--started <date>', registrar.t('help.opt.started'))
     .option('--hours <number>', registrar.t('help.opt.hours'))
     .option('--id <ref>', registrar.t('help.opt.id'))
@@ -86,7 +86,10 @@ export function registerPast(registrar: Registrar): void {
 
       const events = commit(cli, workspace)
 
-      const prose = [cli.t('prose.past.filed', { title: game.title, date: endedText })]
+      const prose =
+        endedText === null
+          ? [cli.t('prose.past.opened', { title: game.title })]
+          : [cli.t('prose.past.filed', { title: game.title, date: endedText })]
       if (minutes !== null) {
         prose.push(cli.t('prose.past.hours', { hours: (minutes / 60).toFixed(1) }))
       }
@@ -94,7 +97,7 @@ export function registerPast(registrar: Registrar): void {
       prose.push(...suggestedAtProse(cli, bundle.suggestedAt))
 
       emit(cli, {
-        action: 'run.import',
+        action: endedText === null ? 'run.open' : 'run.import',
         result: {
           game: { game_id: game.game_id, slug: game.slug, title: game.title },
           run_id: run.run_id,

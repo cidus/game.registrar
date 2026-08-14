@@ -6,6 +6,7 @@
  * see the resulting state, and appends once at the end. That way `--dry-run`
  * and a real run go down exactly the same path.
  */
+import { hoursToMinutes } from '../core/duration.ts'
 import { GameregError } from '../core/errors.ts'
 import { appendEvents, makeEvent, readEvents, type EventEnvelope } from '../core/events.ts'
 import { fold, type GameState, type RunState, type SessionState, type VaultState } from '../core/fold.ts'
@@ -17,8 +18,8 @@ import {
   soleMatch,
   type PlatformSource,
 } from '../core/platforms.ts'
-import { toISO } from '../core/time.ts'
-import { checkEnum, FORM, MODE, type Form, type Mode } from '../core/vocab.ts'
+import { logicalDay, toISO } from '../core/time.ts'
+import { checkEnum, FORM, MODE, type DatePrecision, type Form, type Mode } from '../core/vocab.ts'
 import { normalize, uniqueSlug } from '../resolve/normalize.ts'
 import { candidateOf, parseReference, resolveLocal, type Candidate, type ResolveOptions } from '../resolve/resolve.ts'
 import type { Cli } from './context.ts'
@@ -232,6 +233,49 @@ export function runDefaults(
         ? (last?.mode ?? cli.vault.config.defaults.mode)
         : checkEnum('mode', options.mode, MODE),
   }
+}
+
+export type NewRunOptions = {
+  platform?: string
+  form?: string
+  mode?: string
+  /** Stated baseline, as typed (e.g. `"30"`) — `start --past-hours` or `past` without `--ended`. */
+  hours?: string
+  /** Defaults to today, day precision — `start`'s own case. `past` passes an explicit guess. */
+  startedOn?: string
+  startedPrecision?: DatePrecision
+}
+
+export type NewRun = {
+  run_id: string
+  platform_source: PlatformSource | null
+}
+
+/**
+ * Stages a `run.open` for an already-resolved game — the mechanics `start`
+ * and `past` (filed without `--ended`) share. Never stages a `session.open`;
+ * that decision belongs to the caller. `start` always opens one right after
+ * calling this. `past` never does — "estou jogando X, já tenho 30h" is a
+ * fact about an ongoing run, not an announcement that a session is starting
+ * this instant (05-agent.md, *Starting*).
+ */
+export function stageNewRun(cli: Cli, workspace: Workspace, game: GameState, options: NewRunOptions): NewRun {
+  const defaults = runDefaults(cli, game, options)
+  const runId = newId()
+  const hours = options.hours === undefined ? null : hoursToMinutes(Number(options.hours)) / 60
+  const precision = options.startedPrecision ?? 'day'
+  stage(cli, workspace, 'run.open', {
+    run_id: runId,
+    game_id: game.game_id,
+    ...(defaults.platform === null ? {} : { platform: defaults.platform }),
+    form: defaults.form,
+    mode: defaults.mode,
+    started_on: options.startedOn ?? logicalDay(cli.at, cli.vault.config.day_cutoff),
+    ...(precision === 'day' ? {} : { date_precision: precision }),
+    replay: game.runs.length > 0,
+    ...(hours === null ? {} : { hours }),
+  })
+  return { run_id: runId, platform_source: defaults.platform_source }
 }
 
 export function openRunOf(game: GameState): RunState | null {

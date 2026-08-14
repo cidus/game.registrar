@@ -100,6 +100,8 @@ export type RunState = {
   verdict: string | null
   replay: boolean
   sessions: SessionState[]
+  /** `run.open.hours` / `run.import.hours`, in minutes. Zero for an ordinary `start`. */
+  stated_minutes: number
   minutes: number
   hours_source: HoursSource
   open: boolean
@@ -429,8 +431,14 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           break
         }
         const imported = event.type === 'run.import'
+        // `run.import` always closes on arrival — `ended_on` is required there.
+        // `run.open` is closed only by a later `run.close`; a stated `hours`
+        // baseline on it (`start --past-hours`, `past` without `--ended`)
+        // doesn't change that, it just seeds `stated_minutes` before any
+        // session exists.
         const precision = (str(data, 'date_precision') ?? 'day') as DatePrecision
         const hours = num(data, 'hours')
+        const statedMinutes = hours !== null ? Math.round(hours * 60) : 0
         const run: RunState = {
           run_id: runId,
           game_id: game.game_id,
@@ -452,8 +460,9 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           verdict: null,
           replay: bool(data, 'replay'),
           sessions: [],
-          minutes: imported && hours !== null ? Math.round(hours * 60) : 0,
-          hours_source: imported ? 'stated' : 'measured',
+          stated_minutes: statedMinutes,
+          minutes: statedMinutes,
+          hours_source: statedMinutes > 0 ? 'stated' : 'measured',
           open: !imported,
         }
         state.runsById.set(runId, run)
@@ -659,9 +668,9 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
 
   for (const game of state.games) {
     for (const run of game.runs) {
-      if (run.hours_source === 'measured') {
-        run.minutes = run.sessions.reduce((total, session) => total + session.minutes, 0)
-      }
+      const measured = run.sessions.reduce((total, session) => total + session.minutes, 0)
+      run.minutes = run.stated_minutes + measured
+      run.hours_source = run.stated_minutes > 0 ? (measured > 0 ? 'mixed' : 'stated') : 'measured'
     }
     game.total_minutes = game.runs.reduce((total, run) => total + run.minutes, 0)
     game.status = statusOf(game.runs)

@@ -77,7 +77,7 @@
     "break_end": "Encerra o intervalo em aberto.",
     "finish": "Encerra uma jogatina como finalizada.",
     "drop": "Abandona uma jogatina.",
-    "past": "Protocola um jogo finalizado no passado.",
+    "past": "Protocola uma jogatina iniciada no passado.",
     "open": "Lista as sessões em aberto.",
     "status": "Resumo do acervo, ou a situação de um título.",
     "search": "Consulta um título sem registrar nada.",
@@ -122,7 +122,8 @@
       "day_cutoff": "HH:MM. Quando o dia lógico vira, para os relatórios.",
       "targets": "Alvos de construção, separados por vírgula, ex.: obsidian,csv.",
       "csv_dir": "Diretório do alvo csv, relativo ao acervo.",
-      "replay": "Força uma jogatina nova mesmo havendo uma encerrada.",
+      "replay": "Força uma jogatina nova mesmo havendo uma em aberto.",
+      "past_hours": "Horas já jogadas antes deste acervo passar a acompanhar a jogatina.",
       "no_metadata": "Cria um registro local a partir do texto informado.",
       "note": "Anotação, nas palavras de quem jogou.",
       "break": "Intervalo a descontar: 40m, 1h20, 90.",
@@ -131,9 +132,9 @@
       "criteria": "credits, true_ending, full_completion, platinum, enough, endless, abandoned.",
       "outcome": "finished ou abandoned.",
       "reason": "Motivo, texto livre.",
-      "started": "Data de início: 2011, 2011-07 ou 2011-07-14.",
-      "ended": "Data de término: 2011, 2011-07 ou 2011-07-14.",
-      "hours": "Horas declaradas, registradas como declaradas e não medidas.",
+      "started": "Data de início: 2011, 2011-07 ou 2011-07-14. Sem --ended, cai no ano corrente quando omitida.",
+      "ended": "Registra a jogatina como já finalizada, nesta data: 2011, 2011-07 ou 2011-07-14. Omita para protocolar como ainda em andamento (exige --hours).",
+      "hours": "Horas declaradas — o total de uma jogatina encerrada, ou o já jogado antes de uma em andamento.",
       "add": "O nome a ensinar.",
       "set": "Campo a emendar, como chave=valor. Repetível.",
       "force": "Reescreve todo arquivo derivado, tendo mudado ou não. Sobrescreve bases semeadas.",
@@ -184,7 +185,11 @@
     "several_open_sessions": "Há {count} sessões em aberto. Indique uma.",
     "session_already_open": "Já há sessão em aberto de {title}, protocolada às {time}.",
     "no_open_run": "Nenhuma jogatina em aberto de {title}.",
+    "run_already_open": "{title} já tem uma jogatina em aberto. Use iniciar para anexar uma sessão a ela, ou corrigir para ajustar as horas declaradas.",
     "run_already_closed": "A jogatina de {title} já está encerrada.",
+    "past_hours_no_new_run": "{title} já tem uma jogatina em aberto. --past-hours só se aplica quando iniciar abre uma nova; use corrigir para ajustar as horas declaradas na jogatina já existente.",
+    "past_needs_ended_or_hours": "Informe --ended (a jogatina está encerrada), --hours (a jogatina está em andamento, com horas declaradas) ou ambos.",
+    "past_open_run_no_completion_fields": "--rating, --difficulty, --criteria e --outcome descrevem como uma jogatina foi encerrada. Exigem --ended.",
     "break_already_open": "Já há intervalo em aberto, desde as {time}.",
     "no_open_break": "Nenhum intervalo em aberto.",
     "negative_duration": "O horário de encerramento antecede o de abertura, ou os intervalos excedem a sessão.",
@@ -217,7 +222,12 @@
     "import_row_incomplete": "A linha não tem valor para \"{field}\", que é obrigatório.",
     "bad_image": "{file} não pôde ser lido como imagem.",
     "match_with_all": "--match não pode ser combinado com --all.",
-    "bad_match_ref": "\"{value}\" não é uma referência de provedor. Esperado <provedor>:<id>, ex.: igdb:7346."
+    "bad_match_ref": "\"{value}\" não é uma referência de provedor. Esperado <provedor>:<id>, ex.: igdb:7346.",
+    "as_cover_without_photo": "--as-cover promove uma foto anexada neste mesmo comando. Informe também --photo.",
+    "no_photo_to_attach": "Informe ao menos um --photo.",
+    "cover_needs_source": "Informe a capa com --photo <arquivo>, --from <hash>, ou --reset.",
+    "cover_too_many_sources": "Apenas um entre --photo, --from ou --reset é permitido.",
+    "unknown_attachment": "Nenhum anexo em {title} tem o hash \"{value}\"."
   },
   "doctor": {
     "unparseable_line": "A linha {line} não é JSON válido.",
@@ -254,7 +264,8 @@
       "also_open": "Também em aberto: {list}.",
       "filed_unknown": "Protocolada: {title} — sessão aberta às {time}.",
       "new_run_unknown": "Protocolada: {title} — jogatina aberta, sessão aberta às {time}.",
-      "replay_unknown": "Protocolada: {title} — segunda via, jogatina {run}. Sessão aberta às {time}."
+      "replay_unknown": "Protocolada: {title} — segunda via, jogatina {run}. Sessão aberta às {time}.",
+      "past_hours": "Base: {hours} h já jogadas — declaradas, não medidas."
     },
     "end": {
       "closed": "Sessão encerrada às {time}. Duração líquida: {duration}. Total do título: {total}.",
@@ -276,6 +287,7 @@
     },
     "past": {
       "filed": "Protocolado retroativamente: {title}, encerrado em {date}.",
+      "opened": "Protocolado em andamento: {title}. Nenhuma sessão foi aberta.",
       "hours": "Duração declarada: {hours} h — consta como declarada, não medida."
     },
     "open": {

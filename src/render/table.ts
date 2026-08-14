@@ -58,7 +58,7 @@ export function tableBlock(state: VaultState, bundle: Translator): string {
 
   const body = rows.map(({ game, run }) => {
     const hours =
-      run.hours_source === 'stated'
+      run.hours_source !== 'measured'
         ? `${formatHours(run.minutes)} (${bundle.t('table.stated_marker')})`
         : formatHours(run.minutes)
     return [

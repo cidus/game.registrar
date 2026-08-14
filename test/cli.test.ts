@@ -217,6 +217,19 @@ test('amend and revoke append, and the original line stays on record', () => {
   assert.equal((result(gamereg(root, 'open'))['open'] as unknown[]).length, 1)
 })
 
+test('amend --set platform=... canonicalizes, same as the --platform flag', () => {
+  const root = vault()
+  const started = gamereg(root, 'start', 'hollow knight', '--no-metadata', '--at', '2026-05-03 20:00')
+  const openEvent = (started.json['events'] as string[])[1]!
+
+  const amended = gamereg(root, 'amend', openEvent, '--reason', 'user corrected the platform', '--set', 'platform=Switch')
+  assert.equal(amended.status, 0)
+  assert.equal((result(amended)['patch'] as Record<string, unknown>)['platform'], 'Nintendo Switch')
+
+  const status = gamereg(root, 'status', 'hollow knight')
+  assert.equal((result(status)['runs'] as { platform: string }[])[0]?.platform, 'Nintendo Switch')
+})
+
 test('past files a stated duration and marks it as stated', () => {
   const root = vault()
   const run = gamereg(root, 'past', 'chrono trigger', '--ended', '2011-07', '--rating', '10', '--hours', '30', '--no-metadata')
@@ -224,6 +237,72 @@ test('past files a stated duration and marks it as stated', () => {
   assert.equal(result(run)['hours_source'], 'stated')
   assert.equal(result(run)['date_precision'], 'month')
   assert.equal(result(run)['minutes'], 1800)
+})
+
+test('start --past-hours opens a run with a stated baseline, on top of which sessions still measure', () => {
+  const root = vault()
+  const started = gamereg(root, 'start', 'opus magnum', '--no-metadata', '--past-hours', '30', '--at', '2026-08-14 20:00')
+  assert.equal(started.status, 0)
+
+  const afterStart = gamereg(root, 'status', 'opus magnum')
+  const runAfterStart = (result(afterStart)['runs'] as { minutes: number; hours_source: string }[])[0]!
+  assert.equal(runAfterStart.minutes, 1800)
+  assert.equal(runAfterStart.hours_source, 'stated')
+
+  gamereg(root, 'end', '--at', '2026-08-14 21:30')
+  const afterEnd = gamereg(root, 'status', 'opus magnum')
+  const runAfterEnd = (result(afterEnd)['runs'] as { minutes: number; hours_source: string }[])[0]!
+  assert.equal(runAfterEnd.minutes, 1890)
+  assert.equal(runAfterEnd.hours_source, 'mixed')
+})
+
+test('--past-hours on a resumed run (no new run.open) is a usage error', () => {
+  const root = vault()
+  gamereg(root, 'start', 'opus magnum', '--no-metadata', '--at', '2026-08-14 20:00')
+  gamereg(root, 'end', '--at', '2026-08-14 21:00')
+  const resumed = gamereg(root, 'start', 'opus magnum', '--past-hours', '30')
+  assert.equal(resumed.status, 2)
+  assert.equal(resumed.json['error'], 'usage')
+})
+
+test('past without --ended opens a run with no session, reusable by start later', () => {
+  const root = vault()
+  const filed = gamereg(root, 'past', 'opus magnum', '--no-metadata', '--hours', '30', '--at', '2026-08-14 09:00')
+  assert.equal(filed.status, 0)
+  assert.equal(filed.json['action'], 'run.open')
+  assert.equal(result(filed)['minutes'], 1800)
+  assert.equal(result(filed)['hours_source'], 'stated')
+
+  assert.equal((result(gamereg(root, 'open'))['open'] as unknown[]).length, 0)
+
+  const resumed = gamereg(root, 'start', 'opus magnum', '--at', '2026-08-14 20:00')
+  assert.equal(resumed.status, 0)
+  assert.equal(result(resumed)['run_opened'], false)
+
+  gamereg(root, 'end', '--at', '2026-08-14 21:30')
+  const status = gamereg(root, 'status', 'opus magnum')
+  const run = (result(status)['runs'] as { minutes: number; hours_source: string }[])[0]!
+  assert.equal(run.minutes, 1890)
+  assert.equal(run.hours_source, 'mixed')
+})
+
+test('past requires --ended, --hours, or both', () => {
+  const root = vault()
+  const run = gamereg(root, 'past', 'opus magnum', '--no-metadata')
+  assert.equal(run.status, 2)
+})
+
+test('past without --ended rejects fields that describe how a run closed', () => {
+  const root = vault()
+  const run = gamereg(root, 'past', 'opus magnum', '--no-metadata', '--hours', '30', '--rating', '9')
+  assert.equal(run.status, 2)
+})
+
+test('past without --ended conflicts with a run already open for that game', () => {
+  const root = vault()
+  gamereg(root, 'start', 'opus magnum', '--no-metadata', '--at', '2026-08-14 20:00')
+  const filed = gamereg(root, 'past', 'opus magnum', '--hours', '30')
+  assert.equal(filed.status, 5)
 })
 
 test('doctor reports a broken log and exits 1', () => {

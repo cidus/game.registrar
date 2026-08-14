@@ -209,7 +209,7 @@ export function runsBlock(game: GameState, bundle: Translator): string {
   const rows = runs.map((run) => {
     const started = atPrecision(run.started_on, run.started_precision)
     const hours =
-      run.hours_source === 'stated'
+      run.hours_source !== 'measured'
         ? `${formatHours(run.minutes)} (${bundle.t('table.stated_marker')})`
         : formatHours(run.minutes)
     return [

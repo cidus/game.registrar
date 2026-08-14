@@ -78,7 +78,7 @@ readable title yet.
 
 | Type | Payload |
 |---|---|
-| `run.open` | `run_id`, `game_id`, `platform?`, `form`, `mode`, `started_on`, `replay` |
+| `run.open` | `run_id`, `game_id`, `platform?`, `form`, `mode`, `started_on`, `date_precision?`, `replay`, `hours?` |
 | `run.close` | `run_id`, `ended_on`, `outcome`, `completion_criteria`, `rating?`, `difficulty?`, `note?` |
 | `run.import` | Historical entry: everything above in one event, plus `hours?` and `date_precision` |
 | `run.verdict` | `run_id`, `text` — the consolidated review of that playthrough |
@@ -93,6 +93,17 @@ later by an `event.amend` over the `run.open` event, never by a second `run.open
 See 02-cli.md, *Platform, when a run closes*. It remains free text: the vocabulary
 in 02-cli.md canonicalizes spellings and orders what gets offered, and rejects
 nothing.
+
+**`hours` is an optional stated baseline** on `run.open` itself — playtime that
+happened before this vault started tracking the run (`gamereg start
+--past-hours`, or `gamereg past` filed without `--ended`, see 02-cli.md). It
+folds into `run.minutes` alongside whatever sessions open later on the same
+run; see *Duration* below for the arithmetic. Ordinary `start`, typed without
+the flag, never sets it — the field exists for the one case where someone
+already has playtime the register never saw. `date_precision` follows the
+same shape-of-the-argument rule as `run.import`'s, and is used only when
+`started_on` itself is a guess (typically `year`) rather than the exact day
+`start` would otherwise stamp.
 
 `run.verdict` carries prose and nothing else. It is separate from `run.close`
 because the verdict is usually written later — the run ends when you stop
@@ -267,10 +278,16 @@ type RunState = {
   verdict: string | null       // latest run.verdict, if any
   sessions: SessionState[]
   minutes: number
-  hours_source: 'measured' | 'stated'   // stated = from run.import
+  hours_source: 'measured' | 'stated' | 'mixed'
   open: boolean
 }
 ```
+
+`hours_source` is derived, not stored: `'stated'` when every minute on the run
+comes from a declared baseline and no session has ever closed on it,
+`'measured'` when there is no baseline and every minute comes from sessions,
+`'mixed'` when both are present. It is recomputed on every fold, the same as
+`minutes` — never read from the log.
 
 ### Duration
 
@@ -285,8 +302,15 @@ Rules:
 - Negative duration is a validation error. Reject the close, do not clamp.
 - A session with no close is `open` and contributes **zero** minutes. It must not
   be silently estimated.
-- `run.minutes` = Σ sessions. For imported runs, `minutes` comes from the stated
-  `hours` and `hours_source` is `stated`.
+- `run.minutes` = the run's stated baseline (`run.open.hours`, or `run.import`'s
+  `hours` — the same field, same unit, same honesty rule) **plus** Σ sessions.
+  A run with no baseline behaves exactly as before: `run.minutes` = Σ sessions.
+  A `run.import` filed with `--ended` never gains sessions (it is closed on
+  arrival), so its stated total stays exactly as declared. A run opened with a
+  baseline and no `--ended` — `start --past-hours`, or `past` without
+  `--ended` — is `open`, and every session that closes on it afterwards adds
+  to a number that started non-zero. Reports must never treat a stated portion
+  as if it were measured; that is what `hours_source` is for.
 
 ### Logical day
 

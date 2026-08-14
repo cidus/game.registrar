@@ -9,7 +9,7 @@ import type { Command } from 'commander'
 import { GameregError } from '../../core/errors.ts'
 import { newId } from '../../core/ids.ts'
 import type { PlatformSource } from '../../core/platforms.ts'
-import { logicalDay, toISO } from '../../core/time.ts'
+import { toISO } from '../../core/time.ts'
 import { attachmentProse, attachmentResult, collectAttachments, stageCoverFromFirst, suggestedAtProse } from '../attachments.ts'
 import { createContext } from '../context.ts'
 import { clock, clockOf, list } from '../format.ts'
@@ -24,8 +24,8 @@ import {
   openSessionOf,
   openSessions,
   resolveGame,
-  runDefaults,
   stage,
+  stageNewRun,
 } from '../workspace.ts'
 
 type Options = {
@@ -34,6 +34,7 @@ type Options = {
   form?: string
   mode?: string
   replay?: boolean
+  pastHours?: string
   metadata?: boolean
   kind?: string
   asCover?: boolean
@@ -48,6 +49,7 @@ export function registerStart(registrar: Registrar): void {
     .option('--form <form>', registrar.t('help.opt.form'))
     .option('--mode <mode>', registrar.t('help.opt.mode'))
     .option('--replay', registrar.t('help.opt.replay'))
+    .option('--past-hours <n>', registrar.t('help.opt.past_hours'))
     .option('--no-metadata', registrar.t('help.opt.no_metadata'))
     .option('--photo <path>', registrar.t('help.opt.photo'))
     .option('--caption <text>', registrar.t('help.opt.caption'))
@@ -82,22 +84,16 @@ export function registerStart(registrar: Registrar): void {
 
       let runId = reusable?.run_id ?? null
       const openedRun = runId === null
+      if (!openedRun && options.pastHours !== undefined) {
+        // Nothing new to attach a baseline to: the run this would-be session
+        // joins already exists. Adjusting its hours is `gamereg amend`'s job.
+        throw new GameregError('usage', 'error.past_hours_no_new_run', { title: before.title })
+      }
       let platformSource: PlatformSource | null = null
       if (runId === null) {
-        const defaults = runDefaults(cli, before, options)
-        platformSource = defaults.platform_source
-        runId = newId()
-        stage(cli, workspace, 'run.open', {
-          run_id: runId,
-          game_id: gameId,
-          // Omitted, not null: a run whose platform nobody has answered yet is
-          // recorded without one, and `end`/`finish`/`drop` settle it later.
-          ...(defaults.platform === null ? {} : { platform: defaults.platform }),
-          form: defaults.form,
-          mode: defaults.mode,
-          started_on: logicalDay(cli.at, cli.vault.config.day_cutoff),
-          replay: before.runs.length > 0,
-        })
+        const opened = stageNewRun(cli, workspace, before, { ...options, hours: options.pastHours })
+        runId = opened.run_id
+        platformSource = opened.platform_source
       }
 
       const sessionId = newId()
@@ -146,6 +142,9 @@ export function registerStart(registrar: Registrar): void {
         )
       }
       if (others.length > 0) prose.push(cli.t('prose.start.also_open', { list: list(others) }))
+      if (openedRun && options.pastHours !== undefined) {
+        prose.push(cli.t('prose.start.past_hours', { hours: options.pastHours }))
+      }
       prose.push(...attachmentProse(cli, bundle.photos, options.asCover === true))
       prose.push(...suggestedAtProse(cli, bundle.suggestedAt))
 

@@ -13,7 +13,7 @@
     "break_end": "Close the open break.",
     "finish": "Close a run as finished.",
     "drop": "Abandon a run.",
-    "past": "File a game finished in the past.",
+    "past": "File a game run started in the past.",
     "platform": "Manage the platform suggestion list.",
     "open": "List open sessions.",
     "status": "Vault summary, or one game's state.",
@@ -59,7 +59,8 @@
       "day_cutoff": "HH:MM. When the logical day flips for reporting.",
       "targets": "Comma-separated build targets, e.g. obsidian,csv.",
       "csv_dir": "Vault-relative directory for the csv target.",
-      "replay": "Force a new run even when a closed one exists.",
+      "replay": "Force a new run even when an open one already exists.",
+      "past_hours": "Baseline hours already played before this vault started tracking the run.",
       "no_metadata": "Create a local-only entry from the raw string.",
       "note": "Note, in the player's own words.",
       "break": "Break to deduct: 40m, 1h20, 90.",
@@ -68,9 +69,9 @@
       "criteria": "credits, true_ending, full_completion, platinum, enough, endless, abandoned.",
       "outcome": "finished or abandoned.",
       "reason": "Reason, free text.",
-      "started": "Start date: 2011, 2011-07 or 2011-07-14.",
-      "ended": "End date: 2011, 2011-07 or 2011-07-14.",
-      "hours": "Stated hours, recorded as stated rather than measured.",
+      "started": "Start date: 2011, 2011-07 or 2011-07-14. Defaults to the current year when omitted along with --ended.",
+      "ended": "Registers the run as already finished, on this date: 2011, 2011-07 or 2011-07-14. Omit to file it as still ongoing (requires --hours).",
+      "hours": "Stated hours — the total for a closed run, or the baseline already played for an ongoing one.",
       "add": "The name to teach.",
       "set": "Field to patch, as key=value. Repeatable.",
       "force": "Rewrite every derived file, changed or not. Overwrites seeded bases.",
@@ -120,7 +121,11 @@
     "several_open_sessions": "{count} sessions are open. Name one.",
     "session_already_open": "A session for {title} is already open, filed at {time}.",
     "no_open_run": "No open run for {title}.",
+    "run_already_open": "{title} already has an open run. Use start to add a session to it, or amend to correct its stated hours.",
     "run_already_closed": "The run for {title} is already closed.",
+    "past_hours_no_new_run": "{title} already has an open run. --past-hours only applies when start opens a new one; use amend to correct the stated hours on the existing run.",
+    "past_needs_ended_or_hours": "Provide --ended (the run is closed), --hours (the run is ongoing, with a stated baseline), or both.",
+    "past_open_run_no_completion_fields": "--rating, --difficulty, --criteria and --outcome describe how a run closed. They require --ended.",
     "break_already_open": "A break is already open, since {time}.",
     "no_open_break": "No break is open.",
     "negative_duration": "That closing time is before the opening time, or the breaks exceed the session.",
@@ -195,7 +200,8 @@
       "also_open": "Also open: {list}.",
       "filed_unknown": "Filed: {title} — session opened at {time}.",
       "new_run_unknown": "Filed: {title} — run opened, session opened at {time}.",
-      "replay_unknown": "Filed: {title} — certified copy, run {run}. Session opened at {time}."
+      "replay_unknown": "Filed: {title} — certified copy, run {run}. Session opened at {time}.",
+      "past_hours": "Baseline: {hours} h already played — stated, not measured."
     },
     "end": {
       "closed": "Session closed at {time}. Net duration: {duration}. Game total: {total}.",
@@ -217,6 +223,7 @@
     },
     "past": {
       "filed": "Filed retroactively: {title}, ended {date}.",
+      "opened": "Filed as ongoing: {title}. No session was opened.",
       "hours": "Stated duration: {hours} h — recorded as stated, not measured."
     },
     "open": {

@@ -98,14 +98,27 @@ after they happen, never before.
 ```
 gamereg start "hollow knight" [--id igdb:7346] [--platform switch]
                               [--form digital] [--mode solo] [--replay]
-                              [--at 20:14] [--no-metadata]
+                              [--past-hours 30] [--at 20:14] [--no-metadata]
 ```
 
 Behaviour:
 1. Resolve `<query>` to a game (see 03).
 2. If no open run exists for it, append `run.open`. If one exists, reuse it.
-   `--replay` forces a new run even when a closed one exists.
+   `--replay` forces a new run even when an open one already exists — the one
+   case where you deliberately want two runs of the same game open at once
+   (a speedrun restarted without formally dropping the run in progress). A
+   *closed* run never blocks a new one; that already happens with no flag.
 3. Append `session.open`.
+
+**`--past-hours <n>`** stamps a stated baseline onto the `run.open` this
+creates — playtime that happened before this vault started tracking it ("já
+tenho 30h nele no Steam"). Only meaningful when step 2 actually opens a new
+run; combining it with a query that reuses an already-open run is a usage
+error (code 2) — there is no new `run.open` for it to land on, and the
+correct tool for adding a stated number to a run already in progress is
+`gamereg amend`. See 01-model.md's *Duration* for how a stated baseline and
+measured sessions add up on the same run, and `past`'s section below for the
+sibling command that does the same thing without opening a session.
 
 Conflict (code 5) if a session is already open for that run. If a session is open
 for a *different* game, that is not an error — parallel runs are allowed and
@@ -202,21 +215,47 @@ never enriched simply keeps `null`, and nothing reaches the network to avoid
 that. Non-negotiable 4 holds without exception, and `enrich` never writes to
 `run.*` — the two commands stay on their own sides of the line.
 
-### `gamereg past <query>` — file a historical game
+### `gamereg past <query>` — file a game run started in the past
 
 ```
 gamereg past "chrono trigger" --ended 2011-07 --rating 10
              [--started ...] [--hours 30] [--criteria credits] [--note "..."]
              [--platform snes]
+
+gamereg past "opus magnum" --hours 30 [--started 2026] [--platform steam]
 ```
 
-Emits `run.import`. Date precision is inferred from the shape of the argument:
-`2011` → year, `2011-07` → month, `2011-07-14` → day.
+**With `--ended`** (as always): emits `run.import`, a closed run whose hours
+are stated. Date precision is inferred from the shape of the argument: `2011`
+→ year, `2011-07` → month, `2011-07-14` → day.
+
+**Without `--ended`**: emits `run.open` instead — the same event `start`
+appends, carrying `--hours` as a stated baseline, but with no `session.open`
+alongside it. This is the command for "I'm currently playing X, already have
+N hours in it" said about a game you are not sitting down to play *right
+now* — the onboarding case, and the case of listing several games at once in
+one conversation. `start --past-hours` is the sibling that does the same
+thing but also opens a session, for when you *are* about to play. Requires
+`--hours` — omitting both `--ended` and `--hours` is a usage error (code 2),
+since at that point there is nothing left for `past` to say that `start`
+doesn't already say better. `--rating`, `--difficulty`, `--criteria` and
+`--outcome` describe how a run *closed*; passing any of them without
+`--ended` is also a usage error. Conflict (code 5) if a run for this game is
+already open — `past` never reuses one, the way `start` does; the game
+already has an open run to add a session to (`start`) or a baseline to
+correct (`amend`).
+
+`--started`, omitted here, defaults to the current year rather than to
+`--ended` (there being no `--ended` to default to) or to today — "não lembro
+quando comecei" is the common case this command exists for, and a guessed
+exact day would be a lie the way `run.import`'s date-precision rule already
+refuses to tell. Give `--started` and it is used exactly as typed, at
+whatever precision its shape implies.
 
 `past` files a run that is already closed, frequently several in a row, so it
-does **not** prompt for a platform the way `end`/`finish`/`drop` do. `--platform`
-is how you say it; omitted, it stays `null` and can be amended later. The value
-is canonicalized like everywhere else.
+does **not** prompt for a platform the way `end`/`finish`/`drop` do — true for
+both forms above. `--platform` is how you say it; omitted, it stays `null`
+and can be amended later. The value is canonicalized like everywhere else.
 
 ### `gamereg verdict <query>` — file the consolidated review
 

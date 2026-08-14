@@ -56,7 +56,7 @@
     rows.forEach(function (row) {
       var tr = document.createElement("tr");
       if (row.open) tr.className = "open";
-      var hours = row.hours + (row.hours_source === "stated" ? " *" : "");
+      var hours = row.hours + (row.hours_source !== "measured" ? " *" : "");
       var status = row.open ? "playing" : cell(row.completion_criteria);
       [row.title, cell(row.platform), cell(row.started_on), cell(row.ended_on), hours, cell(row.rating), cell(row.difficulty), status].forEach(
         function (value, index) {

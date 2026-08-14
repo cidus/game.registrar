@@ -25,7 +25,7 @@ export const EVENT_SOURCE = ['cli', 'chat', 'cron', 'import'] as const
 export const CHECKIN_TRIGGER = ['duration', 'clock', 'day_cutoff'] as const
 export const CHECKIN_OUTCOME = ['snoozed', 'break_started', 'session_closed', 'no_reply'] as const
 export const GAME_STATUS = ['unplayed', 'playing', 'finished', 'abandoned'] as const
-export const HOURS_SOURCE = ['measured', 'stated'] as const
+export const HOURS_SOURCE = ['measured', 'stated', 'mixed'] as const
 export const BUILD_TARGET = ['obsidian', 'csv', 'sqlite', 'json', 'html', 'site'] as const
 
 export type Outcome = (typeof OUTCOME)[number]
