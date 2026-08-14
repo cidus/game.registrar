@@ -31,6 +31,7 @@ CREATE TABLE runs (
   run_id              TEXT PRIMARY KEY,
   game_id             TEXT NOT NULL REFERENCES games(game_id),
   platform            TEXT,
+  platform_raw        TEXT,
   form                TEXT,
   mode                TEXT,
   started_on          TEXT NOT NULL,

@@ -12,6 +12,7 @@ import { closeSession } from '../close-session.ts'
 import { createContext } from '../context.ts'
 import { clock } from '../format.ts'
 import { emit } from '../output.ts'
+import { platformProse, rememberPlatform, settlePlatform } from '../platform.ts'
 import type { Registrar } from '../register.ts'
 import { commit, gameOfSession, load, targetSession } from '../workspace.ts'
 
@@ -19,6 +20,7 @@ type Options = {
   id?: string
   break?: string
   note?: string
+  platform?: string
 }
 
 export function registerEnd(registrar: Registrar): void {
@@ -28,6 +30,7 @@ export function registerEnd(registrar: Registrar): void {
     .option('--id <ref>', registrar.t('help.opt.id'))
     .option('--break <duration>', registrar.t('help.opt.break'))
     .option('--note <text>', registrar.t('help.opt.note'))
+    .option('--platform <name>', registrar.t('help.opt.platform'))
     .action(async (query: string | undefined, options: Options, command: Command) => {
       const cli = createContext(command)
       const workspace = load(cli)
@@ -42,7 +45,13 @@ export function registerEnd(registrar: Registrar): void {
         note: options.note,
       })
 
+      // The platform question belongs here, not at `start`: by now the game has
+      // usually been enriched, so the catalog can narrow it.
+      const run = workspace.state.runsById.get(session.run_id)!
+      const settled = await settlePlatform(cli, workspace, game, run, options.platform, 'session.close')
+
       const events = commit(cli, workspace)
+      rememberPlatform(cli, settled)
       const closed = workspace.state.sessionsById.get(sessionId)!
       const total = workspace.state.gamesById.get(game.game_id)!.total_minutes
 
@@ -56,6 +65,7 @@ export function registerEnd(registrar: Registrar): void {
       if (closed.break_minutes > 0) {
         prose.push(cli.t('prose.end.breaks', { duration: formatHm(closed.break_minutes) }))
       }
+      if (settled !== null) prose.push(platformProse(cli, settled))
 
       emit(cli, {
         action: 'session.close',
@@ -68,6 +78,8 @@ export function registerEnd(registrar: Registrar): void {
           break_minutes: closed.break_minutes,
           logical_day: closed.logical_day,
           game_total_minutes: total,
+          platform: workspace.state.runsById.get(closed.run_id)?.platform ?? null,
+          ...(settled === null ? {} : { platform_source: settled.source }),
         },
         events,
         prose,

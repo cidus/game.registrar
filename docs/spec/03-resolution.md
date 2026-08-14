@@ -129,6 +129,12 @@ of the Kingdom — and Breath of the Wild is also a Wii U game. Treat `--platfor
 as a filter that narrows the list, never as an answer. Implementations that
 assume a platform hint disambiguates will silently pick wrong.
 
+The hint is canonicalized before it filters (`canonicalPlatform()`, 02-cli.md's
+*Platform vocabulary*), so `--platform snes` and `--platform "Super Nintendo"`
+narrow identically. That changes how well the filter matches, never what it is
+allowed to conclude: an unknown spelling is still passed through as typed, and a
+filter that matches nothing narrows to nothing rather than resolving anything.
+
 `gamereg enrich` is a deliberate, narrower exception: once a game is already
 identified (an existing local record, or a title that already matched
 exactly), a recorded platform may resolve *which catalog SKU* represents

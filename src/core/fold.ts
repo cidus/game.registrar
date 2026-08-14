@@ -78,6 +78,13 @@ export type RunState = {
   run_id: string
   game_id: string
   platform: string | null
+  /**
+   * What the log actually holds, before the build canonicalizes spellings
+   * (`targets/build.ts`). The fold sets the two equal — it is pure over events
+   * and never reads the platform table — so a difference between them is
+   * always the work of the canonicalization pass, and always auditable.
+   */
+  platform_raw: string | null
   form: Form | null
   mode: Mode | null
   started_on: string
@@ -423,6 +430,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           run_id: runId,
           game_id: game.game_id,
           platform: str(data, 'platform'),
+          platform_raw: str(data, 'platform'),
           form: str(data, 'form') as Form | null,
           mode: str(data, 'mode') as Mode | null,
           started_on: startedOn ?? str(data, 'ended_on') ?? '',

@@ -2,7 +2,7 @@
 gamereg_id: 01K5A00000000000000000GAM1
 title: Hollow Knight
 status: finished
-platform: Switch
+platform: Nintendo Switch
 release_year: 2017
 developer: Team Cherry
 publisher: Team Cherry
@@ -18,7 +18,7 @@ tags: [gamereg, gamereg/game]
 > Written by hand, above the first block. The build must never touch this line.
 
 <!-- gamereg:begin block=header -->
-**Team Cherry** · 2017 · Switch · 8h58 across 3 sessions
+**Team Cherry** · 2017 · Nintendo Switch · 8h58 across 3 sessions
 <!-- gamereg:end block=header -->
 
 ## Verdict
@@ -39,7 +39,7 @@ Also written by hand, between two generated blocks.
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[hollow-knight-2026-05-03\|2026]] | Switch | 2026-05-03 | 2026-08-12 | 9.0 | 9 | true_ending |
+| [[hollow-knight-2026-05-03\|2026]] | Nintendo Switch | 2026-05-03 | 2026-08-12 | 9.0 | 9 | true_ending |
 <!-- gamereg:end block=runs -->
 
 ## Notes

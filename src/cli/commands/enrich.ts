@@ -18,6 +18,12 @@ import type { Command } from 'commander'
 
 import { GameregError } from '../../core/errors.ts'
 import type { GameState } from '../../core/fold.ts'
+import {
+  canonicalPlatform,
+  platformTable,
+  samePlatform,
+  type PlatformTable,
+} from '../../core/platforms.ts'
 import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider, ProviderCandidate, ProviderDetail } from '../../providers/provider.ts'
 import { createRawgProvider } from '../../providers/rawg.ts'
@@ -57,10 +63,16 @@ export type FindResult =
   | { kind: 'none' }
   | { kind: 'ambiguous'; candidates: ProviderCandidate[] }
 
-/** "Atari" matches "Atari 2600" either direction, after normalizing. */
-function platformMatches(a: string, b: string): boolean {
-  const x = normalize(a)
-  const y = normalize(b)
+/**
+ * Synonyms first — a run recorded as `SNES` has to match a catalog that calls
+ * it "Super Nintendo Entertainment System", and no amount of substring
+ * matching gets there. Then the substring rule, which is what makes a vaguely
+ * recorded "Atari" match "Atari 2600" in either direction.
+ */
+function platformMatches(a: string, b: string, table: PlatformTable): boolean {
+  if (samePlatform(a, b, table)) return true
+  const x = normalize(canonicalPlatform(a, table) ?? a)
+  const y = normalize(canonicalPlatform(b, table) ?? b)
   return x === y || x.includes(y) || y.includes(x)
 }
 
@@ -90,8 +102,25 @@ function knownPlatforms(game: GameState): string[] {
  * strong evidence for that. Reads `game.runs[].platform` (what the user
  * actually typed), never `game.platforms` (which a prior enrich may have
  * already overwritten with a different provider's data).
+ *
+ * `searchTerm` is deliberately a separate argument from `game.title`, not
+ * derived from it in here. The caller resolves which local game this is
+ * (offline, normalized, steps 1-5 of 03-resolution.md) independently of
+ * what string then goes to the provider: a literal `<query>` on the CLI
+ * (e.g. a retyped "Pac-Man" against a game stored as "Pacman") is sent
+ * verbatim, because the provider's own relevance search is not the same
+ * matching gamereg's normalizer does locally — a string that resolves the
+ * local game fine can still search the catalog poorly. Only when no
+ * `<query>` was given (the `--all`/cron path) does the caller fall back to
+ * `game.title`. See 02-cli.md's `enrich` section.
  */
-export async function findDetail(provider: Provider, game: GameState): Promise<FindResult> {
+export async function findDetail(
+  provider: Provider,
+  game: GameState,
+  searchTerm: string,
+  /** This vault's platform spellings; the built-in table alone when omitted. */
+  platforms: PlatformTable = platformTable(),
+): Promise<FindResult> {
   const known = game.providers[provider.name]
   if (known !== undefined) {
     const detail = await provider.fetch(String(known))
@@ -102,16 +131,16 @@ export async function findDetail(provider: Provider, game: GameState): Promise<F
   // low-engagement release arbitrarily deep and never surface it at any
   // reasonable page size (confirmed live with IGDB's 1982 Atari 2600
   // "Pac-Man" — see provider.ts's file comment). findExact is complete.
-  const needle = normalize(game.title, { editions: false })
-  const candidates = await provider.findExact(game.title)
+  const needle = normalize(searchTerm, { editions: false })
+  const candidates = await provider.findExact(searchTerm)
   const matches = candidates.filter((candidate) => normalize(candidate.title, { editions: false }) === needle)
   if (matches.length === 0) return { kind: 'none' }
 
   if (matches.length > 1) {
-    const platforms = knownPlatforms(game)
-    if (platforms.length > 0) {
+    const recorded = knownPlatforms(game)
+    if (recorded.length > 0) {
       const narrowed = matches.filter((candidate) =>
-        candidate.platforms.some((p) => platforms.some((known) => platformMatches(p, known))),
+        candidate.platforms.some((p) => recorded.some((value) => platformMatches(p, value, platforms))),
       )
       if (narrowed.length === 1) {
         const detail = await provider.fetch(narrowed[0]!.id)
@@ -176,6 +205,7 @@ export async function enrichGame(
   providers: readonly Provider[],
   covers: boolean,
   bulk: boolean,
+  searchTerm: string = game.title,
 ): Promise<EnrichOutcome> {
   // Whether at least one provider actually answered — reachable, credentials
   // present — regardless of whether it found a match. A provider that is
@@ -188,7 +218,7 @@ export async function enrichGame(
   for (const provider of providers) {
     let result: FindResult
     try {
-      result = await findDetail(provider, game)
+      result = await findDetail(provider, game, searchTerm, platformTable(cli.vault.config.platforms))
       attempted = true
     } catch (error) {
       if (error instanceof GameregError && error.code === 6) {
@@ -287,7 +317,13 @@ export function registerEnrich(registrar: Registrar): void {
           continue
         }
 
-        const outcome = await enrichGame(cli, workspace, game, providers, covers, options.all === true)
+        // The literal `<query>` string, not the resolved game's stored title,
+        // is what gets sent to the provider search — see findDetail's doc
+        // comment. `--all` targets every game at once, so there is no single
+        // game a typed `<query>` could mean here; it always searches with
+        // each game's currently stored title, unchanged.
+        const searchTerm = options.all === true ? game.title : (query ?? game.title)
+        const outcome = await enrichGame(cli, workspace, game, providers, covers, options.all === true, searchTerm)
 
         if (outcome.kind === 'ambiguous') {
           if (!cli.interactive) throw ambiguousOutcomeError(game, outcome.provider, outcome.candidates)

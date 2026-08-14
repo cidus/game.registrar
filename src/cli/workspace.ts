@@ -6,11 +6,17 @@
  * see the resulting state, and appends once at the end. That way `--dry-run`
  * and a real run go down exactly the same path.
  */
-import { CONFIG_FILENAME } from '../core/config.ts'
 import { GameregError } from '../core/errors.ts'
 import { appendEvents, makeEvent, readEvents, type EventEnvelope } from '../core/events.ts'
 import { fold, type GameState, type RunState, type SessionState, type VaultState } from '../core/fold.ts'
 import { newId } from '../core/ids.ts'
+import {
+  canonicalPlatform,
+  platformGroups,
+  platformTable,
+  soleMatch,
+  type PlatformSource,
+} from '../core/platforms.ts'
 import { toISO } from '../core/time.ts'
 import { checkEnum, FORM, MODE, type Form, type Mode } from '../core/vocab.ts'
 import { normalize, uniqueSlug } from '../resolve/normalize.ts'
@@ -117,7 +123,10 @@ export async function resolveGame(
   query: string | null,
   options: GameQuery = {},
 ): Promise<GameState> {
-  const resolution = resolveLocal(workspace.state, query, options)
+  const resolution = resolveLocal(workspace.state, query, {
+    ...options,
+    platforms: platformTable(cli.vault.config.platforms),
+  })
 
   if (resolution.kind === 'resolved') {
     if (options.id !== undefined && options.id !== null) learnAlias(cli, workspace, resolution.game, query)
@@ -173,15 +182,23 @@ export async function resolveGame(
 }
 
 export type RunDefaults = {
-  platform: string
+  platform: string | null
+  /** Null exactly when `platform` is. */
+  platform_source: PlatformSource | null
   form: Form
   mode: Mode
 }
 
 /**
- * `run.open` needs platform, form and mode; `start` is usually typed without
- * them. Flag → last run of this game → config → built-in. Platform has no
- * built-in: guessing it silently mislabels the record.
+ * `run.open` takes platform, form and mode; `start` is usually typed without
+ * them. Flag → last run of this game → config → a single-member catalog
+ * intersection.
+ *
+ * When none of those answer, the run is recorded **without** a platform rather
+ * than with a guessed one (docs/spec/02-cli.md): starting to play is the one
+ * moment where a question is pure friction, and the moment when the answer is
+ * least informed — the game may not have been enriched yet. `end`, `finish`
+ * and `drop` settle it later, with the catalog in hand.
  */
 export function runDefaults(
   cli: Cli,
@@ -189,12 +206,23 @@ export function runDefaults(
   options: { platform?: string; form?: string; mode?: string },
 ): RunDefaults {
   const last = game.runs.at(-1)
-  const platform = options.platform ?? last?.platform ?? cli.vault.config.defaults.platform
-  if (platform === null || platform === undefined || platform === '') {
-    throw new GameregError('usage', 'error.platform_required', { file: CONFIG_FILENAME })
-  }
+  const table = platformTable(cli.vault.config.platforms)
+
+  const resolved = ((): { platform: string | null; source: PlatformSource | null } => {
+    const flag = canonicalPlatform(options.platform, table)
+    if (flag !== null) return { platform: flag, source: 'flag' }
+    const previous = canonicalPlatform(last?.platform, table)
+    if (previous !== null) return { platform: previous, source: 'last_run' }
+    const configured = canonicalPlatform(cli.vault.config.defaults.platform, table)
+    if (configured !== null) return { platform: configured, source: 'config_default' }
+    const sole = soleMatch(platformGroups(game, table))
+    if (sole !== null) return { platform: sole, source: 'intersection' }
+    return { platform: null, source: null }
+  })()
+
   return {
-    platform,
+    platform: resolved.platform,
+    platform_source: resolved.source,
     form:
       options.form === undefined
         ? (last?.form ?? cli.vault.config.defaults.form)

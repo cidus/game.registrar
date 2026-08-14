@@ -1,5 +1,6 @@
 run_id,game_id,platform,form,mode,started_on,ended_on,outcome,completion_criteria,rating,difficulty,minutes,hours_source,replay
-01K5A00000000000000000RUN2,01K5A00000000000000000GAM2,SNES,physical,solo,2011-01-01,2011-07-01,finished,credits,10,normal,1800,stated,false
-01K5A00000000000000000RUN1,01K5A00000000000000000GAM1,Switch,digital,solo,2026-05-03,2026-08-12,finished,true_ending,9,hard,538,measured,false
+01K5A00000000000000000RUN2,01K5A00000000000000000GAM2,Super Nintendo,physical,solo,2011-01-01,2011-07-01,finished,credits,10,normal,1800,stated,false
+01K5A00000000000000000RUN1,01K5A00000000000000000GAM1,Nintendo Switch,digital,solo,2026-05-03,2026-08-12,finished,true_ending,9,hard,538,measured,false
 01K5A00000000000000000RUN3,01K5A00000000000000000GAM3,PC,digital,solo,2026-06-01,2026-06-01,abandoned,abandoned,,,90,measured,false
-01K5A00000000000000000RUN4,01K5A00000000000000000GAM4,Switch,digital,solo,2026-07-20,,,,,,0,measured,false
+01K5A00000000000000000RUN4,01K5A00000000000000000GAM4,Nintendo Switch,digital,solo,2026-07-20,,,,,,0,measured,false
+01K5A00000000000000000RUN5,01K5A00000000000000000GAM5,,digital,solo,2026-08-15,,,,,,150,measured,false

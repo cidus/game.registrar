@@ -2,7 +2,7 @@
 gamereg_id: 01K5A00000000000000000GAM4
 title: Celeste
 status: playing
-platform: Switch
+platform: Nintendo Switch
 release_year: 2018
 developer: Extremely OK Games
 genres: [platformer]
@@ -13,7 +13,7 @@ tags: [gamereg, gamereg/game]
 ---
 
 <!-- gamereg:begin block=header -->
-**Extremely OK Games** · 2018 · Switch
+**Extremely OK Games** · 2018 · Nintendo Switch
 <!-- gamereg:end block=header -->
 
 ## Runs
@@ -21,7 +21,7 @@ tags: [gamereg, gamereg/game]
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[celeste-2026-07-20\|2026]] | Switch | 2026-07-20 |  | 0.0 |  |  |
+| [[celeste-2026-07-20\|2026]] | Nintendo Switch | 2026-07-20 |  | 0.0 |  |  |
 <!-- gamereg:end block=runs -->
 
 ## Notes

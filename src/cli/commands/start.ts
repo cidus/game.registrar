@@ -8,10 +8,12 @@ import type { Command } from 'commander'
 
 import { GameregError } from '../../core/errors.ts'
 import { newId } from '../../core/ids.ts'
+import type { PlatformSource } from '../../core/platforms.ts'
 import { logicalDay, toISO } from '../../core/time.ts'
 import { createContext } from '../context.ts'
 import { clock, clockOf, list } from '../format.ts'
 import { emit } from '../output.ts'
+import { learnPlatform } from '../platform.ts'
 import type { Registrar } from '../register.ts'
 import {
   commit,
@@ -72,13 +74,17 @@ export function registerStart(registrar: Registrar): void {
 
       let runId = reusable?.run_id ?? null
       const openedRun = runId === null
+      let platformSource: PlatformSource | null = null
       if (runId === null) {
         const defaults = runDefaults(cli, before, options)
+        platformSource = defaults.platform_source
         runId = newId()
         stage(cli, workspace, 'run.open', {
           run_id: runId,
           game_id: gameId,
-          platform: defaults.platform,
+          // Omitted, not null: a run whose platform nobody has answered yet is
+          // recorded without one, and `end`/`finish`/`drop` settle it later.
+          ...(defaults.platform === null ? {} : { platform: defaults.platform }),
           form: defaults.form,
           mode: defaults.mode,
           started_on: logicalDay(cli.at, cli.vault.config.day_cutoff),
@@ -97,15 +103,22 @@ export function registerStart(registrar: Registrar): void {
       const game = workspace.state.gamesById.get(gameId)!
       const run = workspace.state.runsById.get(runId)!
 
+      // A platform typed here joins the suggestion list, the same way one
+      // typed at a closing prompt does: the list grows from actual use.
+      if (platformSource === 'flag') learnPlatform(cli, run.platform)
+
       const others = openSessions(workspace.state)
         .filter((session) => session.session_id !== sessionId)
         .map((session) => gameOfSession(workspace.state, session).title)
 
+      // A run with no platform yet says so by omission, not by printing a
+      // parenthesised "null" at the user.
+      const known = run.platform !== null
       const prose: string[] = []
       if (created) prose.push(cli.t('prose.start.created', { title: game.title }))
       if (openedRun && run.replay) {
         prose.push(
-          cli.t('prose.start.replay', {
+          cli.t(known ? 'prose.start.replay' : 'prose.start.replay_unknown', {
             title: game.title,
             platform: run.platform,
             run: game.runs.length,
@@ -113,8 +126,9 @@ export function registerStart(registrar: Registrar): void {
           }),
         )
       } else {
+        const key = openedRun ? 'prose.start.new_run' : 'prose.start.filed'
         prose.push(
-          cli.t(openedRun ? 'prose.start.new_run' : 'prose.start.filed', {
+          cli.t(known ? key : `${key}_unknown`, {
             title: game.title,
             platform: run.platform,
             time: clock(cli.at),
@@ -131,6 +145,7 @@ export function registerStart(registrar: Registrar): void {
           session_id: sessionId,
           at: toISO(cli.at),
           platform: run.platform,
+          ...(platformSource === null ? {} : { platform_source: platformSource }),
           form: run.form,
           mode: run.mode,
           replay: run.replay,

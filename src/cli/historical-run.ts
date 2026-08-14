@@ -9,6 +9,7 @@
 import { hoursToMinutes } from '../core/duration.ts'
 import { newId } from '../core/ids.ts'
 import type { GameState, RunState } from '../core/fold.ts'
+import { canonicalPlatform, platformTable } from '../core/platforms.ts'
 import { parseImpreciseDate, type ImpreciseDate } from '../core/time.ts'
 import {
   checkEnum,
@@ -83,13 +84,20 @@ export async function fileHistoricalRun(
   const game = workspace.state.gamesById.get(gameId)!
   const last = game.runs.at(-1)
 
-  const platform = input.platform ?? last?.platform ?? cli.vault.config.defaults.platform
+  // `past` files a run that is already closed, frequently several in a row, so
+  // it never prompts: `--platform` is how you say it, and a run with none
+  // stays that way until an amend says otherwise.
+  const table = platformTable(cli.vault.config.platforms)
+  const platform = canonicalPlatform(
+    input.platform ?? last?.platform ?? cli.vault.config.defaults.platform,
+    table,
+  )
   const runId = newId()
 
   stage(cli, workspace, 'run.import', {
     run_id: runId,
     game_id: gameId,
-    ...(platform === null || platform === undefined ? {} : { platform }),
+    ...(platform === null ? {} : { platform }),
     form: input.form === undefined ? (last?.form ?? cli.vault.config.defaults.form) : checkEnum('form', input.form, FORM),
     mode: input.mode === undefined ? (last?.mode ?? cli.vault.config.defaults.mode) : checkEnum('mode', input.mode, MODE),
     started_on: started.date,

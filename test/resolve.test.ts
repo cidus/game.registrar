@@ -83,6 +83,16 @@ test('the platform hint filters the list without answering it', () => {
   assert.equal(still.kind, 'ambiguous')
 })
 
+test('the hint is canonicalized before it filters, so a synonym narrows identically', () => {
+  // The record says "Wii U"; the user typed the spelling they had in mind.
+  const resolution = resolveLocal(vault(), 'zelda', { platform: 'WiiU' })
+  assert.equal(resolution.kind === 'resolved' && resolution.game.game_id, 'G1')
+
+  // Still a filter, never an answer: a spelling that matches nothing narrows
+  // to nothing rather than resolving anything.
+  assert.equal(resolveLocal(vault(), 'zelda', { platform: 'Dreamcast' }).kind, 'not_found')
+})
+
 test('nothing on record is not_found — resolveLocal never asks a provider, even in phase 1', () => {
   assert.equal(resolveLocal(vault(), 'hades').kind, 'not_found')
   assert.equal(resolveLocal(vault(), '   ').kind, 'not_found')

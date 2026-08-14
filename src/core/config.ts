@@ -1,15 +1,17 @@
 /**
  * `gamereg.config.json` at the vault root. Every key is optional.
  *
- * `defaults` answers a question the specs leave open: `run.open` requires
- * platform, form and mode, and `start` is usually typed without them. Resolution
- * order is flag → last run of that game → config → built-in. Platform has no
- * built-in, because guessing it silently mislabels the record.
+ * `defaults` answers a question the specs leave open: `run.open` takes
+ * platform, form and mode, and `start` is usually typed without them.
+ * Resolution order is flag → last run of that game → config → built-in.
+ * Platform has no built-in, and a run that resolves none is recorded without
+ * one rather than guessed at (docs/spec/02-cli.md).
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { GameregError } from './errors.ts'
+import type { PlatformEntry } from './platforms.ts'
 import { checkEnum, checkTarget, FORM, MODE, type BuildTarget, type Form, type Mode } from './vocab.ts'
 
 export type Config = {
@@ -22,6 +24,13 @@ export type Config = {
     form: Form
     mode: Mode
   }
+  /**
+   * The platforms this vault knows about, with their synonyms. A suggestion
+   * list and a spelling table — never a validator (docs/spec/02-cli.md
+   * "Platform vocabulary"). Accepts `"PS5"` or
+   * `{ "name": "Mega Drive", "aliases": ["Genesis"] }` in the same array.
+   */
+  platforms: PlatformEntry[]
   /**
    * Which artifacts this vault emits. A property of the vault, never of the last
    * command typed — `gamereg build csv` narrows a build, it does not redefine
@@ -59,6 +68,7 @@ export const DEFAULT_CONFIG: Config = {
     form: 'digital',
     mode: 'solo',
   },
+  platforms: [],
   build: {
     // A vault that has never heard of this key still builds notes and the table.
     targets: ['obsidian'],
@@ -73,6 +83,55 @@ export const DEFAULT_CONFIG: Config = {
 }
 
 export const CONFIG_FILENAME = 'gamereg.config.json'
+
+/** `"PS5"` is shorthand for `{ "name": "PS5", "aliases": [] }`; both are legal. */
+function parsePlatforms(values: readonly unknown[], file: string): PlatformEntry[] {
+  const entries: PlatformEntry[] = []
+  for (const value of values) {
+    if (typeof value === 'string') {
+      if (value.trim() !== '') entries.push({ name: value.trim(), aliases: [] })
+      continue
+    }
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new GameregError('usage', 'error.bad_config', { file })
+    }
+    const entry = value as Record<string, unknown>
+    const name = entry['name']
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new GameregError('usage', 'error.bad_config', { file })
+    }
+    const aliases = entry['aliases']
+    if (aliases !== undefined && !Array.isArray(aliases)) {
+      throw new GameregError('usage', 'error.bad_config', { file })
+    }
+    entries.push({
+      name: name.trim(),
+      aliases: (aliases ?? [])
+        .filter((alias): alias is string => typeof alias === 'string')
+        .map((alias) => alias.trim())
+        .filter((alias) => alias !== ''),
+    })
+  }
+  return entries
+}
+
+/**
+ * The config as it is written back to disk. Only `init` and `platform
+ * add|remove` write it, and a platform with no synonyms goes back as the plain
+ * string it probably arrived as — the file stays something a human edits.
+ */
+export function writeConfig(root: string, config: Config): void {
+  writeFileSync(join(root, CONFIG_FILENAME), `${JSON.stringify(configToJson(config), null, 2)}\n`, 'utf8')
+}
+
+export function configToJson(config: Config): Record<string, unknown> {
+  return {
+    ...config,
+    platforms: config.platforms.map((entry) =>
+      entry.aliases.length === 0 ? entry.name : { name: entry.name, aliases: entry.aliases },
+    ),
+  }
+}
 
 export function loadConfig(root: string): Config {
   const file = join(root, CONFIG_FILENAME)
@@ -106,6 +165,9 @@ export function loadConfig(root: string): Config {
       config.defaults.mode = checkEnum('mode', entries['mode'], MODE)
     }
   }
+
+  const platforms = source['platforms']
+  if (Array.isArray(platforms)) config.platforms = parsePlatforms(platforms, file)
 
   const build = source['build']
   if (typeof build === 'object' && build !== null && !Array.isArray(build)) {

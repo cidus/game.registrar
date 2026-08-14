@@ -75,8 +75,20 @@ test('sort order is fixed, not incidental', () => {
       .slice(1)
       .map((line) => line.split(',')[index] ?? '')
 
-  assert.deepEqual(column('games.csv', 1), ['celeste', 'chrono-trigger', 'hollow-knight', 'outer-wilds'])
-  assert.deepEqual(column('runs.csv', 5), ['2011-01-01', '2026-05-03', '2026-06-01', '2026-07-20'])
+  assert.deepEqual(column('games.csv', 1), [
+    'celeste',
+    'chrono-trigger',
+    'hollow-knight',
+    'outer-wilds',
+    'tunic',
+  ])
+  assert.deepEqual(column('runs.csv', 5), [
+    '2011-01-01',
+    '2026-05-03',
+    '2026-06-01',
+    '2026-07-20',
+    '2026-08-15',
+  ])
   assert.deepEqual(
     column('sessions.csv', 2),
     [
@@ -85,6 +97,7 @@ test('sort order is fixed, not incidental', () => {
       '2026-06-01T14:00:00-03:00',
       '2026-07-20T21:00:00-03:00',
       '2026-08-12T20:14:00-03:00',
+      '2026-08-15T20:00:00-03:00',
     ],
   )
 })

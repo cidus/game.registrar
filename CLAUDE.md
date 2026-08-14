@@ -27,17 +27,21 @@ target registry with a manifest and ownership-based cleanup. Two targets ship:
 Implemented and tested: provider credentials, `providers/igdb.ts` +
 `providers/rawg.ts` behind a common interface, `enrich` (including provider
 ambiguity handling — a menu or exit 3 + `candidates[]`, `--match <ref>` to
-re-invoke, and platform-aware narrowing/auto-resolution from the game's
-recorded runs), resolution step 6 in `gamereg search` (never in a write
-command — see non-negotiable 4), the `sqlite`/`json`/`html` targets, `query`,
-`import`, and the image ingestion *pipeline* (`src/images/ingest.ts` +
-`exif.ts` — EXIF read then stripped, normalize, hash, write to
-`assets/<sha[0:2]>/<sha>.webp`). `npm test` runs 264 tests (`node --test`, no
-framework, no network). `npm run test:live` (opt-in, real IGDB/RAWG calls,
-skips cleanly with no credentials — see Testing strategy below) adds 6 more;
-run it whenever you touch provider matching.
+re-invoke, platform-aware narrowing/auto-resolution from the game's recorded
+runs, and a literal `<query>` — when given — driving the provider search
+directly instead of the resolved game's stored title, so a retyped query is
+the retry path for a poor first search), resolution step 6 in `gamereg
+search` (never in a write command — see non-negotiable 4), the
+`sqlite`/`json`/`html` targets, `query`, `import`, and the image ingestion
+*pipeline* (`src/images/ingest.ts` + `exif.ts` — EXIF read then stripped,
+normalize, hash, write to `assets/<sha[0:2]>/<sha>.webp`), and the **platform
+vocabulary** (see below). `npm test` runs 303 tests (`node --test`, no
+framework, no network). `npm run test:live`
+(opt-in, real IGDB/RAWG calls, skips cleanly with no credentials — see
+Testing strategy below) adds 8 more; run it whenever you touch provider
+matching.
 
-**Two things remain before phase 1 is actually done:**
+**One thing remains before phase 1 is actually done:**
 
 1. **Image ingestion's CLI surface.** The pipeline above works and is
    tested in isolation, but nothing calls it yet: no `--photo` /
@@ -45,21 +49,49 @@ run it whenever you touch provider matching.
    `attach`, no `cover`, no `gallery` block in the game note. `fold.ts`
    already handles `attachment.add`, `game.cover` and inline
    `attachments[]` on any event — has since phase 0 — so this is CLI and
-   render work, not model work.
-2. **Platform vocabulary** — requested by the user, **specified but not
-   implemented**. Full spec is in `docs/spec/02-cli.md`'s "Platform
-   vocabulary" section (and a short note under `start`'s section, above
-   it): `gamereg.config.json` gains `platforms: string[]` — a suggestion
-   list, never a validator (`platform` stays free text everywhere it
-   already is; `01-model.md` and `03-resolution.md` are unchanged). New
-   subcommands `gamereg platform add <name>` / `gamereg platform remove
-   <name>`, an interactive multi-select-with-"Other" loop in `gamereg init`,
-   and a single-select-with-"Other" fallback in `gamereg start` when no
-   platform resolves any other way — whatever gets typed via "Other" is
-   appended to `config.platforms` so the list grows from actual use. Read
-   the spec section before starting; it names exact flags, exact command
-   shapes, and the existing `init.ts` prompt patterns (`askTargets()`) to
-   reuse rather than inventing new UI. **This is the next thing to build.**
+   render work, not model work. **This is the next thing to build.**
+
+### The platform vocabulary, as built
+
+Shipped this round; `docs/spec/02-cli.md` ("Platform vocabulary" and
+"Platform, when a run closes") is the spec, and `01-model.md`,
+`03-resolution.md`, `04-derived.md` and `05-agent.md` were updated to match.
+What a future session most needs to know:
+
+- **`platform` is nullable and free text.** `start` no longer prompts and
+  `error.platform_required` no longer exists — a run records what is known and
+  nothing more. Nothing anywhere rejects a platform value; the table
+  canonicalizes spellings and orders what gets offered, and that is all.
+- **`core/platforms.ts`** holds the built-in table (names, synonyms, *and the
+  providers' own spellings*, which is what makes the catalog intersection work
+  without provider platform ids) plus `canonicalPlatform()`, `platformGroups()`
+  and `addPlatform()`. The names there are **data, not interface text** — the
+  one deliberate exception to "no hardcoded English in `src/`". Do not move it
+  to `i18n/`.
+- **Canonicalization runs at two boundaries**: on input, before an event is
+  staged; and on read, in `canonicalizeState()` at the top of `planBuild`
+  (`targets/build.ts`). The read pass is what fixes history retroactively — a
+  synonym added today re-renders runs from years ago with no `event.amend` and
+  no line rewritten. `fold` stays pure and never sees the table; `sqlite`
+  stores both `platform` and `platform_raw`.
+- **The late fill lives in `cli/platform.ts`**, called by `end`/`finish`/`drop`
+  (via `close-run.ts`), never by `enrich` — that command reads run platforms
+  and must never write one. A single-member `catalog ∩ config.platforms`
+  resolves with no prompt and reports `platform_source: "intersection"`, which
+  is an inference from ownership and is therefore always stated in prose.
+  Anything more ambiguous leaves `null` and still closes: exit 3 here would be
+  refusing to close a session over a metadata field.
+- **Only a platform the user *typed*** (`--platform`, or "Other" at a prompt)
+  joins `config.platforms`. A pick from the catalog group is frequently
+  someone else's console.
+- `gamereg platform add <name> [synonyms...]` is also the rename: a name that
+  already means an existing entry takes over, old name kept as a synonym.
+
+`example-vault/` declares `platforms` and carries one game (`Tunic`) whose run
+never got a platform — that fixture is what freezes "unknown renders as
+absence" and the retroactive canonicalization (`SNES` → `Super Nintendo`,
+`Switch` → `Nintendo Switch` in every rendered artifact, with the log
+untouched).
 
 Not in scope for phase 1, decided in `06-roadmap.md`: franchise/series grouping
 (deferred past phase 1) and a backlog view for unplayed games (rejected — the
@@ -90,7 +122,10 @@ register holds what you played, not what you own).
   stripping the suffix would falsely collide it with the base game. Platform
   narrowing reads `game.runs[].platform` (what the user actually typed),
   never `game.platforms` (which a prior `enrich` may have already overwritten
-  with a different provider's data) — read the doc comment on `findDetail`
+  with a different provider's data), and compares through the platform
+  vocabulary — a run recorded as `SNES` narrows IGDB's "Super Nintendo
+  Entertainment System", which the substring rule alone never managed; there
+  is a live test for exactly that. Read the doc comment on `findDetail`
   before changing any of this, it explains the reasoning inline.
 
 ## Non-negotiables

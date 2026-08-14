@@ -55,6 +55,17 @@ local filtering recovers a candidate the provider never returned.
 `gamereg start "hollow knight" --json` → on code 3, present candidates → re-invoke
 with `--id`.
 
+**Do not ask for the platform here.** `start` no longer needs one (02-cli.md),
+and asking is the wrong move twice over: the user announced they were *playing*,
+not that they wanted an interview, and the agent usually has no catalog to
+offer a sensible list from yet. Start the session, and let the platform arrive
+when the session closes.
+
+When the user volunteers it — "hollow knight no switch" — pass it as
+`--platform switch` and say nothing further about it. When they do not, the
+result comes back with `"platform": null` and `platform_source` absent, which is
+not an error condition to report.
+
 ### Ending
 
 > "parei agora, joguei bem, cheguei no Watcher Knights" *(voice)*
@@ -64,6 +75,25 @@ with `--id`.
 The note is the user's words. Summarizing at this stage destroys the raw material
 the verdict is built from later. Fix obvious transcription errors; keep voice,
 slang and profanity.
+
+**This is where the platform question belongs, and only when it is still open.**
+`end`, `finish` and `drop` return `"platform": null` when nobody has answered
+yet and the CLI could not settle it on its own. That is the cue — and the only
+cue — to ask. A result that comes back with a platform was either told, inherited
+or resolved; asking anyway is asking a question the register already answered.
+
+What to offer is not the agent's invention. `gamereg platform list --json` and
+the game's own `platforms` give the same four groups the CLI menu uses
+(02-cli.md, *What gets offered, and when nothing is asked*): the ones the user
+owns that the game exists on, then the rest of the catalog, then the rest of
+what they own, then free text. Order matters more than length here — "PS5 ou
+Switch?" is a good question, a list of fourteen platforms is a form.
+
+Answer it with a follow-up `--platform`, or with `gamereg amend` when the run
+has already closed. Never invent a platform to avoid asking, and never treat a
+`platform_source: "intersection"` result as needing confirmation unless the user
+gives a reason to doubt it — mention it in passing ("anotei no PS5"), which is
+enough for them to correct it if the console was someone else's.
 
 ### Photos
 

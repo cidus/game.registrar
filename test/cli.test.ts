@@ -165,10 +165,12 @@ test('closing before opening is rejected, not clamped', () => {
   assert.equal(log.includes('session.close'), false)
 })
 
-test('a first run with no platform anywhere is a usage error', () => {
+test('a first run with no platform anywhere records none, and starts anyway', () => {
   const run = gamereg(vault(), 'start', 'celeste', '--no-metadata')
-  assert.equal(run.status, 2)
-  assert.match(String(run.json['message']), /platform/i)
+  assert.equal(run.status, 0)
+  assert.equal(result(run)['platform'], null)
+  // Nothing answered, so nothing to attribute an answer to.
+  assert.equal(result(run)['platform_source'], undefined)
 })
 
 test('--replay opens a second run, and the table gets a second line', () => {

@@ -75,15 +75,16 @@ export function buildDatabase(state: VaultState): Buffer {
       }
 
       const insertRun = db.prepare(
-        `INSERT INTO runs (run_id, game_id, platform, form, mode, started_on, ended_on, outcome,
-           completion_criteria, rating, difficulty, minutes, hours_source, replay)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO runs (run_id, game_id, platform, platform_raw, form, mode, started_on, ended_on,
+           outcome, completion_criteria, rating, difficulty, minutes, hours_source, replay)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       for (const run of runs) {
         insertRun.run(
           run.run_id,
           run.game_id,
           run.platform,
+          run.platform_raw,
           run.form,
           run.mode,
           run.started_on,

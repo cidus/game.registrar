@@ -17,7 +17,11 @@
       "amend": "corrigir",
       "revoke": "revogar",
       "verdict": "parecer",
-      "init": "inicializar"
+      "init": "inicializar",
+      "platform": "plataforma",
+      "add": "adicionar",
+      "remove": "remover",
+      "list": "listar"
     },
     "flags": {
       "--at": "--em",
@@ -54,12 +58,15 @@
       "--text": "--texto",
       "--run": "--jogatina",
       "--id": "--referencia",
-      "--outcome": "--resultado"
+      "--outcome": "--resultado",
+      "--platforms": "--plataformas"
     },
     "arguments": {
       "query": "consulta",
       "term": "termo",
-      "event_id": "id_evento"
+      "event_id": "id_evento",
+      "platform_name": "nome_da_plataforma",
+      "platform_synonyms": "sinonimos"
     }
   },
   "help": {
@@ -89,7 +96,9 @@
       "event": "Id do evento.",
       "target": "Constrói apenas estes alvos, dentre os de build.targets.",
       "sql": "Uma única instrução SELECT, somente leitura.",
-      "csv_file": "Caminho do arquivo CSV a importar."
+      "csv_file": "Caminho do arquivo CSV a importar.",
+      "platform_name": "nome da plataforma",
+      "platform_synonyms": "outras grafias que significam a mesma plataforma"
     },
     "opt": {
       "help": "Mostra esta ajuda.",
@@ -134,9 +143,14 @@
       "all_games": "Enriquece todos os títulos do acervo.",
       "covers": "Também busca e define a capa, a menos que a capa seja source: user.",
       "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV.",
-      "match": "Referência de provedor a buscar direto, como igdb:7346 — sem busca."
+      "match": "Referência de provedor a buscar direto, como igdb:7346 — sem busca.",
+      "platforms": "Plataformas que este acervo sugere, separadas por vírgula"
     },
-    "verdict": "Protocola o parecer consolidado de uma jogatina."
+    "verdict": "Protocola o parecer consolidado de uma jogatina.",
+    "platform": "Gerencia a lista de plataformas sugeridas.",
+    "platform_add": "Adiciona uma plataforma, com quantos sinônimos quiser.",
+    "platform_remove": "Remove uma plataforma da lista de sugestões.",
+    "platform_list": "Lista as plataformas configuradas e seus sinônimos."
   },
   "error": {
     "usage": "{message}",
@@ -165,7 +179,6 @@
     "break_already_open": "Já há intervalo em aberto, desde as {time}.",
     "no_open_break": "Nenhum intervalo em aberto.",
     "negative_duration": "O horário de encerramento antecede o de abertura, ou os intervalos excedem a sessão.",
-    "platform_required": "A plataforma é obrigatória na primeira jogatina de um título. Informe --plataforma, ou defina defaults.platform em {file}.",
     "unknown_event": "Nenhum evento no acervo tem o id \"{id}\".",
     "amend_needs_set": "Nada a corrigir. Informe ao menos um --definir chave=valor.",
     "cannot_amend_correction": "Correções não podem ser corrigidas. Revogue-a.",
@@ -229,7 +242,10 @@
       "new_run": "Protocolada: {title} ({platform}) — jogatina aberta, sessão aberta às {time}.",
       "replay": "Protocolada: {title} ({platform}) — segunda via, jogatina {run}. Sessão aberta às {time}.",
       "created": "Aberto registro novo para \"{title}\". Nenhum catálogo foi consultado.",
-      "also_open": "Também em aberto: {list}."
+      "also_open": "Também em aberto: {list}.",
+      "filed_unknown": "Protocolada: {title} — sessão aberta às {time}.",
+      "new_run_unknown": "Protocolada: {title} — jogatina aberta, sessão aberta às {time}.",
+      "replay_unknown": "Protocolada: {title} — segunda via, jogatina {run}. Sessão aberta às {time}."
     },
     "end": {
       "closed": "Sessão encerrada às {time}. Duração líquida: {duration}. Total do título: {total}.",
@@ -316,6 +332,17 @@
       "done": "{count} linhas importadas.",
       "failed_count": "{count} linhas falharam. O resto foi gravado.",
       "failed": "  linha {row}: {message}"
+    },
+    "platform": {
+      "recorded": "Plataforma registrada: {platform}.",
+      "inferred": "Plataforma registrada: {platform} — a única sua em que este jogo existe.",
+      "added": "Plataforma na lista: {platform}. Sinônimos: {aliases}",
+      "added_bare": "Plataforma na lista: {platform}.",
+      "removed": "Removida da lista: {platform}. Nada do que já foi registrado nela foi tocado.",
+      "absent": "Não está na lista: {platform}. Nada a remover.",
+      "none": "Nenhuma plataforma configurada. Elas serão aprendidas conforme você registra.",
+      "row": "{platform} — {runs} jogatina(s). Sinônimos: {aliases}",
+      "row_bare": "{platform} — {runs} jogatina(s)."
     }
   },
   "prompt": {
@@ -329,11 +356,17 @@
       "locale": "Idioma (em branco para o do ambiente):",
       "timezone": "Fuso horário (em branco para o do ambiente):",
       "day_cutoff": "Corte do dia (HH:MM):",
-      "platform": "Plataforma padrão (em branco para exigir uma por título):",
+      "platform": "Plataforma padrão (em branco para nenhuma):",
       "form": "Formato padrão:",
       "mode": "Modo padrão:",
       "targets": "Alvos de construção:",
-      "csv_dir": "Diretório do CSV:"
+      "csv_dir": "Diretório do CSV:",
+      "platforms": "Plataformas em que você joga:"
+    },
+    "platform": {
+      "choose": "Em qual plataforma?",
+      "other": "Outra — digitar",
+      "typed": "Plataforma:"
     }
   },
   "note": {

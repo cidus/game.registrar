@@ -14,6 +14,7 @@
  * see `providerCandidatesOf` below and its use in cli/commands/search.ts.
  */
 import type { GameState, VaultState } from '../core/fold.ts'
+import { platformTable, samePlatform, type PlatformTable } from '../core/platforms.ts'
 import type { GameStatus } from '../core/vocab.ts'
 import type { ProviderCandidate } from '../providers/provider.ts'
 import { normalize } from './normalize.ts'
@@ -54,6 +55,13 @@ export type ResolveOptions = {
   id?: string | null
   /** `--platform` filters the list; it never resolves it. */
   platform?: string | null
+  /**
+   * This vault's platform spellings, so `--platform snes` and `--platform
+   * "Super Nintendo"` filter identically. Omitted, only the built-in table
+   * applies. It changes how well the filter matches, never what it is allowed
+   * to conclude (docs/spec/03-resolution.md).
+   */
+  platforms?: PlatformTable
 }
 
 export type Reference =
@@ -96,10 +104,13 @@ export function candidateOf(game: GameState): Candidate {
   }
 }
 
-function matchesPlatform(game: GameState, platform: string | null | undefined): boolean {
+function matchesPlatform(
+  game: GameState,
+  platform: string | null | undefined,
+  table: PlatformTable = platformTable(),
+): boolean {
   if (platform === null || platform === undefined || platform === '') return true
-  const wanted = normalize(platform)
-  return game.platforms.some((value) => normalize(value) === wanted)
+  return game.platforms.some((value) => samePlatform(value, platform, table))
 }
 
 const STATUS_RANK: Record<GameStatus, number> = {
@@ -135,10 +146,15 @@ function names(game: GameState): string[] {
   return values.map((value) => normalize(value))
 }
 
-export function search(state: VaultState, query: string, platform?: string | null): GameState[] {
+export function search(
+  state: VaultState,
+  query: string,
+  platform?: string | null,
+  table?: PlatformTable,
+): GameState[] {
   const needle = normalize(query)
   if (needle === '') return []
-  const pool = state.games.filter((game) => matchesPlatform(game, platform))
+  const pool = state.games.filter((game) => matchesPlatform(game, platform, table))
   return rank(pool.filter((game) => names(game).some((name) => name.includes(needle))))
 }
 
@@ -156,7 +172,7 @@ export function resolveLocal(
   if (query === null || normalize(query) === '') return { kind: 'not_found' }
 
   const needle = normalize(query)
-  const pool = state.games.filter((game) => matchesPlatform(game, options.platform))
+  const pool = state.games.filter((game) => matchesPlatform(game, options.platform, options.platforms))
 
   // 3 — exact alias match.
   const byAlias = pool.filter((game) => game.aliases.some((alias) => normalize(alias) === needle))

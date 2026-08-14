@@ -19,6 +19,7 @@ import { createIgdbProvider } from '../../providers/igdb.ts'
 import type { Provider } from '../../providers/provider.ts'
 import { createRawgProvider } from '../../providers/rawg.ts'
 import { normalize } from '../../resolve/normalize.ts'
+import { platformTable } from '../../core/platforms.ts'
 import { candidateFromProvider, candidateOf, search, CANDIDATE_LIMIT, type Candidate } from '../../resolve/resolve.ts'
 import { createContext } from '../context.ts'
 import { emit } from '../output.ts'
@@ -60,7 +61,12 @@ export function registerSearch(registrar: Registrar): void {
       const cli = createContext(command)
       const workspace = load(cli)
 
-      const found = search(workspace.state, term, options.platform)
+      const found = search(
+        workspace.state,
+        term,
+        options.platform,
+        platformTable(cli.vault.config.platforms),
+      )
       let candidates: Candidate[] = found.slice(0, CANDIDATE_LIMIT).map(candidateOf)
       let truncated = found.length > CANDIDATE_LIMIT
 

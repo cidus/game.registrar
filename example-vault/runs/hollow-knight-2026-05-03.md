@@ -4,7 +4,7 @@ gamereg_id: 01K5A00000000000000000GAM1
 title: Hollow Knight
 game: "[[hollow-knight]]"
 status: finished
-platform: Switch
+platform: Nintendo Switch
 form: digital
 mode: solo
 started_on: 2026-05-03
@@ -24,7 +24,7 @@ tags: [gamereg, gamereg/run]
 ---
 
 <!-- gamereg:begin block=header -->
-[[hollow-knight|Hollow Knight]] · Switch · 2026-05-03 → 2026-08-12 · 8h58 across 3 sessions
+[[hollow-knight|Hollow Knight]] · Nintendo Switch · 2026-05-03 → 2026-08-12 · 8h58 across 3 sessions
 <!-- gamereg:end block=header -->
 
 ## Verdict

@@ -4,7 +4,7 @@ gamereg_id: 01K5A00000000000000000GAM2
 title: Chrono Trigger
 game: "[[chrono-trigger]]"
 status: finished
-platform: SNES
+platform: Super Nintendo
 form: physical
 mode: solo
 started_on: 2011-01-01
@@ -24,7 +24,7 @@ tags: [gamereg, gamereg/run]
 ---
 
 <!-- gamereg:begin block=header -->
-[[chrono-trigger|Chrono Trigger]] · SNES · 2011-01 → 2011-07 · 30h00 across 0 sessions
+[[chrono-trigger|Chrono Trigger]] · Super Nintendo · 2011-01 → 2011-07 · 30h00 across 0 sessions
 <!-- gamereg:end block=header -->
 
 ## Log

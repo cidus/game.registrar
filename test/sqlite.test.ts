@@ -14,6 +14,7 @@ import { readEvents } from '../src/core/events.ts'
 import { fold, type VaultState } from '../src/core/fold.ts'
 import { openVault, timeContext } from '../src/core/vault.ts'
 import { buildDatabase } from '../src/db/build.ts'
+import { canonicalizeState } from '../src/targets/build.ts'
 import { sqlite } from '../src/targets/sqlite.ts'
 import { translator } from '../src/i18n/index.ts'
 
@@ -45,6 +46,29 @@ test('a fixed page size, set before any table exists', () => {
   try {
     const row = db.prepare('PRAGMA page_size;').get() as { page_size: number }
     assert.equal(row.page_size, 4096)
+  } finally {
+    cleanup()
+  }
+})
+
+test('a run carries both the canonical platform and the one the log holds', () => {
+  const vault = openVault(EXAMPLE)
+  const state = fold(readEvents(vault.eventsFile), timeContext(vault))
+  const { db, cleanup } = open(
+    buildDatabase(canonicalizeState(state, vault.config)),
+  )
+  try {
+    const rows = db
+      .prepare('SELECT platform, platform_raw FROM runs ORDER BY started_on')
+      .all() as { platform: string | null; platform_raw: string | null }[]
+
+    // Group by the first, audit with the second: "SNES" was typed, "Super
+    // Nintendo" is what every report agrees to call it.
+    assert.equal(rows[0]?.platform, 'Super Nintendo')
+    assert.equal(rows[0]?.platform_raw, 'SNES')
+    // A run nobody has answered for is null in both, not an empty string.
+    assert.equal(rows.at(-1)?.platform, null)
+    assert.equal(rows.at(-1)?.platform_raw, null)
   } finally {
     cleanup()
   }

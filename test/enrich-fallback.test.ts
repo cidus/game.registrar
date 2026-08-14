@@ -231,6 +231,40 @@ test('two catalog entries with the exact same title report ambiguous — no gues
   })
 })
 
+test('a run recorded as an acronym narrows the catalog through the platform vocabulary', async () => {
+  const cli = fakeCli()
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'chrono-trigger', title: 'Chrono Trigger' }),
+    // What the user typed. The catalog spells it out in full, and no amount
+    // of substring matching bridges the two.
+    event('run.open', { run_id: 'R1', game_id: 'G1', platform: 'SNES', started_on: '2011-01-01' }),
+  ]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const candidates = async (): Promise<ProviderCandidate[]> => [
+    { id: '1802', title: 'Chrono Trigger', year: 1995, platforms: ['Super Nintendo Entertainment System'], cover_url: null },
+    { id: '20398', title: 'Chrono Trigger', year: 2008, platforms: ['Nintendo DS'], cover_url: null },
+    { id: '206320', title: 'Chrono Trigger', year: 2018, platforms: ['PC (Microsoft Windows)'], cover_url: null },
+  ]
+  const igdb: Provider = {
+    name: 'igdb',
+    search: candidates,
+    findExact: candidates,
+    fetch: async (id: string) => {
+      assert.equal(id, '1802', 'narrowed to the wrong release')
+      return {
+        id,
+        fields: { title: 'Chrono Trigger', release_year: 1995, developer: null, publisher: null, genres: [], platforms: [] },
+        cover_url: null,
+      }
+    },
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
+})
+
 test('bulk (--all) never asks: an ambiguous provider still collapses to skipped', async () => {
   const cli = fakeCli()
   const events = [event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' })]
@@ -355,6 +389,60 @@ test('ambiguousOutcomeError caps candidates at CANDIDATE_LIMIT and flags truncat
   const shaped = error.details['candidates'] as unknown[]
   assert.equal(shaped.length, CANDIDATE_LIMIT)
   assert.equal(error.details['truncated'], true)
+})
+
+test('an explicit searchTerm is sent to the provider instead of the game\'s stored title', async () => {
+  // Regression for the enrich query bug (docs/spec/02-cli.md): a game stored
+  // as "Pacman" (typed as-is on `start`) should be searchable by re-invoking
+  // `gamereg enrich "Pac-Man"` — the literal retyped string, not the stored
+  // title, must reach the provider's search.
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'pacman', title: 'Pacman' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const seenQueries: string[] = []
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [],
+    findExact: async (q: string) => {
+      seenQueries.push(q)
+      return [{ id: '1', title: 'Pac-Man', year: 1980, platforms: [], cover_url: null }]
+    },
+    fetch: async () => ({
+      id: '1',
+      fields: { title: 'Pac-Man', release_year: 1980, developer: null, publisher: null, genres: [], platforms: [] },
+      cover_url: null,
+    }),
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false, 'Pac-Man')
+  assert.deepEqual(outcome, { kind: 'enriched', provider: 'igdb' })
+  assert.deepEqual(seenQueries, ['Pac-Man'])
+})
+
+test('an omitted searchTerm falls back to the game\'s currently stored title', async () => {
+  // Regression: the --all/cron path (and any caller that does not pass an
+  // explicit searchTerm) must keep searching with the stored title, unchanged.
+  const cli = fakeCli()
+  const events = [event('game.create', { game_id: 'G1', slug: 'pacman', title: 'Pacman' })]
+  const workspace: Workspace = { events, state: fold(events, timeContext), pending: [] }
+  const game = workspace.state.games[0]!
+
+  const seenQueries: string[] = []
+  const igdb: Provider = {
+    name: 'igdb',
+    search: async () => [],
+    findExact: async (q: string) => {
+      seenQueries.push(q)
+      return []
+    },
+    fetch: async () => null,
+  }
+
+  const outcome = await enrichGame(cli, workspace, game, [igdb], false, false)
+  assert.deepEqual(outcome, { kind: 'skipped' })
+  assert.deepEqual(seenQueries, ['Pacman'])
 })
 
 test('applyDetail stages a game.enrich event and reports the enriched outcome', () => {

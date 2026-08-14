@@ -17,6 +17,7 @@ import {
 } from '../core/vocab.ts'
 import { closeSession } from './close-session.ts'
 import type { Cli } from './context.ts'
+import { settlePlatform, type SettledPlatform } from './platform.ts'
 import { openRunOf, openSessionOf, resolveGame, stage, type Workspace } from './workspace.ts'
 
 export type CloseRunOptions = {
@@ -25,12 +26,15 @@ export type CloseRunOptions = {
   difficulty?: string
   criteria?: string
   note?: string
+  platform?: string
 }
 
 export type CloseRunResult = {
   game: GameState
   run: RunState
   sessionClosed: boolean
+  /** Null when the run already had one, or when nothing answered. */
+  platform: SettledPlatform | null
 }
 
 /** `--rating 9`, `--rating none`. Refusing to rate is data. */
@@ -65,6 +69,20 @@ export async function closeRun(
   const openSession = openSessionOf(run)
   if (openSession !== null) closeSession(cli, workspace, openSession, { at: cli.at })
 
+  // Offline, from whatever `enrich` already stored on the game. A run that
+  // still has no platform after this closes without one: that is a fact, not
+  // an ambiguity, and no command refuses to close over a metadata field.
+  // Read both back: every `stage` re-folds, so anything captured before it is
+  // a snapshot of a state that has since moved on.
+  const platform = await settlePlatform(
+    cli,
+    workspace,
+    workspace.state.gamesById.get(gameId)!,
+    workspace.state.runsById.get(runId)!,
+    options.platform,
+    'run.close',
+  )
+
   const criteria =
     options.criteria === undefined
       ? defaultCriteria
@@ -89,5 +107,6 @@ export async function closeRun(
     game: workspace.state.gamesById.get(gameId)!,
     run: workspace.state.runsById.get(runId)!,
     sessionClosed: openSession !== null,
+    platform,
   }
 }

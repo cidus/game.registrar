@@ -154,25 +154,31 @@ test(
 )
 
 test(
-  'igdb: platform narrowing still leaves a genuine catalog ambiguity ambiguous (Chrono Trigger)',
+  'igdb: an acronym recorded locally narrows a six-way catalog split (Chrono Trigger, SNES)',
   { skip: skipIgdb },
   async () => {
-    // The fixture's Chrono Trigger has a run recorded on "SNES" — an
-    // acronym that isn't a substring of IGDB's platform names ("Super
-    // Nintendo Entertainment System", "Super Famicom"), so platform
-    // narrowing finds no match and correctly falls back to the full,
-    // unfiltered candidate list rather than guessing. `enrichGame` itself
-    // never throws for ambiguity (that's the `.action()` handler's job,
-    // one layer up) — it returns the outcome as a plain value.
+    // IGDB carries six entries titled exactly "Chrono Trigger" — one per
+    // release, from Legacy Mobile Device to PlayStation. The fixture's run
+    // is recorded on "SNES", which is not a substring of any of those
+    // platform names: this used to find nothing, fall back to the full
+    // candidate list, and report ambiguous.
+    //
+    // The platform vocabulary (02-cli.md) is what closes that gap — `SNES`
+    // and "Super Nintendo Entertainment System" are one platform, so
+    // exactly one candidate survives and it is the right one. This test is
+    // the reason the built-in table carries the providers' own spellings.
     const cli = fakeCli(vault)
     const workspace = workspaceOf(vault)
     const provider = createIgdbProvider(vault.root)
 
-    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'chrono-trigger'), [provider], false, false)
-    assert.equal(outcome.kind, 'ambiguous', `chrono-trigger: ${JSON.stringify(outcome)} — did IGDB dedupe its entries?`)
-    if (outcome.kind === 'ambiguous') {
-      assert.ok(outcome.candidates.length > 1, 'expected more than one candidate')
-    }
+    const game = gameNamed(workspace, 'chrono-trigger')
+    const outcome = await enrichGame(cli, workspace, game, [provider], false, false)
+    assert.equal(outcome.kind, 'enriched', `chrono-trigger: ${JSON.stringify(outcome)}`)
+
+    // Narrowing to *a* candidate is worth nothing if it is the wrong one:
+    // the 1995 SNES release, not the 2008 DS or 2018 PC entry.
+    const enriched = workspace.state.gamesById.get(game.game_id)!
+    assert.equal(enriched.release_year, 1995, `landed on the wrong release: ${enriched.release_year}`)
   },
 )
 

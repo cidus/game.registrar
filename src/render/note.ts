@@ -37,6 +37,21 @@ export function latestRun(game: GameState): RunState | null {
   })[0]!
 }
 
+/**
+ * The platform this game's note leads with: the latest run's, falling back to
+ * any other run that recorded one.
+ *
+ * Never `game.platforms[0]` — that list is what the *catalog* says the game
+ * exists on, and answering "where did you play it" with "IGDB lists PC first"
+ * is a claim nobody made. A game whose runs recorded no platform renders
+ * without one (docs/spec/04-derived.md).
+ */
+export function recordedPlatform(game: GameState): string | null {
+  const latest = latestRun(game)
+  if (latest?.platform != null) return latest.platform
+  return game.runs.map((run) => run.platform).find((platform) => platform !== null) ?? null
+}
+
 export function allSessions(game: GameState): SessionState[] {
   return game.runs
     .flatMap((run) => run.sessions)
@@ -73,7 +88,7 @@ export function frontmatter(game: GameState): string {
   set('gamereg_id', game.game_id)
   set('title', game.title)
   set('status', game.status)
-  set('platform', run?.platform ?? game.platforms[0] ?? null)
+  set('platform', recordedPlatform(game))
   set('release_year', game.release_year)
   set('developer', game.developer)
   set('publisher', game.publisher)
@@ -99,7 +114,7 @@ export function headerBlock(game: GameState, bundle: Translator): string {
 
   if (game.developer !== null) parts.push(`**${game.developer}**`)
   if (game.release_year !== null) parts.push(String(game.release_year))
-  const platform = run?.platform ?? game.platforms[0] ?? null
+  const platform = recordedPlatform(game)
   if (platform !== null) parts.push(platform)
 
   // Nothing measured yet says nothing about duration: an open session is never

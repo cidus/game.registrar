@@ -103,6 +103,17 @@ follows the status derivation in [01-model](01-model.md), `rating` is that of th
 most recently ended run, `runs` is a count. Per-run values live on the run note,
 which is what query views read.
 
+An **unknown platform** (02-cli.md, *Platform, when a run closes*) renders as
+absence, not as a value: the `platform` key is omitted from frontmatter rather
+than written as `null` — an Obsidian property that exists and is empty reads as
+a claim about the game — the header line drops that segment instead of leaving a
+stray separator, and the runs table leaves the cell empty, like every other
+unknown in it. The aggregate `platform` is the latest run's, falling back to
+another run that recorded one; **never** `game.platforms[0]`, which is what the
+catalog says the game exists on and not where anybody played it. What *is*
+written is canonicalized (02-cli.md, *Platform vocabulary*), so a run recorded
+as `snes` renders `Super Nintendo` here without the log having been touched.
+
 The `verdict` block holds the text of the latest `run.verdict` of each run and
 appears only once one has been filed — by `gamereg verdict`, from a terminal or
 from an agent, indifferently. Prose written by hand *inside* the block is
@@ -238,13 +249,20 @@ truth; deleting it costs nothing.
 games(game_id, slug, title, release_year, developer, publisher, status)
 game_platforms(game_id, platform)
 game_genres(game_id, genre)
-runs(run_id, game_id, platform, form, mode, started_on, ended_on, outcome,
-     completion_criteria, rating, difficulty, minutes, hours_source, replay)
+runs(run_id, game_id, platform, platform_raw, form, mode, started_on, ended_on,
+     outcome, completion_criteria, rating, difficulty, minutes, hours_source,
+     replay)
 sessions(session_id, run_id, started_at, ended_at, minutes, logical_day, note)
 breaks(break_id, session_id, started_at, ended_at, minutes)
 aliases(game_id, alias)
 events(event_id, ts, type, source, payload)   -- raw, for auditing
 ```
+
+`runs.platform` is canonicalized on the way in (02-cli.md, *Platform
+vocabulary*); `runs.platform_raw` is what the log actually holds. Group by the
+first, audit with the second. Both are nullable — a run may legitimately not
+know where it was played. `game_platforms.platform` is canonicalized the same
+way, which is what makes a join between the two meaningful at all.
 
 Views worth shipping, because they are what questions actually ask:
 

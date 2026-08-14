@@ -78,7 +78,7 @@ readable title yet.
 
 | Type | Payload |
 |---|---|
-| `run.open` | `run_id`, `game_id`, `platform`, `form`, `mode`, `started_on`, `replay` |
+| `run.open` | `run_id`, `game_id`, `platform?`, `form`, `mode`, `started_on`, `replay` |
 | `run.close` | `run_id`, `ended_on`, `outcome`, `completion_criteria`, `rating?`, `difficulty?`, `note?` |
 | `run.import` | Historical entry: everything above in one event, plus `hours?` and `date_precision` |
 | `run.verdict` | `run_id`, `text` — the consolidated review of that playthrough |
@@ -86,6 +86,13 @@ readable title yet.
 `run.import` exists because past games have no sessions. It produces a closed run
 whose hours are stated, not computed. Reports must never treat a stated total as
 if it were measured — see `hours_source` in derived state.
+
+**`platform` is optional.** `start` records what it knows and nothing more, so a
+run may exist — and may close — with the platform still unknown. It is filled in
+later by an `event.amend` over the `run.open` event, never by a second `run.open`.
+See 02-cli.md, *Platform, when a run closes*. It remains free text: the vocabulary
+in 02-cli.md canonicalizes spellings and orders what gets offered, and rejects
+nothing.
 
 `run.verdict` carries prose and nothing else. It is separate from `run.close`
 because the verdict is usually written later — the run ends when you stop

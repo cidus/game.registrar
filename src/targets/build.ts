@@ -9,8 +9,10 @@
  */
 import { existsSync, rmSync } from 'node:fs'
 
+import type { Config } from '../core/config.ts'
 import { GameregError } from '../core/errors.ts'
 import type { VaultState } from '../core/fold.ts'
+import { canonicalPlatform, canonicalPlatforms, platformTable } from '../core/platforms.ts'
 import { vaultPath, type Vault } from '../core/vault.ts'
 import type { BuildTarget } from '../core/vocab.ts'
 import type { Translator } from '../i18n/index.ts'
@@ -57,6 +59,33 @@ export type BuildOptions = {
 function messageOf(error: unknown, bundle: Translator): string {
   if (error instanceof GameregError) return bundle.t(error.key, error.params)
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * The read-side half of platform canonicalization (docs/spec/02-cli.md
+ * "Canonicalization happens at two boundaries").
+ *
+ * This is the pass that fixes history: adding `Megadrive` as a synonym today
+ * makes runs recorded in 2019 render as one platform, with no `event.amend`
+ * and without a line of the log being rewritten. It runs here, once, over a
+ * copy — the fold stays pure over events and never reads the table, and every
+ * target sees the same spellings without having to remember to ask.
+ *
+ * `platform_raw` is left exactly as recorded, so a bad canonicalization is
+ * always visible and never destructive.
+ */
+export function canonicalizeState(state: VaultState, config: Config): VaultState {
+  const table = platformTable(config.platforms)
+  if (table.lookup.size === 0) return state
+
+  const projected = structuredClone(state)
+  for (const run of projected.runsById.values()) {
+    run.platform = canonicalPlatform(run.platform, table)
+  }
+  for (const game of projected.games) {
+    game.platforms = canonicalPlatforms(game.platforms, table)
+  }
+  return projected
 }
 
 /** A path the manifest holds but this vault cannot address is never touched. */
@@ -125,12 +154,13 @@ export function planBuild(
 
   const context: TargetContext = { config: vault.config, bundle }
   const failed: TargetFailure[] = []
+  const projected = canonicalizeState(state, vault.config)
 
   // 1. Plan. A target that cannot plan takes nothing else down with it.
   const plans = new Map<BuildTarget, PlannedFile[]>()
   for (const name of targets) {
     try {
-      plans.set(name, targetByName(name).plan(state, context))
+      plans.set(name, targetByName(name).plan(projected, context))
     } catch (error) {
       failed.push({ target: name, message: messageOf(error, bundle) })
     }

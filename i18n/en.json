@@ -14,6 +14,7 @@
     "finish": "Close a run as finished.",
     "drop": "Abandon a run.",
     "past": "File a game finished in the past.",
+    "platform": "Manage the platform suggestion list.",
     "open": "List open sessions.",
     "status": "Vault summary, or one game's state.",
     "search": "Look a title up without recording anything.",
@@ -32,7 +33,9 @@
       "event": "Event id.",
       "target": "Build only these targets, from build.targets.",
       "sql": "A single read-only SELECT statement.",
-      "csv_file": "Path to the CSV file to import."
+      "csv_file": "Path to the CSV file to import.",
+      "platform_name": "platform name",
+      "platform_synonyms": "other spellings that mean the same platform"
     },
     "opt": {
       "help": "Show this help.",
@@ -77,9 +80,13 @@
       "all_games": "Enrich every game on record.",
       "covers": "Also fetch and set cover art, unless the cover is source: user.",
       "mapping": "Path to a JSON file mapping gamereg fields to CSV column headers.",
-      "match": "Provider ref to fetch directly, as igdb:7346 — skips search."
+      "match": "Provider ref to fetch directly, as igdb:7346 — skips search.",
+      "platforms": "Platforms this vault suggests, comma separated"
     },
-    "verdict": "File the consolidated review of a playthrough."
+    "verdict": "File the consolidated review of a playthrough.",
+    "platform_add": "Add a platform, with any number of synonyms.",
+    "platform_remove": "Remove a platform from the suggestion list.",
+    "platform_list": "List the configured platforms and their synonyms."
   },
   "error": {
     "usage": "{message}",
@@ -108,7 +115,6 @@
     "break_already_open": "A break is already open, since {time}.",
     "no_open_break": "No break is open.",
     "negative_duration": "That closing time is before the opening time, or the breaks exceed the session.",
-    "platform_required": "A platform is required for the first run of a game. Pass --platform, or set defaults.platform in {file}.",
     "unknown_event": "No event on record has the id \"{id}\".",
     "amend_needs_set": "Nothing to amend. Pass at least one --set key=value.",
     "cannot_amend_correction": "Corrections cannot themselves be amended. Revoke it instead.",
@@ -172,7 +178,10 @@
       "new_run": "Filed: {title} ({platform}) — run opened, session opened at {time}.",
       "replay": "Filed: {title} ({platform}) — certified copy, run {run}. Session opened at {time}.",
       "created": "A new entry was opened for \"{title}\". No catalogue was consulted.",
-      "also_open": "Also open: {list}."
+      "also_open": "Also open: {list}.",
+      "filed_unknown": "Filed: {title} — session opened at {time}.",
+      "new_run_unknown": "Filed: {title} — run opened, session opened at {time}.",
+      "replay_unknown": "Filed: {title} — certified copy, run {run}. Session opened at {time}."
     },
     "end": {
       "closed": "Session closed at {time}. Net duration: {duration}. Game total: {total}.",
@@ -259,6 +268,17 @@
       "done": "{count} rows imported.",
       "failed_count": "{count} rows failed. Everything else was written.",
       "failed": "  row {row}: {message}"
+    },
+    "platform": {
+      "recorded": "Platform recorded: {platform}.",
+      "inferred": "Platform recorded: {platform} — the only one of yours this game exists on.",
+      "added": "Platform on the list: {platform}. Synonyms: {aliases}",
+      "added_bare": "Platform on the list: {platform}.",
+      "removed": "Removed from the list: {platform}. Nothing already recorded on it was touched.",
+      "absent": "Not on the list: {platform}. Nothing to remove.",
+      "none": "No platforms configured. They will be learned as you record them.",
+      "row": "{platform} — {runs} run(s). Synonyms: {aliases}",
+      "row_bare": "{platform} — {runs} run(s)."
     }
   },
   "prompt": {
@@ -272,11 +292,17 @@
       "locale": "Locale (blank for the environment's):",
       "timezone": "Timezone (blank for the environment's):",
       "day_cutoff": "Day cutoff (HH:MM):",
-      "platform": "Default platform (blank to require one per game):",
+      "platform": "Default platform (blank for none):",
       "form": "Default form:",
       "mode": "Default mode:",
       "targets": "Build targets:",
-      "csv_dir": "CSV directory:"
+      "csv_dir": "CSV directory:",
+      "platforms": "Platforms you play on:"
+    },
+    "platform": {
+      "choose": "Which platform?",
+      "other": "Other — type it",
+      "typed": "Platform:"
     }
   },
   "note": {

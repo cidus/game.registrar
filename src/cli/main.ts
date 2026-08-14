@@ -27,6 +27,7 @@ import { registerImport } from './commands/import.ts'
 import { registerInit } from './commands/init.ts'
 import { registerOpen } from './commands/open.ts'
 import { registerPast } from './commands/past.ts'
+import { registerPlatform } from './commands/platform.ts'
 import { registerQuery } from './commands/query.ts'
 import { registerSearch } from './commands/search.ts'
 import { registerStart } from './commands/start.ts'
@@ -143,6 +144,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerStatus(registrar)
   registerVerdict(registrar)
   registerSearch(registrar)
+  registerPlatform(registrar)
   registerAlias(registrar)
   registerAmend(registrar)
   registerBuild(registrar)

@@ -7,6 +7,10 @@
     "form": "digital",
     "mode": "solo"
   },
+  "platforms": [
+    "Nintendo Switch",
+    "PC"
+  ],
   "build": {
     "targets": [
       "obsidian",

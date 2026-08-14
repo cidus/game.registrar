@@ -36,13 +36,22 @@
       "developer": "Mobius Digital",
       "publisher": null,
       "status": "abandoned"
+    },
+    {
+      "game_id": "01K5A00000000000000000GAM5",
+      "slug": "tunic",
+      "title": "Tunic",
+      "release_year": 2022,
+      "developer": "Andrew Shouldice",
+      "publisher": "Finji",
+      "status": "playing"
     }
   ],
   "runs": [
     {
       "run_id": "01K5A00000000000000000RUN2",
       "game_id": "01K5A00000000000000000GAM2",
-      "platform": "SNES",
+      "platform": "Super Nintendo",
       "form": "physical",
       "mode": "solo",
       "started_on": "2011-01-01",
@@ -58,7 +67,7 @@
     {
       "run_id": "01K5A00000000000000000RUN1",
       "game_id": "01K5A00000000000000000GAM1",
-      "platform": "Switch",
+      "platform": "Nintendo Switch",
       "form": "digital",
       "mode": "solo",
       "started_on": "2026-05-03",
@@ -90,7 +99,7 @@
     {
       "run_id": "01K5A00000000000000000RUN4",
       "game_id": "01K5A00000000000000000GAM4",
-      "platform": "Switch",
+      "platform": "Nintendo Switch",
       "form": "digital",
       "mode": "solo",
       "started_on": "2026-07-20",
@@ -100,6 +109,22 @@
       "rating": null,
       "difficulty": null,
       "minutes": 0,
+      "hours_source": "measured",
+      "replay": false
+    },
+    {
+      "run_id": "01K5A00000000000000000RUN5",
+      "game_id": "01K5A00000000000000000GAM5",
+      "platform": null,
+      "form": "digital",
+      "mode": "solo",
+      "started_on": "2026-08-15",
+      "ended_on": null,
+      "outcome": null,
+      "completion_criteria": null,
+      "rating": null,
+      "difficulty": null,
+      "minutes": 150,
       "hours_source": "measured",
       "replay": false
     }
@@ -149,6 +174,15 @@
       "minutes": 178,
       "logical_day": "2026-08-12",
       "note": "Watcher Knights, finally. Hard, but fair."
+    },
+    {
+      "session_id": "01K5A00000000000000000SES7",
+      "run_id": "01K5A00000000000000000RUN5",
+      "started_at": "2026-08-15T20:00:00-03:00",
+      "ended_at": "2026-08-15T22:30:00-03:00",
+      "minutes": 150,
+      "logical_day": "2026-08-15",
+      "note": "Read the manual page by page. Half of it is in a language I cannot read and it still explained the game."
     }
   ]
 }
