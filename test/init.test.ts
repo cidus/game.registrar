@@ -107,7 +107,7 @@ test('an unknown build target exits 2', () => {
 })
 
 test('a phase-3 target exits 2 saying so', () => {
-  const run = gamereg(emptyRoot(), 'init', '--targets', 'site')
+  const run = gamereg(emptyRoot(), 'init', '--targets', 'site', '--locale', 'en')
   assert.equal(run.status, 2)
   assert.match(String(run.json['message']), /phase/)
 })
