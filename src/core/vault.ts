@@ -17,6 +17,8 @@ export type Vault = {
   dataDir: string
   /** Build bookkeeping. Gitignored, and the only file the build reads back. */
   manifestFile: string
+  /** Held for the write phase of a build, so two never race the same files. */
+  lockFile: string
   config: Config
 }
 
@@ -27,6 +29,7 @@ export function openVault(rootOverride?: string | undefined): Vault {
     eventsFile: join(root, 'data', 'events.jsonl'),
     dataDir: join(root, 'data'),
     manifestFile: join(root, '.gamereg', 'manifest.json'),
+    lockFile: join(root, '.gamereg', 'build.lock'),
     config: loadConfig(root),
   }
 }

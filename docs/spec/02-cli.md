@@ -65,7 +65,7 @@ messages are localized and may change.
 | 2 | usage | Bad arguments, unknown enum value |
 | 3 | ambiguous | Multiple candidates; `candidates[]` is populated |
 | 4 | not_found | No candidate at all |
-| 5 | conflict | State conflict (session already open, no session to close) |
+| 5 | conflict | State conflict (session already open, no session to close, a build already running) |
 | 6 | provider_unavailable | Network or provider failure; local work was still committed |
 | 7 | needs_confirmation | Destructive; re-run with `--yes` |
 
@@ -767,6 +767,16 @@ path that overwrites a seeded `.base`.
 A target that fails does not stop the others: the build finishes, reports what
 failed, and exits 1 having written everything that worked — the same principle as
 code 6, where local work is committed even though the network step was not.
+
+**Two `build` processes never write the same vault at once.** Planning is
+read-only and needs no lock; the write phase takes one, backed by a lockfile
+at `.gamereg/build.lock` holding the holder's PID. A second `build` that
+starts while the first is still writing exits 5 (conflict) rather than racing
+it — `data/log.db` in particular has no atomic rename-into-place, so a torn
+concurrent write could leave `query` unable to open it at all, not just read
+something stale. A lock left behind by a process that no longer exists (killed,
+crashed, the machine restarted) is detected as stale and cleared automatically
+before the next build proceeds — nothing to clean up by hand.
 
 ```json
 { "ok": false, "code": 1, "error": "target_failed",

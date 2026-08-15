@@ -206,6 +206,7 @@
     "target_phase": "O alvo de construção \"{name}\" chega na fase {phase}. Esta versão constrói alvos até a fase {current}.",
     "target_not_declared": "\"{name}\" não está entre os build.targets deste acervo: {declared}. O argumento restringe a construção; nunca define o que o acervo contém.",
     "target_conflict": "Os alvos \"{first}\" e \"{second}\" pretendem gravar o mesmo arquivo: {path}.",
+    "build_in_progress": "Já há uma construção em andamento (pid {pid}). Tente novamente em instantes.",
     "unimplemented_target": "O alvo de construção \"{name}\" está declarado, mas não implementado nesta versão.",
     "missing_template": "O modelo \"{name}\" não está instalado junto desta versão.",
     "outside_vault": "Um alvo de construção pretendeu gravar fora do acervo: {path}.",

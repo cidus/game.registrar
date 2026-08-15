@@ -22,6 +22,7 @@ import {
   writeManifest,
   type TargetOwnership,
 } from './manifest.ts'
+import { acquireBuildLock } from './lock.ts'
 import { ensureAssetsLink } from './obsidian.ts'
 import { narrowTo, targetByName } from './registry.ts'
 import type { PlannedFile, TargetContext, WritePolicy } from './types.ts'
@@ -193,76 +194,90 @@ export function build(
     return { targets: selected, planned, written: [], removed: [], failed }
   }
 
+  // Nothing above this line touches the vault: planning reads only state and
+  // config (non-negotiable 8), and the sqlite target's own build happens in a
+  // throwaway temp directory. The lock only needs to cover what follows —
+  // held for the whole write-through-record pass, released even if a target
+  // throws, so a build that fails halfway never leaves the next one jammed.
+  const release = acquireBuildLock(vault)
+  try {
+    return writeAndRecord()
+  } finally {
+    release()
+  }
+
   // 3. Write. Ownership accrues as each file lands, never in advance.
-  const manifest = readManifest(vault.manifestFile)
-  const written: string[] = []
-  const removed: string[] = []
-  const ownership = new Map<BuildTarget, TargetOwnership>()
-  const partial = new Set<BuildTarget>()
+  function writeAndRecord(): BuildResult {
+    const manifest = readManifest(vault.manifestFile)
+    const written: string[] = []
+    const removed: string[] = []
+    const ownership = new Map<BuildTarget, TargetOwnership>()
+    const partial = new Set<BuildTarget>()
 
-  for (const [name, files] of plans) {
-    const done: TargetOwnership = { files: [], seeds: [] }
-    ownership.set(name, done)
-    try {
-      for (const file of files) {
-        if (applyFile(vault, file, force)) written.push(file.path)
-        if (file.policy === 'seed') done.seeds.push(file.path)
-        else done.files.push(file.path)
-      }
-    } catch (error) {
-      failed.push({ target: name, message: messageOf(error, bundle) })
-      partial.add(name)
-      // What was written stays owned, and so does everything it owned before.
-      const previous = manifest?.targets[name]
-      if (previous !== undefined) {
-        done.files.push(...previous.files)
-        done.seeds.push(...previous.seeds)
-      }
-    }
-  }
-
-  // Obsidian's own folder needs `assets` visible inside it — see
-  // obsidian.ts's ensureAssetsLink. Not a planned file (a symlink has no
-  // content to diff), so it sits outside the manifest/ownership machinery
-  // entirely; idempotent, and only for a target that actually ran.
-  if (plans.has('obsidian')) ensureAssetsLink(vault)
-
-  // 4. Remove. The only part of the build that deletes, and it deletes only what
-  //    the manifest says a target owns and no longer plans. A missing manifest
-  //    skips this entirely rather than guessing ownership from filenames.
-  if (manifest !== null) {
-    for (const [name, previous] of Object.entries(manifest.targets)) {
-      if (partial.has(name as BuildTarget)) continue
-      const current = ownership.get(name as BuildTarget)
-      // A target that did not run is cleaned only when a full build establishes
-      // that the vault no longer declares it. A narrowed build says nothing
-      // about the targets it was not asked to build.
-      const ran = current !== undefined
-      const dropped = !narrowed && !declared.includes(name as BuildTarget)
-      if (!ran && !dropped) continue
-
-      const keep = new Set(current?.files ?? [])
-      for (const path of previous.files) {
-        if (keep.has(path) || owner.has(path)) continue
-        const file = insideVault(vault, path)
-        if (file === null || !existsSync(file)) continue
-        rmSync(file)
-        removed.push(path)
+    for (const [name, files] of plans) {
+      const done: TargetOwnership = { files: [], seeds: [] }
+      ownership.set(name, done)
+      try {
+        for (const file of files) {
+          if (applyFile(vault, file, force)) written.push(file.path)
+          if (file.policy === 'seed') done.seeds.push(file.path)
+          else done.files.push(file.path)
+        }
+      } catch (error) {
+        failed.push({ target: name, message: messageOf(error, bundle) })
+        partial.add(name)
+        // What was written stays owned, and so does everything it owned before.
+        const previous = manifest?.targets[name]
+        if (previous !== undefined) {
+          done.files.push(...previous.files)
+          done.seeds.push(...previous.seeds)
+        }
       }
     }
-  }
 
-  // 5. Record. Targets that did not run keep the ownership they had; a target
-  //    the vault no longer declares keeps only its seeds, which are nobody's to
-  //    remove but stay accounted for.
-  const next = emptyManifest()
-  for (const [name, previous] of Object.entries(manifest?.targets ?? {})) {
-    if (ownership.has(name as BuildTarget)) continue
-    if (narrowed || declared.includes(name as BuildTarget)) next.targets[name] = previous
-    else if (previous.seeds.length > 0) next.targets[name] = { files: [], seeds: previous.seeds }
-  }
-  for (const [name, current] of ownership) next.targets[name] = current
-  writeManifest(vault.manifestFile, next)
+    // Obsidian's own folder needs `assets` visible inside it — see
+    // obsidian.ts's ensureAssetsLink. Not a planned file (a symlink has no
+    // content to diff), so it sits outside the manifest/ownership machinery
+    // entirely; idempotent, and only for a target that actually ran.
+    if (plans.has('obsidian')) ensureAssetsLink(vault)
 
-  return { targets: selected, planned, written, removed, failed }
+    // 4. Remove. The only part of the build that deletes, and it deletes only what
+    //    the manifest says a target owns and no longer plans. A missing manifest
+    //    skips this entirely rather than guessing ownership from filenames.
+    if (manifest !== null) {
+      for (const [name, previous] of Object.entries(manifest.targets)) {
+        if (partial.has(name as BuildTarget)) continue
+        const current = ownership.get(name as BuildTarget)
+        // A target that did not run is cleaned only when a full build establishes
+        // that the vault no longer declares it. A narrowed build says nothing
+        // about the targets it was not asked to build.
+        const ran = current !== undefined
+        const dropped = !narrowed && !declared.includes(name as BuildTarget)
+        if (!ran && !dropped) continue
+
+        const keep = new Set(current?.files ?? [])
+        for (const path of previous.files) {
+          if (keep.has(path) || owner.has(path)) continue
+          const file = insideVault(vault, path)
+          if (file === null || !existsSync(file)) continue
+          rmSync(file)
+          removed.push(path)
+        }
+      }
+    }
+
+    // 5. Record. Targets that did not run keep the ownership they had; a target
+    //    the vault no longer declares keeps only its seeds, which are nobody's to
+    //    remove but stay accounted for.
+    const next = emptyManifest()
+    for (const [name, previous] of Object.entries(manifest?.targets ?? {})) {
+      if (ownership.has(name as BuildTarget)) continue
+      if (narrowed || declared.includes(name as BuildTarget)) next.targets[name] = previous
+      else if (previous.seeds.length > 0) next.targets[name] = { files: [], seeds: previous.seeds }
+    }
+    for (const [name, current] of ownership) next.targets[name] = current
+    writeManifest(vault.manifestFile, next)
+
+    return { targets: selected, planned, written, removed, failed }
+  }
 }
