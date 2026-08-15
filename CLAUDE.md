@@ -336,6 +336,20 @@ Everything phase 0 established still holds, and phase 1 adds to it:
 - **Idempotency test:** build, snapshot, build again, assert byte equality,
   across every enabled target, binary ones included. For SQLite this means a
   fixed page size and no timestamps in the file.
+- **Known gap, unresolved:** the golden-file comparison of `data/log.db`
+  assumes byte equality holds not just same-machine (it does — the
+  idempotency test above passes on every host tried) but *across Node
+  versions*, which it doesn't. Found deploying phase 2's agent layer:
+  Node v26.0.0 bundles SQLite 3.53.1, Node v26.7.0 bundles 3.53.4, and a
+  build on the latter differs byte-for-byte from the committed fixture
+  (built on the former) despite identical logical content — the on-disk
+  page layout isn't guaranteed stable across SQLite library versions the
+  way this test assumes. Not yet decided: compare `data/log.db` logically
+  (dump and diff rows) instead of as raw bytes, pin a specific Node/SQLite
+  version for golden-file regeneration, or accept it as a known
+  environment constraint. `test/golden.test.ts`'s
+  `'building the example vault reproduces the committed output byte for
+  byte'` is where this shows up.
 - **Ownership test:** build with a target enabled, disable it, build again,
   assert its files are gone and nothing else moved. Then delete the manifest and
   assert the build still succeeds and deletes nothing.
