@@ -92,6 +92,35 @@ already closed. Never invent a platform to avoid asking. Never treat
 passing ("anotei no PS5"), which is enough for them to correct it if the console
 was someone else's.
 
+## A platform question with no session to answer through
+
+*The platform question, and only here* above assumes a session is open to
+close. A run filed with `gamereg past` never had one — it can sit with
+`platform: null` indefinitely, and the only way it comes up is the user
+asking directly, not an `end`/`finish`/`drop` reply.
+
+> "em que plataforma tá esse jogo?" → *(you check, it's null)* → "PS5"
+
+There is no `end` to attach `--platform` to. The tool is `amend`, on the
+run's own `run.open` event — but neither `status` nor `search` hand you that
+event id, so find it first (`{baseDir}/reference/query.md` has the exact
+query):
+
+```
+gamereg query "SELECT event_id FROM events WHERE type = 'run.open' AND json_extract(payload, '$.run_id') = '<run_id>'" --json
+gamereg amend "<event_id>" --set platform="PS5" --reason "plataforma informada pelo usuário" --json
+```
+
+**Do not try `start --platform` on the existing title first, looking for a
+shortcut.** A run this old and never enriched has no catalog platforms on
+record yet, `--platform` filters against exactly that field, and the result
+is a `not_found` that has nothing to do with the platform you're trying to
+set — a dead end, not a signal to retry with `--no-metadata`.
+
+`amend` is off the exec allowlist on purpose — this asks for approval every
+time, and that's correct (see Safety). Wait for it rather than working
+around it.
+
 ## Candidates (exit code 3)
 
 Exit code 3 means several games match. The envelope carries `candidates[]`, each

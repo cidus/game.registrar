@@ -6,15 +6,19 @@
 // repository, the same way gamereg.secrets.json does.
 //
 // Every key below was verified against a real OpenClaw install, not just
-// against the docs — the docs alone got three things wrong that mattered:
+// against the docs — the docs alone got four things wrong that mattered:
 // `dmPolicy` defaults to "pairing" (anyone who finds the bot can request
 // access), not blocked; `tools.exec.security` defaults to "full"
 // (unrestricted shell), so the allowlist in approvals.example.json does
-// nothing at all until the exec keys below are set alongside it; and
-// without `approvals.exec`, anything that misses the allowlist doesn't
-// pause for you to approve — it just fails outright with "no interactive
-// approval client is currently available", because nothing tells OpenClaw
-// where to deliver the approval prompt.
+// nothing at all until the exec keys below are set alongside it;
+// `approvals.exec` decides where an approval prompt is *routed* but not
+// whether Telegram can actually *render* one — without it, a command that
+// misses the allowlist fails outright with "no interactive approval client
+// is currently available"; and even with routing configured,
+// `channels.telegram.execApprovals` is a second, separate switch — without
+// it the failure just changes to "native chat exec approvals are not
+// configured on Telegram", and the agent falls back to asking you to paste
+// a raw `/approve <command>` back at it, which is not a real approval flow.
 //
 // The environment gamereg needs (GAMEREG_VAULT, GAMEREG_SOURCE,
 // GAMEREG_NON_INTERACTIVE) is set on the gateway *process* — see README.md.
@@ -45,6 +49,20 @@
         // Exit code 3 is rendered as inline buttons — the whole point of the
         // chat flow. "allowlist" scopes them to the senders above.
         inlineButtons: "allowlist",
+      },
+
+      // The channel-native half of exec approvals — distinct from
+      // approvals.exec below, which only decides routing. Without this,
+      // routing still resolves, but Telegram itself refuses to present an
+      // approval surface, and the fallback is a raw /approve command pasted
+      // back at the bot, which does not work. `enabled: true`, relying on
+      // `allowFrom` above to infer the approver rather than an explicit
+      // `approvers` list. Only the config apply itself is confirmed so
+      // far — the actual click-through in Telegram still needs a real tap
+      // on a real phone to verify; if it turns out `allowFrom` inference
+      // isn't enough, add `approvers: ["<your numeric id>"]` here.
+      execApprovals: {
+        enabled: true,
       },
     },
   },

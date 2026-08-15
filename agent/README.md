@@ -109,7 +109,7 @@ cp -R agent/skills/gamereg ~/.openclaw/workspace/skills/
 
 ### 6. Restrict what it may run
 
-Three parts, and all three are required — any one missing and either nothing
+Four parts, and all four are required — any one missing and either nothing
 is gated, or a gated command just fails outright with no way to approve it.
 
 **The policy**, from step 3: `tools.exec.security: "allowlist"` and
@@ -160,13 +160,36 @@ prompt back into whatever chat the command came from, which is what you
 want for a single-owner DM bot — there's no separate ops room to route it to
 instead.
 
+**Whether Telegram can actually show the approval, once it's routed there.**
+`approvals.exec` above decides *where* a prompt goes; it does not make
+Telegram able to display one. Without `channels.telegram.execApprovals`, a
+correctly-routed prompt still fails, with a different message: *"native chat
+exec approvals are not configured on Telegram... Approve it from the Web UI
+or terminal UI for now."* The fallback the agent reaches for instead — asking
+you to paste a raw `/approve <command>` back at it — is not a working
+approval flow, just the least-broken thing left to try.
+
+```json5
+channels: {
+  telegram: {
+    execApprovals: { enabled: true },
+  },
+},
+```
+
+`enabled: true` alone was enough to change the failure and pick up the
+existing `allowFrom` as the approver — no separate `approvers` list needed.
+That much is confirmed; the actual click-through (does a real tap in
+Telegram approve the command) still wants a real test, since nothing short of
+a phone in hand verifies that part.
+
 Also worth knowing, separate from approvals: **a single `gamereg` invocation
 per exec call, never chained.** The allowlist matches the command string as
 given — `gamereg build --json 2>&1 || gamereg build` is a different, unlisted
 command even though both halves are `gamereg`, and it falls straight into the
-same "no approval client available" failure above. `SKILL.md` tells the agent
-this explicitly; it's noted here because the failure mode looks identical to
-the missing-`approvals.exec` case and is easy to misdiagnose as the same bug.
+same approval-required path above. `SKILL.md` tells the agent this
+explicitly; it's noted here because the failure mode looks identical to a
+missing-approvals-config case and is easy to misdiagnose as the same bug.
 
 ### A permissions trap worth knowing about up front
 

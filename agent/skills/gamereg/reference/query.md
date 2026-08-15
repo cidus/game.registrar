@@ -86,3 +86,12 @@ GROUP BY platform ORDER BY hours DESC
 
 What is open right now — `gamereg open` answers this better, and without the
 build having to be current. Prefer the command.
+
+The `run.open` event id for a run, when you need to `amend` a field on it and
+neither `status` nor `search` hand you an event id directly — `runs` itself
+carries no event id column, only the `events` table's own `payload` does:
+
+```sql
+SELECT event_id FROM events
+WHERE type = 'run.open' AND json_extract(payload, '$.run_id') = '<run_id>'
+```
