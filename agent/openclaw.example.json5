@@ -1,13 +1,21 @@
 // Example OpenClaw configuration for the Registrar (docs/spec/05-agent.md).
 //
-// Copy the parts you need into ~/.openclaw/openclaw.json5. Nothing here is a
-// secret: the bot token and the chat id belong on the host, not in this
+// Copy the parts you need into ~/.openclaw/openclaw.json5, or apply them with
+// `openclaw config patch --file <this file> --dry-run` first. Nothing here is
+// a secret: the bot token and the chat id belong on the host, not in this
 // repository, the same way gamereg.secrets.json does.
 //
-// Only keys verified against the OpenClaw documentation appear below. The
-// environment gamereg needs (GAMEREG_VAULT, GAMEREG_SOURCE,
-// GAMEREG_NON_INTERACTIVE) is set on the gateway *process*, which the commands
-// it spawns inherit — see README.md. Do not try to set it here.
+// Every key below was verified against a real OpenClaw install, not just
+// against the docs — the docs alone got two things wrong that mattered:
+// `dmPolicy` defaults to "pairing" (anyone who finds the bot can request
+// access), not blocked; and `tools.exec.security` defaults to "full"
+// (unrestricted shell), so the allowlist in approvals.example.json does
+// nothing at all until the two keys below are set alongside it.
+//
+// The environment gamereg needs (GAMEREG_VAULT, GAMEREG_SOURCE,
+// GAMEREG_NON_INTERACTIVE) is set on the gateway *process* — see README.md.
+// Do not try to set it here; this file has no mechanism that reaches exec'd
+// child processes with arbitrary env vars.
 {
   agents: {
     defaults: {
@@ -20,9 +28,13 @@
       enabled: true,
       botToken: "PUT_YOUR_BOT_TOKEN_HERE",
 
-      // The sender allowlist. Non-negotiable on any channel: the agent has
-      // shell access and the channel is reachable by anyone who finds the bot.
-      // Your own numeric Telegram id, not your @username.
+      // "allowlist" is the whole point — without it, dmPolicy defaults to
+      // "pairing", which lets any Telegram user who finds the bot request
+      // access. This is the one non-negotiable line in this file.
+      dmPolicy: "allowlist",
+      // Your own numeric Telegram user id, not your @username. Message the
+      // bot once, then read it back from the Bot API's getUpdates, or from
+      // whatever "who messaged me" tool your OpenClaw version exposes.
       allowFrom: ["PUT_YOUR_NUMERIC_CHAT_ID_HERE"],
 
       capabilities: {
@@ -34,6 +46,23 @@
   },
 
   tools: {
+    // Governs whether the agent may run gamereg at all, and what happens to
+    // anything not on the allowlist in approvals.example.json.
+    //
+    // security: "allowlist" — only allowlisted patterns run; everything else
+    // is subject to `ask`. Leaving this unset means "full": every command
+    // runs with no gate whatsoever, allowlist file or not.
+    //
+    // ask: "on-miss" — a command that isn't allowlisted (amend, revoke, or
+    // anything the agent shouldn't be running) pauses for a human decision
+    // instead of either running silently or failing silently. This is what
+    // makes leaving amend/revoke off the allowlist in approvals.example.json
+    // an actual gate rather than just documentation.
+    exec: {
+      security: "allowlist",
+      ask: "on-miss",
+    },
+
     media: {
       // Voice notes are transcribed here, upstream of gamereg. The CLI never
       // touches audio and must never be asked to.
@@ -53,8 +82,8 @@
         },
 
         // Local: nothing leaves the host, no per-minute cost, more setup.
-        // Verify the provider spelling against your OpenClaw version before
-        // relying on this one.
+        // Not yet verified against a real install — check the provider
+        // spelling against your OpenClaw version before relying on it.
         // {
         //   provider: "whisper-local",
         //   model: "large-v3",

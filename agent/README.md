@@ -39,28 +39,59 @@ Check it: `gamereg status --json` from inside your vault.
 ### 2. Create the bot
 
 Create it through Telegram's BotFather and keep the token. Then get your own
-numeric chat id — the bot only ever answers you, and `@username` is not what the
-allowlist matches.
+numeric chat id — the bot only ever answers you, and `@username` is not what
+the allowlist matches. Easiest way: message the bot once (anything, `/start`
+is fine), then read your id back from the Bot API directly —
+
+```bash
+curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | python3 -m json.tool
+```
+
+— it's `result[].message.from.id`, a plain integer, in the reply.
+
+While you're in BotFather, run `/setjoingroups` and disable it. This bot is
+DM-only; there's no reason it should be addable to a group at all.
 
 ### 3. Configure OpenClaw
 
-Copy the parts of `openclaw.example.json5` you need into
-`~/.openclaw/openclaw.json5`. Fill in the token and your chat id.
+`openclaw.example.json5` isn't just channel config — it also carries the
+`tools.exec` policy that step 6 depends on. Fill in the token and chat id,
+then apply the whole file rather than hand-copying pieces of it:
 
-**`allowFrom` is not optional.** The agent has shell access and the bot is
-reachable by anyone who finds it.
+```bash
+openclaw config patch --file agent/openclaw.example.json5 --dry-run
+openclaw config patch --file agent/openclaw.example.json5
+```
+
+**`dmPolicy: "allowlist"` and `allowFrom` are not optional.** Left unset,
+`dmPolicy` defaults to `"pairing"` — not blocked, just one extra step for a
+stranger who finds the bot. The agent has shell access; don't rely on the
+softer default.
 
 ### 4. Set the environment the CLI reads
 
-These go on the gateway *process*, which the commands it spawns inherit — in
-the systemd unit, the launchd plist, or wherever you start OpenClaw. Not in
-`openclaw.json5`.
+These go in `~/.openclaw/.env`, not in `openclaw.json5` and not in the
+systemd unit's own `Environment=` lines. OpenClaw resolves each exec call's
+environment from the parent process, the working directory's `.env`, and this
+global fallback file — merged fresh per call, not baked in once at gateway
+startup — which is exactly why this file is the right place and a `restart`
+(not a reinstall) is enough to pick up a change.
 
 ```bash
-export GAMEREG_VAULT="/path/to/your/vault"
-export GAMEREG_SOURCE=chat
-export GAMEREG_NON_INTERACTIVE=1
+cat >> ~/.openclaw/.env <<'EOF'
+GAMEREG_VAULT=/path/to/your/vault
+GAMEREG_SOURCE=chat
+GAMEREG_NON_INTERACTIVE=1
+EOF
+chmod 600 ~/.openclaw/.env
+systemctl --user restart openclaw-gateway.service
 ```
+
+Don't confuse this with `OPENCLAW_SERVICE_MANAGED_ENV_KEYS` — that's a
+different, narrower mechanism OpenClaw uses to bake specific keys it
+recognizes (the model auth token, the channel bot token) directly into the
+systemd unit at `gateway install` time. `GAMEREG_*` keys aren't in that list
+and don't need to be; the exec-time resolution above already covers them.
 
 `GAMEREG_SOURCE=chat` stamps every event the gateway files, so the log tells you
 later what came from a phone and what came from a terminal. An unknown value is
@@ -78,23 +109,76 @@ cp -R agent/skills/gamereg ~/.openclaw/workspace/skills/
 
 ### 6. Restrict what it may run
 
-Copy `approvals.example.json` into OpenClaw's approvals file (`openclaw
-approvals --help` will tell you where, and can add entries for you).
+Two parts, and both are required — either alone does nothing.
 
-One entry, deliberately narrow: `gamereg` and nothing else, with no path-only
-entry, so the binary is restricted to arguments matching `argPattern`.
+**The policy**, from step 3: `tools.exec.security: "allowlist"` and
+`tools.exec.ask: "on-miss"`. Skip these and the default is `security: "full"`
+— unrestricted shell, allowlist file or not. Confirm what's actually in
+effect:
+
+```bash
+openclaw approvals get
+```
+
+**The allowlist itself.** `openclaw approvals allowlist add <pattern>` only
+takes a bare glob — no `argPattern` — so the constrained entry that keeps
+`amend`/`revoke` out needs the file form instead:
+
+```bash
+openclaw approvals set --file agent/approvals.example.json
+```
+
+Fill in your service account's actual home path for the second (absolute
+path) entry, or drop it — in testing, the exec tool always ran `gamereg`
+through a shell as a bare command, so only the bare-name pattern ever
+matched (`openclaw approvals get` shows "Last Used" per entry — check it
+after a real invocation rather than assuming). The absolute-path entry is
+kept as cheap insurance in case a future OpenClaw version invokes
+differently.
 
 The negative lookahead keeps **`amend` and `revoke` out of the allowlist on
 purpose.** Those are how a mistake in an append-only log gets corrected, and
-leaving them unlisted means OpenClaw asks you before either runs. A prompt
-instruction saying "never call amend" is advice a model can talk itself out of;
-an approval prompt is not.
+leaving them unlisted means OpenClaw asks you before either runs, per the
+`ask: "on-miss"` policy above. A prompt instruction saying "never call amend"
+is advice a model can talk itself out of; an approval prompt is not.
 
 Known cost, stated plainly: this is a regex over argv, not typed validation. A
 `--note` whose text contains the word "revoke" will ask for an approval it does
 not need. It fails toward asking, which is the right direction — and it is the
 reason a small MCP server with per-argument validation is the eventual answer
 rather than this.
+
+### A permissions trap worth knowing about up front
+
+If your vault lives somewhere that needs a shared group — not the service
+account's own home directory — and you create that group *after* the gateway
+has already been started once (including via `loginctl enable-linger`),
+restarting the gateway service alone will not pick it up. Supplementary group
+membership is resolved at login/session start, and `systemctl --user restart
+<service>` only restarts the service within the *existing* session — it does
+not re-login.
+
+The symptom is an exec failure with `EACCES: permission denied, mkdir
+'<vault>/data'` on the very first write, even though the same command run by
+hand over a fresh SSH connection works fine (a new SSH connection is a fresh
+login, and does pick up the new group). Confirm the mismatch directly —
+
+```bash
+id                                                                # your groups
+PID=$(systemctl --user show -p MainPID --value openclaw-gateway.service)
+cat /proc/$PID/status | grep ^Groups                              # the gateway's
+```
+
+— and if the gateway is missing the group, the fix is restarting the whole
+per-user session manager, not just the one service:
+
+```bash
+sudo systemctl restart user@<your-uid>.service
+```
+
+This is a full user-session restart, not a service restart — it will
+briefly interrupt every `systemd --user` unit for that account. Confirm the
+group came through afterward with the same `/proc/$PID/status` check above.
 
 ### 7. Voice
 

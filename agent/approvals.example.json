@@ -6,6 +6,10 @@
         {
           "pattern": "gamereg",
           "argPattern": "^(?!.*\\b(amend|revoke)\\b).*$"
+        },
+        {
+          "pattern": "/home/YOUR_SERVICE_USER/.npm-global/bin/gamereg",
+          "argPattern": "^(?!.*\\b(amend|revoke)\\b).*$"
         }
       ]
     }
