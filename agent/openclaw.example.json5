@@ -6,7 +6,7 @@
 // repository, the same way gamereg.secrets.json does.
 //
 // Every key below was verified against a real OpenClaw install, not just
-// against the docs — the docs alone got four things wrong that mattered:
+// against the docs — the docs alone got several things wrong that mattered:
 // `dmPolicy` defaults to "pairing" (anyone who finds the bot can request
 // access), not blocked; `tools.exec.security` defaults to "full"
 // (unrestricted shell), so the allowlist in approvals.example.json does
@@ -15,10 +15,17 @@
 // whether Telegram can actually *render* one — without it, a command that
 // misses the allowlist fails outright with "no interactive approval client
 // is currently available"; and even with routing configured,
-// `channels.telegram.execApprovals` is a second, separate switch — without
-// it the failure just changes to "native chat exec approvals are not
-// configured on Telegram", and the agent falls back to asking you to paste
-// a raw `/approve <command>` back at it, which is not a real approval flow.
+// `channels.telegram.execApprovals.enabled` on its own, relying on
+// `allowFrom` to infer the approver, was confirmed insufficient — it needs
+// an explicit `approvers` list, or the failure just changes to "native chat
+// exec approvals are not configured on Telegram".
+//
+// `amend`/`revoke` are *not* excluded from approvals.example.json's
+// allowlist here, on purpose, after finding the platform approval UI
+// unreliable enough in practice (see README.md, "Why amend/revoke moved
+// off the platform gate") that SKILL.md's own conversational confirmation
+// became the safer bet. Read that section before assuming this file is the
+// stricter option.
 //
 // The environment gamereg needs (GAMEREG_VAULT, GAMEREG_SOURCE,
 // GAMEREG_NON_INTERACTIVE) is set on the gateway *process* — see README.md.
@@ -55,14 +62,18 @@
       // approvals.exec below, which only decides routing. Without this,
       // routing still resolves, but Telegram itself refuses to present an
       // approval surface, and the fallback is a raw /approve command pasted
-      // back at the bot, which does not work. `enabled: true`, relying on
-      // `allowFrom` above to infer the approver rather than an explicit
-      // `approvers` list. Only the config apply itself is confirmed so
-      // far — the actual click-through in Telegram still needs a real tap
-      // on a real phone to verify; if it turns out `allowFrom` inference
-      // isn't enough, add `approvers: ["<your numeric id>"]` here.
+      // back at the bot, which does not work.
+      //
+      // `enabled: true` alone, relying on `allowFrom` above to infer the
+      // approver, was tried first and confirmed insufficient — the same
+      // "not configured on Telegram" failure recurred on a fresh attempt
+      // afterward. The explicit `approvers` list below is what actually
+      // worked: a real approval that genuinely paused and resolved on an
+      // actual Telegram inline tap (exec.approval.waitDecision in the
+      // gateway log, ~12s — a human reacting, not a fallback).
       execApprovals: {
         enabled: true,
+        approvers: ["PUT_YOUR_NUMERIC_CHAT_ID_HERE"],
       },
     },
   },
@@ -88,12 +99,14 @@
     // is subject to `ask`. Leaving this unset means "full": every command
     // runs with no gate whatsoever, allowlist file or not.
     //
-    // ask: "on-miss" — a command that isn't allowlisted (amend, revoke, or
-    // anything the agent shouldn't be running) pauses for a human decision
-    // instead of either running silently or failing silently — but only
-    // because approvals.exec above tells OpenClaw where to send that prompt.
-    // This is what makes leaving amend/revoke off the allowlist in
-    // approvals.example.json an actual gate rather than just documentation.
+    // ask: "on-miss" — anything that isn't allowlisted (a chained command
+    // that doesn't match the plain `gamereg` pattern, or a tool other than
+    // gamereg entirely) pauses for a human decision instead of running or
+    // failing silently — but only because approvals.exec below tells
+    // OpenClaw where to send that prompt. `amend` and `revoke` are on the
+    // allowlist in approvals.example.json like every other gamereg command;
+    // their confirmation is conversational, in SKILL.md, not this gate — see
+    // README.md for why, and what that trades away.
     exec: {
       security: "allowlist",
       ask: "on-miss",

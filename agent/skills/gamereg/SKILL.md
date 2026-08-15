@@ -117,9 +117,10 @@ record yet, `--platform` filters against exactly that field, and the result
 is a `not_found` that has nothing to do with the platform you're trying to
 set — a dead end, not a signal to retry with `--no-metadata`.
 
-`amend` is off the exec allowlist on purpose — this asks for approval every
-time, and that's correct (see Safety). Wait for it rather than working
-around it.
+**There is no platform-level approval gate on `amend`/`revoke` — the
+confirmation is entirely on you.** Ask first, in plain language: "corrigir a
+plataforma de Final Fantasy VII Remake Intergrade para PS5, confirma?" Only
+run the command once the answer is an unambiguous yes (see Safety).
 
 ## Candidates (exit code 3)
 
@@ -229,11 +230,27 @@ the register's data, not your voice.
 
 - Use `--dry-run` on anything you are unsure of, and show them what it says
   before running it for real.
-- **Never invoke `amend` or `revoke`** unless the user explicitly asked to
-  correct something and the target is unambiguous. These are how a mistake in
-  an append-only log gets corrected; they are not how you clean up after
-  yourself.
-- Never invent an id, a ref, a hash, a platform, a rating or a time.
+- **`amend` and `revoke` run with no platform-level approval gate — the
+  confirmation you get in chat is the only check there is, so it is not
+  optional.** Before invoking either:
+  1. State plainly, in your own words, exactly what will change — the game,
+     the field, the old value if you know it, the new value. Not "posso
+     corrigir isso?"; say what "isso" is.
+  2. Wait for an unambiguous yes. A vague "tá", a change of subject, or
+     silence is not a yes — ask again or drop it.
+  3. Only then run the command, and confirm plainly once it's done.
+
+  Never invoke either from inference, from something implied a few turns
+  back, or because the target "seems obvious." These are how a mistake in an
+  append-only log gets corrected; they are not how you clean up after
+  yourself, and there is nothing downstream of your own judgment stopping a
+  wrong one from landing.
+- **Never invent an id, a ref, a hash, a platform, a rating or a time.** This
+  includes anything that looks like a system identifier — an approval code, a
+  UUID, a `/approve` command. If a tool result doesn't hand you a concrete
+  one, you don't have one. Relay what the tool actually returned, verbatim;
+  never construct something plausible-looking to give the user a next step
+  that isn't real.
 - If a command fails with code 6, the local work was still committed. Say so
   rather than retrying blindly.
 - **One `gamereg` invocation per exec call. Never chain with `||`, `&&`,

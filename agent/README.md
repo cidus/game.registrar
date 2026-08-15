@@ -122,8 +122,8 @@ openclaw approvals get
 ```
 
 **The allowlist itself.** `openclaw approvals allowlist add <pattern>` only
-takes a bare glob — no `argPattern` — so the constrained entry that keeps
-`amend`/`revoke` out needs the file form instead:
+takes a bare glob, no way to scope by argument — which matters below, not for
+this step. Apply the file form either way, since it's the reproducible one:
 
 ```bash
 openclaw approvals set --file agent/approvals.example.json
@@ -137,42 +137,78 @@ after a real invocation rather than assuming). The absolute-path entry is
 kept as cheap insurance in case a future OpenClaw version invokes
 differently.
 
-The negative lookahead keeps **`amend` and `revoke` out of the allowlist on
-purpose.** Those are how a mistake in an append-only log gets corrected, and
-leaving them unlisted means OpenClaw asks you before either runs, per the
-`ask: "on-miss"` policy above. A prompt instruction saying "never call amend"
-is advice a model can talk itself out of; an approval prompt is not.
+**`amend` and `revoke` are on this allowlist, deliberately, not excluded.**
+That was not the first design. Read on before copying this file as-is if
+you'd rather keep the platform gate.
 
-Known cost, stated plainly: this is a regex over argv, not typed validation. A
-`--note` whose text contains the word "revoke" will ask for an approval it does
-not need. It fails toward asking, which is the right direction — and it is the
-reason a small MCP server with per-argument validation is the eventual answer
-rather than this.
+### Why amend/revoke moved off the platform gate, and what that trades away
 
-**Where the approval prompt actually goes**, also from step 3:
-`approvals.exec.mode: "session"`. Without it, `ask: "on-miss"` has nothing to
-route through — a command that misses the allowlist doesn't pause for you,
-it fails immediately with *"Exec approval is required, but no interactive
-approval client is currently available."* This is easy to miss because the
-allowlist and the policy both look correctly configured; the missing piece
-is only visible in that specific failure message. `"session"` sends the
-prompt back into whatever chat the command came from, which is what you
-want for a single-owner DM bot — there's no separate ops room to route it to
-instead.
+The original design kept `amend`/`revoke` off the allowlist entirely, so any
+attempt at either fell to `ask: "on-miss"` and required a real approval
+before running — a technical backstop a model can't reason its way around,
+independent of how well SKILL.md tells it to behave. That held up in
+principle. In practice, once actually wired end to end (see the two sections
+below — both are still real requirements for *other* unlisted commands, kept
+for that reason), the approval message itself was the problem: full raw
+command text, a UUID, sometimes a slash-command fallback to paste back — and
+worse, when the routing wasn't fully configured, the agent **fabricated**
+plausible-looking `/approve <uuid>` instructions instead of relaying an
+honest "this isn't working." That's a real failure mode a determined skill
+instruction didn't prevent — SKILL.md already said "never invent an id," and
+the model didn't recognize an approval id as covered by that rule until it
+was named explicitly.
 
-**Whether Telegram can actually show the approval, once it's routed there.**
-`approvals.exec` above decides *where* a prompt goes; it does not make
-Telegram able to display one. Without `channels.telegram.execApprovals`, a
-correctly-routed prompt still fails, with a different message: *"native chat
-exec approvals are not configured on Telegram... Approve it from the Web UI
-or terminal UI for now."* The fallback the agent reaches for instead — asking
-you to paste a raw `/approve <command>` back at it — is not a working
-approval flow, just the least-broken thing left to try.
+Given a choice between fixing the display (not fully in this repo's control —
+the message shows the real command being authorized, which is arguably the
+point of an approval gate, not a bug) and moving the confirmation somewhere
+with better UX, the second was chosen here. `amend`/`revoke` now run like any
+other `gamereg` command; the confirmation is conversational, specified in
+`SKILL.md`'s Safety section — state plainly what will change, wait for an
+unambiguous yes, only then run it.
+
+**What this costs, stated plainly:** there is no longer a mechanism that
+stops a wrong `amend` if the model misjudges its own conversation — badly
+worded context, a stale reference, a confident-sounding but incorrect
+inference. The append-only log means nothing is destroyed even then (a bad
+amend is one more amend away from fixed), but it is no longer *impossible*
+for the agent to run one without a real yes, only *against instructions* for
+it to. If that tradeoff doesn't sit right for your vault, revert to
+`approvals.example.json`'s original `argPattern` excluding `amend`/`revoke`,
+finish wiring the two sections below properly, and accept the clunkier
+approval UI as the cost of the harder guarantee.
+
+**Where the approval prompt goes, and whether Telegram can show one — still
+real, for anything that isn't a clean `gamereg` call:** a chained command
+(`gamereg build --json 2>&1 || gamereg build`, still refused — see below) or
+any tool other than `gamereg` entirely still needs `ask: "on-miss"` to have
+somewhere to go. Without `approvals.exec`, it fails immediately with *"Exec
+approval is required, but no interactive approval client is currently
+available."* `"session"` sends the prompt back into whatever chat the
+command came from:
+
+```json5
+approvals: {
+  exec: { enabled: true, mode: "session" },
+},
+```
+
+And without `channels.telegram.execApprovals`, a correctly-routed prompt
+still fails, with a different message: *"native chat exec approvals are not
+configured on Telegram... Approve it from the Web UI or terminal UI for
+now."* `enabled: true` alone, relying on `allowFrom` to infer the approver,
+was tried first and confirmed **not** sufficient — the exact same failure
+recurred on a fresh attempt afterward. An explicit `approvers` list is what
+actually worked, confirmed with a real approval that genuinely paused and
+resolved on an actual Telegram inline tap (`exec.approval.waitDecision`,
+~12s, in the gateway log):
 
 ```json5
 channels: {
   telegram: {
-    execApprovals: { enabled: true },
+    execApprovals: {
+      enabled: true,
+      approvers: ["PUT_YOUR_NUMERIC_CHAT_ID_HERE"],
+    },
   },
 },
 ```
