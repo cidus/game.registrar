@@ -75,6 +75,28 @@
         enabled: true,
         approvers: ["PUT_YOUR_NUMERIC_CHAT_ID_HERE"],
       },
+
+      // The progress indicator shown while a gamereg command is running.
+      // Telegram runs this in "progress" streaming mode by default; the
+      // default label pool is OpenClaw's own (lobster-themed — "Molting" is
+      // one of them), nothing to do with a card catalog. This pool replaces
+      // it with the Registrar's own vocabulary instead — same register as
+      // SOUL.md's filed/protocolada table, not a generic status word.
+      streaming: {
+        progress: {
+          label: "auto",
+          labels: [
+            "📋 Protocolando",
+            "🗂️ Arquivando",
+            "🖋️ Carimbando",
+            "🔍 Consultando",
+            "🗃️ Catalogando",
+            "📎 Anexando",
+            "🔖 Registrando",
+            "📜 Conferindo",
+          ],
+        },
+      },
     },
   },
 
