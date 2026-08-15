@@ -109,7 +109,8 @@ cp -R agent/skills/gamereg ~/.openclaw/workspace/skills/
 
 ### 6. Restrict what it may run
 
-Two parts, and both are required — either alone does nothing.
+Three parts, and all three are required — any one missing and either nothing
+is gated, or a gated command just fails outright with no way to approve it.
 
 **The policy**, from step 3: `tools.exec.security: "allowlist"` and
 `tools.exec.ask: "on-miss"`. Skip these and the default is `security: "full"`
@@ -147,6 +148,25 @@ Known cost, stated plainly: this is a regex over argv, not typed validation. A
 not need. It fails toward asking, which is the right direction — and it is the
 reason a small MCP server with per-argument validation is the eventual answer
 rather than this.
+
+**Where the approval prompt actually goes**, also from step 3:
+`approvals.exec.mode: "session"`. Without it, `ask: "on-miss"` has nothing to
+route through — a command that misses the allowlist doesn't pause for you,
+it fails immediately with *"Exec approval is required, but no interactive
+approval client is currently available."* This is easy to miss because the
+allowlist and the policy both look correctly configured; the missing piece
+is only visible in that specific failure message. `"session"` sends the
+prompt back into whatever chat the command came from, which is what you
+want for a single-owner DM bot — there's no separate ops room to route it to
+instead.
+
+Also worth knowing, separate from approvals: **a single `gamereg` invocation
+per exec call, never chained.** The allowlist matches the command string as
+given — `gamereg build --json 2>&1 || gamereg build` is a different, unlisted
+command even though both halves are `gamereg`, and it falls straight into the
+same "no approval client available" failure above. `SKILL.md` tells the agent
+this explicitly; it's noted here because the failure mode looks identical to
+the missing-`approvals.exec` case and is easy to misdiagnose as the same bug.
 
 ### A permissions trap worth knowing about up front
 
@@ -206,7 +226,11 @@ In order, from your phone, with no terminal open:
 4. A title that matches several games → inline buttons, one tap, no retyping
 5. "acabei, nota 9, difícil" → the run closes
 6. Accept a drafted verdict → it is filed as written
-7. "quantas horas eu joguei esse ano?" → a number that came from SQL
+7. "quantas horas eu joguei esse ano?" → a number that came from SQL. On a
+   genuinely fresh vault this is also the first thing to exercise `data/log.db`
+   not existing yet — the agent should run `gamereg build` itself and retry
+   rather than reporting a dead end; if it doesn't, the skill didn't deploy
+   as edited.
 
 Then, from a terminal: `gamereg build`, and check that the notes regenerate and
 carry `source: "chat"` on the events.

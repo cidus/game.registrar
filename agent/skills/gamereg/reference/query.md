@@ -25,10 +25,13 @@ a column that was renamed will not announce itself.
   refused before it reaches SQLite. This is a guard, not a suggestion.
 - **The database is a cache, not the register.** It is rebuilt from the event
   log by `gamereg build`. If a query returns nothing for something the user just
-  recorded, the build has not run — say so instead of concluding it never
-  happened.
-- Exit code 2 with a message about `data/log.db` means the vault has never built
-  the `sqlite` target.
+  recorded, the build has not run — that's a stale cache, not a missing fact.
+- **Exit code 2 with a message about `data/log.db`** means the vault has never
+  built the `sqlite` target at all — usually a brand-new vault, or a query
+  right after the first few events were ever recorded. Run
+  `gamereg build --json` yourself, then retry the query. `build` never writes
+  to the event log, never touches `amend`/`revoke`, and is idempotent — there
+  is nothing here that needs asking first.
 
 ## The views, which is usually what you want
 

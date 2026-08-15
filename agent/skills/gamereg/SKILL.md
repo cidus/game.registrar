@@ -207,3 +207,9 @@ the register's data, not your voice.
 - Never invent an id, a ref, a hash, a platform, a rating or a time.
 - If a command fails with code 6, the local work was still committed. Say so
   rather than retrying blindly.
+- **One `gamereg` invocation per exec call. Never chain with `||`, `&&`,
+  `;`, or redirect with `2>&1`.** The exec allowlist matches the command as
+  given; a compound shell string is a different, unlisted command even when
+  every segment is `gamereg`, and it will stall waiting on an approval that
+  may have no working way to reach you. If a command might fail, run it
+  alone and read the result before deciding what to try next.

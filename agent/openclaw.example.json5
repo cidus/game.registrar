@@ -6,11 +6,15 @@
 // repository, the same way gamereg.secrets.json does.
 //
 // Every key below was verified against a real OpenClaw install, not just
-// against the docs — the docs alone got two things wrong that mattered:
+// against the docs — the docs alone got three things wrong that mattered:
 // `dmPolicy` defaults to "pairing" (anyone who finds the bot can request
-// access), not blocked; and `tools.exec.security` defaults to "full"
+// access), not blocked; `tools.exec.security` defaults to "full"
 // (unrestricted shell), so the allowlist in approvals.example.json does
-// nothing at all until the two keys below are set alongside it.
+// nothing at all until the exec keys below are set alongside it; and
+// without `approvals.exec`, anything that misses the allowlist doesn't
+// pause for you to approve — it just fails outright with "no interactive
+// approval client is currently available", because nothing tells OpenClaw
+// where to deliver the approval prompt.
 //
 // The environment gamereg needs (GAMEREG_VAULT, GAMEREG_SOURCE,
 // GAMEREG_NON_INTERACTIVE) is set on the gateway *process* — see README.md.
@@ -45,6 +49,19 @@
     },
   },
 
+  // Where an approval prompt actually gets delivered when tools.exec.ask
+  // below needs one. Without this block, a command that misses the
+  // allowlist doesn't wait for you — it fails immediately, with no route to
+  // ask. "session" sends the prompt back into whatever chat the command
+  // came from, which for a single-owner DM bot is the only sensible choice;
+  // there's no separate ops room to route it to instead.
+  approvals: {
+    exec: {
+      enabled: true,
+      mode: "session",
+    },
+  },
+
   tools: {
     // Governs whether the agent may run gamereg at all, and what happens to
     // anything not on the allowlist in approvals.example.json.
@@ -55,9 +72,10 @@
     //
     // ask: "on-miss" — a command that isn't allowlisted (amend, revoke, or
     // anything the agent shouldn't be running) pauses for a human decision
-    // instead of either running silently or failing silently. This is what
-    // makes leaving amend/revoke off the allowlist in approvals.example.json
-    // an actual gate rather than just documentation.
+    // instead of either running silently or failing silently — but only
+    // because approvals.exec above tells OpenClaw where to send that prompt.
+    // This is what makes leaving amend/revoke off the allowlist in
+    // approvals.example.json an actual gate rather than just documentation.
     exec: {
       security: "allowlist",
       ask: "on-miss",
