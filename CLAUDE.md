@@ -42,15 +42,31 @@ reading `providers/registry.ts`), the `sqlite`/`json`/`html` targets,
 `query`, `import`, the image ingestion *pipeline* (`src/images/ingest.ts` +
 `exif.ts` — EXIF read then stripped, normalize, hash, write to
 `assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**, **provider cover
-download** and the **platform vocabulary** (all below). `npm test` runs 346
-tests (`node --test`, no framework, no network). `npm run test:live`
+download** and the **platform vocabulary** (all below). `npm test` runs 363
+tests (`node --test`, no framework, no network) — up from 346 with phase 2's
+additions (the anti-drift test on the agent skill, `query --schema`, the
+build lock; see *The agent layer, as built*). `npm run test:live`
 (opt-in, real IGDB calls, skips cleanly with no credentials — see Testing
 strategy below) adds 8 more; run it whenever you touch provider matching.
 
+**Phase 2 is in progress, not tagged.** `CURRENT_PHASE` in `core/vocab.ts` is
+still `1` — deliberately not bumped yet, because the roadmap's own exit
+criterion ("an entire game logged start to finish without opening a terminal
+once") has not been demonstrated in one unbroken pass, only in pieces, each
+proven live against a real deployment: recording a game via `past` through
+chat, answering the platform question for a run with no session, ad hoc SQL
+questions. See *The agent
+layer, as built* below for what exists and what's still open — most of it is
+deployment artifacts and hard-won operational fixes, not gamereg source
+changes, and the few source changes that did land (`GAMEREG_SOURCE`
+validation, `query --schema`, the build lock) are each covered in their own
+paragraph there.
+
 Tagged `v0.1.0`, `v0.1.1`, `v0.1.2`. `package.json` reads `0.1.3` — still
 hardening phase 1 (see *Obsidian layout, Bases fixes, and provider cleanup*
-below for what shipped in `v0.1.2`); phase 2 has not started. See Versioning
-below for what a patch on an already-tagged phase does to the number.
+below for what shipped in `v0.1.2`). See Versioning below for what a patch on
+an already-tagged phase does to the number, and don't tag phase 2 until the
+exit criterion above is actually true, not just close.
 
 ### Image ingestion's CLI surface, as built
 
@@ -271,6 +287,93 @@ register holds what you played, not what you own).
   Entertainment System", which the substring rule alone never managed; there
   is a live test for exactly that. Read the doc comment on `findDetail`
   before changing any of this, it explains the reasoning inline.
+
+### The agent layer, as built
+
+`agent/` at the repo root — `skills/gamereg/` (the prompt plus
+`reference/cli.md` and `reference/query.md`), `workspace/` (`IDENTITY.md`,
+`SOUL.md`, `AGENTS.md`, `TOOLS.md` — the Registrar's persona as versioned
+files, not improvised live), `openclaw.example.json5`,
+`approvals.example.json`, and `README.md`, which is the actual deployment
+log: every config key in the `.json5`/`.json` examples was found wrong by
+the docs at least once and corrected against a real install, and the
+README says which. Read it before touching a live deployment; this section
+is the summary, not the replacement.
+
+Three real changes landed in `src/` because of this, all small and each with
+its own tests: `GAMEREG_SOURCE` is validated against `EVENT_SOURCE` instead
+of cast (`cli/context.ts`) — the first time a value in the event envelope
+came from outside the repo, and the log is append-only, so a typo had to be
+refused rather than written. `gamereg query --schema` (`cli/commands/
+query.ts`) reports tables/views/columns from the database itself, for an
+agent writing SQL with no access to the source tree. And `targets/lock.ts`
+adds a lockfile around `build`'s write phase — `data/log.db` has no
+rename-into-place, so two builds racing the same vault could tear it, not
+just leave it stale; verified with 8 real concurrent `gamereg build`
+processes (3 succeeded, 5 got the conflict, zero corruption).
+
+**`amend`/`revoke` do not sit behind a platform-level approval gate.** That
+was the first design — off the exec allowlist, so OpenClaw's own
+approval mechanism stood between the agent and either command, immune to
+the agent's own judgment. Live testing found the approval UI itself
+unreliable enough (see `agent/README.md`, *Why amend/revoke moved off the
+platform gate*, including a real incident where the agent fabricated a
+plausible-looking approval id when the tool gave it none) that the
+confirmation moved into `SKILL.md` as an explicit conversational
+protocol instead — state what will change, wait for an unambiguous yes,
+only then run it. Chosen deliberately, trading a technical guarantee for a
+smoother chat experience, on the reasoning that a wrong `amend` costs one
+more `amend` to fix and is never destructive, so the harder guarantee
+was worth less than it cost in friction. `README.md` documents the
+revert path for anyone who'd rather keep it.
+
+**Proven live, each independently:** recording a game via `gamereg past`
+through Telegram; the platform question for a run with no session to close
+it through (a retroactively-filed run, `amend` on its own `run.open`
+event); `amend` on a `run.import` event from a spreadsheet-migrated game
+too; ad hoc questions answered via `gamereg query`, including the cache
+building itself on demand when `data/log.db` didn't exist yet; a real,
+working native exec approval (`exec.approval.waitDecision`, resolved by an
+actual tap, once `channels.telegram.execApprovals.approvers` was set
+explicitly — `enabled: true` alone, relying on `allowFrom` inference, was
+tried and confirmed insufficient). **Not yet proven at all:** `gamereg
+start` opening a live session through chat (every live test so far filed a
+game via `past`, not a fresh `start`/`end` pair); exit-code-3 candidates
+actually rendered as Telegram inline buttons (designed and documented, spiked
+against the docs, never run against the real bot); `finish` plus a drafted
+`verdict` — the roadmap's actual exit criterion needs all of this in one
+pass, and none of the individual pieces above add up to that pass yet.
+Voice input and photo attachment are specified and implemented on the CLI
+side but untested through the live deployment. Sticker sends are wired at
+the OpenClaw level (`channels.telegram.actions.sticker`) but unused —
+blocked on sourcing real `fileId`s from a sticker pack the user picks, not a
+code gap.
+
+**Known gap, deferred on purpose, not forgotten:** `resolve.ts`'s
+`matchesPlatform` (used by every write command's `--platform` filter)
+treats an empty `game.platforms` as "matches nothing" rather than
+"unknown, don't filter." A game created with `--no-metadata` and never
+enriched has `game.platforms: []` forever unless someone runs `enrich`,
+so `gamereg start "<its exact title>" --platform "<anything>"` — including
+the documented, encouraged case of a user volunteering a platform while
+resuming a session — returns `not_found` for a game that plainly exists.
+Reproduced directly, no network involved: `status` finds the game by exact
+title; `start --platform` on the identical string does not. Deliberately
+not fixed this round — it doesn't recur once `SKILL.md` routes the
+"answer a platform question" flow straight to `amend` (see *A platform
+question with no session to answer through*), which was the actual
+reported symptom, and touching `matchesPlatform` means auditing every
+`--platform`-filtered resolution path, not a two-line change. Whoever
+picks this up next: the fix is almost certainly making an empty
+`game.platforms` skip the filter instead of failing it, in `resolve.ts`'s
+`matchesPlatform`; the cost is a home-titled `--no-metadata` game could
+then also match a `--platform` filter it has no catalog data to confirm
+or deny, which is the more forgiving failure mode of the two and why it's
+the likely direction, not a settled decision.
+
+The cross-version SQLite golden-file gap (Node's bundled SQLite version
+affecting `data/log.db`'s bytes) is a separate, unrelated finding from the
+same round — documented in *Testing strategy* below, not repeated here.
 
 ## Non-negotiables
 
