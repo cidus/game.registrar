@@ -12,372 +12,147 @@ nothing but invoke the CLI.
 **Read `docs/spec/` before writing code.** Start with `00-architecture.md`
 (decisions and invariants), then `01-model.md` (the data model). Those two
 constrain everything else. For anything touching `build`, add `07-targets.md` —
-the build is a registry of targets, not a single emitter.
+the build is a registry of targets, not a single emitter. The specs are the
+description of the system; this file is only what a session needs on top of
+them: current state, decisions that would otherwise be re-litigated, and open
+items.
 
 ## Current state
 
-**Phase 0 is done.** Event log with `amend`/`revoke`, fold, duration arithmetic
-with breaks and the logical-day rule, local resolution with alias learning, the
-recording and query commands, `verdict`, `init`, `doctor`, and `build` as a
-target registry with a manifest and ownership-based cleanup. Two targets ship:
-`obsidian` (game notes, run notes, `Game List.md`, seeded `Game Database.base`)
-and `csv`. `example-vault/` is the golden fixture for both.
+**Phase 0 and phase 1 are done and tagged** (`v0.1.0`, patched by `v0.1.1` and
+`v0.1.2`; `package.json` reads `0.1.3`). Everything in `06-roadmap.md`'s phase 0
+and phase 1 lists is built, tested and covered by golden fixtures in
+`example-vault/`: the event log and fold, the recording and query commands,
+`build` as a target registry with a manifest and ownership-based cleanup, the
+`obsidian` / `csv` / `sqlite` / `json` / `html` targets, IGDB behind a `Provider`
+interface, `enrich`, image ingestion with its full CLI surface (`--photo`,
+`attach`, `cover`), the platform vocabulary, `query` and `import`.
 
-**Phase 1 is done.** `CURRENT_PHASE` in `core/vocab.ts` is `1`.
-Implemented and tested: provider credentials, `providers/igdb.ts` behind a
-common `Provider` interface (RAWG was implemented alongside it as a fallback,
-found offline in 2026-08 — `api.rawg.io`/`rawg.io` both timed out — and
-removed entirely rather than kept unmaintained; `PROVIDER_CREDENTIAL_FIELDS`
-in `core/secrets.ts` and `KNOWN_PROVIDERS` in `providers/registry.ts` are
-the two places a future second provider would join, the same shape RAWG
-used), `enrich` (including provider ambiguity handling — a menu or exit 3 +
-`candidates[]`, `--match <ref>` to re-invoke, platform-aware
-narrowing/auto-resolution from the game's recorded runs, and a literal
-`<query>` — when given — driving the provider search directly instead of
-the resolved game's stored title, so a retyped query is the retry path for
-a poor first search), resolution step 6 in `gamereg search` (never in a
-write command — see non-negotiable 4; `search --provider <name>` narrows
-that fallback to one catalog exactly as `enrich --provider` does, both
-reading `providers/registry.ts`), the `sqlite`/`json`/`html` targets,
-`query`, `import`, the image ingestion *pipeline* (`src/images/ingest.ts` +
-`exif.ts` — EXIF read then stripped, normalize, hash, write to
-`assets/<sha[0:2]>/<sha>.webp`), its **CLI surface**, **provider cover
-download** and the **platform vocabulary** (all below). `npm test` runs 363
-tests (`node --test`, no framework, no network) — up from 346 with phase 2's
-additions (the anti-drift test on the agent skill, `query --schema`, the
-build lock; see *The agent layer, as built*). `npm run test:live`
-(opt-in, real IGDB calls, skips cleanly with no credentials — see Testing
-strategy below) adds 8 more; run it whenever you touch provider matching.
-
-**Phase 2 is in progress, not tagged.** `CURRENT_PHASE` in `core/vocab.ts` is
-still `1` — deliberately not bumped yet, because the roadmap's own exit
+**Phase 2 (chat and voice) is in progress and not tagged.** `CURRENT_PHASE` in
+`core/vocab.ts` is still `1` — deliberately, because the roadmap's exit
 criterion ("an entire game logged start to finish without opening a terminal
-once") has not been demonstrated in one unbroken pass, only in pieces, each
-proven live against a real deployment: recording a game via `past` through
-chat, answering the platform question for a run with no session, ad hoc SQL
-questions. See *The agent
-layer, as built* below for what exists and what's still open — most of it is
-deployment artifacts and hard-won operational fixes, not gamereg source
-changes, and the few source changes that did land (`GAMEREG_SOURCE`
-validation, `query --schema`, the build lock) are each covered in their own
-paragraph there.
+once") has not been demonstrated in one unbroken pass. See *The agent layer*
+below.
 
-Tagged `v0.1.0`, `v0.1.1`, `v0.1.2`. `package.json` reads `0.1.3` — still
-hardening phase 1 (see *Obsidian layout, Bases fixes, and provider cleanup*
-below for what shipped in `v0.1.2`). See Versioning below for what a patch on
-an already-tagged phase does to the number, and don't tag phase 2 until the
-exit criterion above is actually true, not just close.
+`npm test` is 364 tests, all green (`node --test`, no framework, no network).
+`npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
+adds 8.
 
-### Image ingestion's CLI surface, as built
+## The agent layer
 
-Shipped this round. `fold.ts` already handled `attachment.add`, `game.cover`
-and inline `attachments[]` on any event since phase 0; this round was CLI and
-render work on top of that, not model work.
+`agent/` at the repo root: `skills/gamereg/` (`SKILL.md` plus `reference/cli.md`
+and `reference/query.md`), `workspace/` (`IDENTITY.md`, `SOUL.md`, `AGENTS.md`,
+`TOOLS.md` — the Registrar's persona as versioned files, not improvised live),
+`openclaw.example.json5`, `approvals.example.json`, and `README.md`.
 
-- **`--photo <path>` / `--caption <text>` / `--kind <k>` / `--as-cover`** are
-  on `start`, `end`, `finish`, `drop` and `past`. `--photo` and `--caption`
-  are both repeatable, and `--caption` captions the `--photo` immediately
-  before it — `cli/attachments.ts`'s `photoSpecsFrom()` walks the
-  invocation's own raw argv to pair them, because Commander's own
-  accumulation collects repeated options into independent arrays and loses
-  which caption went with which photo. `--kind` is a single value that
-  applies to every photo in that invocation, not paired per-photo — the CLI
-  doc marks only `--photo`/`--caption` as repeatable.
-- **Each photo lands on that command's own terminal event**: `session.open`
-  for `start`, `session.close` for `end`, `run.close` for `finish`/`drop`,
-  `run.import` for `past` — never on the incidental `session.close` that
-  `finish`/`drop` auto-close on the way to `run.close`.
-- **`gamereg attach <target> --photo ...`** resolves `<target>` as an event id
-  first, a game query otherwise, per `02-cli.md`.
-- **`gamereg cover <query>`** takes exactly one of `--photo` (ingest and
-  promote), `--from <hash>` (promote an attachment already on this game's
-  timeline — validated against it, not accepted blind) or `--reset` (appends
-  `game.cover` with `source: provider` and nothing else; it does not restore
-  a specific prior URL, it just un-sets the user override so the next
-  `enrich --covers` can set one again).
-- **`core/fold.ts` gained `attachmentsOfGame()` and `gameOfEvent()`.**
-  `state.attachments` is keyed by *target* (an event id, or a game id) with
-  no notion of which game an event belongs to; these walk the events once to
-  resolve that ownership — the same thing `gameOfSession` does for one
-  session — and `attachmentsOfGame` de-duplicates by hash, chronological,
-  oldest first.
-- **The game note's header embeds the cover** (`![[assets/<sha[0:2]>/<sha>.webp]]`,
-  above the existing text line) when `game.cover.sha256` is set. That is
-  every `source: user` cover, and, since the v0.1.1 patch below, every
-  `source: provider` cover too — `--covers` downloads it, not only its URL.
-- **The `gallery` block** is new in `render/note.ts`'s `BLOCK_ORDER` and
-  `blocksOf()`, rendered from `attachmentsOfGame()`. Every attachment is
-  normalized to WebP by the pipeline, so the embed path is always
-  `assets/<sha[0:2]>/<sha>.webp` — no `ext` needs to travel with a cover
-  pointer.
-- **`example-vault/` was not extended** with a photo fixture this round —
-  the golden-file risk (a real, deterministically-hashed image checked into
-  the fixture) outweighed the benefit given `test/attachments.test.ts` and
-  `test/photo-cli.test.ts` already cover the fold ownership logic, the
-  render output and the full CLI surface end to end. Worth adding later if a
-  golden test for the gallery block specifically becomes valuable.
+**`agent/README.md` is the deployment log, and it is required reading before
+touching a live deployment.** Every config key in the examples was found wrong by
+the upstream docs at least once and corrected against a real install; the README
+says which. This section does not replace it.
 
-### Provider cover download — v0.1.1 patch
+Three source changes landed because of the agent layer, each with tests:
+`GAMEREG_SOURCE` validated rather than cast (`cli/context.ts`), `query --schema`
+(`cli/commands/query.ts`, so an agent can write SQL with no source tree), and a
+lockfile around `build`'s write phase (`targets/lock.ts` — `data/log.db` has no
+rename-into-place, so racing builds could tear it; verified with 8 concurrent
+processes).
 
-`docs/spec/06-roadmap.md`'s own phase 1 line item — "`enrich`, cover download
-via `sharp`" — had never actually been built: `--covers` stored only the
-provider's raw URL, and (per the previous section) nothing rendered for a
-URL-only cover. This patch closes that gap; it is a bug fix within phase 1,
-not phase 2 work, hence `v0.1.1` rather than folding into `v0.2.0`.
+**Proven live, each independently:** recording via `past` through Telegram; the
+platform question for a run with no session (`amend` on `run.open`); `amend` on a
+`run.import` event; ad hoc `query`, including the cache building itself on
+demand; a real native exec approval (`exec.approval.waitDecision`, resolved by an
+actual tap, once `channels.telegram.execApprovals.approvers` was set explicitly —
+`enabled: true` alone is insufficient).
 
-- **`images/ingest.ts` is now two entry points over one shared pipeline.**
-  `ingestBuffer()` (normalize, hash, write) is what both `ingestImage()`
-  (reads a local file — unchanged) and the new `ingestUrl()` (fetches a URL)
-  call. `ingestUrl` never throws: a network error, a non-`ok` response, or
-  bytes `sharp` cannot parse all resolve to `null`, matching 02-cli.md's
-  "failure here never blocks recording" for `enrich` as a whole.
-- **`fetchImpl` is injected**, default global `fetch`, threaded from
-  `enrichGame`/`applyDetail` down to `ingestUrl` — the same pattern
-  `providers/igdb.ts` already uses, so unit tests mock at this boundary
-  instead of opening a socket (`test/enrich-fallback.test.ts`).
-- **`game.enrich`'s `cover` field changes shape**, from a bare URL string to
-  `{ url, sha256? }`. `fold.ts` reads *both* shapes forever — an old
-  string-only event still folds exactly as it always did — because the log
-  is append-only and nothing rewrites a line already written (non-negotiable
-  1). No schema bump: this is additive, tolerant parsing, not a breaking
-  change.
-- **A `source: user` cover is never even fetched.** `applyDetail` checks
-  `game.cover?.source === 'user'` before calling `ingestUrl` — the fold would
-  discard the result anyway (01-model.md "Cover precedence"), so skipping the
-  network call is free correctness, not an optimization worth re-litigating.
-- **Verified against real IGDB** (credentials in `example-vault/gamereg.secrets.json`,
-  gitignored) in addition to the mocked unit tests: `enrich --match --covers`
-  against Hollow Knight's real catalog entry downloads, normalizes, hashes,
-  writes `assets/`, and the header embed renders it. Not a committed test —
-  a one-off manual check, since `npm run test:live` intentionally stays
-  narrow (see its file comment).
+**Not yet proven:** `start` opening a live session through chat; exit-code-3
+candidates rendered as Telegram inline buttons; `finish` plus a drafted
+`verdict`. Voice input and photo attachment are implemented CLI-side but untested
+through the deployment. Sticker sends are wired (`channels.telegram.actions.sticker`)
+but unused — blocked on sourcing real `fileId`s, not a code gap.
 
-### Obsidian layout, Bases fixes, and provider cleanup — v0.1.2
+## Decisions worth not re-litigating
 
-Shipped across several rounds within `v0.1.2` — search platform ranking,
-`start --past-hours`/`past`'s stated baseline, and the amend fix landed
-first under that version number too; see the `v0.1.2` tag/release for the
-complete list. All of it is a patch on phase 1, not phase 2 (chat and
-voice) — see Versioning below.
+Each of these cost real time to find. The reasoning, not just the rule:
 
-Everything the `obsidian` target writes now lives under `obsidian/`, not the
-vault root — `obsidian/games/`, `obsidian/runs/`, `obsidian/Game List.md`,
-`obsidian/Game Database.base`. That folder, not the repo root, is what gets
-opened as the Obsidian vault, so `data/`, `gamereg.secrets.json` and
-`.gamereg/` stay out of it. `assets/` itself still lives at the vault
-root — written directly by image ingestion, independent of any target —
-and `gamereg build` keeps `obsidian/assets` as a symlink to `../assets`
-(`targets/obsidian.ts`'s `ensureAssetsLink`, called once from `build.ts`
-whenever `obsidian` is among the targets built) so `![[assets/<sha>...]]`
-still resolves. Paths *inside* the Bases seed (`file.inFolder("runs")`) did
-not need to change — they were already relative to what is now
-`obsidian/`, not the vault root. See 07-targets.md's `obsidian` section.
+- **`amend`/`revoke` are not behind a platform approval gate.** They were, off
+  the exec allowlist; live testing found the approval UI unreliable enough
+  (including the agent fabricating an approval id when the tool gave it none)
+  that the confirmation moved into `SKILL.md` as a conversational protocol —
+  state the change, wait for an unambiguous yes, then run. A wrong `amend` costs
+  one more `amend`, never data. `agent/README.md` documents the revert path.
+- **`core/platforms.ts` holds English names as *data*, not interface text** —
+  the one deliberate exception to "no hardcoded English in `src/`". It carries
+  the providers' own spellings too, which is what makes the catalog intersection
+  work without provider platform ids. Do not move it to `i18n/`.
+- **Platform canonicalization runs on input *and* on read** (`canonicalizeState()`
+  at the top of `planBuild`). The read pass is what retroactively fixes history:
+  a synonym added today re-renders decade-old runs with no `event.amend`. `fold`
+  stays pure and never sees the table.
+- **The late platform fill (`cli/platform.ts`) belongs to `end`/`finish`/`drop`,
+  never to `enrich`** — `enrich` reads run platforms and must never write one.
+  Ambiguity leaves `null` and still closes; exit 3 there would be refusing to
+  close a session over a metadata field. Only a platform the user *typed* joins
+  `config.platforms`.
+- **Edition-suffix stripping is off for provider matching**
+  (`normalize(title, { editions: false })`) — a catalog lists an edition as its
+  own entry with its own id, and stripping would falsely collide it with the base
+  game. Platform narrowing reads `game.runs[].platform`, never `game.platforms`
+  (a prior `enrich` may have overwritten that). Read the doc comment on
+  `findDetail` before changing any of it.
+- **Provider ambiguity is a return value, never a guess** — menu when
+  interactive, exit 3 + `candidates[]` otherwise, and `--all` always collapses to
+  `skipped` so cron never prompts.
+- **A `source: user` cover is never fetched at all**, not merely discarded after.
+- **`game.enrich`'s `cover` reads as both a bare URL string and `{ url, sha256? }`**,
+  forever. The log is append-only; old lines are never rewritten.
+- **Obsidian's Bases:** `groupBy` needs both `property` *and* `direction` —
+  omitting `direction` fails to parse the whole file, not just that view. The
+  cards view always titles a card by filename, with no YAML override; `image:`
+  is a real view-level key. All confirmed against the official help source and
+  kepano's vault, not inferred.
+- **Run notes are `<started_on>-<slug>.md`, date first** — a plain filename sort
+  is then chronological (`render/run.ts`'s `runNoteNames()`).
+- **RAWG was removed entirely** — offline as of 2026-08, both `api.rawg.io` and
+  `rawg.io` timing out. `PROVIDER_CREDENTIAL_FIELDS` (`core/secrets.ts`) and
+  `KNOWN_PROVIDERS` (`providers/registry.ts`) list only `igdb`; those two places
+  are where a second provider joins, in the shape RAWG used.
+- **The committed `data/log.db` is compared logically, not byte for byte.**
+  SQLite's on-disk layout is not stable across library versions and Node bundles
+  its own (v26.0.0 → 3.53.1, v26.7.0 → 3.53.4), so a fixture committed from one
+  Node version failed on another with identical content. `test/helpers.ts`'s
+  `dumpDatabase` renders schema, tables and views as text and that is what the
+  golden test compares; determinism is still asserted on the bytes themselves,
+  where both files come from one machine. Non-negotiable 2 is unchanged — it is
+  about a second build, which is where bytes are meaningful.
 
-- **`Games.md`/`Games.base` renamed to `Game List.md`/`Game Database.base`**
-  — both used to display as bare "Games" in Obsidian's file explorer and
-  quick switcher, indistinguishable at a glance. `templates/Games.base` was
-  renamed to `templates/Game Database.base` to match.
-- **The `By genre` view in `Game Database.base` had a real bug**, found live
-  in Obsidian for Mac: `groupBy` needs both `property` *and* `direction` —
-  every real example found while researching this (including kepano's own
-  vault, `kepano/kepano-obsidian`) always pairs them, and omitting
-  `direction` failed to parse the whole file, not just that view.
-- **Bases' cards view always shows the file name as a card's own title**,
-  with no YAML way to override it — confirmed against the official
-  `obsidianmd/obsidian-help` source and kepano's own `.base` files, not just
-  inference. The `image` property (`image: cover`) is a genuine, distinct
-  view-level key, found in `kepano/kepano-obsidian`'s
-  `Templates/Bases/Attachments.base` — not something inferred from a
-  property's shape in `order:`.
-- **Run notes are named `<started_on>-<slug>.md`, date first**, not
-  `<slug>-<started_on>.md` — a plain filename sort in the file explorer is
-  now chronological. `render/run.ts`'s `runNoteNames()` is the one place
-  that mattered; `render/note.ts`'s wikilinks and `obsidian.ts`'s
-  `PlannedFile.path` both already called it.
-- **Run notes carry a denormalized `cover` property**
-  (`render/assets.ts`'s `assetPath()`, shared with the game note to avoid a
-  circular import between `note.ts` and `run.ts`), populated only once a
-  game has a locally-ingested cover. It's what `Game Database.base`'s Shelf
-  view points `image:` at — the game note's own header embed and
-  `Game List.md`'s reduced-width Cover column follow the same rule.
-- **Game notes carry an Obsidian `aliases: [title]`** — the filename is the
-  slug (filesystem-safe, not pretty), so this is what lets the quick
-  switcher find a note by the title someone actually types.
-- **RAWG removed entirely** (`src/providers/rawg.ts` deleted). It had been
-  offline since before this was first noted here — `api.rawg.io` and
-  `rawg.io` both timed out — and was never going to receive further
-  updates. `PROVIDER_CREDENTIAL_FIELDS` (`core/secrets.ts`) and
-  `KNOWN_PROVIDERS` (`providers/registry.ts`, which is where `enrich` used to
-  keep it) now list only `igdb`; that's where a future second provider would
-  join, the same shape RAWG used.
+## Open items
 
-### The platform vocabulary, as built
-
-Shipped this round; `docs/spec/02-cli.md` ("Platform vocabulary" and
-"Platform, when a run closes") is the spec, and `01-model.md`,
-`03-resolution.md`, `04-derived.md` and `05-agent.md` were updated to match.
-What a future session most needs to know:
-
-- **`platform` is nullable and free text.** `start` no longer prompts and
-  `error.platform_required` no longer exists — a run records what is known and
-  nothing more. Nothing anywhere rejects a platform value; the table
-  canonicalizes spellings and orders what gets offered, and that is all.
-- **`core/platforms.ts`** holds the built-in table (names, synonyms, *and the
-  providers' own spellings*, which is what makes the catalog intersection work
-  without provider platform ids) plus `canonicalPlatform()`, `platformGroups()`
-  and `addPlatform()`. The names there are **data, not interface text** — the
-  one deliberate exception to "no hardcoded English in `src/`". Do not move it
-  to `i18n/`.
-- **Canonicalization runs at two boundaries**: on input, before an event is
-  staged; and on read, in `canonicalizeState()` at the top of `planBuild`
-  (`targets/build.ts`). The read pass is what fixes history retroactively — a
-  synonym added today re-renders runs from years ago with no `event.amend` and
-  no line rewritten. `fold` stays pure and never sees the table; `sqlite`
-  stores both `platform` and `platform_raw`.
-- **The late fill lives in `cli/platform.ts`**, called by `end`/`finish`/`drop`
-  (via `close-run.ts`), never by `enrich` — that command reads run platforms
-  and must never write one. A single-member `catalog ∩ config.platforms`
-  resolves with no prompt and reports `platform_source: "intersection"`, which
-  is an inference from ownership and is therefore always stated in prose.
-  Anything more ambiguous leaves `null` and still closes: exit 3 here would be
-  refusing to close a session over a metadata field.
-- **Only a platform the user *typed*** (`--platform`, or "Other" at a prompt)
-  joins `config.platforms`. A pick from the catalog group is frequently
-  someone else's console.
-- `gamereg platform add <name> [synonyms...]` is also the rename: a name that
-  already means an existing entry takes over, old name kept as a synonym.
-
-`example-vault/` declares `platforms` and carries one game (`Tunic`) whose run
-never got a platform — that fixture is what freezes "unknown renders as
-absence" and the retroactive canonicalization (`SNES` → `Super Nintendo`,
-`Switch` → `Nintendo Switch` in every rendered artifact, with the log
-untouched).
-
-Not in scope for phase 1, decided in `06-roadmap.md`: franchise/series grouping
-(deferred past phase 1) and a backlog view for unplayed games (rejected — the
-register holds what you played, not what you own).
-
-### Things phase 1 already touched, worth knowing before going further
-
-- **`build.obsidian.{run_notes,bases}`** still appears in the `07-targets.md`
-  config example but `core/config.ts` does not parse it — unresolved from
-  phase 0, not addressed this round. Either implement the keys or drop them
-  from the spec; do not leave the example lying.
-- **`images.*` config** (`max_edge`, `quality`, `keep_original`, `publish`) is
-  implemented in `core/config.ts` and used by `src/images/ingest.ts` — the gap
-  is only the CLI surface (item 1 above), not the config plumbing.
-- **`gamereg.secrets.json`** is seeded by `init` (idempotent), gitignored, and
-  read by `core/secrets.ts` — env var wins over the file per field. Never
-  touched by `build` or any target.
-- `csv`, `json` and `sqlite` do not disagree about a column — verified by the
-  golden fixtures in `example-vault/` (all three targets are declared in its
-  `gamereg.config.json` and built from the same fixture log).
-- **Provider ambiguity is a return value, never a guess.** `findDetail` in
-  `src/cli/commands/enrich.ts` returns `match`/`none`/`ambiguous`; a single
-  target surfaces `ambiguous` as a menu (interactive) or exit 3 with
-  `candidates[]` (non-interactive), `--all` always collapses it to `skipped`
-  (never prompts, safe for cron). Edition-suffix stripping is deliberately
-  off for provider matching (`normalize(title, { editions: false })`) —
-  a catalog often lists an edition as its own entry with its own id, and
-  stripping the suffix would falsely collide it with the base game. Platform
-  narrowing reads `game.runs[].platform` (what the user actually typed),
-  never `game.platforms` (which a prior `enrich` may have already overwritten
-  with a different provider's data), and compares through the platform
-  vocabulary — a run recorded as `SNES` narrows IGDB's "Super Nintendo
-  Entertainment System", which the substring rule alone never managed; there
-  is a live test for exactly that. Read the doc comment on `findDetail`
-  before changing any of this, it explains the reasoning inline.
-
-### The agent layer, as built
-
-`agent/` at the repo root — `skills/gamereg/` (the prompt plus
-`reference/cli.md` and `reference/query.md`), `workspace/` (`IDENTITY.md`,
-`SOUL.md`, `AGENTS.md`, `TOOLS.md` — the Registrar's persona as versioned
-files, not improvised live), `openclaw.example.json5`,
-`approvals.example.json`, and `README.md`, which is the actual deployment
-log: every config key in the `.json5`/`.json` examples was found wrong by
-the docs at least once and corrected against a real install, and the
-README says which. Read it before touching a live deployment; this section
-is the summary, not the replacement.
-
-Three real changes landed in `src/` because of this, all small and each with
-its own tests: `GAMEREG_SOURCE` is validated against `EVENT_SOURCE` instead
-of cast (`cli/context.ts`) — the first time a value in the event envelope
-came from outside the repo, and the log is append-only, so a typo had to be
-refused rather than written. `gamereg query --schema` (`cli/commands/
-query.ts`) reports tables/views/columns from the database itself, for an
-agent writing SQL with no access to the source tree. And `targets/lock.ts`
-adds a lockfile around `build`'s write phase — `data/log.db` has no
-rename-into-place, so two builds racing the same vault could tear it, not
-just leave it stale; verified with 8 real concurrent `gamereg build`
-processes (3 succeeded, 5 got the conflict, zero corruption).
-
-**`amend`/`revoke` do not sit behind a platform-level approval gate.** That
-was the first design — off the exec allowlist, so OpenClaw's own
-approval mechanism stood between the agent and either command, immune to
-the agent's own judgment. Live testing found the approval UI itself
-unreliable enough (see `agent/README.md`, *Why amend/revoke moved off the
-platform gate*, including a real incident where the agent fabricated a
-plausible-looking approval id when the tool gave it none) that the
-confirmation moved into `SKILL.md` as an explicit conversational
-protocol instead — state what will change, wait for an unambiguous yes,
-only then run it. Chosen deliberately, trading a technical guarantee for a
-smoother chat experience, on the reasoning that a wrong `amend` costs one
-more `amend` to fix and is never destructive, so the harder guarantee
-was worth less than it cost in friction. `README.md` documents the
-revert path for anyone who'd rather keep it.
-
-**Proven live, each independently:** recording a game via `gamereg past`
-through Telegram; the platform question for a run with no session to close
-it through (a retroactively-filed run, `amend` on its own `run.open`
-event); `amend` on a `run.import` event from a spreadsheet-migrated game
-too; ad hoc questions answered via `gamereg query`, including the cache
-building itself on demand when `data/log.db` didn't exist yet; a real,
-working native exec approval (`exec.approval.waitDecision`, resolved by an
-actual tap, once `channels.telegram.execApprovals.approvers` was set
-explicitly — `enabled: true` alone, relying on `allowFrom` inference, was
-tried and confirmed insufficient). **Not yet proven at all:** `gamereg
-start` opening a live session through chat (every live test so far filed a
-game via `past`, not a fresh `start`/`end` pair); exit-code-3 candidates
-actually rendered as Telegram inline buttons (designed and documented, spiked
-against the docs, never run against the real bot); `finish` plus a drafted
-`verdict` — the roadmap's actual exit criterion needs all of this in one
-pass, and none of the individual pieces above add up to that pass yet.
-Voice input and photo attachment are specified and implemented on the CLI
-side but untested through the live deployment. Sticker sends are wired at
-the OpenClaw level (`channels.telegram.actions.sticker`) but unused —
-blocked on sourcing real `fileId`s from a sticker pack the user picks, not a
-code gap.
-
-**Known gap, deferred on purpose, not forgotten:** `resolve.ts`'s
-`matchesPlatform` (used by every write command's `--platform` filter)
-treats an empty `game.platforms` as "matches nothing" rather than
-"unknown, don't filter." A game created with `--no-metadata` and never
-enriched has `game.platforms: []` forever unless someone runs `enrich`,
-so `gamereg start "<its exact title>" --platform "<anything>"` — including
-the documented, encouraged case of a user volunteering a platform while
-resuming a session — returns `not_found` for a game that plainly exists.
-Reproduced directly, no network involved: `status` finds the game by exact
-title; `start --platform` on the identical string does not. Deliberately
-not fixed this round — it doesn't recur once `SKILL.md` routes the
-"answer a platform question" flow straight to `amend` (see *A platform
-question with no session to answer through*), which was the actual
-reported symptom, and touching `matchesPlatform` means auditing every
-`--platform`-filtered resolution path, not a two-line change. Whoever
-picks this up next: the fix is almost certainly making an empty
-`game.platforms` skip the filter instead of failing it, in `resolve.ts`'s
-`matchesPlatform`; the cost is a home-titled `--no-metadata` game could
-then also match a `--platform` filter it has no catalog data to confirm
-or deny, which is the more forgiving failure mode of the two and why it's
-the likely direction, not a settled decision.
-
-The cross-version SQLite golden-file gap (Node's bundled SQLite version
-affecting `data/log.db`'s bytes) is a separate, unrelated finding from the
-same round — documented in *Testing strategy* below, not repeated here.
+- **`build.obsidian.{run_notes,bases}` is in `07-targets.md`'s config example
+  (line 81) but `core/config.ts` does not parse it** — unresolved since phase 0.
+  Either implement the keys or drop them from the spec; do not leave the example
+  lying.
+- **`resolve.ts`'s `matchesPlatform` treats an empty `game.platforms` as
+  "matches nothing"** rather than "unknown, don't filter". A `--no-metadata` game
+  that was never enriched therefore returns `not_found` for
+  `gamereg start "<exact title>" --platform "<anything>"` — reproduced, no
+  network involved. Deferred on purpose: `SKILL.md` routes the reported symptom
+  (answering a platform question) straight to `amend`, and fixing this means
+  auditing every `--platform`-filtered path. The likely fix is making an empty
+  `game.platforms` skip the filter; the cost is such a game then matching a
+  filter nothing can confirm — the more forgiving failure, hence the likely
+  direction, not a settled one.
+- **`example-vault/` has no photo fixture**, so the gallery block has no golden
+  test — covered end to end by `test/attachments.test.ts` and
+  `test/photo-cli.test.ts` instead. Adding a real, deterministically-hashed image
+  to the fixture was judged not worth it; revisit if the gallery changes shape.
+- **`06-roadmap.md`'s only remaining open question is #5** (timezone changes
+  while travelling), deferred until it bites. Retroactive session start (#7) is
+  now decided and implemented in `SKILL.md`'s *A session that was never
+  recorded*.
 
 ## Non-negotiables
 
-These come from `00-architecture.md` and are not style preferences:
+From `00-architecture.md`. Not style preferences:
 
 1. `data/events.jsonl` is append-only. No code path rewrites or deletes a line.
 2. `gamereg build` is idempotent — byte-identical output on a second run,
@@ -406,135 +181,103 @@ working around it.
 
 ## Layout
 
-What exists today, with the phase 1 additions marked:
-
 ```
 src/
   cli/            commander wiring, one file per command under commands/
-  core/           events, fold, duration, time, vocab, config, vault, errors
+  core/           events, fold, duration, time, vocab, config, platforms, secrets
   resolve/        normalization, matching, candidate ranking
   render/         remark pipeline, marker splicing, note/run/table emitters
-  targets/        registry, manifest, writer, audit; one file per target
-  db/             + phase 1: SQLite schema, build, query guard
-  providers/      + phase 1: igdb.ts behind a common interface
-  images/         + phase 1: ingest pipeline, hashing, EXIF
+  targets/        registry, manifest, writer, audit, lock; one file per target
+  db/             SQLite schema, build, query guard
+  providers/      igdb.ts behind a common interface
+  images/         ingest pipeline, hashing, EXIF
   i18n/
 templates/        Game Database.base and anything else seeded into a vault
 example-vault/    fixtures: fictional events + expected output
-test/             live/ holds opt-in network smoke tests — see Testing strategy
+test/             live/ holds opt-in network smoke tests
+agent/            OpenClaw skill, workspace persona, deployment examples + log
+docs/spec/        the specification; docs/getting-started.md is the user guide
 ```
 
 `render/` emits Markdown; `targets/` decides what files exist and applies them to
 disk. A target plans, the writer writes — that split is what makes the write
 policies (`replace` / `splice` / `seed`) a property of the artifact rather than
-of the emitter.
+of the emitter. The `obsidian` target writes under `obsidian/`, which is the
+folder actually opened as a vault; `assets/` stays at the vault root with
+`obsidian/assets` symlinked to it.
 
 ## Testing strategy
 
-Everything phase 0 established still holds, and phase 1 adds to it:
-
-- **Golden files** are the primary tool. `example-vault/` holds a fixture event
-  log and the exact expected output. Every target ships its fixture; a target
-  with no golden file is not done. That now includes `sqlite`, `json` and `html`.
-- **Idempotency test:** build, snapshot, build again, assert byte equality,
-  across every enabled target, binary ones included. For SQLite this means a
-  fixed page size and no timestamps in the file.
-- **Known gap, unresolved:** the golden-file comparison of `data/log.db`
-  assumes byte equality holds not just same-machine (it does — the
-  idempotency test above passes on every host tried) but *across Node
-  versions*, which it doesn't. Found deploying phase 2's agent layer:
-  Node v26.0.0 bundles SQLite 3.53.1, Node v26.7.0 bundles 3.53.4, and a
-  build on the latter differs byte-for-byte from the committed fixture
-  (built on the former) despite identical logical content — the on-disk
-  page layout isn't guaranteed stable across SQLite library versions the
-  way this test assumes. Not yet decided: compare `data/log.db` logically
-  (dump and diff rows) instead of as raw bytes, pin a specific Node/SQLite
-  version for golden-file regeneration, or accept it as a known
-  environment constraint. `test/golden.test.ts`'s
-  `'building the example vault reproduces the committed output byte for
-  byte'` is where this shows up.
-- **Ownership test:** build with a target enabled, disable it, build again,
-  assert its files are gone and nothing else moved. Then delete the manifest and
-  assert the build still succeeds and deletes nothing.
-- **Seed test:** build, edit `Game Database.base`, build again, assert the edit
-  survives; then `--force` and assert it does not.
-- **Preservation test:** a note with hand-written prose in every position —
-  before, between and after blocks — survives a build unchanged.
-- **Fold properties:** replaying a log twice yields identical state; an `amend`
-  applied to any event produces the same state as if the original had been
-  written that way.
-- **No network in unit tests, ever.** Providers are mocked at the interface, and
-  a test that would open a socket is a bug in the test.
-- **Live smoke test, opt-in only — run it when you touch provider matching.**
-  `npm run test:live` (`test/live/*.live.ts`, deliberately outside the
-  `npm test` glob) hits the real IGDB API. It exists because a mocked
-  test can only be wrong about a real catalog's shape in the way the person
-  writing it happened to guess — that's exactly how a real bug shipped:
-  IGDB carries "Final Fantasy VII Remake: Deluxe Edition" as its own entry,
-  not looser phrasing of the base game, and no hand-written mock reproduced
-  that. **Run `npm run test:live` whenever you change `normalize()`
-  (`src/resolve/normalize.ts`), `findDetail`/`enrichGame`
-  (`src/cli/commands/enrich.ts`), or the provider's `search`/`fetch`
-  (`src/providers/igdb.ts`).** A green `npm test`
-  does not mean matching still works against a real catalog — only this
-  does. It needs real credentials (env vars, or
-  `example-vault/gamereg.secrets.json`, gitignored); every test in the file
-  skips itself cleanly when the credential it needs is absent, so it is
-  always safe to run and safe to skip. It never writes to the committed
-  `example-vault` — everything runs against a throwaway copy. If a test that
-  used to pass starts failing, read the failure before assuming the fix
-  broke something: a provider's catalog can change too.
-- **Ingest determinism:** the same photo ingested twice yields the same hash, the
-  same file, and no second write. Assert the stripped EXIF is actually gone.
+- **Golden files are the primary tool.** `example-vault/` holds a fixture log and
+  the exact expected output for every enabled target. A target with no golden
+  file is not done. Text is compared as bytes; `data/log.db` is compared through
+  `dumpDatabase` (`test/helpers.ts`) — see *Decisions* above for why, and
+  `test/sqlite.test.ts`'s "the logical dump distinguishes databases a byte
+  comparison would", which is what keeps that comparison honest.
+- **Idempotency:** build, snapshot, build again, assert byte equality across
+  every target, binary ones included. This one stays on the bytes: both files
+  come from the same machine, so nothing excuses a difference.
+- **Ownership:** enable a target, disable it, assert its files are gone and
+  nothing else moved; then delete the manifest and assert the build deletes
+  nothing.
+- **Seed:** edit `Game Database.base`, rebuild, assert the edit survives; then
+  `--force` and assert it does not.
+- **Preservation:** hand-written prose in every position around the blocks
+  survives a build unchanged.
+- **Fold properties:** replaying twice yields identical state; an `amend` yields
+  the same state as if the original had been written that way.
+- **Ingest determinism:** same photo twice, same hash, same file, no second
+  write, and the stripped EXIF is actually gone.
 - **Query guard:** the SQL allowlist is a security boundary — test what it
   refuses (multiple statements, `PRAGMA`, `ATTACH`, comments hiding a second
   statement, `WITH ... DELETE`), not only what it accepts.
+- **No network in unit tests, ever.** A test that opens a socket is a bug in the
+  test.
+- **`npm run test:live` — run it whenever you touch `normalize()`
+  (`resolve/normalize.ts`), `findDetail`/`enrichGame` (`cli/commands/enrich.ts`),
+  or `providers/igdb.ts`'s `search`/`fetch`.** A green `npm test` does not mean
+  matching still works against a real catalog; only this does. It exists because
+  a mock can only be wrong in the way its author guessed — which is exactly how a
+  real bug shipped (IGDB carries "Final Fantasy VII Remake: Deluxe Edition" as
+  its own entry). It needs credentials (env, or the gitignored
+  `example-vault/gamereg.secrets.json`), skips cleanly without them, and never
+  writes to the committed fixture. If it starts failing, read the failure first:
+  a catalog can change too.
 - Use `node:test`. No test framework dependency.
 
 ## Conventions
 
 - TypeScript, ESM, Node 22+. `strict: true`, no `any` in `core/`.
 - Errors carry the exit code from `02-cli.md`. One error class, a `code` field.
-  Phase 1 makes code 6 (`provider_unavailable`) real — it means the local work
-  was still committed.
+  Code 6 (`provider_unavailable`) means the local work was still committed.
 - All user-facing strings come from `i18n/`. No hardcoded English in `src/`,
-  including error messages.
-- The persona (see `05-agent.md`) belongs to prose output only. JSON output and
-  event payloads stay neutral.
+  including error messages — `core/platforms.ts` is the one exception, above.
+- The persona (`05-agent.md`) belongs to prose output only. JSON output and event
+  payloads stay neutral.
 - Commit messages: conventional commits, English.
 
 ## Versioning
 
-SemVer, tied to the roadmap phases in `06-roadmap.md`, not to conventional
-feature-by-feature bumps:
+SemVer tied to the roadmap phases, not to feature-by-feature bumps: `0.0.0` was
+phase 0, `0.1.0` phase 1, `0.2.0` phase 2. `1.0.0` lands only when every phase in
+`06-roadmap.md` is done. A patch (`0.x.1`) is a bug fix within an already-tagged
+phase.
 
-- `0.0.0` — phase 0. `0.1.0` — phase 1. `0.2.0` — phase 2, and so on.
-- `1.0.0` lands only when every phase in `06-roadmap.md` is done, not before.
-- A patch version (`0.x.1`) is a bug fix within an already-tagged phase, not a
-  new phase.
+To tag a finished phase or patch:
 
-Tagging a finished phase (or patch — same steps, `v0.X.Y`):
+1. Commit the work as normal.
+2. `git tag -a v0.X.Y -m "..."` on the commit that completes it. **The message is
+   also the release notes** (step 4) — write it as such, not as a label. See
+   `v0.0.0` for the shape.
+3. Bump `version` in `package.json` **and** `package-lock.json` as a separate,
+   untagged commit (`npm version minor --no-git-tag-version` for a phase).
+4. `git push && git push --tags`, then
+   `gh release create v0.X.Y --title "v0.X.Y — <summary>" --notes-from-tag`.
+   `--notes-from-tag` keeps the description in exactly one place. GitHub marks
+   the most recently *created* release "Latest", so backfill oldest first.
 
-1. Commit the phase's work as normal.
-2. Tag the commit that completes the phase: `git tag -a v0.X.0 -m "..."`, with
-   the message summarizing what shipped (see `v0.0.0` for the shape). This
-   message is also the release notes in step 4 — write it accordingly, not
-   as a terse label.
-3. Bump `version` in `package.json` **and** `package-lock.json` to the next
-   phase's version (`npm version minor --no-git-tag-version` for a phase bump),
-   as a separate commit — `chore(release): bump version to 0.X.0 for phase N`.
-   This commit is untagged; it marks the start of the next phase's work, not
-   its completion.
-4. `git push && git push --tags`, then publish the tag as a GitHub Release —
-   `gh release create v0.X.Y --title "v0.X.Y — <short summary>" --notes-from-tag`.
-   `--notes-from-tag` reuses the annotated tag message from step 2 verbatim, so
-   there is exactly one place the release description is written, not two that
-   can drift apart. The most-recently-created release is what GitHub marks
-   "Latest", so create any out-of-order backfill tags oldest first.
-
-Only tag a phase once it is actually done — don't pre-bump speculatively. Never
-tag or push without being asked; versioning is a deliberate, user-triggered
-action in this repo, not something to do alongside an unrelated commit.
+Only tag once the phase is actually done. **Never tag or push without being
+asked** — versioning is user-triggered here, never done alongside unrelated work.
 
 ## Language
 
@@ -548,7 +291,3 @@ project.
 - A new build target, or a target that needs to read anything but folded state
 - Adding a runtime dependency beyond the stack table in `00-architecture.md`
 - Anything that writes outside the vault root
-
-All open questions in `06-roadmap.md` are resolved as of this phase; the
-remaining two items there (retroactive session start, timezone changes while
-travelling) are deferred by design, not blocking anything now.
