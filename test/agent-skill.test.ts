@@ -147,6 +147,34 @@ test('every flag the agent reference names exists on the command it names it und
   }
 })
 
+/**
+ * The skill is authored in one language, English, and localization is the CLI's
+ * job (docs/spec/05-agent.md "Language"). The failure this guards against is
+ * gradual and reasonable-looking: someone deploys against a Portuguese-speaking
+ * user, pastes the phrasings that user actually types as examples, and the
+ * prompt slowly becomes a glossary competing with i18n/ that nothing validates.
+ *
+ * Typographic punctuation the prose already uses is allowed; letters outside
+ * ASCII are not.
+ */
+test('the skill and its references are written in English, with no phrasebook', () => {
+  const allowed = /[—–…‘’“” →×≤≥]/g
+
+  for (const file of ['SKILL.md', join('reference', 'cli.md'), join('reference', 'query.md')]) {
+    const text = readFileSync(join(SKILL, file), 'utf8').replace(allowed, '')
+    const lines = text.split('\n')
+    for (const [index, line] of lines.entries()) {
+      const offending = line.match(/[^\x00-\x7F]/g)
+      assert.equal(
+        offending,
+        null,
+        `${file}:${index + 1} carries non-ASCII text (${offending?.join('')}) — the skill is English, ` +
+          `and the register's localized vocabulary belongs to i18n/, not to the prompt: ${line.trim()}`,
+      )
+    }
+  }
+})
+
 test('the skill declares the binary it cannot run without', () => {
   const skill = readFileSync(join(SKILL, 'SKILL.md'), 'utf8')
   const frontmatter = skill.split('---')[1] ?? ''

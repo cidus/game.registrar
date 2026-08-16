@@ -26,6 +26,23 @@ official Bot API is the least fragile.
 
 Any gateway that can shell out works. Nothing in this spec depends on OpenClaw.
 
+## Language
+
+The agent replies in whatever language the user writes or speaks. It passes
+`--locale` only when the user explicitly asks for output in another language:
+the locale sets the CLI's output language, not the language of the conversation.
+
+**The agent holds no glossary and no per-language prompt.** Its own prompt is
+written in English and states rules, not phrasings — a rule about approximate
+times holds for "around eight" and "umas 20h" alike, and a model that reads the
+rule needs no example in either language. What is genuinely localized is the
+CLI's output, which `i18n/` already owns and which the agent relays. One skill,
+one spec, one place where each term is written down.
+
+The utterances quoted throughout this document are therefore illustrations of a
+*mapping* — message to invocation — and not a claim that the user speaks
+English. See *Persona* for where the localized vocabulary actually lives.
+
 ## Voice
 
 Transcription happens **before** the CLI sees anything. `gamereg` never touches
@@ -39,12 +56,12 @@ table (see 03): the user corrects a mis-transcribed title once.
 
 ### Starting
 
-> "começando hollow knight"
+> "starting hollow knight"
 
 **The agent supplies a canonical-ish title, not the raw utterance.** Before
 calling `start`, correct obvious spelling/colloquialism the way `end` already
-corrects obvious transcription errors (below) — "uns pacman no atari" becomes
-`gamereg start "Pac-Man" --platform Atari`, not `"pacman"`. A wrong guess here
+corrects obvious transcription errors (below) — "some pacman on the atari"
+becomes `gamereg start "Pac-Man" --platform Atari`, not `"pacman"`. A wrong guess here
 is cheap, not dangerous: `enrich` corrects the stored title and files the
 guess as an alias (01-model.md), and a bad first search can be retried with a
 better `<query>` (02-cli.md's `enrich` section). But a better guess up front
@@ -61,14 +78,14 @@ not that they wanted an interview, and the agent usually has no catalog to
 offer a sensible list from yet. Start the session, and let the platform arrive
 when the session closes.
 
-When the user volunteers it — "hollow knight no switch" — pass it as
+When the user volunteers it — "hollow knight on the switch" — pass it as
 `--platform switch` and say nothing further about it. When they do not, the
 result comes back with `"platform": null` and `platform_source` absent, which is
 not an error condition to report.
 
 ### Ending
 
-> "parei agora, joguei bem, cheguei no Watcher Knights" *(voice)*
+> "just stopped, played well, got to the Watcher Knights" *(voice)*
 
 `gamereg end --note "<transcript, lightly cleaned>" --json`
 
@@ -108,7 +125,7 @@ session is open, attaches to the session that is about to close — hold it and
 send it with `end`. A photo arriving alone with no open session is ambiguous:
 ask, do not guess. `gamereg attach` exists for exactly this.
 
-**Whether it is a cover.** "essa é minha cópia física" or a photo of a box, a
+**Whether it is a cover.** "this is my physical copy" or a photo of a box, a
 cartridge, a shelf → offer `--as-cover`. Do not promote silently: the cover is
 the one image the user sees every time, and replacing it uninvited is annoying in
 a way an extra attachment never is.
@@ -158,8 +175,8 @@ Asking at 00:05 asks while the session is most likely still running — the hone
 answer is "still playing", the chase achieves nothing, and it interrupts. Asking
 the next morning asks about something definitively over:
 
-> *Bom dia. Consta em aberto uma sessão de Hollow Knight, protocolada ontem às
-> 20h14. A que horas foi encerrada?*
+> *Good morning. A session of Hollow Knight stands open, filed yesterday at
+> 20:14. At what hour was it closed?*
 
 Set `chase_at: null` to ask immediately at the cutoff instead. Someone who plays
 in the afternoon may genuinely prefer that.
@@ -261,7 +278,7 @@ Two constraints on any persona, whatever the pre-prompt says:
 
 ### Finishing
 
-> "acabei, achei ótimo, nota 9, difícil, peguei o final verdadeiro"
+> "done, loved it, 9 out of 10, hard, got the true ending"
 
 Two steps, in order:
 
@@ -296,15 +313,22 @@ never scolding. The tone does real work: it makes a check-in charming
 instead of nagging, and it makes an ambiguity question feel like due process
 rather than a failure.
 
-Vocabulary — used consistently, localized per locale:
+Vocabulary — used consistently:
 
 | Concept | Term |
 |---|---|
-| Session opened | filed / protocolada |
-| Run finished | approved / deferida |
-| Run abandoned | archived / arquivada |
-| Awaiting an answer | pending clarification / pendente de esclarecimento |
-| Replay | certified copy / segunda via |
+| Session opened | filed |
+| Run finished | approved |
+| Run abandoned | archived |
+| Awaiting an answer | pending clarification |
+| Replay | certified copy |
+
+**The terms above are the English ones. Each locale's are in `i18n/<locale>.json`,
+and that file is the only place they are written.** The CLI's own prose already
+carries them — a `start` in `pt-BR` answers *"Protocolada: …"* — so an agent
+relaying that output is speaking the register in that language without holding a
+glossary of its own. A second copy of this table anywhere in the agent layer
+would be a copy that can disagree with `i18n/` and nothing would catch it.
 
 Hard rule: the persona lives in prose only. It never leaks into JSON output,
 event payloads, or generated blocks.

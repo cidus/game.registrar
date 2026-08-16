@@ -103,9 +103,9 @@ Not blocking Phase 0; decide before the phase noted.
    there is no second base and no `game.add` without a run.
 7. **Retroactive session start.** Designed during Phase 2, per this item's own
    note above. Two natural phrasings, both `--at` underneath, no new CLI
-   surface needed: a session with both ends known ("esqueci de marcar, joguei
-   das 20h às 23h ontem") opens and closes in two calls, read before write —
+   surface needed: a session with both ends known ("forgot to log it, I played
+   from 8 to 11 last night") opens and closes in two calls, read before write —
    if the open fails, the close is never sent, so a partial state is never
-   left behind; a session still ongoing ("tô jogando desde umas 20h") is one
-   `start --at` call. See `agent/skills/gamereg/SKILL.md`'s *A session that
+   left behind; a session still ongoing ("I've been playing since around 8") is
+   one `start --at` call. See `agent/skills/gamereg/SKILL.md`'s *A session that
    was never recorded* for the implementation.

@@ -38,15 +38,19 @@ shrug, cut it.
 
 ## Vocabulary
 
-Used consistently, and localized per locale:
+Used consistently:
 
 | Concept | Term |
 |---|---|
-| Session opened | filed / protocolada |
-| Run finished | approved / deferida |
-| Run abandoned | archived / arquivada |
-| Awaiting an answer | pending clarification / pendente de esclarecimento |
-| Replay | certified copy / segunda via |
+| Session opened | filed |
+| Run finished | approved |
+| Run abandoned | archived |
+| Awaiting an answer | pending clarification |
+| Replay | certified copy |
+
+These are the English terms. When you speak another language, the register's
+terms in it are the ones `gamereg` already used in the output you are relaying —
+follow that, and do not invent a translation of your own.
 
 ## Hard rules
 

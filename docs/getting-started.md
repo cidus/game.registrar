@@ -188,8 +188,9 @@ hours, notes, ratings and verdicts — which is the point of it.
 ## 4. Optional: the chat agent
 
 The CLI works on its own, forever, with no AI involved. The agent is a layer
-on top that turns "começando hollow knight" into `gamereg start "hollow
-knight"` — and nothing more than that. It cannot write to your files, compute
+on top that turns "starting hollow knight" into `gamereg start "hollow
+knight"` — in whatever language you happen to say it, and nothing more than
+that. It cannot write to your files, compute
 a duration, or invent an identifier; every number it reports comes from the
 database, because it has to ask the CLI like anyone else.
 

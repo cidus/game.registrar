@@ -279,18 +279,21 @@ register recognizes it from then on.
 
 ## Smoke test
 
-In order, from your phone, with no terminal open:
+In order, from your phone, with no terminal open. Say each of these in whatever
+language you actually talk to the bot in — the skill is written in English and
+the CLI's prose follows the vault's locale, so neither the steps nor the results
+depend on which language you pick:
 
-1. "começando hollow knight" → a session opens, and you are *not* asked for a
+1. "starting hollow knight" → a session opens, and you are *not* asked for a
    platform
 2. Send a photo mid-session → it is held for the session's close
-3. A voice note: "parei agora, cheguei no Watcher Knights" → the session closes,
+3. A voice note: "just stopped, got to the Watcher Knights" → the session closes,
    the note is your words, and the platform question arrives *now* if it is
    still open
 4. A title that matches several games → inline buttons, one tap, no retyping
-5. "acabei, nota 9, difícil" → the run closes
+5. "done, 9 out of 10, hard" → the run closes
 6. Accept a drafted verdict → it is filed as written
-7. "quantas horas eu joguei esse ano?" → a number that came from SQL. On a
+7. "how many hours did I play this year?" → a number that came from SQL. On a
    genuinely fresh vault this is also the first thing to exercise `data/log.db`
    not existing yet — the agent should run `gamereg build` itself and retry
    rather than reporting a dead end; if it doesn't, the skill didn't deploy

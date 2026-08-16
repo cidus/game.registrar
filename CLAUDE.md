@@ -281,9 +281,38 @@ asked** — versioning is user-triggered here, never done alongside unrelated wo
 
 ## Language
 
-Repository language is English: code, comments, docs, commit messages, issues.
-Portuguese is a shipped locale (`i18n/pt-BR.json`), not the language of the
-project.
+**Everything this repository writes is in English: code, comments, docs, commit
+messages, issues, and the agent's prompt in `agent/`.** That includes the
+example utterances in `05-agent.md` and `SKILL.md` — a user saying "starting
+hollow knight" is an illustration of a mapping (message → invocation), not a
+claim about which language anyone speaks.
+
+The only non-English text in the repository is data, and there are exactly four
+kinds of it: `i18n/*.json`; `02-cli.md`'s *Command name mapping (pt-BR)* table,
+which documents shipped interface (`iniciar`, `--nota`) and is not prose;
+`example-vault/`, which is fictional user content and may be whatever a user
+would write; and `Pokémon` in `03-resolution.md` and `test/normalize.test.ts`,
+a Unicode-normalization fixture. Anything else in another language is drift.
+
+**The agent has no glossary and no per-language prompt, deliberately.** This
+looks like a gap and someone will eventually try to close it by adding
+`reference/locale/pt-BR.md`; it is not a gap. The persona's localized
+vocabulary already exists exactly once, in `i18n/<locale>.json` — a `start` in
+`pt-BR` answers *"Protocolada: …"* — and the agent relays the CLI's own prose,
+so it speaks the register in that language without holding a copy. A second
+table in the agent layer could disagree with `i18n/` and nothing would catch
+it. Per-language *skills* are worse still: N copies of every behaviour rule,
+drifting, with one anti-drift test able to check only one of them.
+
+What replaces same-language examples is stating the **rule** rather than the
+phrasing. "An approximation is still a time the user gave you; silence is not"
+holds for "around 8" and "umas 20h" alike; an example in either language does
+not. Where a Portuguese example used to carry a rule implicitly, the rule is
+now written out — see `SKILL.md`'s *A session that was never recorded*.
+
+`test/agent-skill.test.ts`'s "the skill and its references are written in
+English, with no phrasebook" enforces the first half of this by refusing
+non-ASCII letters in `SKILL.md` and `reference/`. The rest is convention.
 
 ## What to ask about rather than assume
 

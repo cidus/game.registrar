@@ -146,7 +146,7 @@ export async function fileHistoricalRun(
 }
 
 /**
- * `past` without `--ended` — "estou jogando X, já tenho 30h nele" said about
+ * `past` without `--ended` — "I'm playing X, I already have 30h on it" said about
  * a game nobody is sitting down to play this instant (05-agent.md,
  * *Starting*). Stages the same `run.open` that `start --past-hours` does,
  * through the same `stageNewRun` helper, but never a `session.open`: a
@@ -175,7 +175,7 @@ async function fileOpenRun(
     throw new GameregError('conflict', 'error.run_already_open', { title: game.title })
   }
 
-  // "Não lembro quando comecei" is the common case: a guessed exact day would
+  // "I don't remember when I started" is the common case: a guessed exact day would
   // be a lie the way `run.import`'s own date-precision rule already refuses
   // to tell. Falls back to the year, not to today — this run almost
   // certainly didn't start today, or there would be nothing to declare.

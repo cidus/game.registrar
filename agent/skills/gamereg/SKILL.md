@@ -38,9 +38,20 @@ Reply in whatever language the user writes or speaks. Only pass `--locale` when
 they explicitly ask for output in another language — the locale sets the CLI's
 output language, not the language you talk in.
 
+**This file is written in English and the user very likely is not speaking it.**
+Every quoted utterance below is an illustration of a *mapping* — a message, and
+the invocation it becomes — never a phrasing to match on. Translate the mapping,
+not the words: what earns a `--rating` is a user grading the game, in any
+language and any idiom they grade it in.
+
+The register's own vocabulary — *filed*, *approved*, *archived* — reaches you
+already translated, in the CLI's prose, because `gamereg` is localized and you
+relay what it says. You are not given a glossary here and do not need one; the
+one that exists lives in the repository's `i18n/` and is the CLI's to apply.
+
 ## Starting a session
 
-> "começando hollow knight"
+> "starting hollow knight"
 
 ```
 gamereg start "hollow knight" --json
@@ -56,14 +67,14 @@ candidate the provider never returned.
 
 **Do not ask for the platform here.** The user announced they were *playing*,
 not that they wanted an interview, and there is usually no catalog to offer a
-sensible list from yet. When they volunteer it — "hollow knight no switch" —
+sensible list from yet. When they volunteer it — "hollow knight on the switch" —
 pass `--platform switch` and say nothing further. When they do not, the result
 comes back with `"platform": null` and `platform_source` absent. **That is not
 an error and you do not report it.**
 
 ## Ending a session
 
-> "parei agora, joguei bem, cheguei no Watcher Knights" *(voice)*
+> "just stopped, played well, got to the Watcher Knights" *(voice)*
 
 ```
 gamereg end --note "<transcript, lightly cleaned>" --json
@@ -99,7 +110,7 @@ close. A run filed with `gamereg past` never had one — it can sit with
 `platform: null` indefinitely, and the only way it comes up is the user
 asking directly, not an `end`/`finish`/`drop` reply.
 
-> "em que plataforma tá esse jogo?" → *(you check, it's null)* → "PS5"
+> "what platform is this game on?" → *(you check, it's null)* → "PS5"
 
 There is no `end` to attach `--platform` to. The tool is `amend`, on the
 run's own `run.open` event — but neither `status` nor `search` hand you that
@@ -108,7 +119,7 @@ query):
 
 ```
 gamereg query "SELECT event_id FROM events WHERE type = 'run.open' AND json_extract(payload, '$.run_id') = '<run_id>'" --json
-gamereg amend "<event_id>" --set platform="PS5" --reason "plataforma informada pelo usuário" --json
+gamereg amend "<event_id>" --set platform="PS5" --reason "platform stated by the user" --json
 ```
 
 **Do not try `start --platform` on the existing title first, looking for a
@@ -118,9 +129,10 @@ is a `not_found` that has nothing to do with the platform you're trying to
 set — a dead end, not a signal to retry with `--no-metadata`.
 
 **There is no platform-level approval gate on `amend`/`revoke` — the
-confirmation is entirely on you.** Ask first, in plain language: "corrigir a
-plataforma de Final Fantasy VII Remake Intergrade para PS5, confirma?" Only
-run the command once the answer is an unambiguous yes (see Safety).
+confirmation is entirely on you.** Ask first, in plain language and in the
+user's own: "set the platform of Final Fantasy VII Remake Intergrade to PS5 —
+confirm?" Only run the command once the answer is an unambiguous yes (see
+Safety).
 
 ## Candidates (exit code 3)
 
@@ -151,7 +163,7 @@ session is open, belongs to the session that is about to close — hold it and
 send it with `end`. A photo arriving alone with no open session is ambiguous:
 ask, do not guess. `gamereg attach` exists for exactly that.
 
-**Whether it is a cover.** "essa é minha cópia física", a photo of a box, a
+**Whether it is a cover.** "this is my physical copy", a photo of a box, a
 cartridge, a shelf → *offer* `--as-cover`. Do not promote silently: the cover is
 the one image they see every time, and replacing it uninvited is annoying in a
 way an extra attachment never is.
@@ -171,23 +183,26 @@ Forgetting to *open* a session is far more common than forgetting to close one.
 Both are `--at`, which takes `20:14`, `"2026-08-12 20:14"`, full ISO, or `-90m`
 and `-2h` relative to now. Ambiguity always resolves toward the past.
 
-> "esqueci de marcar, joguei das 20h às 23h ontem"
+> "forgot to log it, I played from 8 to 11 last night"
 
 Open at the stated time and close at the stated time, in that order. Read the
 result of the first before sending the second — if the open fails, sending the
 close leaves the register in a state neither of you intended.
 
-> "tô jogando desde umas 20h"
+> "I've been playing since around 8"
 
 `gamereg start "…" --at 20:00`. One invocation; the session is open and
 correctly stamped.
 
-Never estimate a time the user did not give you. "Umas 20h" is a time they gave
-you; silence is not.
+Never estimate a time the user did not give you. **An approximation is still a
+time they gave you; silence is not.** A hedge — "around 8", "sometime after
+lunch", or whatever the equivalent hedge is in the language they are speaking —
+is a stated time, and you take it at face value rather than asking them to be
+more precise than they were. Nothing at all is not a time, and you ask.
 
 ## Finishing
 
-> "acabei, achei ótimo, nota 9, difícil, peguei o final verdadeiro"
+> "done, loved it, 9 out of 10, hard, got the true ending"
 
 Two steps, in order:
 
@@ -234,9 +249,9 @@ the register's data, not your voice.
   confirmation you get in chat is the only check there is, so it is not
   optional.** Before invoking either:
   1. State plainly, in your own words, exactly what will change — the game,
-     the field, the old value if you know it, the new value. Not "posso
-     corrigir isso?"; say what "isso" is.
-  2. Wait for an unambiguous yes. A vague "tá", a change of subject, or
+     the field, the old value if you know it, the new value. Not "shall I fix
+     that?"; say what "that" is.
+  2. Wait for an unambiguous yes. A vague "sure", a change of subject, or
      silence is not a yes — ask again or drop it.
   3. Only then run the command, and confirm plainly once it's done.
 

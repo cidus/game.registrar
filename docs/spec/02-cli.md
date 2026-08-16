@@ -125,8 +125,8 @@ Behaviour:
 3. Append `session.open`.
 
 **`--past-hours <n>`** stamps a stated baseline onto the `run.open` this
-creates — playtime that happened before this vault started tracking it ("já
-tenho 30h nele no Steam"). Only meaningful when step 2 actually opens a new
+creates — playtime that happened before this vault started tracking it ("I
+already have 30h on it in Steam"). Only meaningful when step 2 actually opens a new
 run; combining it with a query that reuses an already-open run is a usage
 error (code 2) — there is no new `run.open` for it to land on, and the
 correct tool for adding a stated number to a run already in progress is
@@ -260,8 +260,8 @@ already has an open run to add a session to (`start`) or a baseline to
 correct (`amend`).
 
 `--started`, omitted here, defaults to the current year rather than to
-`--ended` (there being no `--ended` to default to) or to today — "não lembro
-quando comecei" is the common case this command exists for, and a guessed
+`--ended` (there being no `--ended` to default to) or to today — "I don't
+remember when I started" is the common case this command exists for, and a guessed
 exact day would be a lie the way `run.import`'s date-precision rule already
 refuses to tell. Give `--started` and it is used exactly as typed, at
 whatever precision its shape implies.

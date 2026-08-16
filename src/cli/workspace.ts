@@ -255,7 +255,7 @@ export type NewRun = {
  * Stages a `run.open` for an already-resolved game — the mechanics `start`
  * and `past` (filed without `--ended`) share. Never stages a `session.open`;
  * that decision belongs to the caller. `start` always opens one right after
- * calling this. `past` never does — "estou jogando X, já tenho 30h" is a
+ * calling this. `past` never does — "I'm playing X, I already have 30h" is a
  * fact about an ongoing run, not an announcement that a session is starting
  * this instant (05-agent.md, *Starting*).
  */
