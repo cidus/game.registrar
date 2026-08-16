@@ -313,11 +313,21 @@ to every target, not only to Markdown.
 - LF endings, no trailing whitespace, single trailing newline
 - Locale-independent formatting inside generated blocks — dates as ISO, numbers
   with `.` — because the file is data, not presentation
-- Binary targets included: SQLite is built with a fixed page size and no
-  timestamps, so the file itself is comparable byte for byte
+- Binary targets included: SQLite is built with a fixed page size, a fixed
+  insertion order and no timestamps
 
 There is a golden-file test for this. It is the single most valuable test in the
 suite.
+
+The determinism above is what one build guarantees against the next. It is not a
+promise that the *bytes* of `data/log.db` are reproducible on someone else's
+machine: SQLite's on-disk layout may differ between library versions, and Node
+bundles its own (v26.0.0 carries SQLite 3.53.1, v26.7.0 carries 3.53.4 — the
+same logical database, different files). So the committed fixture is compared
+logically — schema, then every table and view, row by row, in each object's own
+order — while a second build on one machine is still compared byte for byte.
+Every other artifact this project writes is text it composes itself and is
+compared as bytes everywhere.
 
 ## Site
 

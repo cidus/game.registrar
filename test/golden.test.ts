@@ -15,7 +15,7 @@ import { translator } from '../src/i18n/index.ts'
 import { build, type BuildResult } from '../src/targets/build.ts'
 import { ownedPaths, readManifest } from '../src/targets/manifest.ts'
 import { findRegions } from '../src/render/markers.ts'
-import { tempDir } from './helpers.ts'
+import { dumpDatabase, tempDir } from './helpers.ts'
 
 const EXAMPLE = join(import.meta.dirname, '..', 'example-vault')
 
@@ -52,14 +52,25 @@ function goldenFiles(): string[] {
   return derivedFiles(root)
 }
 
-test('building the example vault reproduces the committed output byte for byte', () => {
+test('building the example vault reproduces the committed output', () => {
   const root = copyExample()
   rebuild(root)
 
   for (const file of derivedFiles(root)) {
     assert.equal(existsSync(join(EXAMPLE, file)), true, `${file} is not committed`)
-    // Buffer comparison, not utf8: data/log.db is binary, and decoding it as
-    // text would risk two different files decoding to the same lossy string.
+
+    // A SQLite file is compared by schema and contents, not by bytes: the
+    // on-disk layout is not stable across SQLite library versions, so a
+    // fixture committed from one Node version would fail on another with no
+    // difference in what the database says (see dumpDatabase). Every other
+    // artifact is text this project writes itself, and stays byte for byte.
+    if (file.endsWith('.db')) {
+      assert.equal(dumpDatabase(join(root, file)), dumpDatabase(join(EXAMPLE, file)), file)
+      continue
+    }
+
+    // Buffer comparison, not utf8: decoding as text would risk two different
+    // files decoding to the same lossy string.
     assert.equal(
       Buffer.compare(readFileSync(join(root, file)), readFileSync(join(EXAMPLE, file))),
       0,

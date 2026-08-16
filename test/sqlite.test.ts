@@ -17,6 +17,7 @@ import { buildDatabase } from '../src/db/build.ts'
 import { canonicalizeState } from '../src/targets/build.ts'
 import { sqlite } from '../src/targets/sqlite.ts'
 import { translator } from '../src/i18n/index.ts'
+import { dumpDatabase } from './helpers.ts'
 
 const EXAMPLE = join(import.meta.dirname, '..', 'example-vault')
 
@@ -151,6 +152,47 @@ test('v_sessions_by_day sums minutes into hours per logical day', () => {
     for (const row of rows) assert.ok(row.sessions >= 1)
   } finally {
     cleanup()
+  }
+})
+
+/**
+ * `dumpDatabase` is what stands in for a byte comparison of the committed
+ * `data/log.db` (see golden.test.ts). A comparison that stopped noticing
+ * things would leave that fixture unguarded and still green, so what it
+ * notices is asserted here rather than assumed.
+ */
+test('the logical dump distinguishes databases a byte comparison would', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'gamereg-sqlite-dump-'))
+  try {
+    const write = (name: string, bytes: Buffer): string => {
+      const file = join(dir, name)
+      writeFileSync(file, bytes)
+      return file
+    }
+    const state = exampleState()
+    const baseline = write('a.db', buildDatabase(state))
+    assert.equal(dumpDatabase(baseline), dumpDatabase(write('b.db', buildDatabase(state))))
+
+    const dump = dumpDatabase(baseline)
+    assert.match(dump, /^-- table games$/m, 'the schema is part of the dump')
+    assert.match(dump, /^-- view v_by_year$/m, 'views are part of the dump')
+    assert.ok(dump.split('\n').filter((line) => line.includes(' | title=')).length > 0, 'rows are part of the dump')
+
+    // One minute on one run: the smallest change the fixture could drift by.
+    const changed = write('c.db', buildDatabase(state))
+    const db = new DatabaseSync(changed)
+    db.exec('UPDATE runs SET minutes = minutes + 1 WHERE rowid = 1')
+    db.close()
+    assert.notEqual(dumpDatabase(changed), dump)
+
+    // A column that no row uses would sail past a comparison of contents alone.
+    const widened = write('d.db', buildDatabase(state))
+    const other = new DatabaseSync(widened)
+    other.exec('ALTER TABLE games ADD COLUMN unused TEXT')
+    other.close()
+    assert.notEqual(dumpDatabase(widened), dump)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 })
 

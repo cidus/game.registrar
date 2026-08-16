@@ -43,8 +43,9 @@ Rules, in force for every target ever added:
 2. **A target performs no network I/O**, in any phase. Enrichment is a separate
    command and has already written its results into the log by the time `build`
    runs.
-3. **A target is deterministic.** Same state in, same bytes out, on any machine,
-   in any locale, at any time of day. See *Determinism* in
+3. **A target is deterministic.** Same state in, same bytes out, in any locale,
+   at any time of day, on any machine — with one documented exception, the
+   SQLite library version underneath `sqlite`. See *Determinism* in
    [04-derived](04-derived.md) — the rules there bind every target, not just the
    Markdown one.
 4. **A failing target does not take the others down.** The Markdown vault must
