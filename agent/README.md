@@ -31,8 +31,13 @@ arithmetic would cost every statistic downstream, silently.
 ### 1. Install `gamereg` on the always-on host
 
 ```bash
-npm install && npm run build && npm link
+npm install && npm link
 ```
+
+`npm install` builds on its own via the `prepare` script; there is no separate
+build step. See [docs/getting-started.md](../docs/getting-started.md) if this
+host does not have a register yet — it needs one, and `gamereg init` is how it
+gets one.
 
 Check it: `gamereg status --json` from inside your vault.
 

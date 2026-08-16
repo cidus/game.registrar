@@ -55,8 +55,12 @@ layer, as built* for the detailed state, and the tagged
 shipped in each phase.
 
 ```
-git clone … && cd game.registrar && npm install && npm run build && npm link
+git clone … && cd game.registrar && npm install && npm link
 ```
+
+New here? **[docs/getting-started.md](docs/getting-started.md)** walks through
+installing, creating a register, and setting up the chat agent. The rest of
+this page is the overview.
 
 Then, from the directory holding your register (or with `--vault <path>`):
 
