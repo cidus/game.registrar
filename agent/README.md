@@ -345,10 +345,21 @@ Telegram's 64-byte `callback_data` limit, so a `callback_data` that names the
 action in full — which `SKILL.md` requires, so a stale tap cannot read as
 consent — does not need shortening.
 
-**Still unproven end to end.** Buttons have never actually been rendered by this
-deployment: exit code 3 needs a title that matches several games, which has not
-come up. A yes/no confirmation is the cheaper test, since one happens on every
-`amend`.
+**The documented shape is confirmed rendering on this deployment**, sent from the
+CLI, which settles the channel and the payload:
+
+```bash
+openclaw message send --channel telegram --target "telegram:<id>" \
+  --message "test" \
+  --presentation '{"blocks":[{"type":"buttons","buttons":[
+     {"label":"A","action":{"type":"callback","value":"a"},"style":"success"},
+     {"label":"B","action":{"type":"callback","value":"b"},"style":"danger"}]}]}'
+```
+
+Keep that command. It separates "the channel cannot render buttons" from "the
+agent built the payload wrong" in one shot, and getting those two confused cost
+several rounds here — including one where the test itself was malformed and its
+negative result was believed.
 
 ## Smoke test
 
