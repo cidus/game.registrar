@@ -79,7 +79,6 @@ typed:
 {
   "build": {
     "targets": ["obsidian", "csv"],
-    "obsidian": { "run_notes": true, "bases": true },
     "csv": { "dir": "data" }
   }
 }

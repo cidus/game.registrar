@@ -175,6 +175,7 @@
     "bad_hours": "As horas devem ser um número positivo, e não {value}.",
     "bad_cutoff": "day_cutoff deve ter a forma 05:00, e não \"{value}\".",
     "bad_config": "{file} não é um JSON válido.",
+    "unknown_config_key": "{file}: \"{key}\" não é uma configuração que o gamereg conheça. Válidas nesse nível: {valid}.",
     "corrupt_log": "{file} tem uma linha ilegível em {line}. Execute gamereg auditoria.",
     "not_found": "Nada no acervo corresponde a \"{query}\".",
     "not_found_hint": "Nada no acervo corresponde a \"{query}\". Use --sem-metadados para abrir um registro novo.",

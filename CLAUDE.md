@@ -34,7 +34,7 @@ criterion ("an entire game logged start to finish without opening a terminal
 once") has not been demonstrated in one unbroken pass. See *The agent layer*
 below.
 
-`npm test` is 371 tests, all green (`node --test`, no framework, no network).
+`npm test` is 379 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -117,6 +117,20 @@ Each of these cost real time to find. The reasoning, not just the rule:
   `rawg.io` timing out. `PROVIDER_CREDENTIAL_FIELDS` (`core/secrets.ts`) and
   `KNOWN_PROVIDERS` (`providers/registry.ts`) list only `igdb`; those two places
   are where a second provider joins, in the shape RAWG used.
+- **Run notes and the Bases seed are structural, not configurable.**
+  `07-targets.md` advertised `build.obsidian.{run_notes,bases}` for four phases;
+  nothing parsed it, and the keys were dropped rather than built. `run_notes:
+  false` breaks a cascade — the seeded `Game Database.base` queries
+  `file.inFolder("runs")` and would come back empty, and `render/note.ts`'s
+  wikilinks would point at notes that do not exist — and `bases: false` cannot
+  mean anything coherent, since a seed is written once and never removed
+  (non-negotiable 9), so flipping it later would do nothing at all.
+- **Config keys are strict: an unknown one exits 2** (`rejectUnknownKeys` in
+  `core/config.ts`), with the valid names derived from `DEFAULT_CONFIG` so no
+  second list can drift from the type. This is what let the phantom keys above
+  survive four phases. The cost, accepted: a config written by a newer gamereg
+  now breaks an older binary instead of being ignored — fine for one user, one
+  machine, git as sync.
 - **The committed `data/log.db` is compared logically, not byte for byte.**
   SQLite's on-disk layout is not stable across library versions and Node bundles
   its own (v26.0.0 → 3.53.1, v26.7.0 → 3.53.4), so a fixture committed from one
@@ -128,10 +142,6 @@ Each of these cost real time to find. The reasoning, not just the rule:
 
 ## Open items
 
-- **`build.obsidian.{run_notes,bases}` is in `07-targets.md`'s config example
-  (line 81) but `core/config.ts` does not parse it** — unresolved since phase 0.
-  Either implement the keys or drop them from the spec; do not leave the example
-  lying.
 - **`resolve.ts`'s `matchesPlatform` treats an empty `game.platforms` as
   "matches nothing"** rather than "unknown, don't filter". A `--no-metadata` game
   that was never enriched therefore returns `not_found` for

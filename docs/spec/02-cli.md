@@ -468,6 +468,13 @@ writes into it. `--locale` is the one field with no dedicated flag: it reuses
 the global `--locale`, which already picks the invocation's own output
 language, and writes that same value into `config.locale`.
 
+**Every key in that file is optional, and every key in it must be one gamereg
+knows.** An unknown key exits 2, naming it by its full path and listing what is
+valid at that level, exactly as an unknown enum value does. The two are the same
+promise: a setting the register does not understand is one the user believes is
+in force, and silence there is worse than a refusal — `07-targets.md` advertised
+a `build.obsidian` block for four phases that nothing ever read.
+
 Every field is optional and falls back, in order, to: the flag, an interactive
 prompt, then the built-in default (`DEFAULT_CONFIG`) — the same
 flag-then-prompt-then-default shape `runDefaults` already uses for `start`.

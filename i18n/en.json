@@ -110,6 +110,7 @@
     "bad_hours": "Hours must be a positive number, not {value}.",
     "bad_cutoff": "day_cutoff must look like 05:00, not \"{value}\".",
     "bad_config": "{file} is not valid JSON.",
+    "unknown_config_key": "{file}: \"{key}\" is not a setting gamereg knows. Valid at that level: {valid}.",
     "corrupt_log": "{file} has an unreadable line at {line}. Run gamereg doctor.",
     "not_found": "Nothing on record matches \"{query}\".",
     "not_found_hint": "Nothing on record matches \"{query}\". Add --no-metadata to open a new entry for it.",

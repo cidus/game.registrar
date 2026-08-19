@@ -84,6 +84,54 @@ export const DEFAULT_CONFIG: Config = {
 
 export const CONFIG_FILENAME = 'gamereg.config.json'
 
+/**
+ * Rejects a key the config does not define, at any level.
+ *
+ * The valid names come from `DEFAULT_CONFIG` itself rather than from a list
+ * written out here: a second list is a list that drifts from the type it
+ * claims to describe, which is the failure this function exists to catch in
+ * the first place. `07-targets.md` carried an example with
+ * `build.obsidian.run_notes` for four phases; nothing parsed it, nothing said
+ * so, and a vault that copied the example got silence and no effect.
+ *
+ * Unknown *values* have always exited 2 (`checkTarget`, `checkEnum`); unknown
+ * *keys* now do the same, and say what is valid at that level.
+ *
+ * The cost, accepted knowingly: a config written by a newer gamereg breaks an
+ * older binary reading the same vault, where before it would have been quietly
+ * ignored. One user, one machine and git as sync is the whole deployment, so a
+ * loud failure on a key that was going to be ignored anyway is the better half
+ * of the trade.
+ */
+function rejectUnknownKeys(source: Record<string, unknown>, template: unknown, path: string, file: string): void {
+  if (typeof template !== 'object' || template === null || Array.isArray(template)) return
+  const known = template as Record<string, unknown>
+
+  for (const [key, value] of Object.entries(source)) {
+    if (!(key in known)) {
+      throw new GameregError('usage', 'error.unknown_config_key', {
+        key: path === '' ? key : `${path}.${key}`,
+        file,
+        valid: Object.keys(known).join(', '),
+      })
+    }
+    // Recurse only into nested objects — `platforms` and `build.targets` are
+    // arrays with their own parsers, and a null default (`locale`) describes a
+    // scalar, not a shape.
+    const nested = known[key]
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      typeof nested === 'object' &&
+      nested !== null &&
+      !Array.isArray(nested)
+    ) {
+      rejectUnknownKeys(value as Record<string, unknown>, nested, path === '' ? key : `${path}.${key}`, file)
+    }
+  }
+}
+
 /** `"PS5"` is shorthand for `{ "name": "PS5", "aliases": [] }`; both are legal. */
 function parsePlatforms(values: readonly unknown[], file: string): PlatformEntry[] {
   const entries: PlatformEntry[] = []
@@ -103,6 +151,18 @@ function parsePlatforms(values: readonly unknown[], file: string): PlatformEntry
     const aliases = entry['aliases']
     if (aliases !== undefined && !Array.isArray(aliases)) {
       throw new GameregError('usage', 'error.bad_config', { file })
+    }
+    // A platform entry is `{ name, aliases }` and nothing else. `alias` for
+    // `aliases` is the typo this catches, and it used to cost every synonym in
+    // the entry with no word said.
+    for (const key of Object.keys(entry)) {
+      if (key !== 'name' && key !== 'aliases') {
+        throw new GameregError('usage', 'error.unknown_config_key', {
+          key: `platforms[].${key}`,
+          file,
+          valid: 'name, aliases',
+        })
+      }
     }
     entries.push({
       name: name.trim(),
@@ -149,6 +209,8 @@ export function loadConfig(root: string): Config {
 
   const source = parsed as Record<string, unknown>
   const config = structuredClone(DEFAULT_CONFIG)
+
+  rejectUnknownKeys(source, DEFAULT_CONFIG, '', file)
 
   if (typeof source['locale'] === 'string') config.locale = source['locale']
   if (typeof source['timezone'] === 'string') config.timezone = source['timezone']
