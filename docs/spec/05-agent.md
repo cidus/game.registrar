@@ -156,17 +156,41 @@ Images arriving in chat are written to a temp path by the gateway and passed as
 `--photo`. The agent never moves, renames or hashes files — ingestion is the
 CLI's job (see [04-derived](04-derived.md)).
 
-Two things the agent decides, and only these:
+Three things the agent decides, and only these:
 
 **Which command the photo belongs to.** A photo with no text, arriving while a
 session is open, attaches to the session that is about to close — hold it and
 send it with `end`. A photo arriving alone with no open session is ambiguous:
 ask, do not guess. `gamereg attach` exists for exactly this.
 
-**Whether it is a cover.** "this is my physical copy" or a photo of a box, a
-cartridge, a shelf → offer `--as-cover`. Do not promote silently: the cover is
-the one image the user sees every time, and replacing it uninvited is annoying in
-a way an extra attachment never is.
+**What kind of photo it is.** `--kind` is advisory in the model (01-model.md) —
+it drives presentation, never logic — but for the agent it is the decision the
+other two hang off, so it is made first and made on what the image shows. A
+capture of the game running is a `screenshot`; a photograph of a boxed copy, a
+manual or a shelf is `box`; a cartridge, disc or cassette is `media`.
+Photographing a game is not screenshotting one, and misfiling the first as the
+second is what makes both decisions below miss.
+
+**Whether it becomes the cover.** A `box` or `media` photo is a picture of the
+thing itself, which is what a cover is for. With no cover on the game yet, the
+agent passes `--as-cover` and says so in one line: nothing was replaced, so
+there is nothing to ask about. With a cover already there, it offers instead —
+replacing the one image the user sees every time, uninvited, is annoying in a
+way an extra attachment never is. A cover set this way is `source: user` and
+enrichment will never overwrite it (non-negotiable 11); `cover --reset` is the
+way back.
+
+The vocabulary matters in the reply, too. A cover belongs to a **game**. There
+is no cover of a session, and a photo attached to a session event is attached to
+it, nothing more.
+
+**Whether it says the run is physical.** A `box` or `media` photo arriving with
+a `start` is evidence about that run: the agent passes `--form physical` in the
+same invocation and mentions it in passing, exactly as an inferred platform is
+always mentioned. `--form` exists only on `start` and `past`, so the same
+conclusion reached later is an `amend` — offered and confirmed, never inferred.
+The evidence is good and not conclusive, which is why it is stated rather than
+filed in silence.
 
 Captions come from the accompanying message, verbatim. If the message is a voice
 note, the transcript is the caption.

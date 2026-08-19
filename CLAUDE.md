@@ -58,18 +58,25 @@ rename-into-place, so racing builds could tear it; verified with 8 concurrent
 processes), and `gamereg vocab` (`cli/commands/vocab.ts`, the register's words
 in one locale — see *Language*, which is where the reasoning lives).
 
-**Proven live, each independently:** recording via `past` through Telegram; the
-platform question for a run with no session (`amend` on `run.open`); `amend` on a
-`run.import` event; ad hoc `query`, including the cache building itself on
-demand; a real native exec approval (`exec.approval.waitDecision`, resolved by an
-actual tap, once `channels.telegram.execApprovals.approvers` was set explicitly —
-`enabled: true` alone is insufficient).
+**Proven live, each independently:** `start` opening a session through chat and
+`finish` with a drafted verdict; recording via `past`; photos arriving with a
+`start` and landing on `session.open`; the platform question for a run with no
+session (`amend` on `run.open`); `amend` on a `run.import` event; ad hoc `query`,
+including the cache building itself on demand; a real native exec approval
+(`exec.approval.waitDecision`, resolved by an actual tap, once
+`channels.telegram.execApprovals.approvers` was set explicitly — `enabled: true`
+alone is insufficient).
 
-**Not yet proven:** `start` opening a live session through chat; exit-code-3
-candidates rendered as Telegram inline buttons; `finish` plus a drafted
-`verdict`. Voice input and photo attachment are implemented CLI-side but untested
-through the deployment. Sticker sends are wired (`channels.telegram.actions.sticker`)
-but unused — blocked on sourcing real `fileId`s, not a code gap.
+**Not yet proven:** exit-code-3 candidates rendered as Telegram inline buttons.
+Voice input is implemented CLI-side but untested through the deployment. Sticker
+sends are wired (`channels.telegram.actions.sticker`) but unused — blocked on
+sourcing real `fileId`s, not a code gap.
+
+**The live vault is at `/opt/gamereg-vault`** (group `gamereg`; OpenClaw runs as
+`claude`). Its log is the only record of how the agent actually behaves, and
+reading it settles questions no test can — the photo-classification fix below
+came from finding `kind: screenshot` on a photograph of a boxed Master System
+game.
 
 ## Decisions worth not re-litigating
 
@@ -131,6 +138,16 @@ Each of these cost real time to find. The reasoning, not just the rule:
   survive four phases. The cost, accepted: a config written by a newer gamereg
   now breaks an older binary instead of being ignored — fine for one user, one
   machine, git as sync.
+- **A photo's `--kind` is the hinge, and the agent kept getting it wrong.** The
+  model calls `kind` advisory — presentation, never logic — but in the agent
+  layer both the cover decision and the physical-media one hang off it, so a
+  photograph of a box filed as a `screenshot` silently costs both. Live evidence
+  in `/opt/gamereg-vault`. The rules now: `box`/`media` with no cover on the
+  game promotes (`--as-cover`) and says so, since nothing is replaced; with a
+  cover already there it offers; and the same photo arriving with a `start`
+  passes `--form physical` and mentions it, the way an inferred platform is
+  always mentioned. `--form` exists only on `start`/`past`, so the same
+  conclusion later is an `amend`, which is offered, never inferred.
 - **Timezone needs no detection, and a per-invocation override was rejected.**
   `logical_day` is derived on every fold; `config.timezone` unset groups a
   session by the local day where it was recorded (the offset is already in the

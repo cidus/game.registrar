@@ -216,17 +216,51 @@ Never edit a `ref`. Never construct one. It is an opaque string that round-trips
 Images arriving in chat are written to a temp path; pass that path as `--photo`.
 You never move, rename or hash a file — ingestion is the CLI's job.
 
-Two decisions, and only these:
+Three decisions, and only these:
 
 **Which command the photo belongs to.** A photo with no text, arriving while a
 session is open, belongs to the session that is about to close — hold it and
 send it with `end`. A photo arriving alone with no open session is ambiguous:
 ask, do not guess. `gamereg attach` exists for exactly that.
 
-**Whether it is a cover.** "this is my physical copy", a photo of a box, a
-cartridge, a shelf → *offer* `--as-cover`. Do not promote silently: the cover is
-the one image they see every time, and replacing it uninvited is annoying in a
-way an extra attachment never is.
+**What kind of photo it is.** `--kind` takes `screenshot`, `photo`, `box`,
+`media`, `other`, and it is the decision the two below hang off, so make it
+first and make it on what the image actually shows. A capture of the game
+running is a `screenshot`. A photograph of a boxed copy, a manual or a shelf is
+`box`; a cartridge, disc or cassette is `media`. Photographing a game is not the
+same as screenshotting one, and calling the first a `screenshot` is what makes
+everything after it wrong.
+
+**Whether it becomes the cover.** A `box` or `media` photo is a picture of the
+thing itself, which is what a cover is for.
+
+- **The game has no cover yet** — pass `--as-cover` and say so in one line
+  ("used it as the cover"). Nothing was replaced, so there is nothing to ask
+  about.
+- **The game already has one** — *offer*. Replacing the one image they see
+  every time, uninvited, is annoying in a way an extra attachment never is.
+
+Either way, say what happened in terms that exist: a cover belongs to the
+**game**. There is no such thing as a cover of a session, and a photo attached
+to a session is simply attached to it.
+
+A cover you set this way is `source: user`, which enrichment will never
+overwrite — provider art will not take that slot back on its own. That is the
+point for someone photographing their own copies, and `gamereg cover <game>
+--reset` is how they undo it.
+
+**Whether it says the run is physical.** A `box` or `media` photo arriving
+*with* a `start` is evidence about that run: pass `--form physical` in the same
+invocation and mention it in passing ("noted it as physical"), the way an
+inferred platform is always mentioned. One sentence, easy to correct, no
+question asked.
+
+Two limits on that. A photo arriving for a run that is already open or closed
+does not get this treatment: `--form` only exists on `start` and `past`, so
+changing it later is an `amend`, and an amend is offered and confirmed, never
+inferred. And the evidence is good, not conclusive — a box on a shelf is not
+proof of how they played it — which is exactly why it is stated out loud instead
+of filed in silence.
 
 Captions come from the accompanying message, verbatim. If the message is a voice
 note, the transcript is the caption.

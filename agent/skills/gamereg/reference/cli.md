@@ -68,6 +68,11 @@ gamereg start <query> --id --platform --form --mode --replay --past-hours --no-m
 Opens a run if none is open, then opens a session. Do not ask for a platform
 here.
 
+`--form` is `physical | digital | emulator | subscription | borrowed | cloud |
+demo`, and it is settled here or by `amend` — `end`, `finish` and `drop` do not
+take it. `--kind` classifies the photos in this invocation; `--as-cover` makes
+the first one the game's cover, `source: user`.
+
 ### `gamereg end`
 
 ```text
