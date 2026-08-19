@@ -97,7 +97,8 @@
     "verdict": "File the consolidated review of a playthrough.",
     "platform_add": "Add a platform, with any number of synonyms.",
     "platform_remove": "Remove a platform from the suggestion list.",
-    "platform_list": "List the configured platforms and their synonyms."
+    "platform_list": "List the configured platforms and their synonyms.",
+    "vocab": "Report the register's vocabulary in this locale: the words for outcomes, criteria and the register's own terms."
   },
   "error": {
     "usage": "{message}",
@@ -395,6 +396,13 @@
     "stated_marker": "stated"
   },
   "vocab": {
+    "register": {
+      "filed": "filed",
+      "approved": "approved",
+      "archived": "archived",
+      "pending": "pending clarification",
+      "certified_copy": "certified copy"
+    },
     "outcome": {
       "finished": "finished",
       "abandoned": "abandoned"

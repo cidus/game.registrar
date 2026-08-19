@@ -172,3 +172,36 @@ export function allAliases(): CommandAliases {
 
   return { commands, flags }
 }
+
+/**
+ * One locale's whole `vocab` block — the words the register uses for its
+ * enumerations and for its own acts, with no sentence among them.
+ *
+ * This is the only part of a bundle that is ever handed to an agent
+ * (docs/spec/05-agent.md "Language"). The distinction is not stylistic: a
+ * sentence template carries `{title}`, and a model given one can fill it in
+ * and produce something indistinguishable from output the CLI actually
+ * emitted. A word cannot be filled in. `gamereg vocab` therefore serves this
+ * and never `prose`, `error` or `help`, and `test/vocab.test.ts` asserts the
+ * block stays free of placeholders.
+ *
+ * Missing keys fall back to English, the same way `t` does, so a partially
+ * translated locale reports what it has rather than failing.
+ */
+export function vocabulary(locale: string): Record<string, Record<string, string>> {
+  const bundles = [loadBundle(locale), loadBundle(FALLBACK_LOCALE)]
+  const out: Record<string, Record<string, string>> = {}
+
+  for (const bundle of bundles.reverse()) {
+    const block = lookup(bundle, 'vocab')
+    if (typeof block !== 'object' || block === null) continue
+    for (const [group, terms] of Object.entries(block as Record<string, unknown>)) {
+      if (typeof terms !== 'object' || terms === null) continue
+      out[group] = { ...(out[group] ?? {}) }
+      for (const [token, term] of Object.entries(terms as Record<string, unknown>)) {
+        if (typeof term === 'string') out[group]![token] = term
+      }
+    }
+  }
+  return out
+}

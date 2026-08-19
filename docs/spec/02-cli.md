@@ -98,6 +98,7 @@ after they happen, never before.
 | `GAMEREG_VAULT` | Vault root, when `--vault` is not passed |
 | `GAMEREG_NON_INTERACTIVE` | Never prompt. What a gateway sets once, per above |
 | `GAMEREG_SOURCE` | The envelope's `source` on every event this invocation appends: `cli` (default), `chat`, `cron`, `import` |
+| `GAMEREG_LOCALE` | Output language, when neither `--locale` nor `config.locale` is set |
 
 `GAMEREG_SOURCE` is validated against the vocabulary, and an unknown value is a
 usage error (code 2) rather than a value that gets written. It is the one part
@@ -384,6 +385,35 @@ the database rather than from a copy of the schema kept somewhere else, which is
 the only version that cannot drift. Columns of a computed view expression carry
 no `type`, because SQLite declares none. Like any other `query`, it needs
 `data/log.db` to exist.
+
+### `gamereg vocab`
+
+```
+gamereg vocab
+gamereg vocab --locale pt-BR --json
+```
+
+Reports the register's own vocabulary in the active locale: the words for
+outcomes, statuses, completion criteria, difficulties, forms and modes, plus
+the terms for the register's own acts (*filed*, *approved*, *archived*,
+*pending clarification*, *certified copy*). Reads no log, writes no event, and
+works outside a vault.
+
+It exists for the agent (05-agent.md, *Language*). JSON output is neutral by
+contract — the Registrar's voice lives in prose, which an agent behind a pipe
+never receives — so every word the user reads in a chat is one the model chose.
+A result carrying `"difficulty": "hard"` or `"criteria": "true_ending"` leaves
+the model to translate a token it has no table for, and the register's own acts
+are worse still: nothing in a JSON result names them at all.
+
+**It reports `vocab` and nothing else — words, never sentences.** That boundary
+is the whole reason this is safe to hand to a model. A sentence template carries
+`{title}` and `{time}`; a model given one can fill it in and produce something
+indistinguishable from output the CLI actually emitted, which is precisely the
+fabrication the JSON contract exists to prevent. A word cannot be filled in.
+`test/vocab.test.ts` asserts the block stays free of placeholders, that every
+locale covers the same terms, and that no other block of the bundle travels with
+it.
 
 ## Attachments
 
@@ -822,6 +852,7 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `build` | `construir` |
 | `query` | `consultar` |
 | `amend` | `corrigir` |
+| `vocab` | `vocabulario` |
 
 Flags are localized the same way (`--rating` / `--nota`). Both spellings always
 work regardless of locale — locale sets the *output* language, not the accepted

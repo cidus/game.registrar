@@ -35,6 +35,7 @@ import { registerSearch } from './commands/search.ts'
 import { registerStart } from './commands/start.ts'
 import { registerStatus } from './commands/status.ts'
 import { registerVerdict } from './commands/verdict.ts'
+import { registerVocab } from './commands/vocab.ts'
 
 /**
  * Help text has to be localized before any command runs, so the two flags that
@@ -155,6 +156,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerDoctor(registrar)
   registerEnrich(registrar)
   registerQuery(registrar)
+  registerVocab(registrar)
   registerImport(registrar)
 
   try {

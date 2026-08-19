@@ -32,16 +32,40 @@ The agent replies in whatever language the user writes or speaks. It passes
 `--locale` only when the user explicitly asks for output in another language:
 the locale sets the CLI's output language, not the language of the conversation.
 
-**The agent holds no glossary and no per-language prompt.** Its own prompt is
-written in English and states rules, not phrasings — a rule about approximate
-times holds for "around eight" and "umas 20h" alike, and a model that reads the
-rule needs no example in either language. What is genuinely localized is the
-CLI's output, which `i18n/` already owns and which the agent relays. One skill,
-one spec, one place where each term is written down.
+**The agent's prompt is written in English and states rules, not phrasings** — a
+rule about approximate times holds for "around eight" and "umas 20h" alike, and
+a model that reads the rule needs no example in either language. The utterances
+quoted throughout this document are illustrations of a *mapping*, message to
+invocation, and not a claim that the user speaks English. One skill, one spec,
+no per-language copy of either.
 
-The utterances quoted throughout this document are therefore illustrations of a
-*mapping* — message to invocation — and not a claim that the user speaks
-English. See *Persona* for where the localized vocabulary actually lives.
+**But the agent does need the register's words, and it cannot get them from a
+result.** JSON is neutral by contract: prose in the Registrar's voice is exactly
+what an agent behind a pipe never receives, and a gateway is never a TTY, so
+`"Filed: Hollow Knight — session opened at 20:14."` is emitted for a human and
+for nobody else. Every word the user reads in a chat is therefore a word the
+model chose. Two things follow, and both were observed live before they were
+written down here:
+
+- A result carries raw tokens — `"difficulty": "hard"`, `"criteria":
+  "true_ending"`, `"form": "physical"`. Narrating those in another language is
+  a translation the model performs with no table, differently on different days.
+- The register's own acts — *filed*, *approved*, *archived* — appear in no
+  result at all. With nothing to go on, a model narrating in Portuguese reaches
+  for the English word it was given in its prompt, and "filed" lands in the
+  middle of a Portuguese sentence.
+
+`gamereg vocab` (02-cli.md) answers both. It reports one block — the words, for
+the requested locale — and never a sentence template. That boundary is the
+safety argument: a template carries `{title}`, and a model handed one can fill
+it in and produce something indistinguishable from output the CLI actually
+emitted. A word cannot be filled in.
+
+So: **the vocabulary is data the CLI serves, never a glossary the agent layer
+keeps.** `i18n/<locale>.json` stays the one place each term is written down. A
+copy under `agent/` could disagree with it silently; a `reference/locale/*.md`
+per language, or a skill per language, multiplies every behaviour rule by the
+number of locales with one anti-drift test able to check one of them.
 
 ## Voice
 
@@ -103,13 +127,12 @@ What to offer is not the agent's invention. `gamereg platform list --json` and
 the game's own `platforms` give the same four groups the CLI menu uses
 (02-cli.md, *What gets offered, and when nothing is asked*): the ones the user
 owns that the game exists on, then the rest of the catalog, then the rest of
-what they own, then free text. Order matters more than length here — "PS5 ou
-Switch?" is a good question, a list of fourteen platforms is a form.
+what they own, then free text. Order matters more than length here — "PS5 or Switch?" is a good question, a list of fourteen platforms is a form.
 
 Answer it with a follow-up `--platform`, or with `gamereg amend` when the run
 has already closed. Never invent a platform to avoid asking, and never treat a
 `platform_source: "intersection"` result as needing confirmation unless the user
-gives a reason to doubt it — mention it in passing ("anotei no PS5"), which is
+gives a reason to doubt it — mention it in passing ("noted it on the PS5"), which is
 enough for them to correct it if the console was someone else's.
 
 ### Photos
@@ -324,11 +347,12 @@ Vocabulary — used consistently:
 | Replay | certified copy |
 
 **The terms above are the English ones. Each locale's are in `i18n/<locale>.json`,
-and that file is the only place they are written.** The CLI's own prose already
-carries them — a `start` in `pt-BR` answers *"Protocolada: …"* — so an agent
-relaying that output is speaking the register in that language without holding a
-glossary of its own. A second copy of this table anywhere in the agent layer
-would be a copy that can disagree with `i18n/` and nothing would catch it.
+and that file is the only place they are written.** An agent narrating in another
+language asks for them with `gamereg vocab --locale <tag>`, which reports that
+block and nothing else — see *Language* above for why serving words rather than
+sentences is what makes this safe to hand to a model, and why a second copy of
+this table under `agent/` would be a copy that can disagree with `i18n/` with
+nothing to catch it.
 
 Hard rule: the persona lives in prose only. It never leaks into JSON output,
 event payloads, or generated blocks.

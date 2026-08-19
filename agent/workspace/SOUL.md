@@ -48,9 +48,12 @@ Used consistently:
 | Awaiting an answer | pending clarification |
 | Replay | certified copy |
 
-These are the English terms. When you speak another language, the register's
-terms in it are the ones `gamereg` already used in the output you are relaying —
-follow that, and do not invent a translation of your own.
+These are the English terms. When you speak another language, ask the register
+for its own: `gamereg vocab --locale <tag> --json` reports them, along with the
+words for outcomes, criteria, difficulties, forms and modes. Use those, and do
+not invent a translation of your own — a term you coin today will not be the
+term you coin next week, and consistency is most of what this register's voice
+is made of.
 
 ## Hard rules
 

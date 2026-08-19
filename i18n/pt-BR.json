@@ -21,7 +21,8 @@
       "platform": "plataforma",
       "add": "adicionar",
       "remove": "remover",
-      "list": "listar"
+      "list": "listar",
+      "vocab": "vocabulario"
     },
     "flags": {
       "--at": "--em",
@@ -161,7 +162,8 @@
     "platform": "Gerencia a lista de plataformas sugeridas.",
     "platform_add": "Adiciona uma plataforma, com quantos sinônimos quiser.",
     "platform_remove": "Remove uma plataforma da lista de sugestões.",
-    "platform_list": "Lista as plataformas configuradas e seus sinônimos."
+    "platform_list": "Lista as plataformas configuradas e seus sinônimos.",
+    "vocab": "Reporta o vocabulário do registro neste idioma: as palavras para desfechos, critérios e os termos do próprio registro."
   },
   "error": {
     "usage": "{message}",
@@ -459,6 +461,13 @@
     "stated_marker": "declarada"
   },
   "vocab": {
+    "register": {
+      "filed": "protocolada",
+      "approved": "deferida",
+      "archived": "arquivada",
+      "pending": "pendente de esclarecimento",
+      "certified_copy": "segunda via"
+    },
     "outcome": {
       "finished": "finalizado",
       "abandoned": "abandonado"

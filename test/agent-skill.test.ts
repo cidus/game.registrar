@@ -38,6 +38,7 @@ import { registerSearch } from '../src/cli/commands/search.ts'
 import { registerStart } from '../src/cli/commands/start.ts'
 import { registerStatus } from '../src/cli/commands/status.ts'
 import { registerVerdict } from '../src/cli/commands/verdict.ts'
+import { registerVocab } from '../src/cli/commands/vocab.ts'
 
 const SKILL = join(import.meta.dirname, '..', 'agent', 'skills', 'gamereg')
 
@@ -66,6 +67,7 @@ function program(): Command {
     registerDoctor,
     registerEnrich,
     registerQuery,
+    registerVocab,
     registerImport,
   ]) {
     register(registrar)

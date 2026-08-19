@@ -280,9 +280,12 @@ register recognizes it from then on.
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever
-language you actually talk to the bot in — the skill is written in English and
-the CLI's prose follows the vault's locale, so neither the steps nor the results
-depend on which language you pick:
+language you actually talk to the bot in — the skill is written in English, and
+the words the bot narrates with come from `gamereg vocab` in the language you
+are speaking, so neither the steps nor the results depend on which language you
+pick. If you see an English term like "filed" land in the middle of a sentence
+in your language, the skill did not deploy as edited: that is the one symptom
+this command exists to remove.
 
 1. "starting hollow knight" → a session opens, and you are *not* asked for a
    platform

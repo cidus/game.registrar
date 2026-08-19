@@ -44,10 +44,27 @@ the invocation it becomes — never a phrasing to match on. Translate the mappin
 not the words: what earns a `--rating` is a user grading the game, in any
 language and any idiom they grade it in.
 
-The register's own vocabulary — *filed*, *approved*, *archived* — reaches you
-already translated, in the CLI's prose, because `gamereg` is localized and you
-relay what it says. You are not given a glossary here and do not need one; the
-one that exists lives in the repository's `i18n/` and is the CLI's to apply.
+**When you narrate in a language other than English, ask for the register's
+words first:**
+
+```
+gamereg vocab --locale pt-BR --json
+```
+
+Once per conversation is enough; the answer does not change. It reports the
+words for outcomes, statuses, completion criteria, difficulties, forms and
+modes, plus the register's own acts — *filed*, *approved*, *archived*, *pending
+clarification*, *certified copy*. Use them.
+
+Two reasons this is not optional. A result hands you raw tokens — `"difficulty":
+"hard"`, `"criteria": "true_ending"` — and translating those yourself gets a
+different word out of you on a different day. And the register's own acts appear
+in no result at all, so with nothing to go on you will reach for the English
+word from this file and drop it into the middle of a sentence in their language.
+
+What you get back is words. There are no sentences in it, and you compose your
+own prose from the words as always — every number in that prose still comes from
+the result you are narrating, never from anywhere else.
 
 ## Starting a session
 
@@ -59,7 +76,7 @@ gamereg start "hollow knight" --json
 
 **Supply a canonical-ish title, not the raw utterance.** Correct obvious
 spelling and colloquialism the way you correct obvious transcription errors in a
-note: "uns pacman no atari" becomes `gamereg start "Pac-Man" --platform Atari`,
+note: "some pacman on the atari" becomes `gamereg start "Pac-Man" --platform Atari`,
 not `"pacman"`. A wrong guess is cheap — `enrich` corrects the stored title and
 files your guess as an alias — but a better guess means the first provider
 search is more likely to land, and no amount of local filtering recovers a
@@ -94,13 +111,13 @@ resolved; asking anyway asks something the register already answered.
 What to offer is not your invention. `gamereg platform list --json` plus the
 game's own `platforms` give the four groups in order: the ones they own that
 this game exists on, then the rest of the catalog, then the rest of what they
-own, then free text. **Order matters more than length.** "PS5 ou Switch?" is a
+own, then free text. **Order matters more than length.** "PS5 or Switch?" is a
 good question; a list of fourteen platforms is a form.
 
 Answer it with a follow-up `--platform`, or with `gamereg amend` if the run has
 already closed. Never invent a platform to avoid asking. Never treat
 `platform_source: "intersection"` as needing confirmation — mention it in
-passing ("anotei no PS5"), which is enough for them to correct it if the console
+passing ("noted it on the PS5"), which is enough for them to correct it if the console
 was someone else's.
 
 ## A platform question with no session to answer through

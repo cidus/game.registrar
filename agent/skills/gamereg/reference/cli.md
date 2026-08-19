@@ -191,6 +191,19 @@ gamereg platform list
 What this vault suggests, in the order the CLI's own menu uses. This plus a
 game's `platforms` is what you build a platform question from.
 
+### `gamereg vocab`
+
+```text
+gamereg vocab --locale pt-BR
+```
+
+The register's words in one language: outcomes, statuses, completion criteria,
+difficulties, forms, modes, and the register's own acts (filed, approved,
+archived, pending clarification, certified copy). Words only — no sentences, so
+there is nothing here to reproduce as if the CLI had said it. Call it once when
+you narrate in a language other than English, and use what it returns instead of
+translating a token yourself. Needs no vault.
+
 ## Correcting — explicit instruction only
 
 ```text

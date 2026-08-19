@@ -34,7 +34,7 @@ criterion ("an entire game logged start to finish without opening a terminal
 once") has not been demonstrated in one unbroken pass. See *The agent layer*
 below.
 
-`npm test` is 364 tests, all green (`node --test`, no framework, no network).
+`npm test` is 371 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -50,12 +50,13 @@ touching a live deployment.** Every config key in the examples was found wrong b
 the upstream docs at least once and corrected against a real install; the README
 says which. This section does not replace it.
 
-Three source changes landed because of the agent layer, each with tests:
+Four source changes landed because of the agent layer, each with tests:
 `GAMEREG_SOURCE` validated rather than cast (`cli/context.ts`), `query --schema`
-(`cli/commands/query.ts`, so an agent can write SQL with no source tree), and a
+(`cli/commands/query.ts`, so an agent can write SQL with no source tree), a
 lockfile around `build`'s write phase (`targets/lock.ts` — `data/log.db` has no
 rename-into-place, so racing builds could tear it; verified with 8 concurrent
-processes).
+processes), and `gamereg vocab` (`cli/commands/vocab.ts`, the register's words
+in one locale — see *Language*, which is where the reasoning lives).
 
 **Proven live, each independently:** recording via `past` through Telegram; the
 platform question for a run with no session (`amend` on `run.open`); `amend` on a
@@ -294,15 +295,31 @@ which documents shipped interface (`iniciar`, `--nota`) and is not prose;
 would write; and `Pokémon` in `03-resolution.md` and `test/normalize.test.ts`,
 a Unicode-normalization fixture. Anything else in another language is drift.
 
-**The agent has no glossary and no per-language prompt, deliberately.** This
-looks like a gap and someone will eventually try to close it by adding
-`reference/locale/pt-BR.md`; it is not a gap. The persona's localized
-vocabulary already exists exactly once, in `i18n/<locale>.json` — a `start` in
-`pt-BR` answers *"Protocolada: …"* — and the agent relays the CLI's own prose,
-so it speaks the register in that language without holding a copy. A second
-table in the agent layer could disagree with `i18n/` and nothing would catch
-it. Per-language *skills* are worse still: N copies of every behaviour rule,
-drifting, with one anti-drift test able to check only one of them.
+**The agent keeps no glossary of its own, but it is not left without one
+either — it asks the CLI.** `gamereg vocab --locale <tag> --json`
+(`cli/commands/vocab.ts`) reports the `vocab` block of `i18n/<locale>.json`:
+the words for outcomes, statuses, criteria, difficulties, forms and modes, plus
+the register's own acts (`vocab.register` — *filed*, *approved*, *archived*,
+*pending clarification*, *certified copy*). `i18n/` stays the one place a term
+is written down; a `reference/locale/pt-BR.md` would be a copy that can disagree
+with it silently, and per-language *skills* are worse still — N copies of every
+behaviour rule, drifting, with one anti-drift test able to check only one.
+
+**Do not "simplify" this by handing the agent a bundle.** It reports `vocab` and
+nothing else, on purpose: `prose` carries `{title}` and `{time}`, and a model
+given a sentence template can fill it in and emit something indistinguishable
+from output the CLI actually produced — the exact fabrication the neutral-JSON
+rule exists to prevent. A word cannot be filled in. `test/vocab.test.ts` holds
+that line: no placeholders in the block, every locale covering the same terms,
+every enum token in `core/vocab.ts` having a word, and no other block travelling
+in the response.
+
+The reason this exists at all corrects a claim this file used to make: **the
+agent never sees the CLI's localized prose.** JSON is neutral by contract and a
+gateway is never a TTY, so `"Protocolada: …"` is written for humans only. Every
+word a chat user reads was chosen by the model, which is why English "filed"
+turned up mid-sentence in Portuguese conversations, and why `"difficulty":
+"hard"` was being translated freehand on every narration.
 
 What replaces same-language examples is stating the **rule** rather than the
 phrasing. "An approximation is still a time the user gave you; silence is not"
