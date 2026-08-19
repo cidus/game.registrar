@@ -149,3 +149,12 @@ site/
 # ...except the golden fixture: example-vault/ is the committed expected
 # output of every enabled target, sqlite included.
 !/example-vault/data/log.db
+
+# The repository root is not a vault, but it parses as one: `gamereg build` run
+# from here with no --vault writes a whole artifact tree into the source tree.
+# Ignored rather than guarded against, since a vault root is wherever someone
+# points the tool.
+/obsidian/
+/assets/
+/data/
+/Games.html

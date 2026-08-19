@@ -318,6 +318,35 @@ A session starting at 22:00 and ending at 02:30 belongs to the day it **started*
 `day_cutoff` in config (default `05:00`) defines when a day flips for reporting.
 Playing at 03:00 counts toward the previous day, which is what a person means.
 
+**`logical_day` is derived, never stored.** No event carries one: it is computed
+on every fold from the instant and `day_cutoff`, which is why raising the cutoff
+re-groups history with nothing rewritten. The instant it is computed from
+depends on `config.timezone`, and the two settings are two different — both
+coherent — answers to what a day means:
+
+| `config.timezone` | The instant used | What a day means |
+|---|---|---|
+| unset (`null`, what `init` writes) | as recorded, with its own offset | the local day where you were |
+| a zone | projected into that zone | the day at home, wherever you played |
+
+Both are stable under travel, and neither needs anything done about it. With no
+zone configured, a session played at 08:00 in Tokyo was recorded `+09:00` and
+stays on the Tokyo day; the machine's clock moving only affects events recorded
+after it moved. With a zone configured, the machine's clock is ignored outright
+— `gamereg` stamps new events in the configured zone and projects old ones into
+it — so a Tokyo morning lands on the previous day at home, consistently, for as
+long as that setting holds.
+
+**Changing `config.timezone` is what actually rewrites the past.** Every
+instant is re-projected, so a session can move a day in either direction across
+the whole log at once, silently, on the next build. That is the one thing to be
+deliberate about here; travelling is not.
+
+There is no per-invocation timezone override, and deliberately so. The register
+would then group by which machine happened to file an event — a phone abroad
+against the always-on host at home — which is a worse answer than either row of
+that table.
+
 ### Status derivation
 
 - any open run → `playing`

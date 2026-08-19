@@ -131,6 +131,15 @@ Each of these cost real time to find. The reasoning, not just the rule:
   survive four phases. The cost, accepted: a config written by a newer gamereg
   now breaks an older binary instead of being ignored — fine for one user, one
   machine, git as sync.
+- **Timezone needs no detection, and a per-invocation override was rejected.**
+  `logical_day` is derived on every fold; `config.timezone` unset groups a
+  session by the local day where it was recorded (the offset is already in the
+  log), and a zone projects everything into that zone. Both are stable when the
+  machine's clock moves, so travelling asks nothing of the user — editing
+  `config.timezone` is the only thing that re-groups history. Detecting a
+  phone's zone through the gateway cannot help: the CLI runs on the always-on
+  host that stayed home, so the register would end up grouping by which device
+  filed an event. `01-model.md`'s *Logical day* has the table.
 - **`obsidian/assets` is hardlinks, not a symlink.** Obsidian on Linux does not
   traverse a symlink, so the original bridge left every embed in the vault
   showing nothing while working fine on macOS. `mirrorAssets`
@@ -169,10 +178,11 @@ Each of these cost real time to find. The reasoning, not just the rule:
 
 ## Open items
 
-- **`06-roadmap.md`'s only remaining open question is #5** (timezone changes
-  while travelling), deferred until it bites. Retroactive session start (#7) is
-  now decided and implemented in `SKILL.md`'s *A session that was never
-  recorded*.
+None. Every question in `06-roadmap.md` is decided, and the items this file
+used to carry — the phantom `build.obsidian` config keys, `matchesPlatform` on
+an empty `game.platforms`, the missing photo fixture, the timezone question —
+are resolved above or in the specs. Add the next one here rather than in a
+commit message nobody will search for.
 
 ## Non-negotiables
 

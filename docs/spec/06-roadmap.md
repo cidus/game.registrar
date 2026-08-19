@@ -79,13 +79,6 @@ something went wrong earlier.
 - Mobile app
 - Sync — git is the sync
 
-## Open questions
-
-Not blocking Phase 0; decide before the phase noted.
-
-5. **Timezone changes while travelling.** Events carry offsets, so the data is
-   correct; `logical_day` grouping is what gets weird. *Ignore until it bites.*
-
 ## Decided
 
 1. **Cover and screenshot licensing for the public site.** Not needed. This
@@ -97,6 +90,18 @@ Not blocking Phase 0; decide before the phase noted.
 3. **Franchise / series grouping.** Deferred past Phase 1. Real usage will show
    whether it's actually wanted before the model or the provider mapping is
    committed to.
+5. **Timezone changes while travelling.** Nothing to build; the transparent
+   behaviour was already there. `logical_day` is derived on every fold, and
+   `config.timezone` picks which of two coherent readings applies: unset — what
+   `init` writes — groups a session by the local day where it was recorded,
+   using the offset already in the log, and a zone projects everything into that
+   zone. Both are stable under travel and neither asks anything of the user; the
+   machine's clock moving is a non-event either way. What does rewrite the past
+   is editing `config.timezone`, which re-projects every instant at once. See
+   [01-model](01-model.md)'s *Logical day*. A per-invocation override was
+   considered and rejected: the register would group by which device filed an
+   event, and detecting a phone's zone through the chat gateway cannot help,
+   because the CLI runs on the always-on host that stayed home.
 6. **A backlog view.** No. The register holds what you played, per the non-goal
    in [00-architecture](00-architecture.md) — it does not know what you own and
    does not track unplayed games. A game with no runs stays outside the model;
