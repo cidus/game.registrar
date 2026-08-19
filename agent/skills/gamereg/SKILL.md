@@ -608,3 +608,11 @@ the register's data, not your voice.
   every segment is `gamereg`, and it will stall waiting on an approval that
   may have no working way to reach you. If a command might fail, run it
   alone and read the result before deciding what to try next.
+
+  This rule breaks in one specific way, so watch for it: **not being sure of a
+  command is not a reason to try two.** `gamereg query --open --json 2>&1 ||
+  gamereg query open --json 2>&1` is one exec call, unlisted twice over, and it
+  produced two approval prompts the user never asked for and no answer. The
+  surface is written down — `{baseDir}/reference/cli.md` lists every command and
+  its flags, and reading it costs nothing. When it does not answer the question,
+  say so and ask; do not probe the shell for a flag that might exist.
