@@ -101,6 +101,16 @@ Anything written here is never touched by the build. Scratch, spoilers,
 screenshots, links — it is yours.
 ```
 
+Every photo on the game's timeline, oldest first, de-duplicated by hash — the
+same image attached to a session and promoted to the cover is one entry.
+
+The line under each is the date, then the caption when there is one. The date is
+the photo's `captured_at` when EXIF carried one, and otherwise the moment it was
+filed: the session or run event it arrived with, or, for a photo attached
+straight to the game, the `attachment.add` event itself. A photo with neither a
+date nor a caption renders as the photo alone — there is nothing true to write
+under it, and an empty `*…*` is not a caption.
+
 The frontmatter is **fully regenerated** every build. Never hand-edit it; edits
 will be lost. This is why no YAML round-trip library is needed (D4).
 

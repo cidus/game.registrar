@@ -716,7 +716,24 @@ export function attachmentsOfGame(state: VaultState, game: GameState): GameAttac
     }
   }
 
-  add(game.game_id, '')
+  // A game-level attachment (`gamereg attach <game>`, `cover --photo`) has no
+  // session or run to date it, so it is dated by the event that filed it.
+  // Looked up by hash rather than trusted wholesale: `state.attachments` is
+  // correction-aware and these raw payloads are not, so a hash the map does
+  // not hold is never reached, and one it holds under an amended value finds
+  // no date here instead of the wrong one.
+  const filedAt = new Map<string, string>()
+  for (const event of state.eventsById.values()) {
+    if (str(event.data, 'target') !== game.game_id) continue
+    for (const attachment of attachmentsOf(event.data)) {
+      if (!filedAt.has(attachment.sha256)) filedAt.set(attachment.sha256, event.ts)
+    }
+  }
+  for (const attachment of state.attachments.get(game.game_id) ?? []) {
+    if (seen.has(attachment.sha256)) continue
+    seen.add(attachment.sha256)
+    collected.push({ attachment, at: filedAt.get(attachment.sha256) ?? '' })
+  }
 
   for (const event of state.eventsById.values()) {
     if (!state.attachments.has(event.id)) continue

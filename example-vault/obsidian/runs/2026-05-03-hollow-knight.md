@@ -3,6 +3,7 @@ gamereg_run_id: 01K5A00000000000000000RUN1
 gamereg_id: 01K5A00000000000000000GAM1
 title: Hollow Knight
 game: "[[hollow-knight]]"
+cover: "[[assets/bb/bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9.webp]]"
 status: finished
 platform: Nintendo Switch
 form: digital

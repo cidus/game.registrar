@@ -152,6 +152,42 @@ test('a photo with no caption renders the date alone', () => {
   assert.equal(block, `![[assets/${sha.slice(0, 2)}/${sha}.webp]]\n*2020-01-01*`)
 })
 
+/**
+ * A photo filed straight against the game has no session or run to date it.
+ * It used to be dated with the empty string, which sorted it before everything
+ * and rendered a bare `**` into the note where the date belongs — found by
+ * putting a real photo in example-vault, which is what that fixture is for.
+ */
+test('a photo filed against the game is dated by the event that filed it', () => {
+  const events = baseLog()
+  const sha = 'c'.repeat(64)
+  events.push(
+    event(
+      'attachment.add',
+      { target: 'G1', attachments: [{ sha256: sha, ext: 'webp', caption: null, captured_at: null, kind: 'photo' }] },
+      '2026-08-16T10:07:00-03:00',
+    ),
+  )
+  const state = fold(events, context)
+
+  const [entry] = attachmentsOfGame(state, state.gamesById.get('G1')!)
+  assert.equal(entry?.at, '2026-08-16T10:07:00-03:00')
+
+  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle)
+  assert.equal(block, `![[assets/${sha.slice(0, 2)}/${sha}.webp]]\n*2026-08-16*`)
+})
+
+test('an undated, uncaptioned photo renders as the photo, not as empty emphasis', () => {
+  // `captured_at` absent and the filing event unknown: there is nothing true to
+  // say under the image, so nothing is said.
+  const state = fold(baseLog(), context)
+  const sha = 'd'.repeat(64)
+  state.attachments.set('G1', [{ sha256: sha, ext: 'webp', caption: null, captured_at: null, kind: 'other' }])
+
+  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle)
+  assert.equal(block, `![[assets/${sha.slice(0, 2)}/${sha}.webp]]`)
+})
+
 test('a user cover is embedded at the top of the header block; a provider cover (URL only) is not', () => {
   const events = baseLog()
   const sha = 'c'.repeat(64)

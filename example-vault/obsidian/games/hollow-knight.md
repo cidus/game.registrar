@@ -19,6 +19,7 @@ tags: [gamereg, gamereg/game]
 > Written by hand, above the first block. The build must never touch this line.
 
 <!-- gamereg:begin block=header -->
+![[assets/bb/bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9.webp]]
 **Team Cherry** · 2017 · Nintendo Switch · 8h58 across 3 sessions
 <!-- gamereg:end block=header -->
 
@@ -50,3 +51,10 @@ the best thing about it, and the map is not even a map at first.
 
 - Watcher Knights: seven attempts.
 - Best area: City of Tears.
+
+## Gallery
+
+<!-- gamereg:begin block=gallery -->
+![[assets/bb/bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9.webp]]
+*2026-05-03 — The shrine, finally.*
+<!-- gamereg:end block=gallery -->

@@ -34,7 +34,7 @@ criterion ("an entire game logged start to finish without opening a terminal
 once") has not been demonstrated in one unbroken pass. See *The agent layer*
 below.
 
-`npm test` is 383 tests, all green (`node --test`, no framework, no network).
+`npm test` is 385 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -131,6 +131,15 @@ Each of these cost real time to find. The reasoning, not just the rule:
   survive four phases. The cost, accepted: a config written by a newer gamereg
   now breaks an older binary instead of being ignored — fine for one user, one
   machine, git as sync.
+- **`example-vault/` carries two real WebP assets, and they are never
+  regenerated.** They were produced once by the ingestion pipeline and committed;
+  no test re-encodes them, so `sharp`'s version cannot move the hash the way it
+  moves `data/log.db`'s bytes. The earlier judgement that a photo fixture was not
+  worth it rested on needing a deterministic *encoder*, which a golden test for
+  rendering never touches: the note is written from the event log, and
+  `assetPath()` is string arithmetic. The fixture earned itself immediately — a
+  game-level attachment was being dated with the empty string, which rendered a
+  bare `**` into the note and sorted it before everything else.
 - **The platform hint may cost a filter, never a duplicate record.** Two rules,
   both in `03-resolution.md`: an empty `game.platforms` is silence rather than
   "exists nowhere", so it never filters (`matchesPlatform`); and when the hint
@@ -152,10 +161,6 @@ Each of these cost real time to find. The reasoning, not just the rule:
 
 ## Open items
 
-- **`example-vault/` has no photo fixture**, so the gallery block has no golden
-  test — covered end to end by `test/attachments.test.ts` and
-  `test/photo-cli.test.ts` instead. Adding a real, deterministically-hashed image
-  to the fixture was judged not worth it; revisit if the gallery changes shape.
 - **`06-roadmap.md`'s only remaining open question is #5** (timezone changes
   while travelling), deferred until it bites. Retroactive session start (#7) is
   now decided and implemented in `SKILL.md`'s *A session that was never

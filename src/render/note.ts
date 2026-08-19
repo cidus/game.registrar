@@ -155,8 +155,11 @@ export function galleryBlock(state: VaultState, game: GameState, bundle: Transla
     .map(({ attachment, at }) => {
       const date = (attachment.captured_at ?? at).slice(0, 10)
       const caption = cell(attachment.caption)
-      const line = caption === '' ? date : bundle.t('note.gallery.captioned', { date, caption })
-      return `![[${assetPath(attachment.sha256)}]]\n*${line}*`
+      const line =
+        date === '' ? caption : caption === '' ? date : bundle.t('note.gallery.captioned', { date, caption })
+      // An undated, uncaptioned photo is just the photo. Emitting the emphasis
+      // anyway rendered a bare `**` into the note.
+      return line === '' ? `![[${assetPath(attachment.sha256)}]]` : `![[${assetPath(attachment.sha256)}]]\n*${line}*`
     })
     .join('\n\n')
 }
