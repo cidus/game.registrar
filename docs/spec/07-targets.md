@@ -151,10 +151,20 @@ The one thing that lives outside `obsidian/` on purpose is `assets/`: image
 ingestion (`--photo`) writes there directly, independent of any build target
 (00-architecture.md, *Two repositories*), so it has to stay reachable from a
 vault root that never moves even if `build.targets` changes entirely. The
-build keeps `obsidian/assets` as a symlink to `../assets` — created once,
-left alone forever after, so an embed (`![[assets/<sha>...]]`) resolves
-without `render/note.ts` needing to know it is one folder deeper than it
-used to be.
+build mirrors each asset into `obsidian/assets` as a **hardlink** — one
+inode under two names, so it costs no disk and the bytes cannot drift — and
+an embed (`![[assets/<sha>...]]`) resolves without `render/note.ts` needing
+to know it is one folder deeper than it used to be.
+
+This was a symlink first, which works on macOS and does not on Linux:
+Obsidian there does not traverse one, so every embed in the vault showed
+nothing. A hardlink is not a link to follow — it is the file, under a second
+name — so no indexer can decline it. Where a hardlink cannot be made (a
+separate mount, a filesystem without them) the build copies the bytes
+instead. The mirror only ever adds: nothing in gamereg deletes an ingested
+asset, these are not planned files, and a name that exists is already the
+right bytes, since the path is the hash. A symlink left by an earlier
+version is replaced; anything else at that path is left alone.
 
 The important structural point is **one note per run**, in `runs/`, alongside the
 one note per game in `games/`. The reason is mechanical: Bases produces one row

@@ -23,7 +23,7 @@ import {
   type TargetOwnership,
 } from './manifest.ts'
 import { acquireBuildLock } from './lock.ts'
-import { ensureAssetsLink } from './obsidian.ts'
+import { mirrorAssets } from './obsidian.ts'
 import { narrowTo, targetByName } from './registry.ts'
 import type { PlannedFile, TargetContext, WritePolicy } from './types.ts'
 import { applyFile } from './write.ts'
@@ -236,10 +236,12 @@ export function build(
     }
 
     // Obsidian's own folder needs `assets` visible inside it — see
-    // obsidian.ts's ensureAssetsLink. Not a planned file (a symlink has no
-    // content to diff), so it sits outside the manifest/ownership machinery
-    // entirely; idempotent, and only for a target that actually ran.
-    if (plans.has('obsidian')) ensureAssetsLink(vault)
+    // obsidian.ts's mirrorAssets. Not planned files: their bytes are
+    // ingestion's, not this build's, and a target may not read the filesystem
+    // (non-negotiable 8), so this sits outside the manifest/ownership
+    // machinery entirely. Add-only and idempotent, and only for a target that
+    // actually ran.
+    if (plans.has('obsidian')) mirrorAssets(vault)
 
     // 4. Remove. The only part of the build that deletes, and it deletes only what
     //    the manifest says a target owns and no longer plans. A missing manifest

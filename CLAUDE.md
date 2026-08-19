@@ -34,7 +34,7 @@ criterion ("an entire game logged start to finish without opening a terminal
 once") has not been demonstrated in one unbroken pass. See *The agent layer*
 below.
 
-`npm test` is 385 tests, all green (`node --test`, no framework, no network).
+`npm test` is 386 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -131,6 +131,14 @@ Each of these cost real time to find. The reasoning, not just the rule:
   survive four phases. The cost, accepted: a config written by a newer gamereg
   now breaks an older binary instead of being ignored — fine for one user, one
   machine, git as sync.
+- **`obsidian/assets` is hardlinks, not a symlink.** Obsidian on Linux does not
+  traverse a symlink, so the original bridge left every embed in the vault
+  showing nothing while working fine on macOS. `mirrorAssets`
+  (`targets/obsidian.ts`) hardlinks each file instead — one inode, two names,
+  no disk cost — falling back to a copy only where a link cannot be made. It
+  only ever adds, which is what keeps it clear of non-negotiable 9: these are
+  not planned files, nothing in gamereg deletes an ingested asset, and a name
+  that exists is already the right bytes because the path *is* the hash.
 - **`example-vault/` carries two real WebP assets, and they are never
   regenerated.** They were produced once by the ingestion pipeline and committed;
   no test re-encodes them, so `sharp`'s version cannot move the hash the way it
@@ -220,7 +228,8 @@ disk. A target plans, the writer writes — that split is what makes the write
 policies (`replace` / `splice` / `seed`) a property of the artifact rather than
 of the emitter. The `obsidian` target writes under `obsidian/`, which is the
 folder actually opened as a vault; `assets/` stays at the vault root with
-`obsidian/assets` symlinked to it.
+each asset hardlinked into `obsidian/assets` (a symlink was the first
+implementation; Obsidian on Linux will not follow one).
 
 ## Testing strategy
 

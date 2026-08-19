@@ -5,7 +5,7 @@
  * asserted here is what it refuses to remove.
  */
 import assert from 'node:assert/strict'
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -15,7 +15,7 @@ import { openVault, timeContext, vaultPath, type Vault } from '../src/core/vault
 import { translator } from '../src/i18n/index.ts'
 import { build, claimPaths, type BuildResult } from '../src/targets/build.ts'
 import { readManifest, serializeManifest } from '../src/targets/manifest.ts'
-import { ensureAssetsLink } from '../src/targets/obsidian.ts'
+import { mirrorAssets } from '../src/targets/obsidian.ts'
 import type { PlannedFile } from '../src/targets/types.ts'
 import { event, tempDir } from './helpers.ts'
 
@@ -225,32 +225,68 @@ test('the manifest is data: sorted keys, forward slashes, one trailing newline',
   assert.equal('seeds' in JSON.parse(text).targets.csv, false)
 })
 
-test('a build with obsidian enabled links obsidian/assets to ../assets, so embeds resolve inside the narrower vault', () => {
+/**
+ * Obsidian on Linux does not traverse a symlink, so the `obsidian/assets ->
+ * ../assets` link earlier versions created left every embed in the vault
+ * showing nothing. A hardlink is the file under a second name, with no link to
+ * refuse.
+ */
+test('a build mirrors assets into obsidian/ as hardlinks, so embeds resolve on any platform', () => {
   const root = vault()
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  const sha = `${'a'.repeat(64)}`
+  mkdirSync(join(root, 'assets', sha.slice(0, 2)), { recursive: true })
+  writeFileSync(join(root, 'assets', sha.slice(0, 2), `${sha}.webp`), 'pretend webp')
   rebuild(root)
 
-  const link = join(root, 'obsidian', 'assets')
-  assert.equal(lstatSync(link).isSymbolicLink(), true)
-  assert.equal(readlinkSync(link), '../assets')
+  const mirrored = join(root, 'obsidian', 'assets', sha.slice(0, 2), `${sha}.webp`)
+  const stat = lstatSync(mirrored)
+  assert.equal(stat.isSymbolicLink(), false, 'a symlink is exactly what Obsidian will not follow')
+  assert.equal(stat.isFile(), true)
+  // One inode under two names: the mirror costs no disk, and the bytes cannot
+  // drift from the original because there is only one copy of them.
+  assert.equal(stat.ino, lstatSync(join(root, 'assets', sha.slice(0, 2), `${sha}.webp`)).ino)
 
-  // Idempotent: a second build does not touch a link that is already there.
+  // Idempotent: a name that exists is already the right bytes, being
+  // content-addressed, so a second build leaves it alone.
   rebuild(root)
-  assert.equal(readlinkSync(link), '../assets')
+  assert.equal(lstatSync(mirrored).ino, stat.ino)
 })
 
-test('ensureAssetsLink never clobbers something already at the path', () => {
+test('the mirror replaces the symlink an earlier version left behind', () => {
   const root = vault()
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  const sha = `${'b'.repeat(64)}`
+  mkdirSync(join(root, 'assets', sha.slice(0, 2)), { recursive: true })
+  writeFileSync(join(root, 'assets', sha.slice(0, 2), `${sha}.webp`), 'pretend webp')
   mkdirSync(join(root, 'obsidian'), { recursive: true })
-  writeFileSync(join(root, 'obsidian', 'assets'), 'not a symlink')
+  symlinkSync('../assets', join(root, 'obsidian', 'assets'), 'dir')
 
-  ensureAssetsLink(openVault(root))
+  rebuild(root)
 
-  assert.equal(lstatSync(join(root, 'obsidian', 'assets')).isSymbolicLink(), false)
-  assert.equal(readFileSync(join(root, 'obsidian', 'assets'), 'utf8'), 'not a symlink')
+  assert.equal(lstatSync(join(root, 'obsidian', 'assets')).isDirectory(), true)
+  assert.equal(lstatSync(join(root, 'obsidian', 'assets', sha.slice(0, 2), `${sha}.webp`)).isFile(), true)
 })
 
-test('a build with obsidian disabled never creates the assets link', () => {
+test('mirrorAssets never clobbers something a user put at that path', () => {
+  const root = vault()
+  mkdirSync(join(root, 'assets', 'aa'), { recursive: true })
+  writeFileSync(join(root, 'assets', 'aa', 'aa.webp'), 'pretend webp')
+  mkdirSync(join(root, 'obsidian'), { recursive: true })
+  writeFileSync(join(root, 'obsidian', 'assets'), 'not a directory')
+
+  mirrorAssets(openVault(root))
+
+  assert.equal(readFileSync(join(root, 'obsidian', 'assets'), 'utf8'), 'not a directory')
+
+  // A symlink pointing somewhere else is someone's own arrangement too.
+  rmSync(join(root, 'obsidian', 'assets'))
+  symlinkSync('../elsewhere', join(root, 'obsidian', 'assets'), 'dir')
+  mirrorAssets(openVault(root))
+  assert.equal(readlinkSync(join(root, 'obsidian', 'assets')), '../elsewhere')
+})
+
+test('a build with obsidian disabled never mirrors anything', () => {
   const root = vault(['csv'])
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
   rebuild(root)

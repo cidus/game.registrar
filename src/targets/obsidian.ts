@@ -13,8 +13,8 @@
  * below is what makes the second one resolve), even though `PlannedFile.path`
  * itself is vault-root-relative, `obsidian/...`, like every other target's.
  */
-import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { copyFileSync, linkSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { GameregError } from '../core/errors.ts'
 import type { VaultState } from '../core/fold.ts'
@@ -89,17 +89,67 @@ export const obsidian: Target = {
 
 /**
  * `obsidian/assets` → `../assets`, so `![[assets/<sha>...]]` resolves once
- * Obsidian is pointed at the `obsidian/` folder rather than the vault root.
- * Assets themselves stay at the vault root (`images/ingest.ts` writes there
- * directly, independent of any build target — see 00-architecture.md, *Two
- * repositories*); this only makes them visible from inside the narrower
- * folder Obsidian opens. Idempotent: skipped whenever anything, symlink or
- * otherwise, already occupies the path, so a build never overwrites
- * something a user put there on purpose.
+ * Obsidian is pointed at the `obsidian/` folder rather than the vault root, so
+ * `assets/` — which lives at the vault root, written by image ingestion
+ * independent of any build target (00-architecture.md, *Two repositories*) —
+ * has to be reachable from inside that narrower folder for
+ * `![[assets/<sha>...]]` to resolve.
+ *
+ * **Hardlinks, not a symlink.** A symlink was the first implementation and it
+ * works on macOS; Obsidian on Linux does not traverse one, so every embed in
+ * the vault silently showed nothing. A hardlink is not a link to follow — it is
+ * the file, under a second name — so there is nothing for an indexer to refuse.
+ * It also costs no space: one inode, two names. Only when the link cannot be
+ * made (a separate mount, a filesystem without them) does this fall back to
+ * copying the bytes.
+ *
+ * Only ever adds. Nothing in gamereg deletes an ingested asset, so nothing here
+ * needs to either, and that keeps this clear of non-negotiable 9 — the build
+ * removes only what the manifest says it owns, and these are not planned files.
+ * They are content-addressed and immutable, so a name that exists is already
+ * the right bytes and is left alone, which is also what makes a second build
+ * touch nothing.
  */
-export function ensureAssetsLink(vault: Vault): void {
-  const link = join(vault.root, 'obsidian', 'assets')
-  if (lstatSync(link, { throwIfNoEntry: false }) !== undefined) return
-  mkdirSync(dirname(link), { recursive: true })
-  symlinkSync('../assets', link, 'dir')
+export function mirrorAssets(vault: Vault): void {
+  const source = join(vault.root, 'assets')
+  if (lstatSync(source, { throwIfNoEntry: false })?.isDirectory() !== true) return
+
+  const target = join(vault.root, 'obsidian', 'assets')
+  const existing = lstatSync(target, { throwIfNoEntry: false })
+
+  // The symlink earlier versions created is this function's own doing and is
+  // replaced. Anything else at that path is someone's on purpose and is not
+  // touched — including a symlink pointing somewhere other than `../assets`.
+  if (existing?.isSymbolicLink() === true) {
+    if (readLinkTarget(target) !== '../assets') return
+    rmSync(target)
+  } else if (existing !== undefined && !existing.isDirectory()) {
+    return
+  }
+
+  for (const shard of readdirSync(source, { withFileTypes: true })) {
+    if (!shard.isDirectory()) continue
+    const from = join(source, shard.name)
+    const to = join(target, shard.name)
+    mkdirSync(to, { recursive: true })
+
+    for (const asset of readdirSync(from, { withFileTypes: true })) {
+      if (!asset.isFile()) continue
+      const destination = join(to, asset.name)
+      if (lstatSync(destination, { throwIfNoEntry: false }) !== undefined) continue
+      try {
+        linkSync(join(from, asset.name), destination)
+      } catch {
+        copyFileSync(join(from, asset.name), destination)
+      }
+    }
+  }
+}
+
+function readLinkTarget(path: string): string | null {
+  try {
+    return readlinkSync(path)
+  } catch {
+    return null
+  }
 }
