@@ -123,6 +123,22 @@ When the user volunteers it — "hollow knight on the switch" — pass it as
 result comes back with `"platform": null` and `platform_source` absent, which is
 not an error condition to report.
 
+### Switching games
+
+A second session opened while one is running is almost always a switch, not two
+games at once. The register does not decide that: `start` never closes anything,
+and someone genuinely playing two things in an evening is doing nothing wrong.
+
+So the result says what is open — `also_open`, with the ids (02-cli.md) — and
+the agent *offers*. It opens what was asked for first, since the switch is its
+inference and not the user's instruction, then offers to close the other in the
+same reply. With two sessions open, the close must name its game or it comes
+back as a code 3 asking which.
+
+The close is stamped now, when they said they were moving on, unless they say
+otherwise. An agent that back-dates it on its own is inventing a time, which is
+the one thing it must never do with a clock.
+
 ### Ending
 
 > "just stopped, played well, got to the Watcher Knights" *(voice)*

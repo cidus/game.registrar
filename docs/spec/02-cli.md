@@ -137,7 +137,16 @@ sibling command that does the same thing without opening a session.
 
 Conflict (code 5) if a session is already open for that run. If a session is open
 for a *different* game, that is not an error — parallel runs are allowed and
-common. The Registrar mentions it.
+common. The Registrar mentions it, and the result carries **`also_open`**: one
+entry per session still open elsewhere, with `session_id`, `run_id`, `game_id`,
+`title` and `started_at`. Absent when there is none.
+
+That field exists because the prose alone cannot serve a caller that never sees
+prose. Opening a session while another is open usually means the person switched
+games rather than started playing two, so an agent needs both the fact and the
+ids to offer closing the other one (05-agent.md). It stays an offer: `start`
+never closes anything, and someone genuinely playing two games in an evening is
+not doing anything the register objects to.
 
 Metadata enrichment does **not** happen here. `run.open` writes only what is
 known locally; `gamereg enrich` runs afterwards, possibly from cron. A start

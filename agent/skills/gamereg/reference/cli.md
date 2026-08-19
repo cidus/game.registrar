@@ -68,6 +68,10 @@ gamereg start <query> --id --platform --form --mode --replay --past-hours --no-m
 Opens a run if none is open, then opens a session. Do not ask for a platform
 here.
 
+If a session on another game is still open, the result carries `also_open`
+(`session_id`, `title`, `started_at`, …). `start` never closes it — that is
+yours to offer.
+
 `--form` is `physical | digital | emulator | subscription | borrowed | cloud |
 demo`, and it is settled here or by `amend` — `end`, `finish` and `drop` do not
 take it. `--kind` classifies the photos in this invocation; `--as-cover` makes

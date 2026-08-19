@@ -113,9 +113,22 @@ export function registerStart(registrar: Registrar): void {
       // typed at a closing prompt does: the list grows from actual use.
       if (platformSource === 'flag') learnPlatform(cli, run.platform)
 
+      // Sessions on *other* games, which `start` never closes: parallel runs are
+      // allowed (02-cli.md). Reported as data as well as prose — an agent gets
+      // JSON only, and "you are still in a session over there" is the one thing
+      // it needs to offer the switch that the user almost always meant.
       const others = openSessions(workspace.state)
         .filter((session) => session.session_id !== sessionId)
-        .map((session) => gameOfSession(workspace.state, session).title)
+        .map((session) => {
+          const other = gameOfSession(workspace.state, session)
+          return {
+            session_id: session.session_id,
+            run_id: session.run_id,
+            game_id: other.game_id,
+            title: other.title,
+            started_at: session.started_at,
+          }
+        })
 
       // A run with no platform yet says so by omission, not by printing a
       // parenthesised "null" at the user.
@@ -141,7 +154,7 @@ export function registerStart(registrar: Registrar): void {
           }),
         )
       }
-      if (others.length > 0) prose.push(cli.t('prose.start.also_open', { list: list(others) }))
+      if (others.length > 0) prose.push(cli.t('prose.start.also_open', { list: list(others.map((o) => o.title)) }))
       if (openedRun && options.pastHours !== undefined) {
         prose.push(cli.t('prose.start.past_hours', { hours: options.pastHours }))
       }
@@ -161,6 +174,7 @@ export function registerStart(registrar: Registrar): void {
           mode: run.mode,
           replay: run.replay,
           run_opened: openedRun,
+          ...(others.length === 0 ? {} : { also_open: others }),
           ...(bundle.photos.length === 0 ? {} : { attachments: bundle.photos.map(attachmentResult) }),
         },
         events,

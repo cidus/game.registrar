@@ -125,6 +125,41 @@ pass `--platform switch` and say nothing further. When they do not, the result
 comes back with `"platform": null` and `platform_source` absent. **That is not
 an error and you do not report it.**
 
+### Switching games
+
+> "playing sonic" … later … "going to play mario now"
+
+The register allows two sessions at once and will not close one for you. People
+almost never mean that, though: a second session opened while one is running is
+a switch, not a double bill.
+
+The result of `start` tells you. When another session is still open it carries
+`also_open`, one entry per session, with the `title` and the `started_at`:
+
+```json
+"also_open": [{ "session_id": "01K…", "title": "Sonic", "started_at": "2026-08-19T20:00:00-03:00" }]
+```
+
+Do what they asked first — the new session is open — then, in the same reply,
+**offer to close the other one**. Two buttons if the channel has them
+(*Buttons*), the game named in the `callback_data`:
+
+> Mario is filed, from 21:30. Sonic is still open since 20:00 — close it there?
+
+On yes, name the game, because with two sessions open an unqualified `end` comes
+back as a code 3 asking which:
+
+```
+gamereg end "Sonic" --json
+```
+
+Three things not to do. Do not close it before opening the new one — they asked
+for Mario, and the switch is your inference, not their instruction. Do not close
+it silently: two people at a couch, or a game left running while another loads,
+are both real, and the register has no objection to either. And do not
+back-date the close on your own — the session ends when they said they were
+moving on, which is now, unless they tell you it ended earlier.
+
 ## Ending a session
 
 > "just stopped, played well, got to the Watcher Knights" *(voice)*

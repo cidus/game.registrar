@@ -67,6 +67,30 @@ test('a session opens, breaks, and closes with the arithmetic done in code', () 
  * hint that empties the pool does not merely fail — it creates, and in an
  * append-only log the history is then split between two ids for good.
  */
+/**
+ * Switching games is the common case behind a second open session, and the
+ * agent gets JSON only — so what the prose has always mentioned ("Also open:
+ * …") has to be in the result too, with the ids needed to act on it.
+ */
+test('opening a session while another is open reports the other one as data', () => {
+  const root = vault()
+  gamereg(root, 'start', 'sonic', '--no-metadata', '--at', '2026-05-03 20:00')
+  const second = gamereg(root, 'start', 'mario', '--no-metadata', '--at', '2026-05-03 21:30')
+
+  assert.equal(second.status, 0)
+  const open = result(second)['also_open'] as Record<string, unknown>[]
+  assert.equal(open.length, 1)
+  assert.equal(open[0]!['title'], 'sonic')
+  assert.equal(open[0]!['started_at'], '2026-05-03T20:00:00-03:00')
+  assert.ok(open[0]!['session_id'], 'the session id is what makes the offer actionable')
+
+  // Closing that one leaves the new session alone, and the field goes away.
+  assert.equal(gamereg(root, 'end', 'sonic', '--at', '2026-05-03 21:30').status, 0)
+  gamereg(root, 'end', 'mario', '--at', '2026-05-03 22:00')
+  const third = gamereg(root, 'start', 'sonic', '--at', '2026-05-03 22:30')
+  assert.equal(result(third)['also_open'], undefined, 'nothing else open, nothing reported')
+})
+
 test('a platform hint never files a duplicate of a game already on record', () => {
   const root = vault()
   const first = gamereg(root, 'start', 'celeste', '--no-metadata', '--at', '2026-05-03 20:00')
