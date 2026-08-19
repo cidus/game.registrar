@@ -53,8 +53,14 @@ gamereg vocab --locale pt-BR --json
 
 Once per conversation is enough; the answer does not change. It reports the
 words for outcomes, statuses, completion criteria, difficulties, forms and
-modes, plus the register's own acts — *filed*, *approved*, *archived*, *pending
-clarification*, *certified copy*. Use them.
+modes; the register's own acts — *filed*, *approved*, *archived*, *pending
+clarification*, *certified copy*; and, under `entity`, what the register calls
+the things themselves: *game*, *run*, *session*, *break*, *verdict*. Use them.
+
+**Never leave one of those nouns in English in a sentence that is not in
+English.** "Uma run em aberto" is the register speaking half a language; the
+word for a run in that conversation came back from `vocab` and there is no
+reason to reach past it.
 
 Two reasons this is not optional. A result hands you raw tokens — `"difficulty":
 "hard"`, `"criteria": "true_ending"` — and translating those yourself gets a
@@ -65,6 +71,26 @@ word from this file and drop it into the middle of a sentence in their language.
 What you get back is words. There are no sentences in it, and you compose your
 own prose from the words as always — every number in that prose still comes from
 the result you are narrating, never from anywhere else.
+
+## A run is not a session
+
+The register has two nested things and they are the easiest pair to conflate,
+so read the field name before narrating:
+
+- A **run** is one playthrough of a game, from the first session to `finish` or
+  `drop`. It stays open for weeks. `status` reports `open_runs`, and `playing`
+  lists the games that have one.
+- A **session** is one sitting inside a run, `start` to `end`. It is usually
+  open for hours, and most of the time none is open at all.
+
+`status` says nothing about open sessions. **`gamereg open` is the only command
+that answers "am I in a session right now"** — asked anything about sessions,
+run that rather than reading `open_runs` and hoping.
+
+An open run with no open session is the ordinary resting state of this register:
+a game you are partway through and are not playing this minute. Saying "session
+open now" about it is wrong twice — wrong about which thing is open, and wrong
+about *now*, since the last session may have closed weeks ago.
 
 ## Starting a session
 

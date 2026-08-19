@@ -55,8 +55,14 @@ written down here:
   for the English word it was given in its prompt, and "filed" lands in the
   middle of a Portuguese sentence.
 
-`gamereg vocab` (02-cli.md) answers both. It reports one block — the words, for
-the requested locale — and never a sentence template. That boundary is the
+`gamereg vocab` (02-cli.md) answers both, and a third the agent got wrong live:
+the register's own nouns. `run` narrated as "run" in a Portuguese sentence is
+the same failure as `filed` — the word exists in `i18n/`, inside sentence
+templates, where nothing can look it up. The block names the things (`entity`:
+game, run, session, break, verdict) as well as what happens to them.
+
+It reports one block — the words, for the requested locale — and never a
+sentence template. That boundary is the
 safety argument: a template carries `{title}`, and a model handed one can fill
 it in and produce something indistinguishable from output the CLI actually
 emitted. A word cannot be filled in.
@@ -66,6 +72,16 @@ keeps.** `i18n/<locale>.json` stays the one place each term is written down. A
 copy under `agent/` could disagree with it silently; a `reference/locale/*.md`
 per language, or a skill per language, multiplies every behaviour rule by the
 number of locales with one anti-drift test able to check one of them.
+
+## A run is not a session
+
+Conflating the two is the most likely narration error the agent makes, because
+the nesting is invisible in a single JSON result. A **run** is a playthrough and
+stays open for weeks; a **session** is one sitting and is usually not open at
+all. `status` reports `open_runs` and says nothing about sessions, so an agent
+answering a question about sessions from `status` is answering from the nearest
+field rather than the right one. `gamereg open` is the command for that, and an
+open run with no open session is this register's ordinary resting state.
 
 ## Voice
 

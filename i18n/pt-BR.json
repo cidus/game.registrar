@@ -469,6 +469,13 @@
       "pending": "pendente de esclarecimento",
       "certified_copy": "segunda via"
     },
+    "entity": {
+      "game": "jogo",
+      "run": "jogatina",
+      "session": "sessão",
+      "break": "intervalo",
+      "verdict": "parecer"
+    },
     "outcome": {
       "finished": "finalizado",
       "abandoned": "abandonado"

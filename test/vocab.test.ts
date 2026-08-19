@@ -86,6 +86,27 @@ test("the register's own acts are named, which is what the agent cannot infer", 
   }
 })
 
+/**
+ * The nouns leaked English into Portuguese chat before they were here — "uma
+ * run em aberto" — for the same reason the acts did: the words existed only
+ * inside sentence templates, where nothing can look them up.
+ */
+test('the things the register holds are named too, not only what happens to them', () => {
+  for (const locale of availableLocales()) {
+    const entity = vocabulary(locale)['entity'] ?? {}
+    for (const thing of ['game', 'run', 'session', 'break', 'verdict']) {
+      assert.ok(entity[thing], `${locale} does not name a ${thing}`)
+    }
+  }
+
+  // A distinction the agent got wrong live: these are two different things and
+  // a locale that renders them with one word cannot express the difference.
+  for (const locale of availableLocales()) {
+    const entity = vocabulary(locale)['entity'] ?? {}
+    assert.notEqual(entity['run'], entity['session'], `${locale} calls a run and a session the same thing`)
+  }
+})
+
 test('the command reports the vocabulary and no other part of the bundle', () => {
   const payload = run('vocab', '--locale', 'pt-BR')
   assert.equal(payload['ok'], true)

@@ -404,6 +404,13 @@
       "pending": "pending clarification",
       "certified_copy": "certified copy"
     },
+    "entity": {
+      "game": "game",
+      "run": "run",
+      "session": "session",
+      "break": "break",
+      "verdict": "verdict"
+    },
     "outcome": {
       "finished": "finished",
       "abandoned": "abandoned"
