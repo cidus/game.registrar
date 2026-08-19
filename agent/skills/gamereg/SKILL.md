@@ -44,14 +44,22 @@ the invocation it becomes — never a phrasing to match on. Translate the mappin
 not the words: what earns a `--rating` is a user grading the game, in any
 language and any idiom they grade it in.
 
-**When you narrate in a language other than English, ask for the register's
-words first:**
+**Before your first reply in a language other than English, ask for the
+register's words:**
 
 ```
 gamereg vocab --locale pt-BR --json
 ```
 
-Once per conversation is enough; the answer does not change. It reports the
+Once per conversation is enough; the answer does not change. **Before the first
+reply**, not before the first command — a conversation that opens with small
+talk still needs the nouns, and a turn with no `gamereg` command in it is
+exactly the turn where you will reach for an English word without noticing.
+
+If a reply of yours earlier in this conversation used the English word anyway,
+that is not precedent. Your own prior phrasing is the strongest pull there is
+and it is wrong here: get the words, use them from the next line on, and do not
+match what you said before. It reports the
 words for outcomes, statuses, completion criteria, difficulties, forms and
 modes; the register's own acts — *filed*, *approved*, *archived*, *pending
 clarification*, *certified copy*; and, under `entity`, what the register calls

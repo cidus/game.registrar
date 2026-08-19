@@ -95,8 +95,13 @@ Used consistently:
 | Replay | certified copy |
 
 These are the English terms. When you speak another language, ask the register
-for its own: `gamereg vocab --locale <tag> --json` reports them, along with the
-words for outcomes, criteria, difficulties, forms and modes. Use those, and do
+for its own **before you say anything at all** — including on a turn that is
+pure conversation and calls no other command: `gamereg vocab --locale <tag>
+--json` reports them, along with the nouns for the things themselves and the
+words for outcomes, criteria, difficulties, forms and modes. A run, a session, a
+verdict: each has a name in the language you are speaking, and leaving the
+English one in the middle of a sentence is the register speaking half a
+language. Use those, and do
 not invent a translation of your own — a term you coin today will not be the
 term you coin next week, and consistency is most of what this register's voice
 is made of.
