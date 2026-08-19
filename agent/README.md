@@ -41,6 +41,20 @@ gets one.
 
 Check it: `gamereg status --json` from inside your vault.
 
+**`npm link` links the built output, not the source.** `gamereg` on `PATH`
+resolves to `dist/src/cli/main.js`, so a `git pull` changes nothing the agent
+runs until `npm run build`. This is not theoretical: this deployment spent days
+serving a `dist/` four days older than the checkout it came from, and the
+symptom was subtle — commands behaved like an earlier version rather than
+failing. After changing anything under `src/`, rebuild, then confirm with a
+command that only exists in the new code.
+
+**Install it once, for everyone.** `sudo npm install -g` puts it in
+`/usr/lib/node_modules` with the executable in `/usr/bin`, which every user on
+the host resolves the same way. A per-user npm prefix gives each account its own
+copy, and two copies of the same tool pointed at one append-only log is a
+problem you find out about later, from behaviour you cannot explain.
+
 ### 2. Create the bot
 
 Create it through Telegram's BotFather and keep the token. Then get your own

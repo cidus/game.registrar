@@ -76,11 +76,16 @@ Voice input is implemented CLI-side but untested through the deployment. Sticker
 sends are wired (`channels.telegram.actions.sticker`) but unused — blocked on
 sourcing real `fileId`s, not a code gap.
 
-**The live vault is at `/opt/gamereg-vault`** (group `gamereg`; OpenClaw runs as
-`claude`). Its log is the only record of how the agent actually behaves, and
-reading it settles questions no test can — the photo-classification fix below
-came from finding `kind: screenshot` on a photograph of a boxed Master System
-game.
+**The live vault is at `/opt/gamereg-vault`** (group `gamereg`), and the gateway
+runs as `alcides` — same user as the checkout, installed system-wide
+(`/usr/bin/openclaw`, `/usr/bin/gamereg`). Its log is the only record of how the
+agent actually behaves, and reading it settles questions no test can: the
+photo-classification fix below came from finding `kind: screenshot` on a
+photograph of a boxed Master System game.
+
+**`gamereg` on `PATH` runs `dist/`, not `src/`.** Nothing changed under `src/`
+reaches the agent, or the terminal, until `npm run build`. Worth checking first
+whenever live behaviour disagrees with the code you are reading.
 
 ## Decisions worth not re-litigating
 
