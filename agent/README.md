@@ -277,6 +277,45 @@ Either way, transcribed titles are unreliable. That is what the alias table is
 for: the user corrects a mangled title once, with `gamereg alias`, and the
 register recognizes it from then on.
 
+### Inline buttons, and the shape the model is actually told to use
+
+`capabilities.inlineButtons` in `openclaw.example.json5` is a **channel**
+capability, not an exit-code-3 feature. Anything the agent asks can be a button;
+code 3 is only the case that motivated turning it on.
+
+The interface was read out of the running install (v2026.7.1-2) rather than
+inferred, because the docs and this repo had drifted apart. When the capability
+is on, the gateway injects this into the model's system prompt:
+
+> Inline buttons supported. Use `action=send` with
+> `buttons=[[{text,callback_data,style?}]]`; `style` can be `primary`,
+> `success`, or `danger`.
+
+When it is off, it injects the opposite, naming the setting to turn on — which
+is why an agent that cannot show buttons has no excuse for pretending it can.
+
+Two details worth having in writing:
+
+- **Rows hold three buttons** (`TELEGRAM_INTERACTIVE_ROW_SIZE`), and `buttons`
+  is an array *of rows*, so a yes/no pair is `[[{…},{…}]]`.
+- **`SKILL.md` used to document a different dialect** — `label` plus
+  `action: { type: "callback", value }`. That is not broken: the payload
+  normalizer reads `record.label ?? record.text` and
+  `record.callbackData ?? record.callback_data`, so both arrive. It was still
+  changed to match the gateway's own wording, because two dialects competing in
+  one context is a coin flip for the model, and only one of them is guaranteed
+  to survive an upgrade.
+
+Long values are safe: `buildTelegramOpaqueCallbackData` maps them past
+Telegram's 64-byte `callback_data` limit, so a `callback_data` that names the
+action in full — which `SKILL.md` requires, so a stale tap cannot read as
+consent — does not need shortening.
+
+**Still unproven end to end.** Buttons have never actually been rendered by this
+deployment: exit code 3 needs a title that matches several games, which has not
+come up. A yes/no confirmation is the cheaper test, since one happens on every
+`amend`.
+
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever

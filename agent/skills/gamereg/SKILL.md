@@ -194,20 +194,38 @@ user's own: "set the platform of Final Fantasy VII Remake Intergrade to PS5 —
 confirm?" Only run the command once the answer is an unambiguous yes (see
 Safety).
 
+## Buttons
+
+Where the channel supports them, send buttons with `action=send` and
+`buttons=[[{text, callback_data, style?}]]` — an array of rows, three buttons to
+a row at most. `style` is `primary`, `success` or `danger`. A tap comes back to
+you as the `callback_data` of the button that was tapped.
+
+That is the gateway's own interface and it will tell you itself whether the
+channel has it. Two rules about using it:
+
+**`callback_data` names the action, never just the answer.** A bare `yes` is
+indistinguishable from a tap on a question you asked three messages ago, and you
+would read it as consent for whatever is pending now. Put the decision in it —
+`cover:01K5A…`, `platform:01K5A…=PS5` — and check that what comes back is the
+thing you are about to do. If it names something else, treat it as a stale tap
+and ask again rather than acting.
+
+**If buttons are not available, ask in plain text.** Never write "tap Yes below"
+without a button under it, and never describe an interface you did not send.
+That is the same failure as inventing an id: a next step the user cannot take,
+made to look like one they can.
+
 ## Candidates (exit code 3)
 
 Exit code 3 means several games match. The envelope carries `candidates[]`, each
 with a `ref` (`game:01K…` or `igdb:7346`), `title`, `year`, `platforms`,
 `source` and `in_log`.
 
-Render them as **inline buttons**, one per candidate:
-
-- `label`: the title, with the year when it disambiguates
-- `action`: `{ type: "callback", value: "<the candidate's ref, verbatim>" }`
-
-The callback comes back to you as `callback_data: <value>`. Re-invoke the
-original command with `--id <value>` — same command, same arguments, plus the
-ref.
+One button per candidate: `text` is the title, with the year when it
+disambiguates, and `callback_data` is that candidate's `ref`, verbatim. Re-invoke
+the original command with `--id <the ref that came back>` — same command, same
+arguments, plus the ref.
 
 Never edit a `ref`. Never construct one. It is an opaque string that round-trips.
 
@@ -237,8 +255,10 @@ thing itself, which is what a cover is for.
 - **The game has no cover yet** — pass `--as-cover` and say so in one line
   ("used it as the cover"). Nothing was replaced, so there is nothing to ask
   about.
-- **The game already has one** — *offer*. Replacing the one image they see
-  every time, uninvited, is annoying in a way an extra attachment never is.
+- **The game already has one** — *offer*, which is a two-button question if the
+  channel has them (*Buttons* above): `success` to replace, `danger` to keep,
+  and the game in the `callback_data`. Replacing the one image they see every
+  time, uninvited, is annoying in a way an extra attachment never is.
 
 Either way, say what happened in terms that exist: a cover belongs to the
 **game**. There is no such thing as a cover of a session, and a photo attached
@@ -344,9 +364,14 @@ the register's data, not your voice.
   optional.** Before invoking either:
   1. State plainly, in your own words, exactly what will change — the game,
      the field, the old value if you know it, the new value. Not "shall I fix
-     that?"; say what "that" is.
+     that?"; say what "that" is. A button does not excuse you from this: the
+     statement is what they are consenting to, and a button with no statement
+     above it is a trap.
   2. Wait for an unambiguous yes. A vague "sure", a change of subject, or
-     silence is not a yes — ask again or drop it.
+     silence is not a yes — ask again or drop it. Where buttons work, this is
+     what they are for: two of them, `success` and `danger`, with the change
+     itself in the `callback_data` (see *Buttons*), so the answer cannot be
+     misread and a late tap cannot be mistaken for this one.
   3. Only then run the command, and confirm plainly once it's done.
 
   Never invoke either from inference, from something implied a few turns

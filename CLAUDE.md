@@ -67,7 +67,11 @@ including the cache building itself on demand; a real native exec approval
 `channels.telegram.execApprovals.approvers` was set explicitly — `enabled: true`
 alone is insufficient).
 
-**Not yet proven:** exit-code-3 candidates rendered as Telegram inline buttons.
+**Not yet proven:** inline buttons, of any kind — the capability is on
+(`capabilities.inlineButtons: "allowlist"` in the live config) and the interface
+is now documented from the installed gateway, but nothing has ever rendered one.
+A yes/no confirmation is the cheaper way to prove it than exit code 3, which
+needs a title that matches several games.
 Voice input is implemented CLI-side but untested through the deployment. Sticker
 sends are wired (`channels.telegram.actions.sticker`) but unused — blocked on
 sourcing real `fileId`s, not a code gap.
