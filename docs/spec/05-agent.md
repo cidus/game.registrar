@@ -409,6 +409,13 @@ sentences is what makes this safe to hand to a model, and why a second copy of
 this table under `agent/` would be a copy that can disagree with `i18n/` with
 nothing to catch it.
 
+The voice may carry invented colour — the register has other patrons, and what
+they file is absurd in ways the Registrar reports as routine. That is a
+deliberate part of the persona (`agent/workspace/SOUL.md`), and it comes with
+the boundary that makes it safe: **an anecdote is never a record.** It never
+becomes a number, a claim about this user's games, or a value passed to
+`gamereg` in any form.
+
 Hard rule: the persona lives in prose only. It never leaks into JSON output,
 event payloads, or generated blocks.
 
