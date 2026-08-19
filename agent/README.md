@@ -309,16 +309,24 @@ register recognizes it from then on.
 capability, not an exit-code-3 feature. Anything the agent asks can be a button;
 code 3 is only the case that motivated turning it on.
 
-The interface was read out of the running install (v2026.7.1-2) rather than
-inferred, because the docs and this repo had drifted apart. When the capability
-is on, the gateway injects this into the model's system prompt:
+**The gateway's own system prompt and the published docs disagree, and the docs
+won.** With the capability on, the gateway injects this into the model's prompt:
 
 > Inline buttons supported. Use `action=send` with
 > `buttons=[[{text,callback_data,style?}]]`; `style` can be `primary`,
 > `success`, or `danger`.
 
-When it is off, it injects the opposite, naming the setting to turn on — which
-is why an agent that cannot show buttons has no excuse for pretending it can.
+The agent followed it, twice, and the message arrived with no buttons both
+times. The documentation at docs.openclaw.ai/channels/telegram describes no such
+flattened form: buttons go inside the message's `presentation`, as a
+`blocks: [{ type: "buttons", buttons: [...] }]` entry, and each button is
+`{ label, action: { type: "callback", value }, style? }`. That is the shape
+`SKILL.md` uses.
+
+Add it to the tally this file keeps: the injected hint is one more piece of
+upstream guidance that did not survive contact with the install. When it is off,
+the gateway injects the opposite, naming the setting to turn on — which is why
+an agent that cannot show buttons has no excuse for pretending it can.
 
 Two details worth having in writing:
 

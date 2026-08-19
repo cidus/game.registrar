@@ -397,34 +397,44 @@ Safety).
 
 ## Buttons
 
-Where the channel supports them, send buttons with `action=send` and
-`buttons=[[{text, callback_data, style?}]]` — an array of rows, three buttons to
-a row at most. `style` is `primary`, `success` or `danger`. A tap comes back to
-you as the `callback_data` of the button that was tapped.
+Where the channel supports them, buttons ride inside the message's
+**presentation**, as a block:
 
-**`buttons` is an array, not a string containing an array.** Pass the structure
-itself:
-
+```json
+{
+  "action": "send",
+  "message": "Which one?",
+  "presentation": {
+    "blocks": [
+      { "type": "buttons",
+        "buttons": [
+          { "label": "Super Mario Bros. (1993)",
+            "action": { "type": "callback", "value": "igdb:222095" } },
+          { "label": "The Lost Levels (1993)",
+            "action": { "type": "callback", "value": "igdb:222097" } }
+        ] }
+    ]
+  }
+}
 ```
-buttons: [[{"text": "Super Mario Bros. (1993)", "callback_data": "igdb:222095"},
-           {"text": "The Lost Levels (1993)", "callback_data": "igdb:222097"}]]
-```
 
-Serialising it first — `buttons: "[[{\"text\": …}]]"` — is accepted, sends the
-message, and silently drops every button. Nothing fails, the reply just arrives
-as plain text with a question in it and no way to answer, which is worse than an
-error because it looks like it worked. If your buttons did not appear, this is
-the first thing to check.
+`style` is optional per button — `primary`, `success` or `danger`. A tap comes
+back to you as text: `callback_data: <the value>`.
 
-That is the gateway's own interface and it will tell you itself whether the
-channel has it. Two rules about using it:
+**Send the structure, never a string containing it.** A serialised
+`"presentation": "{\"blocks\": …}"` is accepted, sends the message, and drops
+every button. Nothing errors; the user simply gets a question with no way to
+answer it, which is worse than a failure for being invisible. If your buttons
+did not appear, check this first.
 
-**`callback_data` names the action, never just the answer.** A bare `yes` is
+Two rules about using them:
+
+**The callback value names the action, never just the answer.** A bare `yes` is
 indistinguishable from a tap on a question you asked three messages ago, and you
 would read it as consent for whatever is pending now. Put the decision in it —
-`cover:01K5A…`, `platform:01K5A…=PS5` — and check that what comes back is the
-thing you are about to do. If it names something else, treat it as a stale tap
-and ask again rather than acting.
+a candidate's `ref`, `cover:01K5A…`, `platform:01K5A…=PS5` — and check that what
+comes back is the thing you are about to do. If it names something else, treat
+it as a stale tap and ask again rather than acting.
 
 **If buttons are not available, ask in plain text.** Never write "tap Yes below"
 without a button under it, and never describe an interface you did not send.
@@ -437,10 +447,10 @@ Exit code 3 means several games match. The envelope carries `candidates[]`, each
 with a `ref` (`game:01K…` or `igdb:7346`), `title`, `year`, `platforms`,
 `source` and `in_log`.
 
-One button per candidate: `text` is the title, with the year when it
-disambiguates, and `callback_data` is that candidate's `ref`, verbatim. Re-invoke
-the original command with `--id <the ref that came back>` — same command, same
-arguments, plus the ref.
+One button per candidate: `label` is the title, with the year when it
+disambiguates, and the callback `value` is that candidate's `ref`, verbatim.
+Re-invoke the original command with `--id <the ref that came back>` — same
+command, same arguments, plus the ref.
 
 Never edit a `ref`. Never construct one. It is an opaque string that round-trips.
 
@@ -472,7 +482,7 @@ thing itself, which is what a cover is for.
   about.
 - **The game already has one** — *offer*, which is a two-button question if the
   channel has them (*Buttons* above): `success` to replace, `danger` to keep,
-  and the game in the `callback_data`. Replacing the one image they see every
+  and the game named in the callback value. Replacing the one image they see every
   time, uninvited, is annoying in a way an extra attachment never is.
 
 Either way, say what happened in terms that exist: a cover belongs to the
@@ -585,7 +595,7 @@ the register's data, not your voice.
   2. Wait for an unambiguous yes. A vague "sure", a change of subject, or
      silence is not a yes — ask again or drop it. Where buttons work, this is
      what they are for: two of them, `success` and `danger`, with the change
-     itself in the `callback_data` (see *Buttons*), so the answer cannot be
+     itself in the callback value (see *Buttons*), so the answer cannot be
      misread and a late tap cannot be mistaken for this one.
   3. Only then run the command, and confirm plainly once it's done.
 
