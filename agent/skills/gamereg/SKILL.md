@@ -51,19 +51,21 @@ register's words:**
 gamereg vocab --locale pt-BR --json
 ```
 
-Once per conversation is enough; the answer does not change. **Before the first
-reply**, not before the first command — a conversation that opens with small
-talk still needs the nouns, and a turn with no `gamereg` command in it is
-exactly the turn where you will reach for an English word without noticing.
-
-If a reply of yours earlier in this conversation used the English word anyway,
-that is not precedent. Your own prior phrasing is the strongest pull there is
-and it is wrong here: get the words, use them from the next line on, and do not
-match what you said before. It reports the
+Once per conversation is enough; the answer does not change. It reports the
 words for outcomes, statuses, completion criteria, difficulties, forms and
 modes; the register's own acts — *filed*, *approved*, *archived*, *pending
 clarification*, *certified copy*; and, under `entity`, what the register calls
 the things themselves: *game*, *run*, *session*, *break*, *verdict*. Use them.
+
+**Before the first reply**, not before the first command — a conversation that
+opens with small talk still needs the nouns, and a turn with no `gamereg`
+command in it is exactly the turn where you will reach for an English word
+without noticing.
+
+If a reply of yours earlier in this conversation used the English word anyway,
+that is not precedent. Your own prior phrasing is the strongest pull there is
+and it is wrong here: get the words, use them from the next line on, and do not
+match what you said before.
 
 **Never leave one of those nouns in English in a sentence that is not in
 English.** "Uma run em aberto" is the register speaking half a language; the
@@ -191,6 +193,55 @@ Two things follow from that:
 
 Never reach for `start --platform` to record a mention. See the next section for
 what it actually does.
+
+## A session opened by mistake
+
+> "opa, abri no jogo errado" — wrong game, wrong moment, or they were not
+> playing at all.
+
+Nothing is deleted here; `revoke` appends an event saying an earlier one does
+not count. What has to be right is *how much* you revoke and *in what order*.
+
+**The result of the command that made the mess already lists what it wrote.**
+`start` returns `events[]`, and that array is exactly what needs undoing:
+
+| What `start` found | `created` | `run_opened` | `events` |
+|---|---|---|---|
+| a game not on record | `true` | `true` | `game.create`, `run.open`, `session.open` |
+| a game on record, no run open | `false` | `true` | `run.open`, `session.open` |
+| a game on record, run already open | `false` | `false` | `session.open` |
+
+So do not reason about which case it was. Read the flags, take the ids, and
+**revoke them in reverse order** — last written, first revoked.
+
+```
+gamereg revoke "<session.open id>" --reason "session opened by mistake" --json
+gamereg revoke "<run.open id>" --reason "session opened by mistake" --json
+gamereg revoke "<game.create id>" --reason "session opened by mistake" --json
+```
+
+Reverse order is not a style preference. Revoking `game.create` while its
+`run.open` still stands leaves events pointing at a game that no longer folds,
+and `gamereg doctor` reports one orphan reference per event and exits 1. Going
+backwards, every intermediate state is a state the register already understands
+— a run with no sessions is what `past` files every day — so stopping halfway is
+safe, and being interrupted is not a corruption.
+
+**Only revoke a `game.create` that this same command wrote.** `created: false`
+means the game was already there, and its create event is the root of every run,
+session and verdict it has ever had. Revoking that to undo one session would
+take the whole history with it.
+
+If `end` ran before anyone noticed, its `session.close` is one more id, and it
+goes first — it was written last.
+
+If the ids are gone, because this is a later conversation, find them with SQL:
+`{baseDir}/reference/query.md` has the query for a run's `run.open`, and the
+`events` table holds the rest, `type` and `payload` included.
+
+This is `revoke`, so the confirmation in *Safety* applies in full: say what will
+stop counting — the game, the run, the session, by name — and wait for an
+unambiguous yes before the first command, not between them.
 
 ## A platform question with no session to answer through
 

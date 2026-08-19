@@ -166,6 +166,30 @@ already closed, or a mention that contradicts a platform recorded on a run the
 user is not about to close. Both are corrections, and corrections are stated and
 confirmed before they run.
 
+### A session opened by mistake
+
+Nothing is deleted: `revoke` appends an event saying an earlier one does not
+count (01-model.md, *Corrections*). The agent's job is to get the extent and the
+order right, and the extent is not something it has to work out — the command
+that made the mess returned `events[]`, which is exactly what it wrote. `start`
+also returns `created` and `run_opened`, so the shape is legible: a game not on
+record produces three events, a game on record with no open run two, a game
+whose run is already open just one.
+
+**Revoked in reverse order, last written first.** Revoking a `game.create`
+while its `run.open` still stands leaves events referencing a game that no
+longer folds; `doctor` reports an orphan reference for each and exits 1. Going
+backwards, every intermediate state is one the register already understands — a
+run with no sessions is what `past` files — so an interrupted correction is a
+consistent register, not a corrupt one.
+
+**A `game.create` is only ever revoked by the command that wrote it.** For a
+game already on record, that event is the root of every run, session and verdict
+it has; revoking it to undo one session would take all of that with it.
+
+This is `revoke`, so the confirmation protocol applies: state what will stop
+counting, by name, and wait for an unambiguous yes.
+
 ### Photos
 
 Images arriving in chat are written to a temp path by the gateway and passed as
