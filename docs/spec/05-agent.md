@@ -98,16 +98,26 @@ table (see 03): the user corrects a mis-transcribed title once.
 
 > "starting hollow knight"
 
-**The agent supplies a canonical-ish title, not the raw utterance.** Before
-calling `start`, correct obvious spelling/colloquialism the way `end` already
-corrects obvious transcription errors (below) — "some pacman on the atari"
-becomes `gamereg start "Pac-Man" --platform Atari`, not `"pacman"`. A wrong guess here
-is cheap, not dangerous: `enrich` corrects the stored title and files the
-guess as an alias (01-model.md), and a bad first search can be retried with a
-better `<query>` (02-cli.md's `enrich` section). But a better guess up front
-means the first provider search is more likely to land — provider search
-relevance degrades badly on stray punctuation and spacing, and no amount of
-local filtering recovers a candidate the provider never returned.
+**The agent corrects how a title was written; it never decides which game was
+meant.** Fixing spelling, casing and punctuation is transcription work — "some
+pacman on the atari" becomes `gamereg start "Pac-Man" --platform Atari` — and
+being slightly off there is cheap: `enrich` corrects the stored title and files
+the guess as an alias (01-model.md).
+
+Completing a title is a different act. "Super Mario" is not a misspelling of a
+particular Mario game; it names a family, and choosing a member of it is a
+decision the user did not delegate. When the words given match more than one real
+game, that is a question, asked with `gamereg search` **using the user's own
+words** and answered with `--id`. A search narrowed by the agent's own guess
+returns a list already shaped by an assumption the user never made.
+
+This is not a matter of taste, because guessing here is not cheap the way a
+spelling guess is. `start` performs no network I/O, so an unrecognised title
+returns `not_found` whether or not the catalog knows it; taking that as licence
+to create writes a game record under an invented name. And once a local record
+exists, `gamereg search` stops consulting the provider — it asks the catalog
+only when nothing local matches — so the invented title answers every future
+search and keeps confirming itself.
 
 `gamereg start "hollow knight" --json` → on code 3, present candidates → re-invoke
 with `--id`.

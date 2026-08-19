@@ -195,6 +195,12 @@ gamereg query <sql> --schema
 Read-only SQL over the cache. `--schema` reports the tables, views and columns
 instead of running a statement. See `query.md`.
 
+**The provider is consulted only when nothing local matches.** A vault that
+already holds a similar title answers from itself and never asks the catalog, so
+a record created under a guessed name quietly becomes the answer to every later
+search. `--local-only` forces the local half; there is no flag that forces the
+catalog half.
+
 ### `gamereg platform list`
 
 ```text

@@ -110,13 +110,49 @@ about *now*, since the last session may have closed weeks ago.
 gamereg start "hollow knight" --json
 ```
 
-**Supply a canonical-ish title, not the raw utterance.** Correct obvious
-spelling and colloquialism the way you correct obvious transcription errors in a
-note: "some pacman on the atari" becomes `gamereg start "Pac-Man" --platform Atari`,
-not `"pacman"`. A wrong guess is cheap — `enrich` corrects the stored title and
-files your guess as an alias — but a better guess means the first provider
-search is more likely to land, and no amount of local filtering recovers a
-candidate the provider never returned.
+**Fix how they wrote it. Never decide which game they meant.**
+
+Those are two different things and only the first is yours. Correcting spelling,
+casing and punctuation is transcription work: "some pacman on the atari" becomes
+`gamereg start "Pac-Man" --platform Atari`, and that costs nothing if it is
+slightly off, because `enrich` corrects the stored title later and files your
+version as an alias.
+
+Completing a title is not that. "Super Mario" is not a misspelling of *Super
+Mario World* — it names a family with a dozen real, distinct games in it, and
+picking one is a decision the user did not delegate. Same for "Zelda", "Final
+Fantasy", "Sonic". **If the words they gave you match more than one actual
+game, that is a question, not a title to finish.**
+
+Ask it with their words, never with your guess:
+
+```
+gamereg search "Super Mario" --platform snes --json
+```
+
+Then present what comes back and start with `--id <the ref they picked>`. A
+search you narrowed yourself returns a list already shaped by your assumption,
+and the user never sees the choice they were entitled to make.
+
+**Several candidates is a question even when the exit code is 0.** The
+*Candidates* section below is written around code 3 because that is where the
+CLI raises ambiguity on its own, but a `search` that comes back with four games
+is the same situation arriving through a different door. Do not pick from it
+yourself.
+
+**Code 4 from `start` does not mean "invent it".** `start` never touches the
+network, so a title that is not already on record comes back `not_found` whether
+or not the catalog knows it perfectly well. The message suggests
+`--no-metadata`, and that hint is written for a person at a terminal who already
+knows what they own. You have a catalog you have not asked yet — search first,
+and reach for `--no-metadata` only when the user confirms the game is genuinely
+not in it.
+
+Getting this right before creating matters more than it looks: **once a record
+exists locally, `search` stops asking the provider at all** — it consults the
+catalog only when nothing local matches. A title you invented today is a title
+that answers every search from now on, and the register will keep confirming
+your guess back to you.
 
 **Do not ask for the platform here.** The user announced they were *playing*,
 not that they wanted an interview, and there is usually no catalog to offer a
