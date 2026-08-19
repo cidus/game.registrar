@@ -34,7 +34,7 @@ criterion ("an entire game logged start to finish without opening a terminal
 once") has not been demonstrated in one unbroken pass. See *The agent layer*
 below.
 
-`npm test` is 386 tests, all green (`node --test`, no framework, no network).
+`npm test` is 388 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -67,11 +67,13 @@ including the cache building itself on demand; a real native exec approval
 `channels.telegram.execApprovals.approvers` was set explicitly — `enabled: true`
 alone is insufficient).
 
-**Not yet proven:** inline buttons, of any kind — the capability is on
-(`capabilities.inlineButtons: "allowlist"` in the live config) and the interface
-is now documented from the installed gateway, but nothing has ever rendered one.
-A yes/no confirmation is the cheaper way to prove it than exit code 3, which
-needs a title that matches several games.
+**Not yet proven:** inline buttons. The capability is on
+(`capabilities.inlineButtons: "allowlist"`), the interface is documented from the
+installed gateway, and the agent has now composed a correct-looking call —
+which arrived with no buttons because it passed `buttons` as a JSON *string*
+instead of an array. The gateway answered `ok` with a `messageId` and dropped
+them silently, so the failure looks like a plain-text reply. `SKILL.md` now
+forbids the string form explicitly; still unrendered as of that change.
 Voice input is implemented CLI-side but untested through the deployment. Sticker
 sends are wired (`channels.telegram.actions.sticker`) but unused — blocked on
 sourcing real `fileId`s, not a code gap.
@@ -82,6 +84,12 @@ runs as `alcides` — same user as the checkout, installed system-wide
 agent actually behaves, and reading it settles questions no test can: the
 photo-classification fix below came from finding `kind: screenshot` on a
 photograph of a boxed Master System game.
+
+**A skill change reaches new conversations only** — the prompt is read into a
+session once, at its start, and a gateway restart does not re-read it for a chat
+in progress (`/reset` does). Testing a deployed fix in the conversation you were
+already having measures the old text and looks exactly like the fix failing.
+Grep the session transcript for a phrase unique to the new version first.
 
 **`gamereg` on `PATH` runs `dist/`, not `src/`.** Nothing changed under `src/`
 reaches the agent, or the terminal, until `npm run build`. Worth checking first

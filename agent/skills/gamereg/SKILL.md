@@ -402,6 +402,20 @@ Where the channel supports them, send buttons with `action=send` and
 a row at most. `style` is `primary`, `success` or `danger`. A tap comes back to
 you as the `callback_data` of the button that was tapped.
 
+**`buttons` is an array, not a string containing an array.** Pass the structure
+itself:
+
+```
+buttons: [[{"text": "Super Mario Bros. (1993)", "callback_data": "igdb:222095"},
+           {"text": "The Lost Levels (1993)", "callback_data": "igdb:222097"}]]
+```
+
+Serialising it first — `buttons: "[[{\"text\": …}]]"` — is accepted, sends the
+message, and silently drops every button. Nothing fails, the reply just arrives
+as plain text with a question in it and no way to answer, which is worse than an
+error because it looks like it worked. If your buttons did not appear, this is
+the first thing to check.
+
 That is the gateway's own interface and it will tell you itself whether the
 channel has it. Two rules about using it:
 

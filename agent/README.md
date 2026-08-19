@@ -126,6 +126,18 @@ forever on a prompt nobody can answer.
 cp -R agent/skills/gamereg ~/.openclaw/workspace/skills/
 ```
 
+**A conversation already under way keeps the copy it loaded.** The skill is read
+into a session once, at its start, and restarting the gateway does not change
+that: the transcript, with the old text inside it, is what the model keeps
+reading. `/reset` in the chat starts a fresh one.
+
+This failure does not look like a stale file. It looks like the fix not working
+— the agent repeats the exact behaviour you just corrected, in a session where
+the correction was never present. Twice here the giveaway was the same: `grep`
+the session transcript for a phrase unique to the new text and count zero.
+Transcripts are in `~/.openclaw/agents/<agent>/sessions/*.jsonl`, and reading
+them is the fastest way to tell a bad instruction from an unread one.
+
 ### 6. Restrict what it may run
 
 Four parts, and all four are required — any one missing and either nothing
