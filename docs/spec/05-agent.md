@@ -190,6 +190,26 @@ it has; revoking it to undo one session would take all of that with it.
 This is `revoke`, so the confirmation protocol applies: state what will stop
 counting, by name, and wait for an unambiguous yes.
 
+### The wrong game, chosen from the menu
+
+Worse than it looks, and the reason is the alias. Resolving a code 3 by `--id`
+files the query as an alias on the game that was picked (03-resolution.md), so a
+wrong pick does not misplace one session — it wires that word to the wrong game
+for good. The next time it is asked there is no menu at all, and nothing about
+the answer looks wrong. `gamereg alias` only adds; revoking that `game.alias`
+event is the only way back.
+
+The undo is the previous flow with a wider net: everything filed on that game
+since the mistake, not only what the mistaken command wrote, revoked
+last-written-first. A `session.close` left behind after its `session.open` is
+revoked is an orphan reference like any other. **`gamereg doctor` is the check**
+— it names every event still pointing at a revoked one, which is what tells the
+agent whether it caught them all.
+
+Then the command is reissued against the right candidate, and the alias is
+learned onto the game the user meant: the same mechanism that caused the
+problem, working as designed.
+
 ### Photos
 
 Images arriving in chat are written to a temp path by the gateway and passed as

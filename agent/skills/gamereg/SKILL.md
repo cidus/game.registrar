@@ -243,6 +243,51 @@ This is `revoke`, so the confirmation in *Safety* applies in full: say what will
 stop counting — the game, the run, the session, by name — and wait for an
 unambiguous yes before the first command, not between them.
 
+## The wrong game, chosen from the menu
+
+> "no, not that one — I meant the other Zelda"
+
+Undoing this is the previous section plus one event nobody thinks of, and that
+one is the reason it matters.
+
+**Answering a code 3 teaches the register.** Resolving by `--id` files the query
+as an alias on the game that was picked, so a wrong pick does not just misplace
+one session — it wires the word to the wrong game *permanently*. Ask again
+tomorrow and there is no menu: the query resolves straight to the wrong game,
+silently, and nothing about the answer looks wrong. The alias is the first event
+in the `events[]` the command returned, ahead of the run and the session.
+
+`gamereg alias` only adds. There is no command that removes one, so `revoke` on
+that `game.alias` event is the only way back.
+
+Same procedure as a session opened by mistake — the returned `events[]`, revoked
+last-to-first — with one addition that changes the shape of the problem:
+
+**Revoke everything filed on that game since, not only what the command wrote.**
+The `events[]` array covers the mistake itself. A session closed on top of it, a
+break, a second session, a `finish` — each of those points at something you are
+about to revoke, and leaving them behind leaves the register referring to events
+that no longer count. They were written after, so they are revoked before.
+
+**Then run `gamereg doctor --json`.** It reports an orphan reference for every
+event left pointing at a revoked one, which makes it the check on whether you
+caught them all. Clean means clean; anything else means look at what it names
+and revoke that too, in the same reverse order.
+
+Only then redo it on the right game:
+
+```
+gamereg start "<the same words they used>" --id "<the right candidate's ref>" --json
+```
+
+The alias is learned again on the way through, this time onto the game they
+meant — which is the same mechanism that caused the problem, working correctly.
+
+This is `revoke`, so *Safety* applies: name what stops counting — the game, the
+alias, the run, the session — and get an unambiguous yes before the first
+command. A list this long is exactly the case where the confirmation earns its
+keep.
+
 ## A platform question with no session to answer through
 
 *The platform question, and only here* above assumes a session is open to
