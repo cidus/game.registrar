@@ -185,6 +185,65 @@ correctly stamped.
 Never estimate a time the user did not give you. "Umas 20h" is a time they gave
 you; silence is not.
 
+## A session opened by mistake
+
+> "abri sem querer" · "não era esse jogo" · "cancela isso aí"
+
+**The tool is `revoke`, never `amend`.** `amend` shallow-merges a patch over
+an event's payload — it changes fields, it cannot make an event stop
+existing. Patching a field to `null` to fake a cancellation does not work:
+it leaves a `session.open` pointing at nothing, `gamereg doctor` reports it
+as an irregularity, and the run stays open anyway. `revoke` is the one that
+takes an event out of the fold, and it leaves the log clean.
+
+Nothing is destroyed either way. `revoke` appends — the original line stays
+in `data/events.jsonl` forever, along with the reason you give. What changes
+is only what the register *counts*.
+
+### How many events to revoke
+
+`start` appends up to three events, and how many depends on what already
+existed. Its own `--json` result tells you exactly:
+
+- `events: [...]` — every event that invocation appended, in order.
+- `run_opened: true` — a new run was created; `false` — an existing open run
+  was reused.
+
+**The game was already on record** (`run_opened: false`, one event): revoke
+that one `session.open` and you are done. Earlier sessions on that run are
+untouched.
+
+**The `start` created the game too** (`run_opened: true`, three events —
+`game.create`, `run.open`, `session.open`): revoking only the session leaves
+an open run and a game on record with no playtime. Ask whether they want the
+whole entry gone or just the session, and revoke accordingly.
+
+**Revoke innermost first: session, then run, then game.** The end state is
+the same in any order, but revoking a game before the run and session that
+reference it leaves the log momentarily irregular — `doctor` will report
+orphan references until you finish. Going inside-out never does.
+
+### When the `start` output is no longer in the conversation
+
+Find the ids rather than guessing them. From an open session:
+
+```
+gamereg open --json
+gamereg query "SELECT event_id FROM events WHERE type = 'session.open' AND json_extract(payload, '$.session_id') = '<session_id>'" --json
+```
+
+`gamereg status "<game>" --json` shows each run's `sessions` count and
+whether it is `open` — that is how you tell whether a run has anything left
+in it once the mistaken session is gone.
+
+### Confirm first
+
+`revoke` follows the same protocol as `amend` (see Safety): say plainly what
+will stop counting — the game, the session, its time — and wait for an
+unambiguous yes. "Revogar a sessão de Hollow Knight aberta às 20h, e o
+registro do jogo junto, que foi criado agora?" is the question. Never revoke
+more than the user agreed to.
+
 ## Finishing
 
 > "acabei, achei ótimo, nota 9, difícil, peguei o final verdadeiro"
@@ -244,7 +303,9 @@ the register's data, not your voice.
   back, or because the target "seems obvious." These are how a mistake in an
   append-only log gets corrected; they are not how you clean up after
   yourself, and there is nothing downstream of your own judgment stopping a
-  wrong one from landing.
+  wrong one from landing. Asked directly to undo something, though, they are
+  exactly the right tool — see *A session opened by mistake* for the one that
+  comes up most.
 - **Never invent an id, a ref, a hash, a platform, a rating or a time.** This
   includes anything that looks like a system identifier — an approval code, a
   UUID, a `/approve` command. If a tool result doesn't hand you a concrete
