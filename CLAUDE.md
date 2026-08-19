@@ -34,7 +34,7 @@ criterion ("an entire game logged start to finish without opening a terminal
 once") has not been demonstrated in one unbroken pass. See *The agent layer*
 below.
 
-`npm test` is 379 tests, all green (`node --test`, no framework, no network).
+`npm test` is 383 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -131,6 +131,16 @@ Each of these cost real time to find. The reasoning, not just the rule:
   survive four phases. The cost, accepted: a config written by a newer gamereg
   now breaks an older binary instead of being ignored — fine for one user, one
   machine, git as sync.
+- **The platform hint may cost a filter, never a duplicate record.** Two rules,
+  both in `03-resolution.md`: an empty `game.platforms` is silence rather than
+  "exists nowhere", so it never filters (`matchesPlatform`); and when the hint
+  alone empties the pool, `resolveGame` resolves again without it. The second
+  matters because `start`/`past` resolve with `allowCreate` — the old behaviour
+  did not just return `not_found`, it filed a *second* record of a game already
+  on record and split the history between two ids. Do not "improve" the first
+  rule by counting `game.runs[].platform` as evidence: it reads as better data
+  and reintroduces the same bug for anyone replaying a Switch game on a console
+  they bought later.
 - **The committed `data/log.db` is compared logically, not byte for byte.**
   SQLite's on-disk layout is not stable across library versions and Node bundles
   its own (v26.0.0 → 3.53.1, v26.7.0 → 3.53.4), so a fixture committed from one
@@ -142,16 +152,6 @@ Each of these cost real time to find. The reasoning, not just the rule:
 
 ## Open items
 
-- **`resolve.ts`'s `matchesPlatform` treats an empty `game.platforms` as
-  "matches nothing"** rather than "unknown, don't filter". A `--no-metadata` game
-  that was never enriched therefore returns `not_found` for
-  `gamereg start "<exact title>" --platform "<anything>"` — reproduced, no
-  network involved. Deferred on purpose: `SKILL.md` routes the reported symptom
-  (answering a platform question) straight to `amend`, and fixing this means
-  auditing every `--platform`-filtered path. The likely fix is making an empty
-  `game.platforms` skip the filter; the cost is such a game then matching a
-  filter nothing can confirm — the more forgiving failure, hence the likely
-  direction, not a settled one.
 - **`example-vault/` has no photo fixture**, so the gallery block has no golden
   test — covered end to end by `test/attachments.test.ts` and
   `test/photo-cli.test.ts` instead. Adding a real, deterministically-hashed image

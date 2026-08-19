@@ -133,7 +133,28 @@ The hint is canonicalized before it filters (`canonicalPlatform()`, 02-cli.md's
 *Platform vocabulary*), so `--platform snes` and `--platform "Super Nintendo"`
 narrow identically. That changes how well the filter matches, never what it is
 allowed to conclude: an unknown spelling is still passed through as typed, and a
-filter that matches nothing narrows to nothing rather than resolving anything.
+filter that matches nothing resolves nothing.
+
+Two rules keep the hint from doing damage on its way to concluding nothing:
+
+**A game with no platforms on record is never filtered out.** The field answers
+"which platforms does this game exist on", and an empty one means nobody has
+said yet — a game created with `--no-metadata` and never enriched carries `[]`
+for as long as it is never enriched. Silence is not a claim that the game exists
+nowhere. A game that *does* list platforms is filtered by them as normal; this
+is about the absence of evidence, never about overriding it.
+
+**A hint never turns "found" into "created".** `start` and `past` resolve with
+creation allowed, so a hint that empties the pool would not merely fail — it
+would file a second record of a game already on record, splitting the history
+between two ids in a log where nothing can be deleted. When the filtered pass
+finds nothing at all, resolution runs again without the hint, and only a genuine
+absence reaches the create path. A hint that narrowed several candidates to one
+has done its job and is left alone.
+
+Both are the same judgement: the platform is a hint offered in passing, usually
+by someone announcing what they are about to play. Being wrong about it should
+cost a filter, never a duplicate record.
 
 `gamereg enrich` is a deliberate, narrower exception: once a game is already
 identified (an existing local record, or a title that already matched

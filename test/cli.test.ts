@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -59,6 +59,61 @@ test('a session opens, breaks, and closes with the arithmetic done in code', () 
   assert.equal(result(ended)['minutes'], 130)
   assert.equal(result(ended)['break_minutes'], 50)
   assert.equal(result(ended)['logical_day'], '2026-05-03')
+})
+
+/**
+ * The platform hint must never be the reason a second record of a game already
+ * on record gets filed. `start` and `past` resolve with `allowCreate`, so a
+ * hint that empties the pool does not merely fail — it creates, and in an
+ * append-only log the history is then split between two ids for good.
+ */
+test('a platform hint never files a duplicate of a game already on record', () => {
+  const root = vault()
+  const first = gamereg(root, 'start', 'celeste', '--no-metadata', '--at', '2026-05-03 20:00')
+  const gameId = ((result(first)['game'] as Record<string, unknown>)['game_id'] as string)
+  gamereg(root, 'end', '--at', '2026-05-03 21:00')
+  gamereg(root, 'finish', 'celeste', '--at', '2026-05-03 21:00')
+
+  // The game has no platforms on record: created with --no-metadata, never
+  // enriched. Naming one used to return not_found for this exact title.
+  const again = gamereg(root, 'start', 'celeste', '--platform', 'Switch', '--at', '2026-05-04 20:00')
+  assert.equal(again.status, 0)
+  const game = result(again)['game'] as Record<string, unknown>
+  assert.equal(game['created'], false)
+  assert.equal(game['game_id'], gameId)
+})
+
+test('a platform the catalogue does not list resolves rather than creating', () => {
+  const root = vault()
+  const first = gamereg(root, 'start', 'celeste', '--no-metadata', '--at', '2026-05-03 20:00')
+  const gameId = ((result(first)['game'] as Record<string, unknown>)['game_id'] as string)
+  gamereg(root, 'end', '--at', '2026-05-03 21:00')
+  gamereg(root, 'finish', 'celeste', '--at', '2026-05-03 21:00')
+
+  // Enrichment recorded PC and nothing else — an incomplete catalogue entry, or
+  // a port that shipped later. Appended directly: `enrich` is the only command
+  // that reaches the network, and a unit test never does.
+  appendFileSync(
+    join(root, 'data', 'events.jsonl'),
+    `${JSON.stringify({
+      id: '01K5A00000000000000000ENR1',
+      ts: '2026-05-03T22:00:00-03:00',
+      type: 'game.enrich',
+      source: 'cli',
+      schema: 1,
+      data: { game_id: gameId, provider: 'igdb', fields: { platforms: ['PC'], id: '1' } },
+    })}\n`,
+  )
+  const enriched = gamereg(root, 'search', 'celeste')
+  assert.deepEqual(
+    ((result(enriched)['candidates'] as Record<string, unknown>[])[0]!)['platforms'],
+    ['PC'],
+    'the fixture did not take: this test would pass for the wrong reason',
+  )
+
+  const onAnother = gamereg(root, 'start', 'celeste', '--platform', 'PS5', '--at', '2026-05-05 20:00')
+  assert.equal(onAnother.status, 0)
+  assert.equal((result(onAnother)['game'] as Record<string, unknown>)['game_id'], gameId)
 })
 
 test('a second session on an open run reuses it', () => {

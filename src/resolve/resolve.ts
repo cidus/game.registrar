@@ -104,12 +104,30 @@ export function candidateOf(game: GameState): Candidate {
   }
 }
 
+/**
+ * Whether `--platform` excludes this game.
+ *
+ * A game with **no** platforms on record is never excluded. The field answers
+ * "which platforms does this game exist on", and an empty one means nobody has
+ * said yet — a game created with `--no-metadata` and never enriched carries
+ * `[]` forever. Reading that as "exists nowhere" made
+ * `start "<its exact title>" --platform "<anything>"` return not_found for a
+ * game plainly on record, and `start`/`past` resolve with `allowCreate`, so the
+ * next step was a *second* record of the same game with the history split
+ * between them. In an append-only log that costs a `revoke`, not a delete.
+ *
+ * Deliberately not consulting `game.runs[].platform`: it would look like better
+ * evidence and it reintroduces the same bug one case over — a game with Switch
+ * runs and an empty catalog would stop matching `--platform ps5` for the person
+ * about to replay it there.
+ */
 function matchesPlatform(
   game: GameState,
   platform: string | null | undefined,
   table: PlatformTable = platformTable(),
 ): boolean {
   if (platform === null || platform === undefined || platform === '') return true
+  if (game.platforms.length === 0) return true
   return game.platforms.some((value) => samePlatform(value, platform, table))
 }
 

@@ -139,11 +139,16 @@ gamereg query "SELECT event_id FROM events WHERE type = 'run.open' AND json_extr
 gamereg amend "<event_id>" --set platform="PS5" --reason "platform stated by the user" --json
 ```
 
-**Do not try `start --platform` on the existing title first, looking for a
-shortcut.** A run this old and never enriched has no catalog platforms on
-record yet, `--platform` filters against exactly that field, and the result
-is a `not_found` that has nothing to do with the platform you're trying to
-set — a dead end, not a signal to retry with `--no-metadata`.
+**Do not try `start --platform` on the title, looking for a shortcut.** It
+will not fail, and that is the problem: `start` opens a *new* run and a *new*
+session, stamped with the platform you passed, while the run the user was
+talking about keeps its `null`. You would have answered a question about
+January by starting to play today. `--platform` on `start` describes the run
+`start` opens; it never edits one that already exists.
+
+(This used to fail outright with `not_found`, which was its own bug and is
+fixed. If you are working from an older memory of this file: the command now
+succeeds, which makes using it here worse, not safer.)
 
 **There is no platform-level approval gate on `amend`/`revoke` — the
 confirmation is entirely on you.** Ask first, in plain language and in the

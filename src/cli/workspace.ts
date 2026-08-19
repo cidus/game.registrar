@@ -124,10 +124,24 @@ export async function resolveGame(
   query: string | null,
   options: GameQuery = {},
 ): Promise<GameState> {
-  const resolution = resolveLocal(workspace.state, query, {
-    ...options,
-    platforms: platformTable(cli.vault.config.platforms),
-  })
+  const table = platformTable(cli.vault.config.platforms)
+  let resolution = resolveLocal(workspace.state, query, { ...options, platforms: table })
+
+  // The platform hint narrows a list; it never decides one (03-resolution.md).
+  // When it is the *only* reason nothing matched, drop it and resolve again:
+  // `start` and `past` resolve with `allowCreate`, so a hint that empties the
+  // pool does not merely fail, it files a second record of a game already on
+  // record and splits the history between them. That happens whenever the hint
+  // is a platform the catalog does not list — an incomplete entry, or a replay
+  // on a console bought after the game was enriched.
+  //
+  // Only fires when the filtered pass found nothing at all. A hint that
+  // narrowed several candidates to one has done its job and is left alone.
+  const hint = options.platform
+  if (resolution.kind === 'not_found' && hint !== undefined && hint !== null && hint !== '') {
+    const unfiltered = resolveLocal(workspace.state, query, { ...options, platform: null, platforms: table })
+    if (unfiltered.kind !== 'not_found') resolution = unfiltered
+  }
 
   if (resolution.kind === 'resolved') {
     if (options.id !== undefined && options.id !== null) learnAlias(cli, workspace, resolution.game, query)

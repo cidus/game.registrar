@@ -75,6 +75,32 @@ test('an exact title wins over titles that merely contain it', () => {
   assert.equal(resolution.kind === 'resolved' && resolution.game.game_id, 'G1')
 })
 
+/**
+ * A game nobody has recorded a platform for is not a game that exists nowhere.
+ * Reading `[]` as "matches nothing" made a `--no-metadata` entry unreachable by
+ * its own exact title the moment a platform was named — and `start`/`past`
+ * resolve with `allowCreate`, so the next step was a duplicate record.
+ */
+test('a game with no platforms on record is never filtered out by the hint', () => {
+  // G3 (Celeste) was created with no platforms and never enriched.
+  const byTitle = resolveLocal(vault(), 'celeste', { platform: 'Switch' })
+  assert.equal(byTitle.kind === 'resolved' && byTitle.game.game_id, 'G3')
+
+  // Any platform at all, since the field says nothing either way.
+  const other = resolveLocal(vault(), 'celeste', { platform: 'Dreamcast' })
+  assert.equal(other.kind === 'resolved' && other.game.game_id, 'G3')
+
+  // And through the alias, which is the same pool.
+  assert.equal(search(vault(), 'cel', 'PS5').length, 1)
+})
+
+test('a game that does have platforms is still filtered by them', () => {
+  // The forgiving rule above is about silence, not about overriding evidence.
+  const state = vault()
+  assert.equal(resolveLocal(state, 'tears of the kingdom', { platform: 'Wii U' }).kind, 'not_found')
+  assert.equal(search(state, 'zelda', 'Wii U').length, 1)
+})
+
 test('the platform hint filters the list without answering it', () => {
   const resolution = resolveLocal(vault(), 'zelda', { platform: 'wii u' })
   assert.equal(resolution.kind === 'resolved' && resolution.game.game_id, 'G1')
