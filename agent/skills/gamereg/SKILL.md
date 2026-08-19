@@ -120,6 +120,44 @@ already closed. Never invent a platform to avoid asking. Never treat
 passing ("noted it on the PS5"), which is enough for them to correct it if the console
 was someone else's.
 
+### A platform mentioned in passing
+
+People say where they are playing without being asked — "this Switch port runs
+great", "the PS5 fan is loud tonight". That is an answer to a question you were
+going to ask later, so do not drop it and do not turn it into a conversation.
+
+**While a session is open, hold it and pass it at the close**, the same way you
+hold a photo that arrives mid-session:
+
+```
+gamereg end --platform switch --note "<their words>" --json
+```
+
+`--platform` on `end`, `finish` and `drop` fills a run whose platform is still
+`null` *and* overrides one already recorded, in that one command — the CLI
+files the correction itself. You do not need `amend` for either, and you do not
+need to confirm anything: they told you, and the result you report back says
+what was recorded.
+
+Two things follow from that:
+
+- **Say nothing when you take it.** No "noted", no "shall I record that?". The
+  close reports the platform, which is where they see it landed.
+- **If you forget, nothing is lost.** The close returns `"platform": null` and
+  you ask then, as always. That costs one redundant question, so never let
+  holding a mention grow into a habit of asking about it up front.
+
+**Offer only when nothing automatic is coming.** Two cases:
+
+- The run is already closed — no `end` will ever carry the flag. Use the
+  `amend` path in the next section, with its confirmation.
+- What they said contradicts a platform already recorded on a run they are not
+  about to close. That is a correction, not a fill, and corrections are always
+  stated and confirmed before they run.
+
+Never reach for `start --platform` to record a mention. See the next section for
+what it actually does.
+
 ## A platform question with no session to answer through
 
 *The platform question, and only here* above assumes a session is open to

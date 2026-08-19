@@ -135,6 +135,21 @@ has already closed. Never invent a platform to avoid asking, and never treat a
 gives a reason to doubt it — mention it in passing ("noted it on the PS5"), which is
 enough for them to correct it if the console was someone else's.
 
+**A platform mentioned in passing is an early answer to that same question, not
+a new conversation.** People say where they are playing without being asked. The
+agent holds the mention and passes it as `--platform` at the close, the way it
+holds a photo that arrives mid-session, and says nothing while doing so: the
+close reports what was recorded, which is where the user sees it landed. The
+flag fills a `null` platform and corrects a wrong one alike (02-cli.md), so
+neither case needs `amend` or a confirmation.
+
+Forgetting costs one redundant question at the close and nothing else, which is
+the point — the mention is worth capturing, never worth interrupting for. The
+agent offers explicitly only when no close is coming to carry the flag: a run
+already closed, or a mention that contradicts a platform recorded on a run the
+user is not about to close. Both are corrections, and corrections are stated and
+confirmed before they run.
+
 ### Photos
 
 Images arriving in chat are written to a temp path by the gateway and passed as

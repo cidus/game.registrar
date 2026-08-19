@@ -77,6 +77,10 @@ gamereg end --id --break --note --platform --photo --caption --kind --as-cover
 Closes the open session. `--break <40m|1h20|90>` deducts time. This is where the
 platform question belongs, and only when the result says `"platform": null`.
 
+`--platform` here both fills a run that has none and corrects one already
+recorded, in this one command — no `amend`, no confirmation. It is where a
+platform mentioned earlier in the conversation gets filed.
+
 ### `gamereg break start` / `gamereg break end`
 
 ```text

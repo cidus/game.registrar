@@ -205,8 +205,11 @@ catalog can narrow the question, and a question asked while closing costs
 nothing next to one asked while starting.
 
 All three accept `--platform <name>`, which answers it outright and is the
-path a script or an agent takes. Without the flag, and **only when the run's
-platform is still `null`**:
+path a script or an agent takes. The flag both fills a `null` platform and
+replaces one already recorded — the same correction `amend` would make, issued
+from the command that is already closing the run, so a user who says the
+console only as they finish needs no second step. Without the flag, and **only
+when the run's platform is still `null`**:
 
 - **Interactive** — the grouped, unfiltered `select` described under
   *Platform vocabulary* below. A first group with exactly one member settles
