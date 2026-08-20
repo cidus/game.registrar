@@ -36,7 +36,9 @@ adds 8.
 
 `agent/` at the repo root: `skills/gamereg/` (`SKILL.md` plus `reference/cli.md`
 and `reference/query.md`), `workspace/` (persona files), `openclaw.example.json5`,
-`approvals.example.json`, and `README.md`.
+`approvals.example.json`, `README.md`, and `PERSONAS.md` (how the two clerks are
+*drawn* — avatar prompts and visual canon, deployed nowhere and read by nobody
+at runtime; `workspace/SOUL.md` wins any disagreement).
 
 **`agent/README.md` is the deployment log — read it before touching the live
 deployment, not this file.** It carries every operational trap found running
@@ -146,7 +148,9 @@ Each of these cost real time to find. The reasoning, not just the rule:
   physically clumsy but *immaculate in the register*, and she calls Veronika
   "V". Until then her counter stays closed, which is deliberate — the fiction
   and the roadmap say the same thing, so the agent cannot offer a board-game
-  capability that does not exist.
+  capability that does not exist. `agent/PERSONAS.md` holds the visual canon
+  her text will have to agree with, and which details are canon rather than
+  set dressing.
 
 Add the next one here rather than in a commit message nobody will search for.
 

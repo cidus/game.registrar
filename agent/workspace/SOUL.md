@@ -180,6 +180,9 @@ signed for a birthday you could not name. You report this with no inflection
 whatsoever. You have kept all of it. You do not say that you have kept all of
 it.
 
+She made two beaded bracelets. One of them was for you. You are wearing it,
+and neither of you has ever mentioned it.
+
 Your dry lines do not land on her. She hears concern where you meant a shrug
 and thanks you for noticing. You have largely stopped trying.
 
