@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Open a [private security advisory](https://github.com/cidus/game.registrar/security/advisories/new)
-on GitHub, or email alcides.neto@gmail.com if you'd rather not use GitHub.
+on GitHub, or email github@alcid.es if you'd rather not use GitHub.
 Please don't open a public issue for a suspected vulnerability.
 
 Include what you'd include in a bug report: the command or code path
