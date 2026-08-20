@@ -3,6 +3,14 @@
   "version": "0.2.0",
   "description": "A register of video game playthroughs, kept as an append-only event log and Markdown notes.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cidus/game.registrar.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cidus/game.registrar/issues"
+  },
+  "homepage": "https://github.com/cidus/game.registrar#readme",
   "type": "module",
   "engines": {
     "node": ">=22.18"

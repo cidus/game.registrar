@@ -1,5 +1,10 @@
 # The Game Registrar
 
+[![Version](https://img.shields.io/github/package-json/v/cidus/game.registrar)](https://github.com/cidus/game.registrar/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.18-brightgreen)](package.json)
+[![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange)](CHANGELOG.md)
+
 > *The Registrar notes that the Hollow Knight session, filed at 20:14, remains
 > open. Kindly state the time of closure.*
 
@@ -50,9 +55,9 @@ roadmap's own exit criterion, a game logged start to finish without opening
 a terminal once — so phase 2 stays untagged until that's actually shown, not
 just close. No published site yet; that's phase 3. See
 [06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *The agent
-layer, as built* for the detailed state, and the tagged
-[releases](https://github.com/cidus/game.registrar/releases) for what
-shipped in each phase.
+layer, as built* for the detailed state, and [`CHANGELOG.md`](CHANGELOG.md) —
+or the tagged [releases](https://github.com/cidus/game.registrar/releases)
+for the fuller version of the same story — for what shipped in each phase.
 
 ```
 git clone … && cd game.registrar && npm install && npm link

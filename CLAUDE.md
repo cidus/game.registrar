@@ -263,7 +263,12 @@ To tag a finished phase or patch:
    `v0.0.0` for the shape.
 3. Bump `version` in `package.json` **and** `package-lock.json` as a separate,
    untagged commit (`npm version minor --no-git-tag-version` for a phase).
-4. `git push && git push --tags`, then
+4. Move `[Unreleased]` in `CHANGELOG.md` to a new `[0.X.Y]` section
+   (Keep a Changelog format — `Added`/`Changed`/`Fixed`/`Removed`, one line per
+   item, no narrative). This is the terse index; the tag message from step 2
+   stays the detailed version, and `CHANGELOG.md`'s own header explains that
+   split so a reader lands on the right one.
+5. `git push && git push --tags`, then
    `gh release create v0.X.Y --title "v0.X.Y — <summary>" --notes-from-tag`.
    `--notes-from-tag` keeps the description in exactly one place. GitHub marks
    the most recently *created* release "Latest", so backfill oldest first.
