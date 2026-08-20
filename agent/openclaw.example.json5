@@ -82,6 +82,11 @@
       // one of them), nothing to do with a card catalog. This pool replaces
       // it with the Registrar's own vocabulary instead — same register as
       // SOUL.md's filed/protocolada table, not a generic status word.
+      //
+      // `toolProgress: false` keeps that single rotating label as the whole
+      // status draft and suppresses the per-tool-call lines progress mode
+      // would otherwise append under it (raw command text). Confirmed live:
+      // the label still shows and rotates, no command text leaks into chat.
       streaming: {
         progress: {
           label: "auto",
@@ -95,6 +100,7 @@
             "🔖 Registrando",
             "📜 Conferindo",
           ],
+          toolProgress: false,
         },
       },
     },

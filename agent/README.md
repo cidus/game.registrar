@@ -179,15 +179,31 @@ agent knows how to drive `gamereg` while sounding like nobody in particular.
 
 ```bash
 cp -R agent/skills/gamereg ~/.openclaw/workspace/skills/
-```
-
-```bash
 cp agent/workspace/*.md ~/.openclaw/workspace/
 ```
 
 `PERSONAS.md` is deliberately not among them — it sits at `agent/` root
 because it is a design document for whoever draws a character, and the agent
 has no use for it.
+
+**Real copies, not symlinks — tried and reverted.** A symlinked
+`skills/gamereg` fails outright, silently from the user's side: OpenClaw's
+skill loader resolves the real path of anything under
+`~/.openclaw/workspace/skills/` and refuses it if that path escapes the
+configured root, which a repo checkout outside `~/.openclaw` always does. The
+agent just answers with no `gamereg` knowledge at all — reads as "it lost its
+skills, and the personality's off too," since a Registrar improvising without
+`SKILL.md`/`reference/cli.md` doesn't sound like one. It's in the gateway's own
+log the moment it happens:
+
+```
+[skills] Skipping escaped skill path outside its configured root: reason=symlink-escape
+requested=~/.openclaw/workspace/skills/gamereg resolved=<repo>/agent/skills/gamereg
+```
+
+The workspace `.md` files themselves have no such guard (their loader carries
+no realpath check) — only the skill tripped this — but the whole point was one
+redeploy step, not a mixed one, so both went back to plain copies.
 
 **A conversation already under way keeps the copy it loaded.** These are read
 into a session once, at its start, and restarting the gateway does not change
