@@ -427,20 +427,23 @@ properties are `channel`, `target`, `message`, `media`, `presentation`,
 in silence, ignored, and the message goes out bare. That instruction has now
 produced three questions with no way to answer them.
 
-Buttons travel inside the message's **presentation**, as a block:
+Buttons travel inside the message's **presentation**, as a block. This example
+is a yes/no question, where the label can just be the answer; a candidates
+menu instead numbers the list in `message` and puts only the number in
+`label` — see *Candidates* below.
 
 ```json
 {
   "action": "send",
-  "message": "Which one?",
+  "message": "Close the Sonic session too?",
   "presentation": {
     "blocks": [
       { "type": "buttons",
         "buttons": [
-          { "label": "Super Mario Bros. (1993)",
-            "action": { "type": "callback", "value": "igdb:222095" } },
-          { "label": "The Lost Levels (1993)",
-            "action": { "type": "callback", "value": "igdb:222097" } }
+          { "label": "Yes",
+            "action": { "type": "callback", "value": "close:01K5A…" } },
+          { "label": "No",
+            "action": { "type": "callback", "value": "keep:01K5A…" } }
         ] }
     ]
   }
@@ -476,10 +479,19 @@ Exit code 3 means several games match. The envelope carries `candidates[]`, each
 with a `ref` (`game:01K…` or `igdb:7346`), `title`, `year`, `platforms`,
 `source` and `in_log`.
 
-One button per candidate: `label` is the title, with the year when it
-disambiguates, and the callback `value` is that candidate's `ref`, verbatim.
-Re-invoke the original command with `--id <the ref that came back>` — same
-command, same arguments, plus the ref.
+**The title goes in the message text, never on the button.** A button sized to
+a title truncates it — several real titles are longer than a channel's button
+width — so list the candidates, numbered, in the message, and let the button
+carry only the number:
+
+> Which one?
+> 1. Sifu (2022)
+> 2. Sifu: Arenas (2023)
+
+One button per candidate, same order as the list: `label` is just the number
+as text (`"1"`, `"2"`, …), and the callback `value` is still that candidate's
+`ref`, verbatim, never the number itself. Re-invoke the original command with
+`--id <the ref that came back>` — same command, same arguments, plus the ref.
 
 Never edit a `ref`. Never construct one. It is an opaque string that round-trips.
 

@@ -425,6 +425,14 @@ agent built the payload wrong" in one shot, and getting those two confused cost
 several rounds here — including one where the test itself was malformed and its
 negative result was believed.
 
+**Candidate titles as button labels truncate.** Live testing on Sifu (not even
+a long title) showed the channel clipping it mid-word. `SKILL.md`'s *Candidates*
+section now numbers the candidates in the message text and puts only the
+number on the button — the button's width stops depending on the title's
+length at all. Digit emoji were considered for the label instead of plain text
+but dropped: `SKILL.md` is ASCII-only by `test/agent-skill.test.ts`, and a
+plain `"1"`/`"2"` needs no exception to that rule.
+
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever
