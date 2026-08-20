@@ -140,13 +140,33 @@ CLI raises ambiguity on its own, but a `search` that comes back with four games
 is the same situation arriving through a different door. Do not pick from it
 yourself.
 
-**Code 4 from `start` does not mean "invent it".** `start` never touches the
-network, so a title that is not already on record comes back `not_found` whether
-or not the catalog knows it perfectly well. The message suggests
-`--no-metadata`, and that hint is written for a person at a terminal who already
-knows what they own. You have a catalog you have not asked yet — search first,
-and reach for `--no-metadata` only when the user confirms the game is genuinely
-not in it.
+**Lead with `search` unless you know the game is already on record.** `start`
+performs no network I/O, so the first session of any new game exits 4 —
+`not_found` — before you have asked the catalog anything. That is correct
+behaviour and it is also visible to the user: this gateway surfaces every
+non-zero exit to the user as a failed-exec warning naming the command, so a
+flow that works perfectly
+still puts an error on their screen.
+
+`search` never exits non-zero. Empty result, local hit, provider hit — always
+code 0, always safe to lead with, and it answers both questions at once: is this
+on record, and what does the catalog have?
+
+```
+gamereg search "Sifu" --platform ps5 --json
+```
+
+- **One local candidate** (`ref` starting `game:`) — it is on record. `gamereg
+  start "<title>"` resolves to it.
+- **One provider candidate** (`igdb:…`) — not on record yet. `gamereg start
+  "<title>" --id igdb:144022`, which creates it carrying the provider id, so
+  `enrich` has something to work from later.
+- **Several** — that is the question from *Candidates*; ask it.
+- **None at all** — now `--no-metadata` is the honest answer, and only now.
+
+**Code 4 from `start` still does not mean "invent it".** If you get one anyway,
+the message suggests `--no-metadata`, and that hint is written for a person at a
+terminal who already knows what they own. Search before you take it.
 
 Getting this right before creating matters more than it looks: **once a record
 exists locally, `search` stops asking the provider at all** — it consults the

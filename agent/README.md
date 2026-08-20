@@ -120,6 +120,21 @@ refused outright — the log is append-only and a typo here would be permanent.
 allocate a pty; under one, the CLI would think a human is present and sit
 forever on a prompt nobody can answer.
 
+### Exit codes are control flow here, and the gateway does not know that
+
+The gateway prints a failed-exec warning to the user for any non-zero exit. In
+`gamereg`, codes 3 (ambiguous) and 4 (not_found) are not failures — they are how
+the CLI answers a question, and the agent is built around them. The result is a
+warning on the user's screen in the middle of a flow that is working exactly as
+designed: `start` on a game not yet on record exits 4 every time, because
+`start` performs no network I/O and the catalog has not been consulted yet.
+
+Nothing in `gamereg` should change for this — the exit codes are its contract
+(02-cli.md) and a CLI that returned 0 for "not found" would be worse for every
+other caller. The skill avoids the collision instead: `search` never exits
+non-zero, answers both "is it on record" and "what does the catalog have", and
+is what a start now leads with when the game may be new.
+
 ### Moving a deployment between users
 
 Copying `~/.openclaw` and reinstalling the service is not the whole job. The

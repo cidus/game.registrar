@@ -36,6 +36,12 @@ localized and change.
 | 6 | provider_unavailable | The network failed. **The local work was still committed.** |
 | 7 | needs_confirmation | Destructive. Ask the user, then re-run with `--yes`. |
 
+**A non-zero exit is shown to the user.** This gateway prints a failed-exec
+warning naming the command for any exit but 0, so codes 3 and 4 — ordinary
+control flow for you — read as breakage on their screen. Prefer the call that
+returns 0: `search` never exits non-zero, while `start` on a game not yet on
+record always exits 4.
+
 ## A candidate
 
 ```json
