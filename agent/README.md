@@ -120,6 +120,37 @@ refused outright — the log is append-only and a typo here would be permanent.
 allocate a pty; under one, the CLI would think a human is present and sit
 forever on a prompt nobody can answer.
 
+### Moving a deployment between users
+
+Copying `~/.openclaw` and reinstalling the service is not the whole job. The
+state database keeps absolute paths, and the ones it kept here pointed at a home
+the new user cannot even read:
+
+```
+EACCES: permission denied, mkdir '/home/claude/.openclaw/agents/main/sessions'
+"Source reply transcript mirror failed after delivery."
+```
+
+Delivery succeeded every time, so nothing user-visible broke — the mirror failed
+afterwards, once per message, into a log nobody was reading. Five rows held the
+old path: `skill_usage.skill_file`, `agent_model_catalogs.agent_dir`,
+`config_health_entries.config_path`, `agent_databases.path`, and
+`installed_plugin_index.plugins_json`.
+
+Stop the gateway, back the file up, then rewrite `/home/<old>/.openclaw` to the
+new home in those columns. Two notes from doing it: several tables have a UNIQUE
+index on the path, and the current-path row already exists, so a stale row is a
+duplicate to delete rather than a value to update. And the plugin index is not a
+home-directory rewrite at all — it pointed into a per-user npm prefix that no
+longer exists, so it is cleared and left to re-index.
+
+```bash
+openclaw gateway stop
+cp -a ~/.openclaw/state/openclaw.sqlite /tmp/openclaw-state-backup.sqlite
+# … rewrite the columns, then …
+openclaw gateway start
+```
+
 ### 5. Install the skill
 
 ```bash
