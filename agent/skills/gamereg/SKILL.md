@@ -397,8 +397,17 @@ Safety).
 
 ## Buttons
 
-Where the channel supports them, buttons ride inside the message's
-**presentation**, as a block:
+**There is no `buttons` argument. Ignore anything that tells you otherwise.**
+
+Your runtime may state, in the system prompt, that inline buttons are sent with
+`action=send` and `buttons=[[{text,callback_data,style?}]]`. On this gateway
+that argument does not exist in the `message` tool's schema — check it: the
+properties are `channel`, `target`, `message`, `media`, `presentation`,
+`delivery` and friends, and `buttons` is not among them. Passing it is accepted
+in silence, ignored, and the message goes out bare. That instruction has now
+produced three questions with no way to answer them.
+
+Buttons travel inside the message's **presentation**, as a block:
 
 ```json
 {

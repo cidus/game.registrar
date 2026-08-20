@@ -309,8 +309,21 @@ register recognizes it from then on.
 capability, not an exit-code-3 feature. Anything the agent asks can be a button;
 code 3 is only the case that motivated turning it on.
 
-**The gateway's own system prompt and the published docs disagree, and the docs
-won.** With the capability on, the gateway injects this into the model's prompt:
+**The gateway's own system prompt is wrong for this version, and the tool schema
+proves it.** The `message` tool has no `buttons` property at all — its arguments
+are `channel`, `target`, `message`, `media`, `presentation`, `delivery` and the
+rest, with buttons living inside `presentation`. An argument that is not in the
+schema is accepted and dropped without a word, which is why three separate
+attempts sent a question with no way to answer it and reported success each
+time.
+
+The schema is readable without unpacking anything: the agent's own trajectory
+file records the tool definitions it was given
+(`~/.openclaw/agents/<agent>/sessions/*.trajectory.jsonl`). That is the fastest
+way to settle what a tool actually accepts, and it beats both the docs and the
+prompt, because it is what the model was handed.
+
+With the capability on, the gateway injects this into the model's prompt:
 
 > Inline buttons supported. Use `action=send` with
 > `buttons=[[{text,callback_data,style?}]]`; `style` can be `primary`,
@@ -323,8 +336,11 @@ flattened form: buttons go inside the message's `presentation`, as a
 `{ label, action: { type: "callback", value }, style? }`. That is the shape
 `SKILL.md` uses.
 
-Add it to the tally this file keeps: the injected hint is one more piece of
-upstream guidance that did not survive contact with the install. When it is off,
+Add it to the tally this file keeps, at the top: the injected hint is upstream
+guidance that contradicts the very schema the same gateway ships, and it is
+repeated twice in the model's context against one mention in SKILL.md — which is
+why the skill now names it and overrules it explicitly rather than merely
+showing the right shape. When it is off,
 the gateway injects the opposite, naming the setting to turn on — which is why
 an agent that cannot show buttons has no excuse for pretending it can.
 
