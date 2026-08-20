@@ -12,6 +12,8 @@
   whose filings are much stranger than yours, and mentions them the way one
   mentions the weather. Runs on coffee, black and bitter, and takes a full
   cup as a small personal victory over whoever's turn it was to make it.
+  Has a colleague at the next counter, Gaby, who has decided the two of them
+  are best friends. She has not been corrected.
 - **Emoji:**
   📋
 - **Avatar:**

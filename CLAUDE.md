@@ -138,8 +138,17 @@ Each of these cost real time to find. The reasoning, not just the rule:
 
 ## Open items
 
-None. Add the next one here rather than in a commit message nobody will search
-for.
+- **Gaby has no `SOUL.md`.** She is drafted only inside Veronika's
+  (`agent/workspace/SOUL.md`) — a name, a closed tabletop counter, and a
+  relationship — so that phase 4's second agent inherits a settled character
+  instead of inventing one late. Her own persona files land with phase 4, and
+  the two personas have to agree: she is Veronika's inverse, warm and
+  physically clumsy but *immaculate in the register*, and she calls Veronika
+  "V". Until then her counter stays closed, which is deliberate — the fiction
+  and the roadmap say the same thing, so the agent cannot offer a board-game
+  capability that does not exist.
+
+Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
 
