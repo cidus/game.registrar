@@ -35,6 +35,13 @@
   agents: {
     defaults: {
       workspace: "~/.openclaw/workspace",
+
+      // Cheaper model for short internal tasks only — confirmed against the
+      // live schema, this is scoped to things like generated session/thread
+      // titles. It does not touch command interpretation, gamereg
+      // invocation, or the persona: those stay on the primary model above.
+      // Same auth profile as Sonnet, no separate credential needed.
+      utilityModel: "anthropic/claude-haiku-4-5",
     },
   },
 
