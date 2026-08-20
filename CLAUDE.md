@@ -305,6 +305,16 @@ terms, every enum token having one.
 English, with no phrasebook" enforces the English-only rule by refusing
 non-ASCII letters in `SKILL.md` and `reference/`.
 
+## Protected regions
+
+Text between `<!-- human-owned -->` and `<!-- /human-owned -->`, in any file
+in this repository, is never edited, rewritten, reworded, or deleted by an AI
+session — not even as a side effect of a broader edit to the same file, and
+not even if the surrounding request seems to call for it. If a change appears
+to require touching a protected region, stop and ask instead of editing
+around it or through it. The marker pair is the author's own, added by hand;
+nothing in tooling enforces it — this rule is what enforces it.
+
 ## What to ask about rather than assume
 
 - Anything requiring a schema change to `01-model.md`
