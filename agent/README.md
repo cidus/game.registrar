@@ -71,6 +71,11 @@ curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | python3 -m json.tool
 While you're in BotFather, run `/setjoingroups` and disable it. This bot is
 DM-only; there's no reason it should be addable to a group at all.
 
+`/setuserpic` sets the avatar, which is the only place the persona is visible
+before the agent says anything. The image is not in this repository and the
+reasoning is in `PERSONAS.md`, along with the prompts that generated it — with
+no image committed, those prompts are what reproduces one.
+
 ### 3. Configure OpenClaw
 
 `openclaw.example.json5` isn't just channel config — it also carries the
@@ -166,13 +171,25 @@ cp -a ~/.openclaw/state/openclaw.sqlite /tmp/openclaw-state-backup.sqlite
 openclaw gateway start
 ```
 
-### 5. Install the skill
+### 5. Install what the agent reads
+
+Two copies, and both are required. The skill is the procedure; the workspace
+files are the persona and the standing orders. Install only the first and the
+agent knows how to drive `gamereg` while sounding like nobody in particular.
 
 ```bash
 cp -R agent/skills/gamereg ~/.openclaw/workspace/skills/
 ```
 
-**A conversation already under way keeps the copy it loaded.** The skill is read
+```bash
+cp agent/workspace/*.md ~/.openclaw/workspace/
+```
+
+`PERSONAS.md` is deliberately not among them — it sits at `agent/` root
+because it is a design document for whoever draws a character, and the agent
+has no use for it.
+
+**A conversation already under way keeps the copy it loaded.** These are read
 into a session once, at its start, and restarting the gateway does not change
 that: the transcript, with the old text inside it, is what the model keeps
 reading. `/reset` in the chat starts a fresh one.
