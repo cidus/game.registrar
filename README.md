@@ -148,6 +148,12 @@ verbs, prompts and generated labels come from `i18n/<locale>.json`. `en` and
 `pt-BR` ship in the box — `gamereg start` and `gamereg iniciar` are the same
 command.
 
+## Contributing
+
+Issues and PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for
+setup and conventions, [SECURITY.md](SECURITY.md) to report a vulnerability
+privately, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
 Code under MIT.
