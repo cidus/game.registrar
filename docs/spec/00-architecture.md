@@ -92,6 +92,23 @@ each one is another door out of this tool for the data.
 tracking ownership. That is the only place in the system that removes anything,
 and it is fenced accordingly.
 
+### D9 — Capability is introspectable, never a list the caller keeps
+
+A caller that needs to know what this tool can do asks it. `query --schema`
+returns the views, `vocab` returns the terms, and anything of the same kind
+follows the same shape: a JSON answer from the installed binary, not a table the
+caller carries.
+
+*Why:* every copy of such a list is a copy that can silently disagree with the
+version actually installed. The agent layer already paid for this lesson —
+`i18n/` stays the one place a term is written down because `vocab` exists, and a
+second phrasebook would have drifted the first time a locale gained a term. A
+caller built against a hardcoded table also cannot tell an old install from a new
+one; asking, it can.
+
+*Accepted cost:* one command per kind of capability, each with its own tests.
+Small, and the alternative is paid later in a bug nobody can reproduce.
+
 ## Non-goals
 
 - **Not a library manager.** It does not import your Steam account, does not know
@@ -179,6 +196,13 @@ Breaking any of these is a serious bug, not a preference.
    output, never another target's, never the network.
 9. The build never removes a file it does not own. Ownership is recorded in
    `.gamereg/manifest.json`, never inferred from a filename.
+10. Every configurable value can be set without a TTY. A setting reachable only
+    through an interactive prompt is a bug — the agent has no terminal, and
+    neither does an unattended install.
+11. Nothing is coupled to an install path. The vault is wherever `--vault` or
+    `GAMEREG_VAULT` says, and the runtime files the CLI needs (`i18n/`,
+    `templates/`) are found relative to the code, not to a home directory or a
+    fixed prefix.
 
 ## Threat model (brief)
 

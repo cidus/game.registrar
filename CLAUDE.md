@@ -182,6 +182,23 @@ Each of these cost real time to find. The reasoning, not just the rule:
   her text will have to agree with, and which details are canon rather than
   set dressing.
 
+- **Packaging and first-run setup are phase 5, deliberately last.** The shape
+  was settled early so the phases before it do not paint it into a corner: a
+  generator collects secrets and connectivity and emits declarative
+  configuration, the image pins CLI, gateway, skill and persona together, and
+  everything that is merely preference — timezone, platforms, which targets —
+  is asked in chat by a *second* skill with its own binary, gated by
+  `requires.bins` and gone from the PATH and the exec allowlist once setup
+  finishes. That last detail is what keeps `agent/workspace/AGENTS.md`'s
+  boundary intact: the agent still executes one allowlisted binary and still
+  writes no file itself. Two things must stay true or the idea rots — the
+  system has to work with no conversation at all (defaults apply; the wizard is
+  refinement, never a gate), and no secret may be collected in chat, because
+  the transcript lands in `~/.openclaw/agents/<agent>/sessions/*.jsonl` in
+  plaintext. Nothing here is built. What already landed from the design is D9
+  and invariants 10-11 in `00-architecture.md`, which hold whether or not any
+  of this is ever built.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
@@ -209,6 +226,12 @@ From `00-architecture.md`. Not style preferences:
 11. A user cover (`source: user`) is never replaced by enrichment, not even under
     `--covers --force`. Only `cover --reset` gives provider art back.
 12. GPS and the rest of EXIF are stripped on ingest. Not configurable off.
+13. Every configurable value can be set without a TTY. A setting reachable only
+    through an interactive prompt is a bug — the agent has no terminal, and
+    neither does an unattended install.
+14. Nothing is coupled to an install path. The vault is wherever `--vault` or
+    `GAMEREG_VAULT` says, and `i18n/`/`templates/` are found relative to the
+    code, never to a home directory or a fixed prefix.
 
 If a task seems to require breaking one of these, stop and raise it rather than
 working around it.

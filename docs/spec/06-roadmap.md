@@ -71,6 +71,36 @@ terminal once.
 The model already accommodates this (D6). If phase 4 requires a schema migration,
 something went wrong earlier.
 
+## Phase 5 — Someone else's machine
+
+**Goal:** the tool installs, configures itself and runs on a machine its author
+has never touched.
+
+- Published package; the install path in `docs/getting-started.md` reduced to one
+  command
+- A container image carrying the CLI, the gateway, the skill and the persona at
+  versions known to work together
+- A generator that emits the declarative configuration — compose file and
+  environment — and never becomes part of the runtime
+- `targets --json`, and whatever else the generator would otherwise hardcode; see
+  D9 in [00-architecture](00-architecture.md)
+- First-run configuration as a conversation: a second skill with its own binary,
+  which leaves the PATH and the exec allowlist once setup is done
+
+Last for a reason that is not effort. Publishing is a one-way door — a tag can be
+unpublished, a vault on someone else's disk cannot. While config keys,
+environment names, vault layout and target names can still move, each one is a
+migration owed to a stranger. The phases above are where those contracts settle.
+
+The pressure this phase puts on *Explicitly deferred* is real and does not change
+it: an installer reaches people who will never open a vault in Obsidian, and a
+web UI is what they will ask for. `html` and `site` are the answer; a server with
+accounts is still not.
+
+**Exit criterion:** someone who has never seen this repository installs it and
+records a session — without cloning anything, and without being told anything
+that is not in the generated README.
+
 ## Explicitly deferred
 
 - Multi-user anything
