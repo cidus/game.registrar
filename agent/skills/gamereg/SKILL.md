@@ -480,33 +480,29 @@ with a `ref` (`game:01K…` or `igdb:7346`), `title`, `year`, `platforms`,
 `source`, `in_log` and `cover_url` (a real URL, or `null` — a locally-recorded
 game whose cover is a user photo has no `cover_url` yet, only a local asset).
 
-**Every candidate has a `cover_url`** — send one message per candidate: `media`
-is the `cover_url`, `caption` is the title (with the year when it disambiguates),
-and `presentation.blocks` carries exactly one button, labelled with a short
-affirmative ("Choose this one") rather than a number — there is nothing to
-disambiguate within a single message. The callback `value` is still that
-candidate's `ref`, verbatim. This is not literally "tap the photo" — the tap
-target is the button, same as any other menu — but the cover replaces reading
-a title off a list, which is the point.
+**No buttons here — a numbered reply in plain text, always.** A callback
+button on this deployment is confirmed dead: the gateway swallows the tap
+before it ever reaches you (`agent/README.md` has the trace). A button nobody
+can act on is worse than no button (same reasoning as *Buttons*' "ask in plain
+text" rule) — so candidates are chosen by the user typing the number back,
+never by a tap.
 
-Do not send several photos in one `message` call to save round-trips: the
-gateway only attaches `presentation`'s buttons to the *first* media item in a
-multi-media send (see `agent/README.md`), so every candidate after the first
-would arrive as an unlabelled, untappable photo. One candidate, one message,
-every time.
+**Every candidate has a `cover_url`** — send one message per candidate anyway,
+photos still help: `media` is the `cover_url`, and the caption is the number
+plus the title, e.g. `"1. Sifu (2022)"` — no `presentation` block. After the
+last one, close with "Reply with the number." Whatever the user sends back —
+a bare digit, "the second one", the title itself — match it against the
+candidates you just listed and re-invoke with that one's `ref`; do not wait
+for a specific format.
 
-**Any candidate is missing a `cover_url`** — fall back to the plain-text form:
-list the candidates, numbered, in the message, and let the button carry only
-the number, same order as the list:
+**Any candidate is missing a `cover_url`** — same shape without the photos:
+one message, numbered, no buttons:
 
 > Which one?
 > 1. Sifu (2022)
 > 2. Sifu: Arenas (2023)
-
-One button per candidate: `label` is just the number as text (`"1"`, `"2"`, …),
-and the callback `value` is still that candidate's `ref`, verbatim, never the
-number itself. Do not mix photos and numbered text in the same menu — one
-candidate lacking a cover means the whole menu falls back to text.
+>
+> Reply with the number.
 
 Either way, re-invoke the original command with `--id <the ref that came
 back>` — same command, same arguments, plus the ref.

@@ -461,7 +461,53 @@ openclaw message send --channel telegram --target "telegram:<id>" \
 ```
 
 Sent and confirmed on this deployment: photo, caption, one tappable button
-underneath, exactly as `SKILL.md` describes.
+underneath, exactly as `SKILL.md` described it — **but that only confirms the
+button renders.** It does not confirm a tap does anything, and on this
+deployment, right now, it does not.
+
+**A callback button's tap never reaches the agent — confirmed twice, one
+photo message and one plain-text one.** Both were sent, both showed a
+button, both were tapped (once, then twice on the second test), and the
+gateway log (`journalctl --user -u openclaw-gateway`) shows nothing after
+either tap: no new `Inbound message` line, no mention of `callback`
+anywhere in this gateway's history. `answerCallbackQuery` still runs (the
+button stops "loading" on the Telegram side), so nothing *looks* broken from
+the client — it just silently does nothing.
+
+Traced into the installed package
+(`openclaw@2026.7.1-2`, the current version — `npm view openclaw version`
+confirms no update fixes this):
+
+- Every `action: {type: "callback", value}` button gets its `callback_data`
+  wrapped in an opaque, checksummed envelope on the way out, unconditionally
+  — not only for values over Telegram's 64-byte limit
+  (`button-types-B2h0t2EL.js:37`, `buildTelegramOpaqueCallbackData`).
+- The inbound `callback_query` handler
+  (`telegram-ingress-spool-Dd3cDhXe.js:3483`) decodes that envelope, and if
+  the decoded value doesn't match one of a handful of *specific* built-in
+  cases (exec approval, a managed multi/single-select, command pagination,
+  the `/model` picker, a registered plugin's own interactive component), it
+  hits this and returns, doing nothing further:
+
+  ```js
+  if (opaqueCallbackData) return;  // telegram-ingress-spool-Dd3cDhXe.js:3781
+  ```
+
+  The code that *would* turn a tap into a synthetic `callback_data: <value>`
+  message for the agent — `buildSyntheticTextMessage` /
+  `processMessageWithReplyChain`, around line 3987 — sits **after** that
+  return. A plain candidate-selection button never gets there.
+
+**Consequence for `SKILL.md`: no button built through the generic `message`
+tool's `presentation.blocks` currently does anything when tapped** — not the
+cover-photo candidate button, not the plain numbered one, not the yes/no
+session-switch offer, not the cover-replace offer. All of those sections
+still describe buttons; take the description of *what gets sent* as accurate
+and the claim of *what a tap does* as false until this is fixed upstream.
+*Candidates* was rewritten to ask for a numbered reply in plain text instead
+(agreed with the user testing this deployment) — the other button-shaped
+prompts in `SKILL.md` (`Photos`' cover-replace offer, the session-switch
+offer) have the same bug and have not been rewritten yet; that's open.
 
 ## Smoke test
 
