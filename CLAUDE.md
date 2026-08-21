@@ -196,26 +196,26 @@ Each of these cost real time to find. The reasoning, not just the rule:
   refinement, never a gate), and no secret may be collected in chat, because
   the transcript lands in `~/.openclaw/agents/<agent>/sessions/*.jsonl` in
   plaintext. Nothing here is built. What already landed from the design is D9
-  and invariants 10-11 in `00-architecture.md`, which hold whether or not any
+  and invariants 14-15 in `00-architecture.md`, which hold whether or not any
   of this is ever built.
 
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
 
-From `00-architecture.md`. Not style preferences:
+The same list as `00-architecture.md`'s *Invariants*, same numbering — cite
+either name and the number means one rule. Not style preferences:
 
 1. `data/events.jsonl` is append-only. No code path rewrites or deletes a line.
 2. `gamereg build` is idempotent — byte-identical output on a second run,
    including binary targets.
 3. Nothing outside `<!-- gamereg:... -->` markers is modified in a note. Test it.
-4. No write command performs network I/O. `enrich` is a separate command, and it
+4. Delete every derived artifact, rebuild, lose nothing. A build argument
+   narrows a build; it never defines what the vault contains.
+5. No write command performs network I/O. `enrich` is a separate command, and it
    is the only one that reaches the network.
-5. Every state mutation appends at least one event.
-6. Durations, ratings and session state are computed in code. Never inferred.
-7. Output format and interactivity are two independent axes, both defaulted from
-   the environment. The interactive menu is a presenter over the same candidate
-   array a JSON caller gets — never a second resolution code path.
+6. Every state mutation appends at least one event.
+7. Durations, ratings and session state are computed in code. Never inferred.
 8. A target reads the folded state and the config. Nothing else — not the
    filesystem, not the network, not its own previous output, not another
    target's.
@@ -226,10 +226,13 @@ From `00-architecture.md`. Not style preferences:
 11. A user cover (`source: user`) is never replaced by enrichment, not even under
     `--covers --force`. Only `cover --reset` gives provider art back.
 12. GPS and the rest of EXIF are stripped on ingest. Not configurable off.
-13. Every configurable value can be set without a TTY. A setting reachable only
+13. Output format and interactivity are two independent axes, both defaulted from
+    the environment. The interactive menu is a presenter over the same candidate
+    array a JSON caller gets — never a second resolution code path.
+14. Every configurable value can be set without a TTY. A setting reachable only
     through an interactive prompt is a bug — the agent has no terminal, and
     neither does an unattended install.
-14. Nothing is coupled to an install path. The vault is wherever `--vault` or
+15. Nothing is coupled to an install path. The vault is wherever `--vault` or
     `GAMEREG_VAULT` says, and `i18n/`/`templates/` are found relative to the
     code, never to a home directory or a fixed prefix.
 

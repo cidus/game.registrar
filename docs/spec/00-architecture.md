@@ -181,7 +181,11 @@ diary alongside the code, or you never publish the code.
 
 ## Invariants
 
-Breaking any of these is a serious bug, not a preference.
+Breaking any of these is a serious bug, not a preference. `CLAUDE.md` repeats
+this list for a coding session, under the name *Non-negotiables* and with the
+same numbering: "invariant 5" and "non-negotiable 5" are one rule. Several are
+stated in full elsewhere in the spec and consolidated here; those carry a
+pointer.
 
 1. `events.jsonl` only grows. No line is ever altered or removed.
 2. `gamereg build` is **idempotent**: running it twice produces identical bytes.
@@ -196,10 +200,22 @@ Breaking any of these is a serious bug, not a preference.
    output, never another target's, never the network.
 9. The build never removes a file it does not own. Ownership is recorded in
    `.gamereg/manifest.json`, never inferred from a filename.
-10. Every configurable value can be set without a TTY. A setting reachable only
+10. SQLite is a cache, never a source of truth. Deleting `data/log.db` costs
+    nothing, `query` only reads it, and nothing but the build writes it. See
+    [07-targets](07-targets.md).
+11. A cover with `source: user` is never replaced by enrichment, not even under
+    `--covers --force`. Only `cover --reset` gives provider art back. See
+    [02-cli](02-cli.md).
+12. GPS and the rest of EXIF are stripped on ingest. Not configurable off. See
+    [04-derived](04-derived.md).
+13. Output format and interactivity are two independent axes, both defaulted
+    from the environment. The interactive menu is a presenter over the same
+    candidate array a JSON caller gets, never a second resolution code path —
+    D3 above.
+14. Every configurable value can be set without a TTY. A setting reachable only
     through an interactive prompt is a bug — the agent has no terminal, and
     neither does an unattended install.
-11. Nothing is coupled to an install path. The vault is wherever `--vault` or
+15. Nothing is coupled to an install path. The vault is wherever `--vault` or
     `GAMEREG_VAULT` says, and the runtime files the CLI needs (`i18n/`,
     `templates/`) are found relative to the code, not to a home directory or a
     fixed prefix.

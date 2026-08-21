@@ -24,7 +24,7 @@ things worth reporting:
 
 - **Secret handling.** `gamereg.secrets.json` (provider API credentials) is
   never logged, never written into `data/events.jsonl`, and `enrich` is the
-  only command that performs network I/O (non-negotiable #4 in `CLAUDE.md`).
+  only command that performs network I/O (non-negotiable #5).
   If you find a path where a secret ends up somewhere else, that's a bug
   worth a private report.
 - **EXIF/location data.** GPS and the rest of EXIF are stripped on image
