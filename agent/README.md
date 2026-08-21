@@ -501,13 +501,23 @@ confirms no update fixes this):
 **Consequence for `SKILL.md`: no button built through the generic `message`
 tool's `presentation.blocks` currently does anything when tapped** — not the
 cover-photo candidate button, not the plain numbered one, not the yes/no
-session-switch offer, not the cover-replace offer. All of those sections
-still describe buttons; take the description of *what gets sent* as accurate
-and the claim of *what a tap does* as false until this is fixed upstream.
-*Candidates* was rewritten to ask for a numbered reply in plain text instead
-(agreed with the user testing this deployment) — the other button-shaped
-prompts in `SKILL.md` (`Photos`' cover-replace offer, the session-switch
-offer) have the same bug and have not been rewritten yet; that's open.
+session-switch offer, not the cover-replace offer. `SKILL.md` no longer builds
+any of them: the old *Buttons* section is now *Confirmations*, every
+button-shaped prompt (*Candidates*, the session-switch offer, the cover-replace
+offer, `amend`/`revoke`'s confirmation) asks and is answered in plain text.
+Converting any one of them back to a real two-button question, if this is ever
+fixed upstream, is small and mechanical — the decision doesn't change, only how
+the answer travels back.
+
+**Not a new regression on this machine — the installed version has been
+"latest" for over a month.** `npm view openclaw time --json` puts
+`2026.7.1-2`'s publish date at 2026-07-18; it was only installed on this
+machine on 2026-08-19. Whether the bug is older than that release isn't
+something this repo can answer (that's `openclaw`'s own history, not
+`gamereg`'s). What is worth knowing: `npm view openclaw dist-tags` shows a
+`beta` channel well ahead of `latest` (`2026.8.1-beta.2`, published
+2026-08-15) — untested here, but the first thing to try if this ever gets
+revisited, before assuming a fix requires waiting on `latest`.
 
 ## Smoke test
 
