@@ -347,10 +347,18 @@ If the ids are gone, because this is a later conversation, find them with SQL:
 This is `revoke`, so the confirmation in *Safety* applies in full: say what will
 stop counting — the game, the run, the session, by name — and wait for an
 unambiguous yes before the first command, not between them. Ask it the way
-*Confirmations* says, buttons included, with the first id you are about to
-revoke in the value: `revoke-session:<session.open id>`. One confirmation
-covers the whole reverse-order sequence — you are not asking again between
-commands — so the value names where it starts.
+*Confirmations* says, buttons included, and put the **`session_id`** in the
+value — `revoke-session:<session_id>`. That names which session is being
+undone, which is all the value has to do; one confirmation covers the whole
+reverse-order sequence, so it never names a single event.
+
+**The value is not the revoke target.** When the tap comes back, go get the
+ids from `events[]` as above — `session_id`, `run_id` and `game_id` are
+*entity* ids, and the things `revoke` takes are *event* ids. They are not
+interchangeable and they are cruelly easy to confuse: for one session here the
+`session_id` was `01M0JAMZTJQ4W489FNDCREMYB7` and the `session.open` event was
+`01M0JAMZTJQ4W489FNDCREMYB8` — same prefix, different last character. Passing
+the button's value straight to `revoke` exits 4, which is how this was found.
 
 ## The wrong game, chosen from the menu
 
@@ -437,9 +445,12 @@ Safety).
 
 The question carries buttons like any other (see *Confirmations*), and here the
 rule that a value names the action in full is not a nicety: the value says what
-is being changed — `amend-platform:<event id>` — so that a tap arriving late,
-after the conversation has moved on, cannot be read as consent to whatever is
-pending now. Ask in the sentence too; a button label is not the question.
+is being changed — `amend-platform:<id of the event being amended>` — so that a
+tap arriving late, after the conversation has moved on, cannot be read as
+consent to whatever is pending now. That is the event's own id, the one `amend`
+takes, not the `run_id` or `game_id` it belongs to; see *Confirmations* on why
+those are never interchangeable. Ask in the sentence too; a button label is not
+the question.
 
 ## Confirmations
 
@@ -486,6 +497,12 @@ Three rules for `value`, all load-bearing:
 - **It is matched against buttons you actually sent in this conversation.** A
   value you do not recognize is not a decision — ask in plain text rather than
   acting on the nearest-looking match.
+- **It says which decision was taken; it is not automatically an argument.**
+  Sometimes it happens to be one — a candidate's `ref` is exactly what `--id`
+  takes. Often it is not: `revoke-session:<session_id>` tells you *which*
+  session to undo, and the ids you then pass to `revoke` come from `events[]`,
+  which are event ids and not that one. Read the value as an answer, then work
+  out the command from the register as you would have if they had typed it.
 
 **State what you're asking, not just "confirm?".** "Close Sonic's session
 too?" names the thing; "shall I do that?" three messages later does not — say
