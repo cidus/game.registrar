@@ -486,6 +486,16 @@ instead of `label`, you are building the dead shape.
 **A tap arrives as a message reading `callback_data: <value>`** — that string,
 verbatim, and nothing else. Treat it exactly as the typed answer it stands for.
 
+**Media on that message is yours, not theirs. Ignore it.** The tap is built by
+copying the message the button was attached to, and only the text is replaced —
+so a button under a candidate's cover art comes back carrying that cover art,
+looking exactly like a photo the user just sent. It is not: they tapped a
+button, and a tap cannot carry an attachment. Nothing in *Photos* applies to
+it. Filing it would attach the game's own promotional art to their session, or
+worse, read as a photographed box and mark the run `--form physical` — a fact
+about how they played, invented from a tap. If a message carries both
+`callback_data:` and an image, the image is furniture from your own message.
+
 Three rules for `value`, all load-bearing:
 
 - **It names the action in full**, never `yes` or `1`. A tap on a button from
@@ -580,6 +590,10 @@ Never edit a `ref`. Never construct one. It is an opaque string that round-trips
 
 Images arriving in chat are written to a temp path; pass that path as `--photo`.
 You never move, rename or hash a file — ingestion is the CLI's job.
+
+**None of this applies to an image on a `callback_data:` message** — that one
+is your own cover art coming back with the tap, and *Confirmations* says to
+ignore it. Everything below is about a photo a person actually sent.
 
 Three decisions, and only these:
 

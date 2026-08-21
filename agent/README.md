@@ -511,6 +511,32 @@ grep -l "callback_data: probe-a" ~/.openclaw/agents/*/sessions/*.jsonl
 {"role":"user","content":"callback_data: probe-a","__openclaw":{"senderIsOwner":true}}
 ```
 
+**A tap comes back carrying the media of the message the button was on.**
+`buildSyntheticTextMessage` (`telegram-ingress-spool-Dd3cDhXe.js:2085`) spreads
+the whole base message and overrides only `text`, `caption`, `caption_entities`
+and `entities` — the `photo` array survives:
+
+```js
+const buildSyntheticTextMessage = (params) => ({
+  ...params.base, text: params.text, caption: void 0, ...
+});
+```
+
+Since `base` is the message the button lives on, tapping a candidate's button
+hands the agent that candidate's cover art, indistinguishable from a photo the
+user just sent. Seen live: the agent spent a failed tool call and two turns of
+reasoning before concluding on its own that the image was its own. It happened
+to conclude right. Had it classified the cover as a `box` photo instead,
+`SKILL.md`'s *Photos* rules would have marked the run `--form physical` — a
+claim about how someone played, invented from a tap. `SKILL.md` now says
+outright that media on a `callback_data:` message is furniture from its own
+message.
+
+(The reference itself does not resolve — `Unsupported image reference:
+telegram:file/…` — because the callback path passes `allMedia: []`, so nothing
+downloads the file. That is what made the failure loud rather than silent, and
+it is luck, not a safeguard.)
+
 Two things that shape stakes on, both read out of the package rather than
 guessed:
 
