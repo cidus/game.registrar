@@ -232,6 +232,11 @@ moving on, which is now, unless they tell you it ended earlier.
 gamereg end --note "<transcript, lightly cleaned>" --json
 ```
 
+Once that succeeds, before you're done with this turn: `gamereg build --json`
+in the background, silently — see *Background maintenance*. It is easy to
+consider the turn finished the moment you've replied about the session; it
+isn't, until that call has also been made.
+
 The note is the user's words. **Summarizing here destroys the raw material the
 verdict is built from later.** Fix obvious transcription errors; keep their
 voice, their slang and their profanity.
@@ -710,6 +715,10 @@ Two steps, in order:
 gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_ending --json
 gamereg verdict "hollow knight" -m "<the user's words>" --json
 ```
+
+Once `finish` succeeds, the same background `gamereg build --json` from
+*Ending a session* applies here too — do not skip it just because a verdict
+step follows; it isn't waiting on the verdict.
 
 **The verdict is not yours to write uninvited.** `gamereg verdict` takes prose
 from anywhere and the register does not record where it came from. Drafting is
