@@ -461,6 +461,15 @@ a bare digit, "the second one", the title itself — match it against the
 candidates you just listed and re-invoke with that one's `ref`; do not wait
 for a specific format.
 
+**A reply that doesn't match any candidate is not a bad answer — it's a
+correction.** If they type a fuller or differently-spelled title instead of a
+number, none of the candidates you listed necessarily is what they meant; run
+a fresh `search`/`start` with their own wording rather than forcing it onto the
+closest-looking candidate. This is the same rule as *Starting a session*
+above — "fix how they wrote it, never decide which game they meant" applies
+here too: complete a title only from the user's own words, never guess which
+of several candidates they meant.
+
 **Any candidate is missing a `cover_url`** — same shape without the photos:
 one message, numbered, no buttons:
 
