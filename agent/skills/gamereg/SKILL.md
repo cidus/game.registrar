@@ -477,21 +477,39 @@ made to look like one they can.
 
 Exit code 3 means several games match. The envelope carries `candidates[]`, each
 with a `ref` (`game:01K…` or `igdb:7346`), `title`, `year`, `platforms`,
-`source` and `in_log`.
+`source`, `in_log` and `cover_url` (a real URL, or `null` — a locally-recorded
+game whose cover is a user photo has no `cover_url` yet, only a local asset).
 
-**The title goes in the message text, never on the button.** A button sized to
-a title truncates it — several real titles are longer than a channel's button
-width — so list the candidates, numbered, in the message, and let the button
-carry only the number:
+**Every candidate has a `cover_url`** — send one message per candidate: `media`
+is the `cover_url`, `caption` is the title (with the year when it disambiguates),
+and `presentation.blocks` carries exactly one button, labelled with a short
+affirmative ("Choose this one") rather than a number — there is nothing to
+disambiguate within a single message. The callback `value` is still that
+candidate's `ref`, verbatim. This is not literally "tap the photo" — the tap
+target is the button, same as any other menu — but the cover replaces reading
+a title off a list, which is the point.
+
+Do not send several photos in one `message` call to save round-trips: the
+gateway only attaches `presentation`'s buttons to the *first* media item in a
+multi-media send (see `agent/README.md`), so every candidate after the first
+would arrive as an unlabelled, untappable photo. One candidate, one message,
+every time.
+
+**Any candidate is missing a `cover_url`** — fall back to the plain-text form:
+list the candidates, numbered, in the message, and let the button carry only
+the number, same order as the list:
 
 > Which one?
 > 1. Sifu (2022)
 > 2. Sifu: Arenas (2023)
 
-One button per candidate, same order as the list: `label` is just the number
-as text (`"1"`, `"2"`, …), and the callback `value` is still that candidate's
-`ref`, verbatim, never the number itself. Re-invoke the original command with
-`--id <the ref that came back>` — same command, same arguments, plus the ref.
+One button per candidate: `label` is just the number as text (`"1"`, `"2"`, …),
+and the callback `value` is still that candidate's `ref`, verbatim, never the
+number itself. Do not mix photos and numbered text in the same menu — one
+candidate lacking a cover means the whole menu falls back to text.
+
+Either way, re-invoke the original command with `--id <the ref that came
+back>` — same command, same arguments, plus the ref.
 
 Never edit a `ref`. Never construct one. It is an opaque string that round-trips.
 

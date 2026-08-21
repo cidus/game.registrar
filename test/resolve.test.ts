@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { fold, type VaultState } from '../src/core/fold.ts'
-import { candidateFromProvider, CANDIDATE_LIMIT, resolveLocal, search } from '../src/resolve/resolve.ts'
+import { candidateFromProvider, candidateOf, CANDIDATE_LIMIT, resolveLocal, search } from '../src/resolve/resolve.ts'
 import { context, event } from './helpers.ts'
 
 function vault(): VaultState {
@@ -141,6 +141,25 @@ test('a provider candidate is shaped like a local one, ref-prefixed by provider 
     in_log: false,
     cover_url: 'https://example.com/cover.jpg',
   })
+})
+
+test('candidateOf carries a provider-sourced cover, and null for a user photo or no cover at all', () => {
+  const state = fold(
+    [
+      event('game.create', { game_id: 'G1', slug: 'sifu', title: 'Sifu' }),
+      event('game.cover', { game_id: 'G1', url: 'https://example.com/sifu.jpg', source: 'provider' }),
+      event('game.create', { game_id: 'G2', slug: 'sifu-photo', title: 'Sifu Photo' }),
+      event('game.cover', { game_id: 'G2', sha256: 'a'.repeat(64), source: 'user' }),
+      event('game.create', { game_id: 'G3', slug: 'sifu-none', title: 'Sifu None' }),
+    ],
+    context,
+  )
+  const [g1, g2, g3] = ['G1', 'G2', 'G3'].map(
+    (id) => state.games.find((game) => game.game_id === id)!,
+  )
+  assert.equal(candidateOf(g1).cover_url, 'https://example.com/sifu.jpg')
+  assert.equal(candidateOf(g2).cover_url, null)
+  assert.equal(candidateOf(g3).cover_url, null)
 })
 
 test('candidates are capped at eight and flagged as truncated', () => {

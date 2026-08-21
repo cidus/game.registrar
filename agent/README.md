@@ -433,6 +433,26 @@ length at all. Digit emoji were considered for the label instead of plain text
 but dropped: `SKILL.md` is ASCII-only by `test/agent-skill.test.ts`, and a
 plain `"1"`/`"2"` needs no exception to that rule.
 
+**`presentation`'s buttons only attach to the first media item in a multi-media
+send.** Read straight out of the installed package
+(`openclaw/dist/delivery-BzuQz4xo.js`, `deliverMediaReply`):
+
+```js
+const shouldAttachButtonsToMedia = isFirstMedia && params.replyMarkup && !followUpText
+```
+
+So a single `message` call carrying several candidates' cover photos plus one
+button per candidate would strand every photo after the first with no button
+at all — not a smaller version of the desired menu, a broken one. `SKILL.md`'s
+cover-photo variant of *Candidates* sends one `message` per candidate instead
+(one photo, one caption, one button) specifically because of this. It is
+grounded in the adapter's own source, not yet confirmed by a live send — do
+that (`openclaw message send --channel telegram --target "telegram:<id>"
+--media "<a real https cover url>" --caption "Sifu (2022)" --presentation
+'{"blocks":[{"type":"buttons","buttons":[{"label":"Choose this one","action":{"type":"callback","value":"test"}}]}]}'`)
+before relying on the pattern for real, the same way the text-button shape was
+confirmed above.
+
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever
