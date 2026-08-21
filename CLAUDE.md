@@ -82,6 +82,27 @@ Each of these cost real time to find. The reasoning, not just the rule:
   with the user's literal words, and several candidates — even at exit code
   0 — is the same question code 3 asks. Matters more than it looks: once a
   guessed title exists locally, `search` stops asking the provider at all.
+- **Against a provider, the platform hint narrows the *query*, not the result
+  page.** IGDB's relevance for a family name is dominated by near-duplicates —
+  `search "Super Mario"` opens with fifteen e-Reader card levels and puts Super
+  Mario World at rank 64, Super Mario RPG at 103 — so filtering the fetched
+  window by platform afterwards returned two SNES entries out of a dozen.
+  `provider.search` takes every spelling of the hint and filters server-side by
+  platform *name* (`where platforms.name = (...)`), never by a table of provider
+  platform ids: the table in `core/platforms.ts` already carries the catalogs'
+  own spellings, which is the only reason that works. Do not "fix" this by
+  raising `SEARCH_FETCH_LIMIT`; the games wanted are past any window worth
+  fetching. A narrowed search that comes back empty retries unnarrowed, so a
+  spelling IGDB does not use costs relevance and not every result — the same
+  judgement as the bullet below. Two spellings were in fact missing
+  (`Sega Mega Drive/Genesis`, `Sega Master System/Mark III`), and
+  `--platform genesis` returned nothing at all until they were added.
+- **`Steam Deck` is a synonym of `PC` in the built-in table, on purpose.** No
+  catalog lists it as a platform, so its own entry would be a platform nothing
+  could ever be resolved against. Canonicalization runs on read, so this reaches
+  the register too: a Deck run displays as PC, retroactively. Raised before it
+  was done and chosen anyway; declaring `Steam Deck` in `config.platforms` takes
+  it back, since the user's entry always wins.
 - **The platform hint may cost a filter, never a duplicate record.** An empty
   `game.platforms` is silence, not "exists nowhere," so it never filters
   (`matchesPlatform`); and when the hint alone empties the resolution pool,

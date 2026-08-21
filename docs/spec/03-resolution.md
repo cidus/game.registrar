@@ -156,6 +156,21 @@ Both are the same judgement: the platform is a hint offered in passing, usually
 by someone announcing what they are about to play. Being wrong about it should
 cost a filter, never a duplicate record.
 
+**Against a provider, the hint narrows the query — it is not a filter over the
+answer.** A catalog's relevance ranking is its own, and for a family name it is
+dominated by near-duplicates: IGDB's `search "Super Mario"` opens with fifteen
+e-Reader card levels, puts Super Mario World at rank 64 and Super Mario RPG at
+103, and no fetch window worth requesting reaches them. Filtering that window by
+platform afterwards returns whatever the platform happens to have left in it —
+which for SNES was two entries out of a shelf of a dozen. Step 6 therefore hands
+the provider every spelling the vault knows for the hint (`platformSpellings()`,
+02-cli.md's *Platform vocabulary*) and lets it narrow its own search, by name
+rather than by a table of provider platform ids this specification would have to
+keep in sync with a catalog nobody here controls. The caller still filters what
+comes back: a provider is free to ignore the hint, and a narrowed search that
+returns nothing falls back to the unnarrowed one — an unknown spelling costs
+relevance, never every result, the same judgement as the two rules above.
+
 `gamereg enrich` is a deliberate, narrower exception: once a game is already
 identified (an existing local record, or a title that already matched
 exactly), a recorded platform may resolve *which catalog SKU* represents

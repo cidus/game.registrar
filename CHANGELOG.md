@@ -12,6 +12,19 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Changed
+- `Steam Deck` is a synonym of `PC` in the built-in platform table, so a Deck
+  run resolves against a catalog instead of matching nothing. Declaring
+  `Steam Deck` in `config.platforms` keeps it a platform of its own.
+
+### Fixed
+- `search --platform` narrows the provider's own query instead of filtering the
+  page it returned, so a match the catalog ranks far down (Super Mario World,
+  Super Mario RPG on SNES) is found rather than truncated away.
+- The platform table carries IGDB's spellings for the Sega consoles
+  (`Sega Mega Drive/Genesis`, `Sega Master System/Mark III`); without them
+  `search --platform genesis` returned nothing at all.
+
 ## [0.1.2] - phase 1 patch
 
 ### Added

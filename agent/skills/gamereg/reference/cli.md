@@ -192,6 +192,12 @@ keeps it to the log; `--provider <name>` narrows the chain, and today `igdb` is
 the only name that exists — a misspelling is a usage error, not a quiet fall
 back to local results.
 
+Pass `--platform` whenever the user named a console. It narrows the catalog
+search itself, not just the list you get back, so it is the difference between
+a family name returning the two entries that happened to survive and returning
+the shelf. It still never resolves anything on its own: several candidates is
+the same question code 3 asks.
+
 ### `gamereg query`
 
 ```text

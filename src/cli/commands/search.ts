@@ -21,7 +21,7 @@ import type { Command } from 'commander'
 
 import { GameregError } from '../../core/errors.ts'
 import { isKnownProvider, providerChain, unknownProvider } from '../../providers/registry.ts'
-import { platformTable, samePlatform, type PlatformTable } from '../../core/platforms.ts'
+import { platformSpellings, platformTable, samePlatform, type PlatformTable } from '../../core/platforms.ts'
 import { candidateFromProvider, candidateOf, search, CANDIDATE_LIMIT, type Candidate } from '../../resolve/resolve.ts'
 import { createContext } from '../context.ts'
 import { emit } from '../output.ts'
@@ -51,6 +51,11 @@ export function rankByOwnership(candidates: readonly Candidate[], table: Platfor
  * resolve.ts) — a raw string match would miss "PSX" against a provider that
  * spells it "PlayStation", the exact case the built-in table's synonyms
  * exist to cover.
+ *
+ * Kept even though `provider.search` is now handed the same spellings and
+ * narrows its own query: the hint is a hint, a provider is free to ignore it,
+ * and a narrowed query that came back empty deliberately falls back to an
+ * unnarrowed one (providers/igdb.ts).
  */
 export function matchesPlatformHint(
   candidate: { platforms: readonly string[] },
@@ -69,10 +74,14 @@ async function providerCandidates(
   requested: string | undefined,
   table: PlatformTable,
 ): Promise<Candidate[]> {
+  // Every spelling of the hint, not the flag as typed: what the provider needs
+  // is the word *its* catalog uses, and the table is where those live. See
+  // `Provider.search` on why this is a query input and not only a filter.
+  const spellings = platformSpellings(platform, table)
   for (const provider of providerChain(root, requested)) {
     let results
     try {
-      results = await provider.search(term)
+      results = await provider.search(term, spellings)
     } catch (error) {
       if (error instanceof GameregError && error.code === 6) continue
       throw error

@@ -43,6 +43,7 @@ import type { Workspace } from '../../src/cli/workspace.ts'
 import { readEvents } from '../../src/core/events.ts'
 import { fold, type GameState } from '../../src/core/fold.ts'
 import { PROVIDER_CREDENTIAL_FIELDS, resolveProviderCredentials } from '../../src/core/secrets.ts'
+import { platformSpellings, platformTable, samePlatform } from '../../src/core/platforms.ts'
 import { nowIn } from '../../src/core/time.ts'
 import { openVault, timeContext, type Vault } from '../../src/core/vault.ts'
 import { translator } from '../../src/i18n/index.ts'
@@ -262,5 +263,50 @@ test(
         `expected the first 3 candidates to all be Atari platforms, got ${JSON.stringify(leading)}`,
       )
     }
+  },
+)
+
+test(
+  'igdb: a platform hint pulls in games IGDB ranks far outside the fetched window (Super Mario, SNES)',
+  { skip: skipIgdb },
+  async () => {
+    // The bug this test exists for: `search "Super Mario"` is dominated by
+    // near-duplicates — fifteen of IGDB's top 24 were e-Reader card levels —
+    // and the games actually meant sit at rank 64 (Super Mario World) and
+    // 103 (Super Mario RPG). Filtering that window by platform afterwards
+    // returned two entries; narrowing the query returns the shelf.
+    const provider = createIgdbProvider(vault.root)
+    const spellings = platformSpellings('SNES', platformTable())
+    const results = await provider.search('Super Mario', spellings)
+
+    const titles = results.map((candidate) => candidate.title)
+    for (const wanted of ['Super Mario World', 'Super Mario RPG: Legend of the Seven Stars']) {
+      assert.ok(titles.includes(wanted), `expected "${wanted}" among ${JSON.stringify(titles)}`)
+    }
+    assert.ok(
+      results.every((candidate) =>
+        candidate.platforms.some((name) => samePlatform(name, 'SNES', platformTable())),
+      ),
+      `every narrowed result should be an SNES release, got ${JSON.stringify(results.map((c) => c.platforms))}`,
+    )
+  },
+)
+
+test(
+  'igdb: the Sega spellings resolve — the hint costs a filter, never every result',
+  { skip: skipIgdb },
+  async () => {
+    // IGDB writes it "Sega Mega Drive/Genesis", which the table did not carry:
+    // the hint matched nothing on either side and `--platform genesis` came
+    // back empty for a game the catalog plainly has.
+    const provider = createIgdbProvider(vault.root)
+    const table = platformTable()
+    const results = await provider.search('Sonic the Hedgehog', platformSpellings('genesis', table))
+
+    assert.ok(results.length > 0, 'expected Mega Drive results, got none')
+    assert.ok(
+      results.some((candidate) => candidate.platforms.some((name) => samePlatform(name, 'Mega Drive', table))),
+      `expected at least one Mega Drive release, got ${JSON.stringify(results.map((c) => c.platforms))}`,
+    )
   },
 )

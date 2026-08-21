@@ -552,8 +552,12 @@ A **built-in table** ships with the CLI: the common platforms and their
 synonyms, *including the spellings the providers use* — "Nintendo Switch",
 "PC (Microsoft Windows)", "Super Nintendo Entertainment System". Those
 provider spellings are what let the catalog intersection below work by string
-comparison, with no table of provider platform ids to keep in sync. The
-table:
+comparison, with no table of provider platform ids to keep in sync. They are
+also what a provider is *asked* with: 03-resolution.md's step 6 narrows a
+catalog search by every spelling of the hinted platform, so a missing provider
+spelling is not merely a missed intersection — IGDB writes it
+"Sega Mega Drive/Genesis" and "Sega Master System/Mark III", and neither half
+of a slash matches on its own. The table:
 
 - seeds `init`'s suggestions, and supplies the synonyms for a name added
   without any;
@@ -565,6 +569,16 @@ table:
   the "Other" choice come from `i18n/`. This is the one place the
   no-hardcoded-English rule does not apply, and it is worth stating so
   nobody dutifully "fixes" it later.
+
+One entry is curated the other way round, and it is a judgement rather than a
+spelling: **`Steam Deck` is filed as a synonym of `PC`.** No catalog carries the
+Deck as a platform of its own — IGDB has no such platform at all — so an entry
+of its own could be named and never looked anything up on. Because
+canonicalization runs on read as well as on input, this reaches the register and
+not only the search: a run recorded on the Deck reads as `PC` in the notes, the
+table and the SQLite cache, retroactively. A vault that wants the distinction
+back declares `Steam Deck` in `config.platforms`, where the user's own entry
+wins as always.
 
 ### Canonicalization happens at two boundaries
 
@@ -610,7 +624,7 @@ and **nothing is ever filtered out** — the grouping *is* the mechanism:
 |---|---|---|
 | 1 | `game.platforms` ∩ `config.platforms` | the likely answer |
 | 2 | the rest of `game.platforms` | a console that isn't yours — a cousin's, a rental, a demo kiosk |
-| 3 | the rest of `config.platforms` | Steam Deck, an emulator, a fan port, a handheld the catalog never lists |
+| 3 | the rest of `config.platforms` | an emulator, an FPGA board, a fan port, a handheld the catalog never lists |
 | 4 | `Other` | free text |
 
 **Only a platform the user *typed* joins `config.platforms`** — under "Other",
