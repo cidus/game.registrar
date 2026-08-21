@@ -19,14 +19,20 @@ items.
 
 ## Current state
 
-**Phases 0–2 are functionally done. `package.json` reads `0.2.0`, untagged —
-still being exercised live before that's made official.** Phase 0/1 are tagged
-(`v0.1.0`, patched by `v0.1.1`/`v0.1.2`). Phase 2's exit criterion — an entire
-game logged start to finish with no terminal — has now been demonstrated live:
-`start` through chat, a code-3 menu resolved by an actual inline-button tap,
-`finish` with a drafted verdict. `CURRENT_PHASE` in `core/vocab.ts` stays `1`
-regardless; it only gates which build targets are available, and phase 2 adds
-none. Bump it, and tag, when testing is done — see *Versioning* below.
+**Phases 0–1 are done and tagged (`v0.1.0`, patched by `v0.1.1`/`v0.1.2`).
+Phase 2 — chat and voice — is done for text, not yet for voice.
+`package.json` reads `0.2.0`, untagged — still being exercised live before
+that's made official.** Phase 2's exit criterion — an entire game logged
+start to finish with no terminal — has been demonstrated live for the text
+path: `start` through chat, a code-3 menu resolved by an actual
+inline-button tap, `finish` with a drafted verdict. Voice transcription
+(`tools.media.audio`, see *Voice* in `agent/README.md`) is wired but not
+yet confirmed live — the smoke test's voice-note step (closing a session by
+speaking) hasn't been run and reported back, so "start to finish with no
+terminal" is proven only for a user who types or taps. `CURRENT_PHASE` in
+`core/vocab.ts` stays `1` regardless; it only gates which build targets are
+available, and phase 2 adds none. Bump it, and tag, once voice is shown
+too — see *Versioning* below.
 
 `npm test` is 397 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
