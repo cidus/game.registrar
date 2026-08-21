@@ -594,6 +594,34 @@ their vocabulary. Do not review the game; review *the playthrough*. Show the
 draft before filing it — this is the one piece of text in the register that
 claims to be their opinion.
 
+## Background maintenance
+
+Two housekeeping calls run on their own — never mentioned in the reply you
+send the user, and never waited on. They keep the register current; they are
+not something anyone asked for in the moment.
+
+**A new game gets `enrich`'d.** The moment `start` or `past` creates a
+`game.create` you haven't seen before — whether from `--id igdb:…` or
+`--no-metadata` — follow it with `gamereg enrich "<the same title>" --covers
+--json` in the background. It corrects the stored title, fills in what
+`start` never asked the network for, and files a cover. Never wait for it,
+never report what it found — if the user cares enough to ask, `gamereg
+search`/`status` on that game answers plainly then.
+
+**A closed session gets a `build`.** After `end`, `finish` or `drop` closes a
+session — any of the three, not only `finish` — run `gamereg build --json`
+the same way, in the background, unreported. It keeps the derived notes and
+table caught up with what was just filed, without making the user wait on a
+build to hear their session was recorded.
+
+Both calls are `exec` with `background: true`, and never chained with
+`&&`/`||`/`;` — a single `gamereg` invocation is what the allowlist matches
+(see *Confirmations* and `agent/README.md`); a compound command falls back to
+needing an approval nobody is there to give, for a call the user never knew
+was happening. A non-zero exit from either is not yours to solve or report —
+`enrich`'s own rule is that failure there never blocks recording, and that
+now extends to not reporting the failure either.
+
 ## Questions
 
 > "qual o RPG mais recente que eu gostei bastante?"

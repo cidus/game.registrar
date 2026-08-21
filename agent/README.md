@@ -519,6 +519,31 @@ something this repo can answer (that's `openclaw`'s own history, not
 2026-08-15) — untested here, but the first thing to try if this ever gets
 revisited, before assuming a fix requires waiting on `latest`.
 
+### Background `enrich`/`build`, and the one config knob left untouched
+
+`SKILL.md`'s *Background maintenance* has the agent fire `gamereg enrich`
+after a new game and `gamereg build` after a session closes, both silent and
+unreported. The mechanism is real, not just a prompt instruction — the `exec`
+tool's schema (`bash-tools.schemas-DSAIk_o8.js` in the installed package) has
+a genuine `background: Type.Boolean()` param ("Run in background immediately"),
+gated by `tools.exec.allowBackground` (default `true`, unset in this
+deployment's `openclaw.json`, so it's on).
+
+**Left open, deliberately: `tools.exec.notifyOnExit`.** Its own description
+(`schema-DRyO1XBt.js`): "When true (default), backgrounded exec sessions on
+exit... enqueue a system event and request a heartbeat." Default is `true`
+here too. A `--json`-emitting command like `enrich`/`build` never has empty
+output, so `notifyOnExitEmptySuccess`'s default-`false` suppression (for
+empty-output successes) does not apply to it — meaning a background
+`enrich`/`build` finishing, even successfully, can still enqueue a heartbeat
+and wake the agent, which could then decide to say something about it
+unprompted. Turning `tools.exec.notifyOnExit` to `false` would close that gap,
+but that's a live config edit, and it was deliberately left alone rather than
+changed alongside a behavior nobody has watched run yet — try the background
+calls first, see whether an unprompted comment about a completed `enrich`/
+`build` actually shows up, and only then decide whether the config is worth
+touching.
+
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever
