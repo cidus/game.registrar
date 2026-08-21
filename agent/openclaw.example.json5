@@ -90,11 +90,20 @@
       // it with the Registrar's own vocabulary instead — same register as
       // SOUL.md's filed/protocolada table, not a generic status word.
       //
-      // `toolProgress: false` keeps that single rotating label as the whole
-      // status draft and suppresses the per-tool-call lines progress mode
-      // would otherwise append under it (raw command text). Confirmed live:
-      // the label still shows and rotates, no command text leaks into chat.
+      // `toolProgress: false` drops the per-tool lines (`exec gamereg …`)
+      // and leaves only the rotating label as the whole draft.
+      //
+      // **`mode: "progress"` must be written out even though Telegram
+      // already defaults to it.** `resolveChannelStreamingPreviewToolProgress`
+      // only consults `progress.*` when the mode *resolves* to "progress",
+      // and its resolver falls back to "partial" when `streaming.mode` is
+      // absent from config — the channel default never reaches it. Set
+      // `toolProgress` without `mode` and it is silently read as
+      // partial-mode config and ignored: no error, no log line, commands
+      // still on screen. `commandText` is a separate knob and already
+      // defaults to "status"; setting it changes nothing here.
       streaming: {
+        mode: "progress",
         progress: {
           label: "auto",
           labels: [
@@ -107,7 +116,7 @@
             "🔖 Registrando",
             "📜 Conferindo",
           ],
-          toolProgress: false,
+          commandText: "status",
         },
       },
     },
