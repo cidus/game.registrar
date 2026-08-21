@@ -425,13 +425,23 @@ agent built the payload wrong" in one shot, and getting those two confused cost
 several rounds here — including one where the test itself was malformed and its
 negative result was believed.
 
-**Candidate titles as button labels truncate.** Live testing on Sifu (not even
-a long title) showed the channel clipping it mid-word. `SKILL.md`'s *Candidates*
-section now numbers the candidates in the message text and puts only the
-number on the button — the button's width stops depending on the title's
-length at all. Digit emoji were considered for the label instead of plain text
-but dropped: `SKILL.md` is ASCII-only by `test/agent-skill.test.ts`, and a
-plain `"1"`/`"2"` needs no exception to that rule.
+**Button labels: the title fits on a lone button, the number is for a row.**
+Live testing on Sifu (not even a long title) showed the channel clipping it
+mid-word — but that was three buttons sharing a row. A candidate sent as its
+own photo message has the full width to itself, and `richMessages` below widens
+it further, so `SKILL.md`'s cover-photo variant labels the button with the
+title. The no-cover variant still labels with the number: three to a row is
+where the clipping was measured, and there is no cover above to carry the name.
+Digit emoji were considered for that label and dropped — `SKILL.md` is
+ASCII-only by `test/agent-skill.test.ts`, and a plain `"1"` needs no exception.
+
+**`style` works without `richMessages`; only the width needs it.** Both were
+sent side by side, one with the flag off and one on, and `primary`/`success`/
+`danger` rendered coloured either way. Worth knowing before turning on a flag
+that also changes table and media rendering — `channels.telegram.richMessages`
+in `openclaw.example.json5` carries the reasoning. An unstyled button renders
+as barely-visible text, which is why `SKILL.md` requires a style on whichever
+button performs the action.
 
 **`presentation`'s buttons only attach to the first media item in a multi-media
 send.** Read straight out of the installed package
@@ -465,16 +475,62 @@ underneath, exactly as `SKILL.md` described it — **but that only confirms the
 button renders.** It does not confirm a tap does anything, and on this
 deployment, right now, it does not.
 
-**A callback button's tap never reaches the agent — confirmed twice, one
-photo message and one plain-text one.** Both were sent, both showed a
-button, both were tapped (once, then twice on the second test), and the
-gateway log (`journalctl --user -u openclaw-gateway`) shows nothing after
-either tap: no new `Inbound message` line, no mention of `callback`
-anywhere in this gateway's history. `answerCallbackQuery` still runs (the
-button stops "loading" on the Telegram side), so nothing *looks* broken from
-the client — it just silently does nothing.
+**A `callback` button's tap never reaches the agent — but that is one branch
+of three, and the other two work.** This started as "buttons are broken" and
+that was too broad: `toTelegramCallbackData`
+(`openclaw/dist/button-types-B2h0t2EL.js:30`) decides the wire format from the
+button's own shape, and only one of the three is dead:
 
-Traced into the installed package
+| Button | `callback_data` sent | Tap arrives? |
+|---|---|---|
+| `action: {type:"callback", value}` | `tgcb1:<checksum>:<value>` | **No** |
+| `action: {type:"command", command:"/x"}` | `tgcmd:/x` | Yes, as `/x` |
+| `value` alone, no `action` | the value, raw | Yes, as `callback_data: <value>` |
+
+The dead one was found first because it is the shape both the docs and the
+gateway's injected prompt push you toward. Confirmed twice then — one photo
+message, one plain-text one, both tapped, and the gateway log
+(`journalctl --user -u openclaw-gateway`) showing nothing after either:
+no new `Inbound message` line, no mention of `callback` anywhere.
+`answerCallbackQuery` still runs, so the button stops "loading" and nothing
+*looks* broken from the client — it silently does nothing.
+
+**The raw-`value` shape is confirmed working on this deployment.** Sent from
+the CLI, tapped on a real phone, and the value arrived as an ordinary user
+message in the agent's own transcript:
+
+```bash
+openclaw message send --channel telegram --target "telegram:<id>" \
+  --message "probe" \
+  --presentation '{"blocks":[{"type":"buttons","buttons":[
+     {"label":"A","value":"probe-a"},{"label":"B","value":"probe-b"}]}]}'
+grep -l "callback_data: probe-a" ~/.openclaw/agents/*/sessions/*.jsonl
+```
+
+```json
+{"role":"user","content":"callback_data: probe-a","__openclaw":{"senderIsOwner":true}}
+```
+
+Two things that shape stakes on, both read out of the package rather than
+guessed:
+
+- **64 bytes, and failure is silent.** `sanitizeTelegramCallbackData` returns
+  `undefined` past `TELEGRAM_CALLBACK_DATA_MAX_BYTES`, and
+  `toTelegramInlineButton` then drops that button from the row. The message
+  still sends, with fewer buttons than were built, and nothing logs it. A ref
+  or an id fits; a title does not. The opaque `tgcb1:` envelope is what used
+  to buy arbitrary length, and it is exactly the branch that no longer
+  delivers — so on the working path the limit is real.
+- **The synthesized message is not a user bubble.** OpenClaw builds it
+  server-side (`buildSyntheticTextMessage`), so a tap leaves nothing in the
+  chat showing what the user answered. This is not Telegram's reply keyboard:
+  `ReplyKeyboardMarkup` appears nowhere in the package, only `inline_keyboard`.
+
+The tool's own schema allows it — `presentationButtonSchema`
+(`openclaw-tools-KulZ1cdH.js:5328`) requires `label` and makes both `action`
+and `value` optional — so the agent can build this shape, not just the CLI.
+
+Traced into the installed package for the dead branch
 (`openclaw@2026.7.1-2`, the current version — `npm view openclaw version`
 confirms no update fixes this):
 
@@ -493,21 +549,19 @@ confirms no update fixes this):
   if (opaqueCallbackData) return;  // telegram-ingress-spool-Dd3cDhXe.js:3781
   ```
 
-  The code that *would* turn a tap into a synthetic `callback_data: <value>`
+  The code that turns a tap into a synthetic `callback_data: <value>`
   message for the agent — `buildSyntheticTextMessage` /
   `processMessageWithReplyChain`, around line 3987 — sits **after** that
-  return. A plain candidate-selection button never gets there.
+  return. An enveloped button never gets there; an unenveloped one does, which
+  is the whole difference between the two shapes.
 
-**Consequence for `SKILL.md`: no button built through the generic `message`
-tool's `presentation.blocks` currently does anything when tapped** — not the
-cover-photo candidate button, not the plain numbered one, not the yes/no
-session-switch offer, not the cover-replace offer. `SKILL.md` no longer builds
-any of them: the old *Buttons* section is now *Confirmations*, every
-button-shaped prompt (*Candidates*, the session-switch offer, the cover-replace
-offer, `amend`/`revoke`'s confirmation) asks and is answered in plain text.
-Converting any one of them back to a real two-button question, if this is ever
-fixed upstream, is small and mechanical — the decision doesn't change, only how
-the answer travels back.
+**Consequence for `SKILL.md`:** *Confirmations* is the one place the button
+shape is written down, and it spells out `{label, value}` with no `action`,
+because the shape the gateway's own injected prompt asks for is the dead one.
+*Candidates*, the session-switch offer, the cover-replace offer, the EXIF
+`captured_at` correction and `amend`/`revoke`'s confirmation all carry buttons
+again — and all stay answerable in plain text, since a tap leaves nothing on
+screen and a typed reply has to keep working.
 
 **Not a new regression on this machine — the installed version has been
 "latest" for over a month.** `npm view openclaw time --json` puts
@@ -518,6 +572,11 @@ something this repo can answer (that's `openclaw`'s own history, not
 `beta` channel well ahead of `latest` (`2026.8.1-beta.2`, published
 2026-08-15) — untested here, but the first thing to try if this ever gets
 revisited, before assuming a fix requires waiting on `latest`.
+
+That upgrade is worth watching for a second reason now: if the `callback`
+branch starts delivering, its opaque envelope lifts the 64-byte ceiling the
+raw-`value` shape lives under. Nothing in `SKILL.md` needs it today — refs and
+ids fit — so this is a note about headroom, not a pending fix.
 
 ### Background `enrich`/`build`, and the one config knob left untouched
 

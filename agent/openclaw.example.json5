@@ -65,6 +65,20 @@
         inlineButtons: "allowlist",
       },
 
+      // Sends through Bot API 10.1's sendRichMessage instead of sendMessage.
+      // Turned on for one reason: buttons come out wider, which is what makes
+      // a candidate's title readable on its own button.
+      //
+      // A `style` on a button does *not* need this — that was tested both
+      // ways and the colours render either way. Only the width changes.
+      //
+      // It is not a buttons-only switch, though: it also turns on rich
+      // rendering for tables and media (`supportsBlockTables`), so a query
+      // result narrated as a table renders differently too. That is the whole
+      // blast radius, and it is why this sits here with a reason rather than
+      // being switched on for tidiness.
+      richMessages: true,
+
       // The channel-native half of exec approvals — distinct from
       // approvals.exec below, which only decides routing. Without this,
       // routing still resolves, but Telegram itself refuses to present an

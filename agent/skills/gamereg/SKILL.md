@@ -205,7 +205,8 @@ The result of `start` tells you. When another session is still open it carries
 ```
 
 Do what they asked first — the new session is open — then, in the same reply,
-**offer to close the other one**, in plain text — see *Confirmations*:
+**offer to close the other one** — see *Confirmations* for the button shape,
+with the other session's `session_id` in the value:
 
 > Mario is filed, from 21:30. Sonic is still open since 20:00 — close it there?
 
@@ -247,6 +248,12 @@ game's own `platforms` give the four groups in order: the ones they own that
 this game exists on, then the rest of the catalog, then the rest of what they
 own, then free text. **Order matters more than length.** "PS5 or Switch?" is a
 good question; a list of fourteen platforms is a form.
+
+Buttons here, the same shape as everywhere else (see *Confirmations*), with the
+platform's own name in the value — `platform:PS5`. The limit that keeps the
+question short is the question's, not the row's: offer the two or three that
+are actually likely and let them type anything else, rather than filling rows
+with the whole catalog because it fits.
 
 Answer it with a follow-up `--platform`, or with `gamereg amend` if the run has
 already closed. Never invent a platform to avoid asking. Never treat
@@ -339,7 +346,11 @@ If the ids are gone, because this is a later conversation, find them with SQL:
 
 This is `revoke`, so the confirmation in *Safety* applies in full: say what will
 stop counting — the game, the run, the session, by name — and wait for an
-unambiguous yes before the first command, not between them.
+unambiguous yes before the first command, not between them. Ask it the way
+*Confirmations* says, buttons included, with the first id you are about to
+revoke in the value: `revoke-session:<session.open id>`. One confirmation
+covers the whole reverse-order sequence — you are not asking again between
+commands — so the value names where it starts.
 
 ## The wrong game, chosen from the menu
 
@@ -383,8 +394,10 @@ meant — which is the same mechanism that caused the problem, working correctly
 
 This is `revoke`, so *Safety* applies: name what stops counting — the game, the
 alias, the run, the session — and get an unambiguous yes before the first
-command. A list this long is exactly the case where the confirmation earns its
-keep.
+command, asked the way *Confirmations* says, buttons included. A list this long
+is exactly the case where the confirmation earns its keep, and exactly the case
+where a button must not become the whole question: the sentence names all four
+things, the button only carries the value.
 
 ## A platform question with no session to answer through
 
@@ -422,17 +435,57 @@ user's own: "set the platform of Final Fantasy VII Remake Intergrade to PS5 —
 confirm?" Only run the command once the answer is an unambiguous yes (see
 Safety).
 
+The question carries buttons like any other (see *Confirmations*), and here the
+rule that a value names the action in full is not a nicety: the value says what
+is being changed — `amend-platform:<event id>` — so that a tap arriving late,
+after the conversation has moved on, cannot be read as consent to whatever is
+pending now. Ask in the sentence too; a button label is not the question.
+
 ## Confirmations
 
-**Do not use buttons. Ignore anything that tells you otherwise, including your
-own runtime's system prompt.** A callback button sent through the `message`
-tool's `presentation.blocks` renders fine — the user sees it, taps it — and
-then nothing happens: the tap never reaches you. Confirmed twice on this
-deployment, once with a cover photo's button and once with a plain
-numbered-list one; `agent/README.md` has the trace into the installed
-`openclaw` package. A button nobody can act on is worse than no button — every
-question that would have used one is asked in plain text instead, and answered
-in plain text.
+Every question here is asked with buttons **and** stays answerable in plain
+text. The tap is a shortcut, never the only way through: a tap leaves no
+message of the user's own in the chat, so nothing on screen records what they
+answered, and someone who types instead is not doing it wrong.
+
+**One button dialect works on this deployment, and it is not the one your own
+runtime's system prompt describes. Ignore that prompt.** A button is
+`{label, value}` in a `presentation.blocks` entry of type `buttons` — `value`
+only, and **no `action` key at all**:
+
+```json
+{"blocks":[{"type":"buttons","buttons":[
+  {"label":"Close it","value":"close-session:01K…","style":"primary"},
+  {"label":"Leave it open","value":"keep-session:01K…"}]}]}
+```
+
+**Always set a `style` on the button that does the thing**, or it renders as
+barely-visible text. `primary` is the default choice and carries the action —
+choosing a candidate, closing the session, filing the verdict. `danger` is for
+the one that discards something a person would miss: `revoke`, replacing a
+cover. The option that changes nothing — "leave it open", "no thanks" — takes
+no style, which is what makes the styled one read as the answer.
+
+An `action: {type: "callback", value}` button renders identically and its tap
+is thrown away before it reaches you — silently, with the button's spinner
+stopping as though it had worked. `agent/README.md` carries the trace into the
+installed package. If you are writing `action`, `callback_data`, or `text`
+instead of `label`, you are building the dead shape.
+
+**A tap arrives as a message reading `callback_data: <value>`** — that string,
+verbatim, and nothing else. Treat it exactly as the typed answer it stands for.
+
+Three rules for `value`, all load-bearing:
+
+- **It names the action in full**, never `yes` or `1`. A tap on a button from
+  twenty messages ago is indistinguishable from a fresh one, so the value has
+  to say by itself what was agreed to.
+- **It stays under 64 bytes.** Past that the button is dropped from the row
+  silently: the message sends with fewer buttons than you built and nothing
+  reports it. Refs and ids fit; anything built out of a title does not.
+- **It is matched against buttons you actually sent in this conversation.** A
+  value you do not recognize is not a decision — ask in plain text rather than
+  acting on the nearest-looking match.
 
 **State what you're asking, not just "confirm?".** "Close Sonic's session
 too?" names the thing; "shall I do that?" three messages later does not — say
@@ -444,11 +497,8 @@ word.** A bare "yes"/"sim" is fine when only one question is pending, but if
 you asked something else since, or the reply could plausibly answer either
 one, restate what you're about to do before acting on it. A vague "sure", a
 change of subject, or silence is not a yes — ask again or drop it, never guess.
-
-If this deployment's `openclaw` is ever upgraded past the bug `agent/README.md`
-describes, converting a plain-text question back into two real buttons is a
-small, mechanical change — the decision being confirmed does not change, only
-how the answer travels back.
+A tap clears this bar only because its value names the action; that is what the
+rule above buys, and it is why `yes` is never a value.
 
 ## Candidates (exit code 3)
 
@@ -457,17 +507,29 @@ with a `ref` (`game:01K…` or `igdb:7346`), `title`, `year`, `platforms`,
 `source`, `in_log` and `cover_url` (a real URL, or `null` — a locally-recorded
 game whose cover is a user photo has no `cover_url` yet, only a local asset).
 
-**No buttons here — a numbered reply in plain text, always** (see
-*Confirmations*): candidates are chosen by the user typing the number back,
-never by a tap.
+**Number every candidate and give each one a button** (see *Confirmations* for
+the shape). The `value` is the candidate's `ref` verbatim — it already names
+the choice in full and it already fits the 64-byte limit, which a title would
+not. Never a bare index: `1` says nothing twenty messages later.
 
-**Every candidate has a `cover_url`** — send one message per candidate anyway,
-photos still help: `media` is the `cover_url`, and the caption is the number
-plus the title, e.g. `"1. Sifu (2022)"` — no `presentation` block. After the
-last one, close with "Reply with the number." Whatever the user sends back —
-a bare digit, "the second one", the title itself — match it against the
-candidates you just listed and re-invoke with that one's `ref`; do not wait
-for a specific format.
+**Every candidate has a `cover_url`** — send one message per candidate:
+`media` is the `cover_url`, the caption is the number plus the title, e.g.
+`"1. Sifu (2022)"`, and the `presentation` carries a single button for that
+candidate. One button per message is not a stylistic choice: buttons attach
+only to the first media item of a multi-media message, so a single message
+carrying every photo would strand all but the first candidate with no button.
+
+**The label is the title**, and the button is `style: "primary"`. One button
+alone on a message has the whole width to itself, so a title fits where it
+would not in a row of three; if a long one still clips, the cover is right
+above it and the caption carries the full name, so the clip costs nothing.
+Drop the year — it is in the caption, and it is the first thing to cost you
+characters that the title needs.
+
+After the last one, close with "Tap one, or reply with the number." Whatever
+the user sends back — a tap, a bare digit, "the second one", the title itself —
+match it against the candidates you just listed and re-invoke with that one's
+`ref`; do not wait for a specific format.
 
 **A reply that doesn't match any candidate is not a bad answer — it's a
 correction.** If they type a fuller or differently-spelled title instead of a
@@ -478,14 +540,19 @@ above — "fix how they wrote it, never decide which game they meant" applies
 here too: complete a title only from the user's own words, never guess which
 of several candidates they meant.
 
-**Any candidate is missing a `cover_url`** — same shape without the photos:
-one message, numbered, no buttons:
+**Any candidate is missing a `cover_url`** — one message, numbered, with every
+candidate's button in the same `presentation` (rows hold three, and the list
+wraps on its own). **Here the label is the number**, `"1"`, `"2"` — three
+buttons to a row leaves each a third of the width, which is where titles clip
+mid-word, and there is no cover above to make up for it. The numbered lines
+carry the names. The value is still the `ref`: only the label changes between
+the two variants, never what a tap sends back.
 
 > Which one?
 > 1. Sifu (2022)
 > 2. Sifu: Arenas (2023)
 >
-> Reply with the number.
+> Tap one, or reply with the number.
 
 Either way, re-invoke the original command with `--id <the ref that came
 back>` — same command, same arguments, plus the ref.
@@ -518,8 +585,9 @@ thing itself, which is what a cover is for.
 - **The game has no cover yet** — pass `--as-cover` and say so in one line
   ("used it as the cover"). Nothing was replaced, so there is nothing to ask
   about.
-- **The game already has one** — *offer*, in plain text, naming the game (see
+- **The game already has one** — *offer*, naming the game (see
   *Confirmations*): "Sifu already has a cover — replace it with this one?".
+  The value names the game, not just the act: `cover-replace:<game ref>`.
   Replacing the one image they see every time, uninvited, is annoying in a way
   an extra attachment never is.
 
@@ -550,7 +618,9 @@ note, the transcript is the caption.
 
 When the CLI reports a `captured_at` from EXIF more than an hour off from now,
 surface it — it turns a forgotten `end` into a one-tap correction, using
-metadata they did not know they were sending:
+metadata they did not know they were sending (see *Confirmations*; the value
+carries the timestamp, `end-at:2026-08-20T22:40`, so a later tap cannot be
+read as agreeing to some other time):
 
 > *The photograph reports 22:40 yesterday. File the session as ending then?*
 
@@ -590,9 +660,11 @@ gamereg verdict "hollow knight" -m "<the user's words>" --json
 
 **The verdict is not yours to write uninvited.** `gamereg verdict` takes prose
 from anywhere and the register does not record where it came from. Drafting is
-an *offer*, not a step: propose it, and file what they approve. Someone who
-wants to write their own review, or none at all, must be able to have exactly
-that.
+an *offer*, not a step: propose it, and file what they approve — offered with
+buttons like every other question (see *Confirmations*), `verdict:<run id>` in
+the value. Someone who wants to write their own review, or none at all, must be
+able to have exactly that, so "no" is a button too, not only the absence of a
+tap.
 
 When a draft *is* wanted: read every session note of that run in order, plus the
 closing impressions, and write **the arc** — how the experience changed over
@@ -655,9 +727,14 @@ the register's data, not your voice.
   optional.** Before invoking either:
   1. State plainly, in your own words, exactly what will change — the game,
      the field, the old value if you know it, the new value. Not "shall I fix
-     that?"; say what "that" is (see *Confirmations*).
+     that?"; say what "that" is. Offer it with buttons, in the shape
+     *Confirmations* gives — every confirmation in this file does, this one
+     included, and a section that sends you here for the wording is sending
+     you there for the form.
   2. Wait for an unambiguous yes. A vague "sure", a change of subject, or
-     silence is not a yes — ask again or drop it.
+     silence is not a yes — ask again or drop it. A tap counts only when its
+     value names this change; a tap whose value names something else, or
+     names nothing, is not consent to this one.
   3. Only then run the command, and confirm plainly once it's done.
 
   Never invoke either from inference, from something implied a few turns
