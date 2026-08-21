@@ -98,14 +98,23 @@
       },
 
       // The progress indicator shown while a gamereg command is running.
-      // Telegram runs this in "progress" streaming mode by default; the
-      // default label pool is OpenClaw's own (lobster-themed — "Molting" is
-      // one of them), nothing to do with a card catalog. This pool replaces
-      // it with the Registrar's own vocabulary instead — same register as
-      // SOUL.md's filed/protocolada table, not a generic status word.
+      // Telegram runs this in "progress" streaming mode by default, and the
+      // default label is OpenClaw's own (lobster-themed — "Molting" is one),
+      // nothing to do with a card catalog. This one is the Registrar's own
+      // vocabulary instead: the same word `i18n/`'s pt-BR bundle uses for a
+      // filing, not a generic status word.
       //
       // `toolProgress: false` drops the per-tool lines (`exec gamereg …`)
-      // and leaves only the rotating label as the whole draft.
+      // and leaves the label alone as the whole draft.
+      //
+      // **A fixed string on purpose, after trying a pool of eight.** `"auto"`
+      // plus a `labels` array reads like it rotates. It does not: the label is
+      // `labels[hashProgressSeed(seed) % labels.length]`, the seed is the
+      // conversation key (`telegram:<chat id>`), and a single-user bot has
+      // exactly one of those — so one label was drawn and it never changed
+      // again. The random branch beside it only runs when there is no seed. A
+      // pool earns its keep across *different* chats; here it was eight
+      // strings pretending, seven of which no one would ever see.
       //
       // **`mode: "progress"` must be written out even though Telegram
       // already defaults to it.** `resolveChannelStreamingPreviewToolProgress`
@@ -119,17 +128,8 @@
       streaming: {
         mode: "progress",
         progress: {
-          label: "auto",
-          labels: [
-            "📋 Protocolando",
-            "🗂️ Arquivando",
-            "🖋️ Carimbando",
-            "🔍 Consultando",
-            "🗃️ Catalogando",
-            "📎 Anexando",
-            "🔖 Registrando",
-            "📜 Conferindo",
-          ],
+          label: "📋 Protocolando",
+          toolProgress: false,
           commandText: "status",
         },
       },
