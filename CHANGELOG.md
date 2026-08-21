@@ -12,6 +12,11 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Added
+- A local game's candidate now carries `cover_url` (from its provider-sourced
+  cover), matching what a provider candidate already returned. A user-photo
+  cover has no URL yet, only a local asset hash, so it stays `null`.
+
 ### Changed
 - `Steam Deck` is a synonym of `PC` in the built-in platform table, so a Deck
   run resolves against a catalog instead of matching nothing. Declaring
