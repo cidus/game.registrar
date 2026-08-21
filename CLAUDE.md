@@ -28,7 +28,7 @@ game logged start to finish with no terminal — has now been demonstrated live:
 regardless; it only gates which build targets are available, and phase 2 adds
 none. Bump it, and tag, when testing is done — see *Versioning* below.
 
-`npm test` is 388 tests, all green (`node --test`, no framework, no network).
+`npm test` is 397 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -48,12 +48,15 @@ button payload shape (the docs and the gateway's own injected prompt disagree �
 docs won), state-database paths left behind by a user migration. Don't
 duplicate that content here; this section is only what a *coding* session needs.
 
-Five source changes landed because of the agent layer, each tested:
+Six source changes landed because of the agent layer, each tested:
 `GAMEREG_SOURCE` validation (`cli/context.ts`), `query --schema`
 (`cli/commands/query.ts`), a build-write lockfile (`targets/lock.ts`),
-`gamereg vocab` (`cli/commands/vocab.ts` — see *Language*), and `start`'s
+`gamereg vocab` (`cli/commands/vocab.ts` — see *Language*), `start`'s
 `also_open` field (reports sessions open on other games, so the agent can offer
-to close them — see *Decisions* below).
+to close them — see *Decisions* below), and `candidateOf` propagating
+`cover_url` for a local game's provider-sourced cover, matching what a
+provider candidate already returned (`resolve/resolve.ts` — the agent renders
+one photo+button per candidate when every candidate has one).
 
 **Live vault:** `/opt/gamereg-vault` (group `gamereg`). Gateway runs as
 `alcides`, system-wide install (`/usr/bin/openclaw`, `/usr/bin/gamereg`). The

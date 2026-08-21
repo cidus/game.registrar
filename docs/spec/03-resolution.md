@@ -108,6 +108,7 @@ and a bogus alias, and the user finds out weeks later. Asking costs one tap.
       "title": "The Legend of Zelda: Tears of the Kingdom",
       "year": 2023,
       "platforms": ["Switch"],
+      "cover_url": null,
       "source": "local",
       "in_log": true,
       "status": "playing"
@@ -115,6 +116,10 @@ and a bogus alias, and the user finds out weeks later. Asking costs one tap.
   ]
 }
 ```
+
+`cover_url` is always present, `null` when there is none to show — a local
+game whose only cover is a user photo (`game.cover.source === 'user'`) has no
+URL yet, only a content hash pointing at a local vault asset.
 
 `ref` is what gets passed back as `--id`. Ordering is meaningful: local before
 provider, `playing` before everything, then by release year descending.

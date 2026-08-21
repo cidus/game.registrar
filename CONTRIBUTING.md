@@ -21,7 +21,7 @@ non-negotiables a change is expected to respect.
 
 ```bash
 npm install     # builds via the prepare script; no separate build step
-npm test        # 388 tests, node --test, no network
+npm test        # 397 tests, node --test, no network
 ```
 
 `npm run test:live` is opt-in and needs real IGDB credentials — it skips

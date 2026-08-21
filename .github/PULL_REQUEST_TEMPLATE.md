@@ -2,7 +2,7 @@
 
 **Checklist**
 
-- [ ] `npm test` passes (388+ tests, no network)
+- [ ] `npm test` passes (397+ tests, no network)
 - [ ] `npm run test:live` run, if this touches `normalize()`,
       `findDetail`/`enrichGame`, or `providers/igdb.ts`
 - [ ] New/changed behavior has a test — golden file update for anything under
