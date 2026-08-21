@@ -445,13 +445,23 @@ So a single `message` call carrying several candidates' cover photos plus one
 button per candidate would strand every photo after the first with no button
 at all — not a smaller version of the desired menu, a broken one. `SKILL.md`'s
 cover-photo variant of *Candidates* sends one `message` per candidate instead
-(one photo, one caption, one button) specifically because of this. It is
-grounded in the adapter's own source, not yet confirmed by a live send — do
-that (`openclaw message send --channel telegram --target "telegram:<id>"
---media "<a real https cover url>" --caption "Sifu (2022)" --presentation
-'{"blocks":[{"type":"buttons","buttons":[{"label":"Choose this one","action":{"type":"callback","value":"test"}}]}]}'`)
-before relying on the pattern for real, the same way the text-button shape was
-confirmed above.
+(one photo, one caption, one button) specifically because of this.
+
+**Confirmed rendering with a real send.** There is no `--caption` flag on the
+CLI (`openclaw message send --help` — the underlying tool schema has one, but
+the CLI does not expose it); `--message` is what becomes the caption when
+paired with `--media`:
+
+```bash
+openclaw message send --channel telegram --target "telegram:<id>" \
+  --message "Sifu: Arenas (2023)" \
+  --media "https://images.igdb.com/igdb/image/upload/t_cover_big/co67x0.jpg" \
+  --presentation '{"blocks":[{"type":"buttons","buttons":[
+     {"label":"Choose this one","action":{"type":"callback","value":"igdb:240171"}}]}]}'
+```
+
+Sent and confirmed on this deployment: photo, caption, one tappable button
+underneath, exactly as `SKILL.md` describes.
 
 ## Smoke test
 
