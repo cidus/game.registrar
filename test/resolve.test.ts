@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { fold, type VaultState } from '../src/core/fold.ts'
+import { fold, type GameState, type VaultState } from '../src/core/fold.ts'
 import { candidateFromProvider, candidateOf, CANDIDATE_LIMIT, resolveLocal, search } from '../src/resolve/resolve.ts'
 import { context, event } from './helpers.ts'
 
@@ -154,12 +154,10 @@ test('candidateOf carries a provider-sourced cover, and null for a user photo or
     ],
     context,
   )
-  const [g1, g2, g3] = ['G1', 'G2', 'G3'].map(
-    (id) => state.games.find((game) => game.game_id === id)!,
-  )
-  assert.equal(candidateOf(g1).cover_url, 'https://example.com/sifu.jpg')
-  assert.equal(candidateOf(g2).cover_url, null)
-  assert.equal(candidateOf(g3).cover_url, null)
+  const gameNamed = (id: string): GameState => state.games.find((game) => game.game_id === id)!
+  assert.equal(candidateOf(gameNamed('G1')).cover_url, 'https://example.com/sifu.jpg')
+  assert.equal(candidateOf(gameNamed('G2')).cover_url, null)
+  assert.equal(candidateOf(gameNamed('G3')).cover_url, null)
 })
 
 test('candidates are capped at eight and flagged as truncated', () => {
