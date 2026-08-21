@@ -189,11 +189,31 @@
         },
 
         // Local: nothing leaves the host, no per-minute cost, more setup.
-        // Not yet verified against a real install — check the provider
-        // spelling against your OpenClaw version before relying on it.
+        // There is no "whisper-local" provider — OpenClaw has no such
+        // provider id. Local Whisper is a CLI entry that shells out to
+        // `whisper-cli` (the `whisper-cpp` binary) directly; OpenClaw's own
+        // audio auto-detect falls back to this same binary if one is on
+        // PATH, but an explicit entry is what lets `-l pt` and `-t` be set.
+        // `-l pt` forces the language instead of paying for auto-detect (and
+        // occasionally mis-detecting) on every note. Verified end-to-end on
+        // a real install (whisper.cpp built from source,
+        // ggml-large-v3-turbo-q5_0.bin, `-t 12`) against a short voice note
+        // transcribed correctly in pt-BR — the longer session-closing smoke
+        // test in README.md's "Voice" section is still open. `ffmpeg` must
+        // also be on PATH; OpenClaw uses it to decode the incoming audio
+        // before handing it to whisper-cli, and fails with a clear "ffmpeg
+        // not found" reason if it's missing.
         // {
-        //   provider: "whisper-local",
-        //   model: "large-v3",
+        //   type: "cli",
+        //   command: "whisper-cli",
+        //   args: [
+        //     "-m", "/path/to/ggml-large-v3-turbo-q5_0.bin",
+        //     "-l", "pt",
+        //     "-nt",
+        //     "-t", "12",
+        //     "{{MediaPath}}",
+        //   ],
+        //   timeoutSeconds: 60,
         //   capabilities: ["audio"],
         // },
       ],
