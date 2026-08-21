@@ -110,6 +110,14 @@ about *now*, since the last session may have closed weeks ago.
 gamereg start "hollow knight" --json
 ```
 
+**Do not check for an open session before calling this.** `start` already
+tells you: its response carries `also_open` when another session is running
+(see *Switching games* below). There is no need to query for it first, and no
+plain `gamereg` invocation answers "is a session open" other than `gamereg
+open` itself — reaching for `query --sql` here is both unnecessary and, per
+the one-invocation rule below, an easy way to end up chaining a command by
+accident while improvising one.
+
 **Fix how they wrote it. Never decide which game they meant.**
 
 Those are two different things and only the first is yours. Correcting spelling,
