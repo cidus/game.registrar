@@ -443,6 +443,21 @@ in `openclaw.example.json5` carries the reasoning. An unstyled button renders
 as barely-visible text, which is why `SKILL.md` requires a style on whichever
 button performs the action.
 
+**Messages sent in one agent turn race, and a DM has nothing to order them.**
+A candidate menu arrived with its closing "tap one" line sitting in the middle
+of the covers. The obvious guess is Telegram latency; the transcript says
+otherwise in one line — the model emitted nine `message` calls in a single
+turn and all nine results came back inside 8ms of each other, with Telegram
+handing out ids 366-374 in arrival order.
+
+Nothing in config fixes it. OpenClaw does have a per-chat ordering queue
+(`GroupFairQueue`, `send-BgA996pw.js:134`), but it is only built when
+`resolveGroupChatKey` returns a key, and that returns one only for
+`chatId < 0` — group chats. A DM's positive id skips the queue entirely and
+goes straight to the throttler. The only lever is how many calls the model puts
+in one turn, so `SKILL.md` sends the covers as a batch and the closing line in
+a second step, after their results land.
+
 **`presentation`'s buttons only attach to the first media item in a multi-media
 send.** Read straight out of the installed package
 (`openclaw/dist/delivery-BzuQz4xo.js`, `deliverMediaReply`):

@@ -539,6 +539,14 @@ the shape). The `value` is the candidate's `ref` verbatim — it already names
 the choice in full and it already fits the 64-byte limit, which a title would
 not. Never a bare index: `1` says nothing twenty messages later.
 
+**Show five at most.** `candidates[]` can be long — eight for "Super Mario" —
+and eight covers is a scroll, not a menu. Take the first five in the order the
+CLI gave them; it ranked them, and reordering them is deciding which game they
+meant. When there were more, say so with the real number and point at the way
+out: "Eight matched — here are five. If none is it, write the title out more
+fully." That escape is the *correction* rule below, not a new mechanism, and
+naming the count is what keeps five from reading as all there is.
+
 **Every candidate has a `cover_url`** — send one message per candidate:
 `media` is the `cover_url`, the caption is the number plus the title, e.g.
 `"1. Sifu (2022)"`, and the `presentation` carries a single button for that
@@ -553,10 +561,22 @@ above it and the caption carries the full name, so the clip costs nothing.
 Drop the year — it is in the caption, and it is the first thing to cost you
 characters that the title needs.
 
-After the last one, close with "Tap one, or reply with the number." Whatever
-the user sends back — a tap, a bare digit, "the second one", the title itself —
-match it against the candidates you just listed and re-invoke with that one's
-`ref`; do not wait for a specific format.
+**Send the covers together, then close in a second step.** Messages you send
+in one turn race each other: they go out concurrently, and the chat orders them
+by whichever reached Telegram first, not by the order you wrote them. Seen
+live — a nine-message menu arrived with its closing line in the middle of the
+covers. So send the covers, **wait for their results**, and only then send
+"Tap one, or reply with the number." as its own call. A message sent after the
+others have come back is the one message whose position is certain.
+
+The covers may still land out of order among themselves. That is accepted:
+they race by design, each one carries its number in the caption, and putting
+them in exact order would cost a round trip per candidate on the slowest
+moment in the whole flow.
+
+Whatever the user sends back — a tap, a bare digit, "the second one", the title
+itself — match it against the candidates you just listed and re-invoke with
+that one's `ref`; do not wait for a specific format.
 
 **A reply that doesn't match any candidate is not a bad answer — it's a
 correction.** If they type a fuller or differently-spelled title instead of a
@@ -573,7 +593,9 @@ wraps on its own). **Here the label is the number**, `"1"`, `"2"` — three
 buttons to a row leaves each a third of the width, which is where titles clip
 mid-word, and there is no cover above to make up for it. The numbered lines
 carry the names. The value is still the `ref`: only the label changes between
-the two variants, never what a tap sends back.
+the two variants, never what a tap sends back. The five-at-most rule holds here
+too — one rule, not two to keep straight — though nothing races in a single
+message, so there is no second step to take:
 
 > Which one?
 > 1. Sifu (2022)
