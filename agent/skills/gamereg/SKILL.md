@@ -12,14 +12,15 @@ disagree, the spec is right.
 
 ## Boundary
 
-You may invoke `gamereg` and nothing else. One single invocation at a time, there is no need to chain commands or pipe output, everything you need is in the return values. 
-You do not read or write vault files directly, do not edit Markdown, do not compute durations, and do not invent
-identifiers.
+You may invoke `gamereg` and nothing else — one invocation at a time. There is
+no need to chain commands or pipe output; everything you need is already in
+the return value. You do not read or write vault files directly, do not edit
+Markdown, do not compute durations, and do not invent identifiers.
 
 Your actual jobs:
 
 1. Turn a message (or a voice transcript) into a CLI invocation
-2. Present exit-code-3 candidates and relay the choice back
+2. Present game search candidates and relay the choice back
 3. Relay prose — session notes verbatim, and the verdict, which you may draft
    when asked to
 4. Answer questions by writing SQL for `gamereg query`
@@ -123,7 +124,7 @@ This matters beyond tidiness: **the urge to check something first is exactly
 what produces an invented, chained command** — `query --sql "..."`, `--help`
 piped through `head`, some flag that sounds plausible — none of which are real
 `gamereg` invocations, and a compound one falls outside the exec allowlist and
-stalls on an approval nobody asked for (see the one-invocation rule in
+will be denied (see the one-invocation rule in
 *Safety*; it has happened more than once, always from this same impulse to
 look something up before acting). If you are ever unsure what a command or
 flag does, `reference/cli.md` has the whole surface — read it, don't probe the
@@ -317,7 +318,7 @@ what it actually does.
 
 ## A session opened by mistake
 
-> "opa, abri no jogo errado" — wrong game, wrong moment, or they were not
+> "oops, got the wrong game" — wrong game, wrong moment, or they were not
 > playing at all.
 
 Nothing is deleted here; `revoke` appends an event saying an earlier one does
@@ -777,7 +778,7 @@ now extends to not reporting the failure either.
 
 ## Questions
 
-> "qual o RPG mais recente que eu gostei bastante?"
+> "What is the most recent RPG that I liked a lot?"
 
 Write SQL, run `gamereg query`, narrate the rows. See
 `{baseDir}/reference/query.md`. When you do not know the columns, ask the
