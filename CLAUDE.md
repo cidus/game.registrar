@@ -29,9 +29,15 @@ record the confirmation. `CURRENT_PHASE` in `core/vocab.ts` is now `2`; it
 only gates which build targets are available, and phase 2 added none, so
 this bump changes no runtime behavior — `site` (phase 3) is still refused.
 
-Phase 3 (`due`/`checkin`/cron, reaction tokens, the Quartz site) is
-specified in full in `docs/spec/05-agent.md` and `06-roadmap.md`; none of it
-is implemented — see `agent/README.md`'s *What is not here*.
+**Phase 3's specification is settled; none of it is implemented.** The spec pass
+landed the pieces that were missing or contradictory: `site` as an ordinary
+target (no second pass, invariant 8 intact), the check-in state machine and who
+owns each transition, `checkin --expire`, a phase-3 exit criterion, and the
+per-target comparator. `docs/spec/05-agent.md`, `07-targets.md` and
+`06-roadmap.md` are the places to read; the *Decisions* below carry the
+reasoning. Still absent from the code: the `checkin` config block, `due`,
+`checkin`, the `stats` and `site` targets, reaction tokens, and any cron wiring —
+see `agent/README.md`'s *What is not here*.
 
 `npm test` is 397 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
@@ -163,6 +169,48 @@ Each of these cost real time to find. The reasoning, not just the rule:
   promotes to cover when none exists (nothing replaced, so no need to ask) and
   offers when one does; the same photo with `start` infers `--form physical`
   and says so, the way an inferred platform is always mentioned.
+- **`site` generates from folded state; it is not a second pass.** An earlier
+  draft of `07-targets.md` had it running Quartz over the finished vault, which
+  made it "the one target that reads what the others wrote" and put invariant 8
+  in permanent contradiction with itself. The fix was to make the claim false
+  rather than the invariant weaker: `site` plans its own content from state, and
+  gamereg never runs Quartz at all — it emits the input and stops. Cost: a
+  flavour parameter through `render/`. Bought: invariant 8, D8 and
+  non-negotiable 8 keep their absolute form, and the build still spawns no
+  subprocess. Do not "reunify" this by having `site` read `obsidian/`; that is
+  the bug, restored.
+- **Invariant 9 stays a deletion whitelist — do not make it per-target.**
+  Proposed once, on the reasonable grounds that a target knows best what its own
+  artifacts are and that `.obsidian/` must survive a build. But `.obsidian/`
+  already survives, precisely because the rule is a whitelist: it is not in the
+  manifest, so it is never a candidate. Splitting the rule into N per-target
+  policies would trade one auditable rule for N, in the only part of the system
+  that deletes, and the failure modes are asymmetric — a wrong central rule
+  deletes nothing, a wrong per-target policy deletes somebody's `.obsidian/`.
+- **The cron wrapper files the check-in, never the agent — and after the wake,
+  never before.** The anti-nagging rules are a clock and a counter, which
+  invariant 7 keeps out of a model; the agent would also have to remember a
+  45-minute deadline across turns, which a chat turn cannot do. Order matters as
+  much as ownership: filing the snooze before the wake lands would put a session
+  in backoff having never been asked, inverting the failure mode `02-cli.md`
+  chose on purpose. A repeat costs one message; a false silence costs a closing
+  time nobody remembers. `day_cutoff`'s exemption from the ladder and the ceiling
+  is what makes the residual risk survivable.
+- **The hourly poll is a cron *command*, not a heartbeat or an agent turn.**
+  `due` already decides whether there is anything to say, so the caller must stay
+  dumb — and a command payload runs the binary with no model attached, making an
+  empty poll free. A heartbeat would ask a model to re-decide what the CLI
+  decided, and it is already in use here for something else: `notifyOnExit` wakes
+  the agent when a backgrounded `enrich`/`build` finishes, which is why
+  `agent/workspace/AGENTS.md` tells it to answer `HEARTBEAT_OK` and stop.
+- **No external service is integrated, and the near miss is worth remembering.**
+  HowLongToBeat and Backloggd have no official API; Steam and console playtime
+  are the deferred *automatic playtime detection* and the *not a library manager*
+  non-goal, so they are a product question and not a scope one. IGDB's
+  `game_time_to_beats` was genuinely cheap — same credentials, same client, one
+  extra query — and was still declined, because it needs a new `game.enrich`
+  field and a phase does not buy a schema change for a nicety. If it is ever
+  wanted, that is the only candidate worth reopening.
 - **`example-vault/` carries two real, never-regenerated WebP assets** — a
   golden test for rendering never touches the encoder, only the event log and
   string arithmetic, so `sharp` version drift can't move the hash.
@@ -197,6 +245,27 @@ Each of these cost real time to find. The reasoning, not just the rule:
   plaintext. Nothing here is built. What already landed from the design is D9
   and invariants 14-15 in `00-architecture.md`, which hold whether or not any
   of this is ever built.
+
+- **How the Quartz site actually gets built is deliberately unanswered.**
+  `site` emits `site/content/` and a seeded `quartz.config.yaml`; running Quartz
+  is the user's business, and phase 3 ships no GitHub Actions workflow even
+  though `06-roadmap.md` lists one. Two reasons to leave it open rather than
+  guess: the roadmap bullet is satisfied by documenting a workflow as much as by
+  shipping one, and "how this thing runs on a host" is exactly what phase 5
+  decides for everything else — the container image, the config generator, the
+  cron wrapper below. Deciding it twice, in two phases, is how the two answers
+  end up disagreeing. Nothing is stranded by waiting: `site/content/` is
+  committed, so whoever writes the workflow later needs Quartz and nothing else.
+  Shipping Quartz in the phase-5 image is the other half of the same question.
+
+- **Phase 3's cron wrapper is a file phase 5 will have to emit.** The hourly
+  check-in poll is a shell wrapper on the gateway host — it runs the `no_reply`
+  sweep, runs `gamereg due --json`, exits silently on empty, and otherwise wakes
+  the agent and files the snoozes. It is the gateway's file, not the agent's, so
+  `agent/workspace/AGENTS.md`'s boundary is intact: the agent still executes one
+  allowlisted binary and still writes no file itself. But it is one more thing
+  the phase-5 generator has to produce declaratively, alongside the compose file
+  and the environment.
 
 Add the next one here rather than in a commit message nobody will search for.
 

@@ -47,9 +47,20 @@ neither has to pass a flag. See [02-cli](02-cli.md) and
 ### D4 — Single runtime: Node + TypeScript
 
 *Why:* `unified`/`remark` gives a real Markdown AST, which is what allows
-regenerating blocks while preserving hand-written prose byte for byte. Quartz
-builds the site straight from an Obsidian vault with no converter. OpenClaw is
-Node, should a native plugin ever be wanted.
+regenerating blocks while preserving hand-written prose byte for byte. Quartz is
+Node too, and OpenClaw is Node should a native plugin ever be wanted.
+
+*On Quartz specifically:* the original reason given here was that it "builds the
+site straight from an Obsidian vault with no converter." That stopped being true
+when `site` became a target that plans its own content from the folded state —
+gamereg **is** the converter now, so reading a vault unaided no longer
+distinguishes Quartz from anything else. The reason that survives is different
+and better: over content that is genuinely a graph — game to runs to years —
+Quartz gives backlinks, a graph view, link popovers and folder listings for
+free, and those are work rather than a plugin install in a general-purpose
+generator. Astro is the recorded fallback: its islands would make an interactive
+query surface nearly free, which is the one thing Quartz makes expensive, so if
+that half ever becomes the point of the site the trade flips.
 
 ### D5 — Metadata providers are pluggable and isolated
 
@@ -146,7 +157,9 @@ my-register/                 # user repo — private
     Game Database.base          # seeded once, then yours
     assets/                    # hardlinks to ../assets (07-targets.md)
   .gamereg/manifest.json     # build bookkeeping (gitignored)
-  site/                      # derived (gitignored)
+  site/
+    content/                 # derived by the site target, and committed
+    quartz.config.yaml       # seeded once, then yours
 ```
 
 Everything the `obsidian` target writes lands under `obsidian/`, so opening that
@@ -159,6 +172,15 @@ game note (`![[assets/<sha>...]]`) resolve once Obsidian's own vault root has
 moved one level down: the build hardlinks each asset into it — one inode, two
 names, no second copy — because Obsidian on Linux does not follow a symlink.
 See 07-targets.md's `obsidian` section.
+
+`site/content/` is derived like everything else and **committed anyway**, which
+looks like an exception and is not: `obsidian/` is derived and committed too, for
+the same reason. Committed derived Markdown is what lets something with no
+gamereg installed — a CI runner, most obviously — turn the vault into a site with
+nothing but Quartz. It also keeps the phases honest: publishing the package is
+phase 5, so a phase-3 site that needed gamereg in CI would depend on a later
+phase. Whatever directory Quartz then writes is Quartz's, gitignored, and not the
+build's to track or clean.
 
 *Why separate:* your notes are personal. In one repo you either publish your
 diary alongside the code, or you never publish the code.

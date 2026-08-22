@@ -62,12 +62,15 @@ exactly three because there are exactly three kinds of file in the vault.
 
 | Policy | Meaning | Used by |
 |---|---|---|
-| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, CSV, SQLite, JSON, HTML |
+| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, `site/content/*.md`, CSV, SQLite, JSON, HTML |
 | `splice` | Only the regions between `gamereg` markers are written. Everything else is preserved byte-identical. | `obsidian/games/*.md`, `obsidian/Game List.md` |
-| `seed` | Written if absent. Never overwritten, never removed. | `*.base` |
+| `seed` | Written if absent. Never overwritten, never removed. | `*.base`, `site/quartz.config.yaml` |
 
 `seed` is the exception to "every derived artifact is regenerated", and it is
-deliberate — see *Bases* below.
+deliberate. It covers exactly the files that are *configuration* rather than
+data — a `.base` (see *Bases* below) and `quartz.config.yaml` — where the user's
+edit is the point and regenerating over it would discard their work on every
+build.
 
 ## Declaring targets
 
@@ -133,7 +136,7 @@ caretaker's index, and only the writer touches it.
 | `sqlite` | `data/log.db` | 1 |
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
-| `site` | `site/` via Quartz | 3 |
+| `site` | `site/content/*.md`, `site/quartz.config.yaml` | 3 |
 
 ### `obsidian`
 
@@ -213,9 +216,38 @@ about runs. Labels come from `i18n/`; the embedded data stays in schema tokens.
 
 ### `site`
 
-Phase 3. Runs Quartz over the finished vault, which means it is the one target
-that reads what the others wrote — and therefore the one that always runs last,
-in a second pass, outside the contract above.
+Phase 3. The vault as a stranger reads it: the same notes, planned a second time
+in the flavour Quartz consumes. An **ordinary target** — it plans its files from
+the folded state like every other one, so rule 1 above holds for it with no
+exception.
+
+That reverses an earlier design in which `site` ran Quartz over the finished
+vault and therefore read what the other targets had written. The exception was
+not worth its price. Rule 1 is what keeps the build a projection instead of a
+migration, and it is worth more intact than the shortcut was worth taking —
+especially since the shortcut bought little: `render/` already emits Markdown and
+`targets/` already decides which files exist, so a second flavour of the same
+renderers costs a parameter rather than an architecture.
+
+**gamereg never runs Quartz.** The target emits Quartz's *input* —
+`site/content/**.md` under `replace`, and a seeded `site/quartz.config.yaml`.
+How the site is built from there is the user's business: by hand, from CI, from a
+cron job. The build spawns no subprocess, touches no network, and does not
+require Quartz to be installed in order to build a vault.
+
+**The site carries what the log knows** — title, metadata, cover, the runs table,
+sessions, `note`s and `verdict`s — and not prose typed by hand into a game note,
+which lives only on disk, outside the markers, and never reaches the folded
+state. That is a property rather than a shortfall: prose written in Obsidian
+stays private by construction, and anything meant to be public is filed through
+the CLI as a note or a verdict, which is D2 doing its job. The prose worth
+publishing is already in the log.
+
+Three differences from the `obsidian` flavour, all small. No `.base` is emitted —
+it is an Obsidian artifact and Quartz has no use for one. Quartz reads
+`description` and `draft` in frontmatter, which the Obsidian flavour does not
+write. And an asset embed resolves only if the file is in the content tree, which
+`images.publish` governs — see [04-derived](04-derived.md)'s *Publication*.
 
 ## Bases
 

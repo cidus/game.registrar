@@ -61,6 +61,21 @@ terminal once.
 - Quartz site, GitHub Action on push
 - Calendar heatmap, year-in-review generation
 
+The two halves of the name are one phase because they fail the same way alone: a
+register that only speaks when spoken to loses closing times, and one nobody but
+its author can read is a diary with extra steps.
+
+`site` emits Quartz's input and stops there; running Quartz is the user's
+business — see [07-targets](07-targets.md). Nothing in this phase touches a
+provider or any external service: the tempting ones are either deferred already
+(Steam and console playtime) or have no official API at all.
+
+**Exit criterion:** a session left open overnight is chased the next morning,
+answered in chat, and the corrected record appears on a published page that
+someone who does not own the vault can read. One sentence, and it exercises all
+four bullets — the backoff ladder, the delivery slot, the site, and the fact that
+a correction propagates.
+
 ## Phase 4 — Board games
 
 - `person` and `play.record` events

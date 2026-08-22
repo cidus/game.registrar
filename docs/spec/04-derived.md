@@ -339,11 +339,46 @@ order — while a second build on one machine is still compared byte for byte.
 Every other artifact this project writes is text it composes itself and is
 compared as bytes everywhere.
 
+### What varies per target is the comparator, not the guarantee
+
+Those are two claims and only the second one bends, so keep them apart:
+
+1. **Build twice on one machine, get identical bytes.** That is invariant 2, it
+   is absolute, and it holds today for every target, SQLite included.
+2. **Compare a committed fixture across machines.** Here SQLite is compared
+   logically, for the reason above.
+
+So a target declares **how its artifact is compared**, never whether it has to be
+deterministic. `dumpDatabase` in `test/helpers.ts` is that declaration for
+`sqlite`, written before there was a name for it; everything else declares
+nothing and gets a byte comparison, which is the right default because everything
+else is text this project composes itself.
+
+Stating it this way also settles a question that will come up for any future
+target that wraps an external encoder: the answer is a comparator, not an
+exemption. A target that cannot promise claim 1 does not belong in the build.
+
 ## Site
 
-Phase 3. Quartz over the vault, since it reads wikilinks and embeds natively.
-`gamereg build site` runs Quartz and writes `site/`. Publication is a GitHub
-Action on push, or nothing at all — the vault is fully usable without it.
+Phase 3. `gamereg build site` writes `site/content/` — the game and run notes
+again, in the flavour Quartz reads — plus a seeded `site/quartz.config.yaml`.
+**It does not run Quartz.** Turning that content into a site is the user's
+business: by hand, a GitHub Action on push, a cron job, or nothing at all. The
+vault is fully usable without any of them.
+
+Quartz is the generator this content is shaped for, because it reads wikilinks
+and embeds natively and gives backlinks, a graph view and link popovers over
+something that is genuinely a graph — see D4 in
+[00-architecture](00-architecture.md).
+
+`site/content/` is derived and **committed**, exactly as `obsidian/` is, and for
+the same reason: it is what lets a CI job build the site with nothing but Quartz
+installed. Quartz's own output directory is Quartz's — gitignored, never listed
+in the build manifest, and the build neither writes it nor removes anything
+inside it.
+
+What reaches the site is what the log knows, which is less than the vault holds;
+[07-targets](07-targets.md)'s `site` section says exactly what and why.
 
 ## Image ingestion
 

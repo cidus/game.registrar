@@ -706,3 +706,30 @@ Check-ins (`due`, `checkin`, cron, the backoff ladder), reaction tokens and
 stickers are specified in `docs/spec/05-agent.md` but belong to phase 3. Nothing
 in this directory implements them, and the Registrar stays silent until spoken
 to.
+
+### Two things to verify live before phase 3 wires the cron
+
+Both are the same class of question as the button payload above — where this
+gateway's documented behaviour and its actual behaviour have to be checked
+against each other rather than assumed. Neither is settled, and the phase-3
+design should not be built on a guess about either.
+
+**How a `--command` cron job wakes the agent.** The plan for check-ins is an
+hourly cron job whose payload is a *command*, not an agent message: it runs
+`gamereg due --json` on this host with no model attached, so an empty poll costs
+nothing. The catch is that OpenClaw's automation docs state plainly that a
+command job's output cannot trigger an agent turn — a command produces run
+history and stops there. So the wrapper has to schedule the wake itself when
+`due` comes back non-empty. The candidate is `openclaw cron add --at +0s
+--delete-after-run --message …`, creating a one-shot agent job carrying the facts
+already fetched. Confirm the exact flag set against the installed version
+(`openclaw 2026.7.1-2` at the time of writing) before designing around it, and
+record what actually worked here.
+
+**Whether the 64-byte `callback_data` ceiling governs the reply buttons.** A
+check-in offers three exits — "taking a break", "stopping now", "still going" —
+and the first two want inline buttons carrying a session id. Session ULIDs are
+26 characters, so `close-session:<ulid>` fits with room to spare and this should
+be fine. It is listed anyway because the failure is silent — see *64 bytes, and
+failure is silent* above: the button is dropped and the message still sends
+without it. Verify with a real tap, the way the button shapes above had to be.

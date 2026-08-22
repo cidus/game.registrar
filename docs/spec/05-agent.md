@@ -295,6 +295,16 @@ The Registrar occasionally notices an open session and says something. Cron runs
 `gamereg due --json` on a schedule (hourly is enough); the CLI decides what is
 actually due, so cron carries no state and no logic.
 
+That job is a **command, not an agent turn**: it runs the binary on the gateway
+host and no model is involved. Only when `due` comes back non-empty does the
+wrapper wake the agent, handing over the facts it has already fetched. A poll
+that finds nothing therefore costs nothing, which is what makes hourly
+affordable. The wrapper still decides nothing — it relays what `due` returned and
+records that it did, which is why the sentence above holds — and the decision to
+speak stays inside the CLI, where invariant 7 wants it. A gateway heartbeat would
+work mechanically and is the wrong shape: it asks a model to decide again what
+`due` has already decided.
+
 Empty → say nothing. This matters more than any other rule here: an assistant
 that pings when it has nothing to ask gets muted within a week, and then the
 `day_cutoff` chase stops working too — which is the one that actually costs data.
@@ -365,7 +375,7 @@ Each check-in offers three exits, and the reply routes to a command:
 |---|---|
 | "taking a break" | `gamereg break start` |
 | "stopping now" + impressions | `gamereg end --note "..."` |
-| "still going" / anything else | nothing; snooze |
+| "still going" / anything else | nothing; the record already reads `snoozed` |
 
 This is what finally makes breaks get used. Nobody remembers to run
 `break start` on their own; being asked at hour four is exactly when it is
@@ -375,17 +385,72 @@ useful.
 
 Non-optional. Violate these and the feature makes the whole assistant annoying.
 
-1. After asking, file `gamereg checkin --outcome snoozed`. The session is then
-   inside its backoff window and will not be raised again.
+1. The **wrapper** files `gamereg checkin --outcome snoozed`, immediately after
+   enqueueing the wake and never before it — see [02-cli](02-cli.md) for why that
+   order is load-bearing. The session is then inside its backoff window and will
+   not be raised again. The agent does not file this and must not try to.
 2. Backoff **escalates**: `checkin.backoff` is a list, default `[2h, 3h, 5h]`.
    The fourth check-in never happens.
 3. `checkin.max_per_session` (default 3) is a hard ceiling regardless of backoff.
 4. Silence is an answer. After `checkin.reply_window` (default 45m) with no
-   reply, file `no_reply` and move on. Do not re-ask, do not escalate tone.
+   reply, `gamereg checkin --expire` amends the record to `no_reply` on the next
+   tick. Do not re-ask, do not escalate tone. Nothing here is the agent's either:
+   it would have to keep a promise 45 minutes after the fact, which is not
+   something a chat turn can do.
 5. Never auto-close, auto-pause, or estimate a duration. A guessed number
    silently corrupts every statistic downstream.
 6. `day_cutoff` has its own budget and is never suppressed by the other two —
    missing data is worth one ask even after three check-ins.
+
+#### The whole cycle
+
+The parts above are one machine. Read per open session, per trigger:
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    [*] --> Silent : session opens
+
+    Silent --> Fired : threshold crossed
+    Fired --> Withheld : outside delivery window
+    Withheld --> Returned : window opens
+    Fired --> Returned : window already open
+
+    Returned --> Asked : wake enqueued, THEN checkin{snoozed} filed
+
+    Asked --> BreakStarted : "taking a break"
+    Asked --> SessionClosed : "stopping now"
+    Asked --> NoReply : reply_window elapses
+
+    BreakStarted --> Silent : backoff elapses
+    NoReply --> Silent : backoff elapses
+
+    Silent --> Exhausted : checkins == max_per_session
+    Exhausted --> Silent : day_cutoff only (exempt)
+
+    SessionClosed --> [*]
+    Exhausted --> [*] : session closed by hand
+```
+
+`Fired → Withheld` is `quiet_hours` for `duration` and `clock`, and `chase_at`
+for `day_cutoff`. `day_cutoff` ignores `quiet_hours` and is exempt from both the
+backoff ladder and the ceiling, which is why it can leave `Exhausted`. With
+`checkin.after` set to `null` the `duration` trigger never leaves `Silent`.
+
+Three components move this machine, and the split is the whole design:
+
+| Transition | Owner | How |
+|---|---|---|
+| `Silent → Fired → Withheld → Returned` | **CLI** | `gamereg due` — threshold, quiet hours, delivery window, backoff, ceiling |
+| `Returned → Asked` | **cron wrapper** | enqueue the wake, then `gamereg checkin --outcome snoozed` |
+| the wording of the question | **agent** | prose only; the facts come from `due` |
+| `Asked → BreakStarted` / `SessionClosed` | **agent** | `break start` or `end --note`, then amend the outcome |
+| `Asked → NoReply` | **cron wrapper** | `gamereg checkin --expire`, on the same tick |
+
+The agent owns one row and half of another. Everything with a clock or a counter
+in it belongs to the CLI, per invariant 7, and everything that has to survive
+between two conversations belongs to the wrapper, because a chat turn cannot
+remember a deadline.
 
 #### Personality
 

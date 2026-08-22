@@ -367,13 +367,30 @@ caller behaves identically and cron needs no memory of its own.
 
 ### `gamereg checkin <session_id> --trigger <t> --outcome <o>`
 
-Files a `session.checkin`. Called by the agent right after it asks, with
-`--outcome snoozed`, then amended when the answer lands — or left to expire as
-`no_reply`.
+Files a `session.checkin`. Called by **the cron wrapper, not the agent**, right
+after the wake carrying the question has been enqueued, with `--outcome snoozed`.
+The outcome is amended later: by the agent when the user answers, or by
+`--expire` below when nobody does.
 
-Without this call the session stays outside any backoff window and the next cron
-run asks again. That is the intended failure mode: **forgetting to record a
-check-in makes the assistant repeat itself, never go silent.**
+The order is load-bearing. Enqueue the wake first, file the check-in second.
+Filing first would put a session inside a backoff window having never actually
+been asked, and that is the one direction this feature must not fail in. Filing
+second preserves the intended failure mode — **forgetting to record a check-in
+makes the assistant repeat itself, never go silent** — and a repeat costs one
+extra message where a false silence costs a closing time nobody will remember.
+
+Why the wrapper rather than the agent: the anti-nagging rules are a clock and a
+counter, and invariant 7 keeps that kind of arithmetic out of a language model.
+The agent's only job in a check-in is choosing the words.
+
+### `gamereg checkin --expire`
+
+Sweeps every check-in still `snoozed` past `checkin.reply_window` and amends it
+to `no_reply`. Takes no session argument — it asks the log which records have
+gone stale. Runs on the same schedule as `due`, from the same wrapper.
+
+Silence is an answer, and this is what records it as one instead of inferring it
+on read. See [01-model](01-model.md) for why that distinction is not pedantry.
 
 ### `gamereg status [<query>]`
 

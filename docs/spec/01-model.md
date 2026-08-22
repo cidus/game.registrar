@@ -136,9 +136,17 @@ data later ("how often do I play past the point where I meant to stop").
 - `trigger`: `duration` \| `clock` \| `day_cutoff`
 - `outcome`: `snoozed` \| `break_started` \| `session_closed` \| `no_reply`
 
-`outcome` is filed when the answer arrives, or as `no_reply` when the backoff
-window expires with silence. A check-in never mutates the session by itself; if
-the user says they are stopping, that is a separate `session.close` event.
+`outcome` starts as `snoozed`, written when the question is asked, and is
+**amended** afterwards: to `break_started` or `session_closed` when the answer
+lands, or to `no_reply` when `checkin.reply_window` expires in silence. Both are
+events. Nothing here expires implicitly — backoff inferred on read is backoff
+that lives half in the log and half in whoever is reading it, which is the split
+that makes a bug unreproducible six months later.
+
+Who writes each is settled in [05-agent](05-agent.md)'s *Check-ins*: the cron
+wrapper opens the record and expires it, and the agent only reports what the user
+answered. A check-in never mutates the session by itself; if the user says they
+are stopping, that is a separate `session.close` event.
 
 ### Attachments
 
