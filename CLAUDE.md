@@ -19,20 +19,22 @@ items.
 
 ## Current state
 
-**Phases 0–1 are done and tagged (`v0.1.0`, patched by `v0.1.1`/`v0.1.2`).
-Phase 2 — chat and voice — is done for text, not yet for voice.
-`package.json` reads `0.2.0`, untagged — still being exercised live before
-that's made official.** Phase 2's exit criterion — an entire game logged
-start to finish with no terminal — has been demonstrated live for the text
-path: `start` through chat, a code-3 menu resolved by an actual
-inline-button tap, `finish` with a drafted verdict. Voice transcription
-(`tools.media.audio`, see *Voice* in `agent/README.md`) is wired but not
-yet confirmed live — the smoke test's voice-note step (closing a session by
-speaking) hasn't been run and reported back, so "start to finish with no
-terminal" is proven only for a user who types or taps. `CURRENT_PHASE` in
-`core/vocab.ts` stays `1` regardless; it only gates which build targets are
-available, and phase 2 adds none. Bump it, and tag, once voice is shown
-too — see *Versioning* below.
+**Phases 0–2 are functionally done. Phases 0/1 are tagged (`v0.1.0`, patched
+by `v0.1.1`/`v0.1.2`); phase 2 is not tagged yet — `package.json` still
+reads `0.2.0` ahead of a tag, pending the maintainer's go-ahead (see
+*Versioning* below).** Phase 2's exit criterion — an entire game logged
+start to finish with no terminal — has now been demonstrated live end to
+end, voice included: `start` through chat, a code-3 menu resolved by an
+actual inline-button tap, a session closed by a voice note, `finish` with a
+drafted verdict. `agent/README.md`'s *Voice* section and its smoke test
+record the confirmation. `CURRENT_PHASE` in `core/vocab.ts` stays `1`
+regardless; it only gates which build targets are available, and phase 2
+adds none — bumping it is part of the tagging step, not a prerequisite for
+it.
+
+Phase 3 (`due`/`checkin`/cron, reaction tokens, the Quartz site) is
+specified in full in `docs/spec/05-agent.md` and `06-roadmap.md`; none of it
+is implemented — see `agent/README.md`'s *What is not here*.
 
 `npm test` is 397 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
@@ -333,8 +335,10 @@ Only tag once the phase is actually done. **Never tag or push without being
 asked** — versioning is user-triggered here, never done alongside unrelated work.
 
 `package.json` reads `0.2.0` ahead of the tag this time, at explicit request,
-while phase 2 gets more live testing before it's called finished. Tag it
-`v0.2.0` once that testing is done, rather than bumping again.
+while phase 2 got more live testing before it's called finished. That
+testing is now done — text and voice both confirmed live (see *Current
+state*) — so `v0.2.0` is ready to tag whenever asked; no further version
+bump needed first.
 
 ## Language
 

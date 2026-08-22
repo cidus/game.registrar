@@ -41,20 +41,19 @@ Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
 
 ## Status
 
-**Phase 1 done. Phase 2 — chat and voice — done for text, not yet for voice,
-not tagged.** The CLI records, enriches titles and cover art from IGDB,
-ingests your own photos, and regenerates Obsidian notes and a sortable Base,
-CSV, JSON, an HTML table and a SQLite cache — all from one event log. A chat
-agent for [OpenClaw](https://openclaw.ai) lives in [`agent/`](agent/) and is
-live-tested on a real Telegram deployment: recording a game, answering the
-platform question, correcting an already-recorded run, ad hoc questions
-answered by SQL against the register, opening a live session with `start`,
-exit-code-3 disambiguation resolved by an actual inline-button tap, and a
-full `finish` + `verdict` pass. That covers the roadmap's own exit criterion
-— a game logged start to finish without opening a terminal once — for a user
-who types or taps. Voice transcription, the other half of "chat and voice",
-is wired but not yet confirmed live the same way, so phase 2 stays untagged
-until that's shown too. No published site yet; that's phase 3. See
+**Phases 0–2 done, not yet tagged past `v0.1.2`.** The CLI records, enriches
+titles and cover art from IGDB, ingests your own photos, and regenerates
+Obsidian notes and a sortable Base, CSV, JSON, an HTML table and a SQLite
+cache — all from one event log. A chat agent for
+[OpenClaw](https://openclaw.ai) lives in [`agent/`](agent/) and is
+live-tested on a real Telegram deployment, voice included: recording a game
+by text or by speaking, answering the platform question, correcting an
+already-recorded run, ad hoc questions answered by SQL against the register,
+opening a live session with `start`, exit-code-3 disambiguation resolved by
+an actual inline-button tap, a session closed by a voice note, and a full
+`finish` + `verdict` pass — the roadmap's own exit criterion for phase 2, a
+game logged start to finish without opening a terminal once. No published
+site yet; that's phase 3, specified but not built — see
 [06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *The agent
 layer, as built* for the detailed state, and [`CHANGELOG.md`](CHANGELOG.md) —
 or the tagged [releases](https://github.com/cidus/game.registrar/releases)

@@ -361,11 +361,10 @@ group came through afterward with the same `/proc/$PID/status` check above.
 
 ### 7. Voice
 
-**Not yet confirmed live.** Wired and configured below, but the smoke test's
-voice-note step (closing a session by speaking, not typing) hasn't actually
-been run against this deployment and reported back — everything in this
-section is setup guidance, not a confirmed result, unlike the button and
-background-exec sections above.
+**Confirmed live:** the smoke test's voice-note step — closing a session by
+speaking, not typing — has been run against this deployment. A session
+closed correctly from a transcribed note, with the platform question
+arriving afterward exactly as text-driven closes already did.
 
 `tools.media.audio` transcribes voice notes before the CLI sees anything.
 `gamereg` never touches audio and must never be asked to.

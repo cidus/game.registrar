@@ -120,7 +120,7 @@ that is not in the generated README.
 3. **Franchise / series grouping.** Deferred past Phase 1. Real usage will show
    whether it's actually wanted before the model or the provider mapping is
    committed to.
-5. **Timezone changes while travelling.** Nothing to build; the transparent
+4. **Timezone changes while travelling.** Nothing to build; the transparent
    behaviour was already there. `logical_day` is derived on every fold, and
    `config.timezone` picks which of two coherent readings applies: unset — what
    `init` writes — groups a session by the local day where it was recorded,
@@ -132,11 +132,11 @@ that is not in the generated README.
    considered and rejected: the register would group by which device filed an
    event, and detecting a phone's zone through the chat gateway cannot help,
    because the CLI runs on the always-on host that stayed home.
-6. **A backlog view.** No. The register holds what you played, per the non-goal
+5. **A backlog view.** No. The register holds what you played, per the non-goal
    in [00-architecture](00-architecture.md) — it does not know what you own and
    does not track unplayed games. A game with no runs stays outside the model;
    there is no second base and no `game.add` without a run.
-7. **Retroactive session start.** Designed during Phase 2, per this item's own
+6. **Retroactive session start.** Designed during Phase 2, per this item's own
    note above. Two natural phrasings, both `--at` underneath, no new CLI
    surface needed: a session with both ends known ("forgot to log it, I played
    from 8 to 11 last night") opens and closes in two calls, read before write —
