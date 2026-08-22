@@ -41,7 +41,7 @@ Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
 
 ## Status
 
-**Phases 0–2 done, not yet tagged past `v0.1.2`.** The CLI records, enriches
+**Phases 0–2 done and tagged (`v0.2.0`).** The CLI records, enriches
 titles and cover art from IGDB, ingests your own photos, and regenerates
 Obsidian notes and a sortable Base, CSV, JSON, an HTML table and a SQLite
 cache — all from one event log. A chat agent for
