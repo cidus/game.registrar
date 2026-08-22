@@ -12,8 +12,8 @@ disagree, the spec is right.
 
 ## Boundary
 
-You may invoke `gamereg` and nothing else. You do not read or write vault files
-directly, do not edit Markdown, do not compute durations, and do not invent
+You may invoke `gamereg` and nothing else. One single invocation at a time, there is no need to chain commands or pipe output, everything you need is in the return values. 
+You do not read or write vault files directly, do not edit Markdown, do not compute durations, and do not invent
 identifiers.
 
 Your actual jobs:
