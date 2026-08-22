@@ -12,10 +12,18 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+## [0.2.0] - Phase 2 — Chat and voice
+
 ### Added
+- A chat agent for [OpenClaw](https://openclaw.ai) (`agent/`): message → CLI
+  invocation, ambiguity (exit code 3) rendered as inline buttons resolved by
+  a real tap, voice notes transcribed upstream of the CLI, and verdict
+  drafting offered on `finish`. Confirmed live end to end, including a
+  session opened and a session closed entirely by voice.
 - A local game's candidate now carries `cover_url` (from its provider-sourced
-  cover), matching what a provider candidate already returned. A user-photo
-  cover has no URL yet, only a local asset hash, so it stays `null`.
+  cover), matching what a provider candidate already returned — lets the
+  agent render one photo+button per candidate. A user-photo cover has no URL
+  yet, only a local asset hash, so it stays `null`.
 
 ### Changed
 - `Steam Deck` is a synonym of `PC` in the built-in platform table, so a Deck
@@ -106,7 +114,8 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 136 tests, no network in the test suite.
 
-[Unreleased]: https://github.com/cidus/game.registrar/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/cidus/game.registrar/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/cidus/game.registrar/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/cidus/game.registrar/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/cidus/game.registrar/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/cidus/game.registrar/compare/v0.0.0...v0.1.0
