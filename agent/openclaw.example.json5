@@ -157,17 +157,23 @@
     // is subject to `ask`. Leaving this unset means "full": every command
     // runs with no gate whatsoever, allowlist file or not.
     //
-    // ask: "on-miss" — anything that isn't allowlisted (a chained command
-    // that doesn't match the plain `gamereg` pattern, or a tool other than
-    // gamereg entirely) pauses for a human decision instead of running or
-    // failing silently — but only because approvals.exec below tells
-    // OpenClaw where to send that prompt. `amend` and `revoke` are on the
-    // allowlist in approvals.example.json like every other gamereg command;
-    // their confirmation is conversational, in SKILL.md, not this gate — see
-    // README.md for why, and what that trades away.
+    // ask: "off" — anything that isn't allowlisted (a chained command that
+    // doesn't match the plain `gamereg` pattern, or a tool other than
+    // gamereg entirely) is denied immediately, with no prompt and no wait.
+    // The agent's own boundary is "gamereg, one invocation, nothing else"
+    // (SKILL.md), so a miss here is always a mistake to recover from, never
+    // something a human is expected to approve — `on-miss` used to route
+    // that decision to chat instead, and in practice it only ever produced
+    // an approval nobody asked for, sometimes minutes of it. `amend` and
+    // `revoke` are on the allowlist in approvals.example.json like every
+    // other gamereg command; their confirmation is conversational, in
+    // SKILL.md, not this gate — see README.md for why, and what that trades
+    // away. `approvals.exec` below is dead weight with `ask: "off"` (nothing
+    // ever asks), kept only in case a future change reintroduces a real
+    // approval path.
     exec: {
       security: "allowlist",
-      ask: "on-miss",
+      ask: "off",
     },
 
     media: {

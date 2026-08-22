@@ -192,13 +192,34 @@ Four parts, and all four are required — any one missing and either nothing
 is gated, or a gated command just fails outright with no way to approve it.
 
 **The policy**, from step 3: `tools.exec.security: "allowlist"` and
-`tools.exec.ask: "on-miss"`. Skip these and the default is `security: "full"`
-— unrestricted shell, allowlist file or not. Confirm what's actually in
+`tools.exec.ask: "off"`. Skip `security` and the default is `"full"` —
+unrestricted shell, allowlist file or not. Confirm what's actually in
 effect:
 
 ```bash
 openclaw approvals get
 ```
+
+**`ask` moved from `"on-miss"` to `"off"` after watching it fire for real,
+twice.** Both times the agent improvised a chained command it shouldn't have
+(a `query --sql ... 2>&1 || gamereg --help`-shaped guess, from the same "let
+me check something first" impulse — see `SKILL.md`'s *Starting a session*),
+and both times the result was the same: an approval prompt in Telegram that
+nobody asked for, that took anywhere from ~9 to ~300 seconds to resolve by
+denying it, for a command the user never wanted to run in the first place.
+Read `requiresExecApproval` in the installed package
+(`exec-approvals-BIKWP8_V.js:835-839`): with `ask: "off"`,
+`hasGatewayAllowlistMiss` still throws (`bash-tools-DHyGpWCr.js:1391`,
+`"exec denied: allowlist miss"`) for anything outside the allowlist — the
+command still gets refused, just immediately, as a plain tool error the agent
+reads and recovers from on its own, with nothing sent to the user and nothing
+to wait on. The whole point of the allowlist was never "ask a human about
+edge cases" — this agent has exactly one thing it's allowed to run, so a miss
+is always a mistake to recover from, never a legitimate request waiting on a
+decision. The approval-routing setup below (`approvals.exec`, Telegram's
+`execApprovals`) is now dormant with `ask: "off"` — left in place and
+documented in case a future change reintroduces a real approval path, not
+because it still does anything today.
 
 **The allowlist itself.** `openclaw approvals allowlist add <pattern>` only
 takes a bare glob, no way to scope by argument — which matters below, not for
