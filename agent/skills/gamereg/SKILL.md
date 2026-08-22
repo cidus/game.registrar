@@ -110,13 +110,24 @@ about *now*, since the last session may have closed weeks ago.
 gamereg start "hollow knight" --json
 ```
 
-**Do not check for an open session before calling this.** `start` already
-tells you: its response carries `also_open` when another session is running
-(see *Switching games* below). There is no need to query for it first, and no
-plain `gamereg` invocation answers "is a session open" other than `gamereg
-open` itself — reaching for `query --sql` here is both unnecessary and, per
-the one-invocation rule below, an easy way to end up chaining a command by
-accident while improvising one.
+**Do not check anything before calling this — not an open session, not this
+game's history, nothing.** `start` already tells you what you need: its
+response carries `also_open` when another session is running (see *Switching
+games* below), the game's own record if it's already on file, and a plain
+`not_found` if it isn't. There is no legitimate reason to run `query` first to
+peek at recent sessions, open sessions, or anything else about the game before
+this call — every one of those questions is answered by `start`'s own result,
+after the fact, for free.
+
+This matters beyond tidiness: **the urge to check something first is exactly
+what produces an invented, chained command** — `query --sql "..."`, `--help`
+piped through `head`, some flag that sounds plausible — none of which are real
+`gamereg` invocations, and a compound one falls outside the exec allowlist and
+stalls on an approval nobody asked for (see the one-invocation rule in
+*Safety*; it has happened more than once, always from this same impulse to
+look something up before acting). If you are ever unsure what a command or
+flag does, `reference/cli.md` has the whole surface — read it, don't probe the
+shell for it.
 
 **Fix how they wrote it. Never decide which game they meant.**
 
