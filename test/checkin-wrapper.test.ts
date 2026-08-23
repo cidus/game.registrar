@@ -37,10 +37,9 @@ type Host = {
  * A vault with one session open long enough to be due, and a stub `openclaw`
  * that records what it was asked to do.
  *
- * `quiet_hours` and `clock` are switched off because this test runs at
- * whatever time the suite happens to run: a real clock is exactly what the
- * evaluator is designed to be independent of, and the wrapper — unlike every
- * other caller — has no `--at` to hand it.
+ * The config below is built so exactly one trigger can fire whatever the hour;
+ * see the comment on it. `timezone` is left unset on purpose, so the CLI reads
+ * the same local clock the cutoff is computed from.
  */
 function host(options: { openclawExit?: number; hoursOpen?: number; to?: string; locale?: string } = {}): Host {
   const dir = tempDir('gamereg-wrapper-')
@@ -50,11 +49,24 @@ function host(options: { openclawExit?: number; hoursOpen?: number; to?: string;
   mkdirSync(vault, { recursive: true })
   mkdirSync(bin, { recursive: true })
 
+  const hours = options.hoursOpen ?? 5
+  const opened = new Date(Date.now() - hours * 3600_000)
+
+  // `day_cutoff` is put one minute *before* the session opens, which is the
+  // only way to stop it firing at all: its crossing is then never later than
+  // the session, whatever hour the suite happens to run at. Without this the
+  // trigger a five-hour session reports changes over the course of a day —
+  // `duration` at midnight, `day_cutoff` by mid-morning — and the test passes
+  // or fails on the clock. `quiet_hours` and `clock` are off for the same
+  // reason: the wrapper, unlike every other caller, has no `--at` to hand it.
+  const before = new Date(opened.getTime() - 60_000)
+  const cutoff = `${String(before.getHours()).padStart(2, '0')}:${String(before.getMinutes()).padStart(2, '0')}`
+
   writeFileSync(
     join(vault, 'gamereg.config.json'),
     JSON.stringify({
       locale: options.locale ?? 'en',
-      timezone: 'America/Sao_Paulo',
+      day_cutoff: cutoff,
       checkin: { after: '4h', clock: [], quiet_hours: [], chase_at: null },
     }),
   )
@@ -77,11 +89,9 @@ function host(options: { openclawExit?: number; hoursOpen?: number; to?: string;
   )
   chmodSync(stub, 0o755)
 
-  const hours = options.hoursOpen ?? 5
-  const opened = new Date(Date.now() - hours * 3600_000).toISOString()
   const started = spawnSync(
     process.execPath,
-    [MAIN, '--vault', vault, '--json', 'start', 'hollow knight', '--no-metadata', '--at', opened],
+    [MAIN, '--vault', vault, '--json', 'start', 'hollow knight', '--no-metadata', '--at', opened.toISOString()],
     { encoding: 'utf8', env: { ...process.env, GAMEREG_NON_INTERACTIVE: '1' } },
   )
   assert.equal(started.status, 0, started.stderr)

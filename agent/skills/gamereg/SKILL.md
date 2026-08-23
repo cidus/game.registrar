@@ -842,11 +842,12 @@ and amend it to `no_reply`. Correcting it is the one piece of check-in
 bookkeeping that is yours:
 
 ```text
-gamereg amend <checkin_id> --set outcome=break_started
-gamereg amend <checkin_id> --set outcome=session_closed
+gamereg amend <checkin_id> --set outcome=break_started --reason "answered the check-in"
+gamereg amend <checkin_id> --set outcome=session_closed --reason "answered the check-in"
 ```
 
-The id is `last_checkin_id`, on that session's row from `gamereg open --json`.
+`--reason` is required and the command exits 2 without it. The id is
+`last_checkin_id`, on that session's row from `gamereg open --json`.
 
 **Read it before you close the session** — `open` lists open sessions, so a
 session you have just ended is not there to read it from. For "stopping now"

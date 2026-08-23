@@ -830,6 +830,12 @@ subcommands are now written out with their target, and `SKILL.md`'s *Check-ins*
 requires passing it: the wake names a `game_id`, and answering a check-in about
 one session by asking which session is meant would be absurd.
 
+**`amend` requires `--reason`, and the skill did not say so.** The first real
+answered check-in cost a wasted round trip to exit 2 before the agent added it.
+Written down because it is the shape of mistake this file exists to catch: the
+reference listed the flag, `SKILL.md`'s own worked example omitted it, and a
+worked example is what gets copied. Both now carry it.
+
 **A wake has no language to infer from, and the agent will go looking.** The
 first successful check-in came out in English, to a user who talks to this bot
 in Portuguese, after two `sessions_history` calls and two `memory_search` calls

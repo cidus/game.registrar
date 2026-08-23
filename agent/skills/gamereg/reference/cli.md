@@ -255,8 +255,9 @@ gamereg amend <event> --set --reason
 gamereg revoke <event> --reason
 ```
 
-`--set key=value`, repeatable. Both name an event id. **Never invoke either
-unless the user asked to correct something specific.**
+`--set key=value`, repeatable. Both name an event id. `--reason` is **required
+on both** — they exit 2 without it. **Never invoke either unless the user asked
+to correct something specific.**
 
 ## Metadata
 
