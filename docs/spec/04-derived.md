@@ -360,8 +360,9 @@ exemption. A target that cannot promise claim 1 does not belong in the build.
 
 ## Site
 
-Phase 3. `gamereg build site` writes `site/content/` — the game and run notes
-again, in the flavour Quartz reads — plus a seeded `site/quartz.config.yaml`.
+Phase 3. `gamereg build quartz` writes `quartz/content/` — the game and run
+notes again, in the flavour Quartz reads — plus a seeded
+`quartz/quartz.config.yaml`.
 **It does not run Quartz.** Turning that content into a site is the user's
 business: by hand, a GitHub Action on push, a cron job, or nothing at all. The
 vault is fully usable without any of them.
@@ -371,14 +372,14 @@ and embeds natively and gives backlinks, a graph view and link popovers over
 something that is genuinely a graph — see D4 in
 [00-architecture](00-architecture.md).
 
-`site/content/` is derived and **committed**, exactly as `obsidian/` is, and for
+`quartz/content/` is derived and **committed**, exactly as `obsidian/` is, and for
 the same reason: it is what lets a CI job build the site with nothing but Quartz
 installed. Quartz's own output directory is Quartz's — gitignored, never listed
 in the build manifest, and the build neither writes it nor removes anything
 inside it.
 
 What reaches the site is what the log knows, which is less than the vault holds;
-[07-targets](07-targets.md)'s `site` section says exactly what and why.
+[07-targets](07-targets.md)'s `quartz` section says exactly what and why.
 
 ## Image ingestion
 

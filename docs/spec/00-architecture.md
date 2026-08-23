@@ -52,7 +52,7 @@ Node too, and OpenClaw is Node should a native plugin ever be wanted.
 
 *On Quartz specifically:* the original reason given here was that it "builds the
 site straight from an Obsidian vault with no converter." That stopped being true
-when `site` became a target that plans its own content from the folded state —
+when `quartz` became a target that plans its own content from the folded state —
 gamereg **is** the converter now, so reading a vault unaided no longer
 distinguishes Quartz from anything else. The reason that survives is different
 and better: over content that is genuinely a graph — game to runs to years —
@@ -157,8 +157,8 @@ my-register/                 # user repo — private
     Game Database.base          # seeded once, then yours
     assets/                    # hardlinks to ../assets (07-targets.md)
   .gamereg/manifest.json     # build bookkeeping (gitignored)
-  site/
-    content/                 # derived by the site target, and committed
+  quartz/
+    content/                 # derived by the quartz target, and committed
     quartz.config.yaml       # seeded once, then yours
 ```
 
@@ -173,7 +173,7 @@ moved one level down: the build hardlinks each asset into it — one inode, two
 names, no second copy — because Obsidian on Linux does not follow a symlink.
 See 07-targets.md's `obsidian` section.
 
-`site/content/` is derived like everything else and **committed anyway**, which
+`quartz/content/` is derived like everything else and **committed anyway**, which
 looks like an exception and is not: `obsidian/` is derived and committed too, for
 the same reason. Committed derived Markdown is what lets something with no
 gamereg installed — a CI runner, most obviously — turn the vault into a site with

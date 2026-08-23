@@ -65,7 +65,7 @@ The two halves of the name are one phase because they fail the same way alone: a
 register that only speaks when spoken to loses closing times, and one nobody but
 its author can read is a diary with extra steps.
 
-`site` emits Quartz's input and stops there; running Quartz is the user's
+`quartz` emits Quartz's input and stops there; running Quartz is the user's
 business — see [07-targets](07-targets.md). Nothing in this phase touches a
 provider or any external service: the tempting ones are either deferred already
 (Steam and console playtime) or have no official API at all.
@@ -109,7 +109,7 @@ migration owed to a stranger. The phases above are where those contracts settle.
 
 The pressure this phase puts on *Explicitly deferred* is real and does not change
 it: an installer reaches people who will never open a vault in Obsidian, and a
-web UI is what they will ask for. `html` and `site` are the answer; a server with
+web UI is what they will ask for. `html` and `quartz` are the answer; a server with
 accounts is still not.
 
 **Exit criterion:** someone who has never seen this repository installs it and

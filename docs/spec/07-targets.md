@@ -62,9 +62,9 @@ exactly three because there are exactly three kinds of file in the vault.
 
 | Policy | Meaning | Used by |
 |---|---|---|
-| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, `site/content/*.md`, CSV, SQLite, JSON, HTML |
+| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, `quartz/content/*.md`, CSV, SQLite, JSON, HTML |
 | `splice` | Only the regions between `gamereg` markers are written. Everything else is preserved byte-identical. | `obsidian/games/*.md`, `obsidian/Game List.md` |
-| `seed` | Written if absent. Never overwritten, never removed. | `*.base`, `site/quartz.config.yaml` |
+| `seed` | Written if absent. Never overwritten, never removed. | `*.base`, `quartz/quartz.config.yaml` |
 
 `seed` is the exception to "every derived artifact is regenerated", and it is
 deliberate. It covers exactly the files that are *configuration* rather than
@@ -136,7 +136,7 @@ caretaker's index, and only the writer touches it.
 | `sqlite` | `data/log.db` | 1 |
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
-| `site` | `site/content/*.md`, `site/quartz.config.yaml` | 3 |
+| `quartz` | `quartz/content/*.md`, `quartz/quartz.config.yaml` | 3 |
 
 ### `obsidian`
 
@@ -214,14 +214,14 @@ This overlaps the Quartz site of phase 3 and does not replace it: the site is a
 vault-wide, linked, publishable thing; this is one page that answers questions
 about runs. Labels come from `i18n/`; the embedded data stays in schema tokens.
 
-### `site`
+### `quartz`
 
 Phase 3. The vault as a stranger reads it: the same notes, planned a second time
 in the flavour Quartz consumes. An **ordinary target** — it plans its files from
 the folded state like every other one, so rule 1 above holds for it with no
 exception.
 
-That reverses an earlier design in which `site` ran Quartz over the finished
+That reverses an earlier design in which `quartz` ran Quartz over the finished
 vault and therefore read what the other targets had written. The exception was
 not worth its price. Rule 1 is what keeps the build a projection instead of a
 migration, and it is worth more intact than the shortcut was worth taking —
@@ -230,7 +230,8 @@ especially since the shortcut bought little: `render/` already emits Markdown an
 renderers costs a parameter rather than an architecture.
 
 **gamereg never runs Quartz.** The target emits Quartz's *input* —
-`site/content/**.md` under `replace`, and a seeded `site/quartz.config.yaml`.
+`quartz/content/**.md` under `replace`, and a seeded
+`quartz/quartz.config.yaml`.
 How the site is built from there is the user's business: by hand, from CI, from a
 cron job. The build spawns no subprocess, touches no network, and does not
 require Quartz to be installed in order to build a vault.
