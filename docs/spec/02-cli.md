@@ -347,10 +347,14 @@ arithmetic so every caller behaves identically — see [05-agent](05-agent.md).
 { "ok": true, "result": { "due": [
   {
     "session_id": "01K...",
+    "run_id": "01K...",
     "game": "Hollow Knight",
+    "game_id": "01K...",
     "opened_at": "2026-08-12T20:14:00-03:00",
     "open_for_minutes": 412,
     "net_minutes": 372,
+    "on_break": false,
+    "break_started_at": null,
     "trigger": "duration",
     "threshold": "5h",
     "checkins_so_far": 1,
@@ -359,18 +363,39 @@ arithmetic so every caller behaves identically — see [05-agent](05-agent.md).
 ] } }
 ```
 
+The row is `open`'s, plus `trigger`, `threshold` and `last_checkin_at`.
+`threshold` is the setting that fired, as configured: `4h` for `duration`, the
+hour itself for `clock` and for `day_cutoff`.
+
 `trigger` is what the agent uses to choose its register — see
 [05-agent](05-agent.md). Never hardcode the phrasing here; the CLI reports facts.
 
-Backoff and thresholds are read from config; the CLI applies them, so every
-caller behaves identically and cron needs no memory of its own.
+**At most one row per session.** Several triggers can stand fired at once, and
+two questions about one session is the same nagging by a longer route.
+`day_cutoff` wins, being the only one chasing data it does not have; `duration`
+outranks `clock`, knowing how long the session has actually run where `clock`
+only knows what time it is. Several *sessions* still yield several rows, and the
+agent sends one message covering them (05-agent, *One message, not N*).
 
-### `gamereg checkin <session_id> --trigger <t> --outcome <o>`
+Backoff and thresholds are read from config; the CLI applies them, so every
+caller behaves identically and cron needs no memory of its own. The ladder is
+measured from the last check-in of any trigger and indexed by how many have been
+asked; the ceiling counts only `duration` and `clock`, since `day_cutoff` has its
+own budget. A `day_cutoff` chase is asked once per delivery slot, which is what
+bounds a trigger exempt from both.
+
+### `gamereg checkin <session_id> --trigger <t> [--outcome <o>]`
 
 Files a `session.checkin`. Called by **the cron wrapper, not the agent**, right
-after the wake carrying the question has been enqueued, with `--outcome snoozed`.
-The outcome is amended later: by the agent when the user answers, or by
-`--expire` below when nobody does.
+after the wake carrying the question has been enqueued. `--outcome` defaults to
+`snoozed`, which is the only outcome the wrapper is ever in a position to know.
+The outcome is amended later — `gamereg amend <checkin_id> --set outcome=…`, the
+id coming back in this command's own `result.checkin_id` — by the agent when the
+user answers, or by `--expire` below when nobody does.
+
+A check-in never mutates the session, and a session that closed between the wake
+and this call is recorded rather than refused: the question *was* asked, and
+losing that fact leaves the session eligible again on the next tick.
 
 The order is load-bearing. Enqueue the wake first, file the check-in second.
 Filing first would put a session inside a backoff window having never actually
@@ -898,6 +923,7 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `search` | `buscar` |
 | `open` | `abertas` |
 | `due` | `pendencias` |
+| `checkin` | `conferir` |
 | `init` | `inicializar` |
 | `build` | `construir` |
 | `query` | `consultar` |

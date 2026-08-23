@@ -12,6 +12,24 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Added
+- `gamereg due` — which open sessions are due a check-in now, with all three
+  triggers (`duration`, `clock`, `day_cutoff`), the delivery windows, quiet
+  hours, the escalating backoff ladder and the per-session ceiling. Reads and
+  never writes; `--at` evaluates as if it were another time.
+- `gamereg checkin <session_id> --trigger <t>` files a `session.checkin`, and
+  `gamereg checkin --expire` amends every check-in still `snoozed` past
+  `checkin.reply_window` to `no_reply`.
+- The `checkin` config block (`after`, `clock`, `chase_at`, `backoff`,
+  `max_per_session`, `reply_window`, `quiet_hours`, `persona_prompt`), with
+  every value parsed and refused by its own path when malformed. The block
+  documented in `05-agent.md` now loads instead of exiting 2 as an unknown key.
+- pt-BR names for both commands (`pendencias`, `conferir`) and their flags.
+
+### Changed
+- `day_cutoff` is validated when the config is read rather than when a fold
+  first uses it.
+
 ## [0.2.0] - Phase 2 — Chat and voice
 
 ### Added

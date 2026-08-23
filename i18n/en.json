@@ -16,6 +16,8 @@
     "past": "File a game run started in the past.",
     "platform": "Manage the platform suggestion list.",
     "open": "List open sessions.",
+    "due": "List open sessions that are due a check-in now.",
+    "checkin": "File a check-in against an open session, or expire the unanswered ones.",
     "status": "Vault summary, or one game's state.",
     "search": "Look a title up without recording anything.",
     "alias": "Teach another name for a game.",
@@ -33,6 +35,7 @@
       "query": "Title, fragment or alias.",
       "term": "Search term.",
       "event": "Event id.",
+      "session": "Session id, as returned by open or due.",
       "target": "Build only these targets, from build.targets.",
       "sql": "A single read-only SELECT statement.",
       "csv_file": "Path to the CSV file to import.",
@@ -50,6 +53,9 @@
       "locale": "Output language.",
       "dry_run": "Print the events that would be appended; write nothing.",
       "at": "Semantic time: ISO, \"2026-08-12 20:14\", 20:14, -90m.",
+      "trigger": "Which trigger asked: duration, clock, day_cutoff.",
+      "checkin_outcome": "snoozed (the default), break_started, session_closed, no_reply.",
+      "expire": "Amend every check-in still snoozed past checkin.reply_window to no_reply.",
       "quiet": "Suppress prose; exit code only.",
       "id": "Resolve by reference, as game:01K… — no search.",
       "platform": "Platform. Filters a search; never resolves it.",
@@ -108,9 +114,10 @@
     "bad_date": "Could not read \"{value}\" as a date. Try 2011, 2011-07 or 2011-07-14.",
     "bad_duration": "Could not read \"{value}\" as a duration. Try 90, 40m, 2h or 1h20.",
     "bad_hours": "Hours must be a positive number, not {value}.",
-    "bad_cutoff": "day_cutoff must look like 05:00, not \"{value}\".",
+    "bad_clock": "A time of day must look like 05:00, not \"{value}\".",
     "bad_config": "{file} is not valid JSON.",
     "unknown_config_key": "{file}: \"{key}\" is not a setting gamereg knows. Valid at that level: {valid}.",
+    "bad_config_value": "{file}: \"{key}\" does not accept \"{value}\".",
     "corrupt_log": "{file} has an unreadable line at {line}. Run gamereg doctor.",
     "not_found": "Nothing on record matches \"{query}\".",
     "not_found_hint": "Nothing on record matches \"{query}\". Add --no-metadata to open a new entry for it.",
@@ -133,6 +140,10 @@
     "no_open_break": "No break is open.",
     "negative_duration": "That closing time is before the opening time, or the breaks exceed the session.",
     "unknown_event": "No event on record has the id \"{id}\".",
+    "unknown_session": "No session on record has the id \"{id}\".",
+    "checkin_needs_session": "Name the session to file the check-in against, or pass --expire.",
+    "checkin_needs_trigger": "Pass --trigger: duration, clock or day_cutoff.",
+    "expire_takes_no_session": "--expire asks the log which records have gone stale. It takes no session, trigger or outcome.",
     "amend_needs_set": "Nothing to amend. Pass at least one --set key=value.",
     "cannot_amend_correction": "Corrections cannot themselves be amended. Revoke it instead.",
     "text_required": "Provide the review with -m, with --text <file>, or on stdin.",
@@ -235,6 +246,20 @@
       "none": "No session is open.",
       "row": "{title} — filed at {time}, open for {duration}.",
       "row_break": "{title} — filed at {time}, open for {duration}, on a break since {break_time}."
+    },
+    "due": {
+      "none": "Nothing is due.",
+      "row": "{title} — filed at {time}, open for {duration}. Due: {trigger}.",
+      "trigger": {
+        "duration": "time open",
+        "clock": "the hour",
+        "day_cutoff": "left open overnight"
+      }
+    },
+    "checkin": {
+      "filed": "Check-in filed: {trigger}.",
+      "expired": "{count} check-ins went unanswered and were filed as such.",
+      "none_expired": "No check-in has gone unanswered."
     },
     "status": {
       "vault": "{games} games on record, {runs} runs, {hours} hours.",

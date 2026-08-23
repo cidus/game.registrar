@@ -84,6 +84,16 @@ test('a config using every documented key loads clean', () => {
     defaults: { platform: 'Switch', form: 'digital', mode: 'solo' },
     platforms: ['PS5', { name: 'Mega Drive', aliases: ['Genesis'] }],
     build: { targets: ['obsidian', 'csv'], csv: { dir: 'data' } },
+    checkin: {
+      after: '4h',
+      clock: ['01:00'],
+      chase_at: '09:00',
+      backoff: ['2h', '3h', '5h'],
+      max_per_session: 3,
+      reply_window: '45m',
+      quiet_hours: ['02:00', '09:00'],
+      persona_prompt: 'Dry, faintly Victorian. Never scolds. One or two sentences.',
+    },
     images: { max_edge: 2000, quality: 82, keep_original: false, publish: false },
   })
 
@@ -92,6 +102,53 @@ test('a config using every documented key loads clean', () => {
   assert.equal(config.defaults.form, 'digital')
   assert.equal(config.build.csv.dir, 'data')
   assert.equal(config.images.quality, 82)
+  assert.equal(config.checkin.after, '4h')
+  assert.deepEqual(config.checkin.backoff, ['2h', '3h', '5h'])
+})
+
+/**
+ * The check-in block, whose values are all parsed ones — a duration, a time of
+ * day, a counter. A typo in any of them would otherwise surface hours later,
+ * unattended, at the moment a trigger would have fired.
+ */
+test('null is a setting in the check-in block, not an omission', () => {
+  // Both of these change behaviour: `after: null` switches the duration
+  // trigger off, and `chase_at: null` asks at the cutoff instead of in the
+  // morning. Reading either as "unset" would restore the default and keep
+  // asking — silently, which is the version nobody notices.
+  const config = loadConfig(vaultWith({ checkin: { after: null, chase_at: null, persona_prompt: null } }))
+  assert.equal(config.checkin.after, null)
+  assert.equal(config.checkin.chase_at, null)
+  assert.equal(config.checkin.persona_prompt, null)
+})
+
+test('a malformed check-in value is refused by its own path', () => {
+  assert.equal(refusal({ checkin: { after: 'soon' } }).params['key'], 'checkin.after')
+  assert.equal(refusal({ checkin: { backoff: ['2h', 'later'] } }).params['key'], 'checkin.backoff[1]')
+  assert.equal(refusal({ checkin: { clock: ['25:00'] } }).params['key'], 'checkin.clock[0]')
+  assert.equal(refusal({ checkin: { chase_at: '9am' } }).params['key'], 'checkin.chase_at')
+  assert.equal(refusal({ checkin: { reply_window: 45 } }).params['key'], 'checkin.reply_window')
+  assert.equal(refusal({ checkin: { max_per_session: -1 } }).params['key'], 'checkin.max_per_session')
+  assert.equal(refusal({ checkin: { max_per_session: 2.5 } }).params['key'], 'checkin.max_per_session')
+  // A window with one end is a window with no end, and there is no reading of
+  // it that is not a guess.
+  assert.equal(refusal({ checkin: { quiet_hours: ['02:00'] } }).params['key'], 'checkin.quiet_hours')
+
+  const error = refusal({ checkin: { after: 'soon' } })
+  assert.equal(error.code, 2)
+  assert.equal(error.key, 'error.bad_config_value')
+})
+
+test('day_cutoff is checked where it is written, not where it is used', () => {
+  // It used to fail inside logicalDay, mid-command, having already been read
+  // as valid by everything upstream of it.
+  const error = refusal({ day_cutoff: '5h' })
+  assert.equal(error.key, 'error.bad_config_value')
+  assert.equal(error.params['key'], 'day_cutoff')
+})
+
+test('an unknown key inside the check-in block is refused like any other', () => {
+  assert.equal(refusal({ checkin: { snooze: '2h' } }).params['key'], 'checkin.snooze')
 })
 
 test('what the writer writes, the stricter reader still accepts', () => {

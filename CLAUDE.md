@@ -29,17 +29,25 @@ record the confirmation. `CURRENT_PHASE` in `core/vocab.ts` is now `2`; it
 only gates which build targets are available, and phase 2 added none, so
 this bump changes no runtime behavior — `site` (phase 3) is still refused.
 
-**Phase 3's specification is settled; none of it is implemented.** The spec pass
-landed the pieces that were missing or contradictory: `site` as an ordinary
+**Phase 3's specification is settled, and its first step is built.** The spec
+pass landed the pieces that were missing or contradictory: `site` as an ordinary
 target (no second pass, invariant 8 intact), the check-in state machine and who
 owns each transition, `checkin --expire`, a phase-3 exit criterion, and the
 per-target comparator. `docs/spec/05-agent.md`, `07-targets.md` and
 `06-roadmap.md` are the places to read; the *Decisions* below carry the
-reasoning. Still absent from the code: the `checkin` config block, `due`,
-`checkin`, the `stats` and `site` targets, reaction tokens, and any cron wiring —
-see `agent/README.md`'s *What is not here*.
+reasoning.
 
-`npm test` is 397 tests, all green (`node --test`, no framework, no network).
+Step 1 landed the CLI half of check-ins: the `checkin` config block,
+`core/due.ts` (the trigger evaluator — all three triggers, the fire-vs-deliver
+split, quiet hours, the ladder, the ceiling), `gamereg due` and
+`gamereg checkin`, including `--expire`. Still absent: the `stats` and `site`
+targets, reaction tokens, and every part that lives on the gateway host — the
+hourly cron job, the wrapper that turns a non-empty `due` into a wake, and the
+`SKILL.md` protocol for answering one. Nothing calls `due` on a schedule yet, so
+the Registrar is still silent until spoken to. See `agent/README.md`'s *What is
+not here*.
+
+`npm test` is 437 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -196,6 +204,27 @@ Each of these cost real time to find. The reasoning, not just the rule:
   chose on purpose. A repeat costs one message; a false silence costs a closing
   time nobody remembers. `day_cutoff`'s exemption from the ladder and the ceiling
   is what makes the residual risk survivable.
+- **`due` returns at most one row per session, and `day_cutoff` outranks the
+  other two.** Several triggers stand fired at once far more often than the
+  state machine's per-trigger reading suggests — a session open past 4h at
+  09:00 the next morning has all three — and returning them all would file
+  three check-ins and send three messages about one session, which is the
+  nagging the whole feature is built to avoid. The priority follows what each
+  trigger is *for*: `day_cutoff` chases data nobody has, `duration` knows how
+  long the session ran, `clock` only knows what time it is. Two consequences
+  worth keeping straight: the ladder is measured from the last check-in of any
+  trigger (a chase is still a message that just arrived), while the ceiling
+  counts only `duration` and `clock`, because `day_cutoff` has its own budget.
+  What bounds a trigger exempt from both is that it is asked once per delivery
+  slot — one chase per morning, and a session open for three days is chased
+  three times, not hourly.
+- **Quiet hours are evaluated against *now*, not against the moment the trigger
+  fired.** Both noticing triggers stay fired once crossed — a threshold does not
+  un-cross itself — so "held, not dropped" needs no queue and no state: a
+  trigger withheld at 03:00 is simply returned at 09:00, where it merges into
+  the morning message. Evaluating the fire instant instead would let a trigger
+  that fired at 01:00 and was held by backoff until 03:00 be delivered inside
+  the quiet window, which is the one thing quiet hours exist to prevent.
 - **The hourly poll is a cron *command*, not a heartbeat or an agent turn.**
   `due` already decides whether there is anything to say, so the caller must stay
   dumb — and a command payload runs the binary with no model attached, making an

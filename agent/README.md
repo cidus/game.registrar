@@ -702,10 +702,16 @@ Last: message the bot from another account, and confirm nothing happens.
 
 ## What is not here
 
-Check-ins (`due`, `checkin`, cron, the backoff ladder), reaction tokens and
-stickers are specified in `docs/spec/05-agent.md` but belong to phase 3. Nothing
-in this directory implements them, and the Registrar stays silent until spoken
-to.
+Reaction tokens and stickers are specified in `docs/spec/05-agent.md` but belong
+to phase 3, and nothing in this directory implements them.
+
+The check-in machinery is now half built: `gamereg due` and `gamereg checkin`
+exist in the CLI, with all three triggers, the delivery windows, the backoff
+ladder and the ceiling. What is still missing is the half that lives on this
+host — the hourly cron job, the wrapper that turns a non-empty `due` into a
+wake, and the `SKILL.md` protocol for answering one. Until that lands the
+Registrar stays silent until spoken to: nothing invokes `due` on a schedule, so
+nothing it decides ever reaches a conversation.
 
 ### Two things to verify live before phase 3 wires the cron
 

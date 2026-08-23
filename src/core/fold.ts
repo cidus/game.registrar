@@ -12,6 +12,7 @@
 import type { DateTime } from 'luxon'
 
 import { minutesBetween } from './duration.ts'
+import { GameregError } from './errors.ts'
 import type { EventEnvelope } from './events.ts'
 import { normalize } from '../resolve/normalize.ts'
 import { logicalDay, parseISO, type TimeContext } from './time.ts'
@@ -52,6 +53,12 @@ export type BreakState = {
 }
 
 export type CheckinState = {
+  /**
+   * The `session.checkin` event itself. `checkin --expire` amends the record
+   * it finds stale, and an amend needs a target: without the id here, the only
+   * way back to the event is a second scan of the log by hand.
+   */
+  event_id: string
   at: string
   trigger: CheckinTrigger
   outcome: CheckinOutcome
@@ -638,6 +645,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           break
         }
         session.checkins.push({
+          event_id: event.id,
           at: str(data, 'at') ?? event.ts,
           trigger: (str(data, 'trigger') ?? 'duration') as CheckinTrigger,
           outcome: (str(data, 'outcome') ?? 'no_reply') as CheckinOutcome,
@@ -742,4 +750,25 @@ export function attachmentsOfGame(state: VaultState, game: GameState): GameAttac
   }
 
   return collected.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0))
+}
+
+/** Every session still open, in the order the log put their games in. */
+export function openSessions(state: VaultState): SessionState[] {
+  const sessions: SessionState[] = []
+  for (const game of state.games) {
+    for (const run of game.runs) {
+      for (const session of run.sessions) {
+        if (session.open) sessions.push(session)
+      }
+    }
+  }
+  return sessions
+}
+
+/** The game a session belongs to. Unreachable unless the fold contradicts itself. */
+export function gameOfSession(state: VaultState, session: SessionState): GameState {
+  const run = state.runsById.get(session.run_id)
+  const game = run === undefined ? undefined : state.gamesById.get(run.game_id)
+  if (game === undefined) throw new GameregError('error', 'error.unexpected', { message: session.session_id })
+  return game
 }

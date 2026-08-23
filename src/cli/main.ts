@@ -19,9 +19,11 @@ import { registerAmend } from './commands/amend.ts'
 import { registerAttach } from './commands/attach.ts'
 import { registerBreak } from './commands/break.ts'
 import { registerBuild } from './commands/build.ts'
+import { registerCheckin } from './commands/checkin.ts'
 import { registerCover } from './commands/cover.ts'
 import { registerDoctor } from './commands/doctor.ts'
 import { registerDrop } from './commands/drop.ts'
+import { registerDue } from './commands/due.ts'
 import { registerEnd } from './commands/end.ts'
 import { registerEnrich } from './commands/enrich.ts'
 import { registerFinish } from './commands/finish.ts'
@@ -144,6 +146,8 @@ export async function run(argv: readonly string[]): Promise<number> {
   registerDrop(registrar)
   registerPast(registrar)
   registerOpen(registrar)
+  registerDue(registrar)
+  registerCheckin(registrar)
   registerStatus(registrar)
   registerVerdict(registrar)
   registerSearch(registrar)
