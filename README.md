@@ -44,8 +44,12 @@ Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
 **Phases 0–2 done and tagged (`v0.2.0`); phase 3 built, not yet tagged.** The
 CLI records, enriches titles and cover art from IGDB, ingests your own photos,
 and regenerates Obsidian notes and a sortable Base, CSV, JSON, an HTML table
-and a SQLite cache — all from one event log. A chat agent for
-[OpenClaw](https://openclaw.ai) lives in [`agent/`](agent/) and is
+and a SQLite cache — all from one event log. Already keeping this in a
+spreadsheet? `gamereg import` files years of it in one pass, one closed run per
+row, hours and rating and review included — see
+[*Coming from a spreadsheet*](docs/getting-started.md#coming-from-a-spreadsheet).
+A chat agent for [OpenClaw](https://openclaw.ai) lives in
+[`agent/`](agent/) and is
 live-tested on a real Telegram deployment, voice included: recording a game
 by text or by speaking, answering the platform question, correcting an
 already-recorded run, ad hoc questions answered by SQL against the register,
@@ -88,6 +92,7 @@ gamereg end --break 40m --note "Stuck on Watcher Knights." --photo boss.jpg
 gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_ending
 gamereg verdict "hollow knight" -m "Started as a curiosity and became..."
 gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
+gamereg import games.csv --mapping mapping.json --dry-run
 gamereg enrich --all --covers
 gamereg open · gamereg status · gamereg search "zelda"
 gamereg query "select title, hours from games order by hours desc limit 5"

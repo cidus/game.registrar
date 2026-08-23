@@ -914,7 +914,93 @@ Both append. Neither touches the original line.
 ### `gamereg import <file.csv> --mapping <file.json>`
 
 Bulk historical import, for people arriving from a spreadsheet. Emits one
-`run.import` per row. `--dry-run` is strongly recommended and documented as such.
+`run.import` per row (plus one `run.verdict` for a row that maps `verdict`).
+`--dry-run` is strongly recommended and documented as such — see the warnings
+below on what an import gets wrong permanently if it isn't checked first.
+
+```
+gamereg import games.csv --mapping mapping.json [--dry-run]
+```
+
+**The mapping file** is a flat JSON object: gamereg field name → the CSV's own
+column header for that field. A field absent from the mapping, or mapped to an
+empty string, is simply not imported.
+
+```json
+{
+  "title": "Title",
+  "ended": "Finished",
+  "started": "Started",
+  "hours": "Hours",
+  "rating": "Rating",
+  "verdict": "Review"
+}
+```
+
+| Field | Required | Accepts |
+|---|---|---|
+| `title` | yes | Free text — the query `resolveGame` matches or creates from, same as `past`'s argument. |
+| `ended` | yes | `2011`, `2011-07` or `2011-07-14` — precision is inferred from the shape, same as `past --ended`. |
+| `started` | no | Same shape rule as `ended`. Defaults to `ended` when omitted. |
+| `hours` | no | A decimal number, e.g. `42.3`. **Decimal point only** — see below. |
+| `rating` | no | An integer 0–11, or `none`. |
+| `difficulty` | no | One of the vocabulary's difficulty tokens. |
+| `criteria` | no | One of the vocabulary's completion-criteria tokens. |
+| `outcome` | no | One of the vocabulary's outcome tokens. |
+| `platform` | no | Free text, canonicalized against `config.platforms` like everywhere else. |
+| `form` | no | One of the vocabulary's form tokens. |
+| `mode` | no | One of the vocabulary's mode tokens. |
+| `note` | no | Free text — what the run itself says. |
+| `verdict` | no | Free text — the considered opinion, filed as a separate `run.verdict` event against the same run. |
+
+Valid tokens for `difficulty`, `criteria`, `outcome`, `form` and `mode` are not
+repeated here — they are the register's own vocabulary and drift the moment
+they are copied. Ask `gamereg vocab --json` (see D9 — *Capability is
+introspectable, never a list the caller keeps* — in
+[00-architecture](00-architecture.md), and *Language* in `CLAUDE.md`).
+
+**Number format is not negotiable.** `hours` accepts a plain decimal point —
+`12.5`, not `12,5`. `1,500` is ambiguous between a thousands separator and a
+comma decimal, and the log has to be readable in ten years regardless of which
+locale exported the spreadsheet; a comma-decimal cell fails that one row with
+"must be a positive number, not NaN" rather than being guessed at. Reformat the
+column before importing, not after.
+
+**Resolution is entirely offline**, same as `past`: no provider is reached
+(non-negotiable 5), an unmatched title becomes a new local entry
+(`allowCreate`, same as `past`'s `query`), and `--platform` is free text
+canonicalized the same way. Run `gamereg enrich --all` afterwards to fetch
+metadata and covers for whatever the import created.
+
+**A row that fails does not stop the import.** Each row is resolved and
+staged independently; a bad row is reported by its 1-indexed line number
+(header is line 1) and everything that succeeded is still committed. The
+command exits 0 only when every row succeeded, 1 when some failed (with
+`result.failed[]` naming which), and 2 for a usage error that stops before any
+row is processed — an unreadable file, or a mapping missing a required field.
+
+```json
+{ "ok": false, "code": 1, "error": "error",
+  "result": { "imported": [{ "row": 2, "game_id": "...", "run_id": "...", "title": "..." }],
+              "failed": [{ "row": 12, "message": "..." }] } }
+```
+
+**Two things a fast `--dry-run` check does not surface, so read them once
+before running for real:**
+
+- **A bad row leaves permanent residue.** An unmatched title becomes a new
+  local game the same instant it's filed, and once a title exists locally,
+  `search` stops asking a provider about it at all. Two hundred badly resolved
+  rows are two hundred phantom games that go on answering silently forever —
+  undoing that is `revoke`, one event at a time. `--dry-run` computes
+  everything an import would do and writes nothing; run it first, read the
+  titles it resolved to, and only then import for real.
+- **Imported years show up empty in the heatmap and the year in review.** A
+  `run.import` has no sessions, and a session is what carries a logical day —
+  see `CLAUDE.md`'s note on measured vs. stated hours. `gamereg stats` will
+  show gaps for years that were, in reality, entirely played. That is not a
+  bug: those hours are stated (`hours_source: stated`), never measured, and
+  the register never invents the days they happened on.
 
 ### `gamereg doctor`
 

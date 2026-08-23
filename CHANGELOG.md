@@ -78,6 +78,15 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 - Assets are mirrored into `quartz/content/assets` when `images.publish` is on,
   by the same add-only hardlink pass that serves `obsidian/assets` (moved to
   `src/targets/mirror.ts`).
+- `gamereg import` completes the phase-1 deliverable it shipped only half of:
+  `verdict` is now a mapping field, filing a `run.verdict` alongside a row's
+  `run.import` when mapped; the field table, mapping-file shape, exit codes and
+  per-row failure contract are documented in `docs/spec/02-cli.md`; and
+  `docs/getting-started.md` gets a worked *Coming from a spreadsheet* section
+  — a small CSV, its mapping, `--dry-run`, the result — including the two
+  non-obvious warnings (permanent residue from an unmatched title, and empty
+  heatmap/year-in-review years for imported history). No behavior beyond the
+  new field changed; the engine already worked.
 
 ### Changed
 - The phase-3 site target is named `quartz`, not `site`, and writes `quartz/`

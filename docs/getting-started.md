@@ -115,6 +115,82 @@ Already played it years ago, before any of this existed?
 gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
 ```
 
+### Coming from a spreadsheet
+
+`gamereg past` is fine for a handful of games typed by hand. If you're
+arriving with years of history already tracked in a spreadsheet,
+`gamereg import` files one `past`-shaped run per row instead.
+
+Say `games.csv` looks like this:
+
+```csv
+Title,Finished,Started,Hours,Rating,Review
+Chrono Trigger,2011-07,,30,10,Still the best time-travel plot in the medium.
+Hollow Knight,2026-08-12,2026-05-03,42.3,9,
+Celeste,2026,,,,
+```
+
+A mapping file says which of your columns is which gamereg field — see the
+[full field table](spec/02-cli.md#gamereg-import-filecsv---mapping-filejson)
+for everything beyond what's used here:
+
+```json
+{
+  "title": "Title",
+  "ended": "Finished",
+  "started": "Started",
+  "hours": "Hours",
+  "rating": "Rating",
+  "verdict": "Review"
+}
+```
+
+`hours` needs a plain decimal point (`42.3`), not a comma — reformat the
+column first if your spreadsheet exported one.
+
+Check what it would do before doing it:
+
+```bash
+gamereg import games.csv --mapping mapping.json --dry-run
+```
+
+`--dry-run` resolves every row and reports the result without writing
+anything. Read it — specifically, read which titles it matched to existing
+games and which it's about to create. **This is the step not to skip:** an
+unmatched title becomes a brand-new local game the instant a real import runs,
+and once a title exists locally, `gamereg search` stops asking a provider
+about it at all. A batch of badly resolved rows becomes that many phantom
+games that go on answering silently forever; undoing one is `gamereg revoke`,
+event by event. A `--dry-run` pass costs nothing and catches this before it
+happens.
+
+Happy with what `--dry-run` reported:
+
+```bash
+gamereg import games.csv --mapping mapping.json
+```
+
+```json
+{ "ok": true, "result": { "imported": [
+  { "row": 2, "game_id": "...", "run_id": "...", "title": "Chrono Trigger" },
+  { "row": 3, "game_id": "...", "run_id": "...", "title": "Hollow Knight" },
+  { "row": 4, "game_id": "...", "run_id": "...", "title": "Celeste" } ],
+  "failed": [] } }
+```
+
+A row that fails — an out-of-range rating, an unparseable `hours` cell —
+doesn't stop the rest; it's reported by CSV line number in `result.failed[]`
+and everything else still gets written. Run `gamereg enrich --all` afterward
+to fetch metadata and cover art for whatever got created — import itself
+never touches the network (non-negotiable 5).
+
+**One more thing worth knowing going in:** an imported run has no sessions —
+there was nothing to time. `gamereg stats`'s heatmap and year-in-review read
+sessions to know which days you played, so years you just imported will show
+up empty there even though you played every day of them. That's not a bug;
+the hours are recorded as *stated*, not *measured*, and the register doesn't
+invent days nobody logged at the time.
+
 ### Generate the artifacts
 
 ```bash

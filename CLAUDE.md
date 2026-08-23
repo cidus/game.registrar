@@ -81,7 +81,7 @@ that is hosting — deliberately unanswered here, see the open item below. Every
 bullet of the phase is built; the last sentence of the criterion is waiting on a
 deploy, not on code.
 
-`npm test` is 475 tests, all green (`node --test`, no framework, no network).
+`npm test` is 480 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -465,6 +465,23 @@ Each of these cost real time to find. The reasoning, not just the rule:
   is why it lives outside the manifest and is not a planned file. The two halves
   have to move together: rendering the embed without the mirror is a broken
   page, and mirroring without rendering is dead bytes.
+- **An example import mapping lives in the guide, not in `templates/`.**
+  `templates/` is for what gets seeded into every vault (`Game Database.base`,
+  `quartz.config.yaml`); a mapping file names one spreadsheet's own column
+  headers, which are different for every user and often for every export. A
+  shipped example would be copy-pasted with headers that don't match anyone's
+  actual CSV, which is worse than no example — `docs/getting-started.md`'s
+  *Coming from a spreadsheet* section carries the worked mapping as a code
+  block instead, next to the CSV it maps and the `--dry-run` output it
+  produces, where the three stay readable as one unit.
+- **`import`'s `verdict` field files a second event, not a second column on
+  `run.import`.** `run.verdict` already exists as its own event type for
+  exactly this reason (`01-model.md`: the note is what the run says about
+  itself, the verdict is the considered opinion, written separately because it
+  usually arrives later) — a migrating register's review column is that
+  considered opinion, so `import` stages `run.verdict` against the row's own
+  `run_id` alongside its `run.import`, through the same `stage` helper
+  `verdict.ts` uses. No change to `run.import`'s payload shape.
 
 ## Open items
 
