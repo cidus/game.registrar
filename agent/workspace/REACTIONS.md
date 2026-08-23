@@ -4,20 +4,23 @@ The five reaction tokens and what this installation resolves them to. The
 tokens are fixed and closed (`docs/spec/05-agent.md`, *Reactions*); the assets
 are yours, and they are the only thing in this file you edit.
 
-**Ships empty on purpose.** Every row below is unmapped, so the Registrar
-reacts with nothing at all until someone fills one in. That is a working
-configuration, not a missing step — a register that never stickers anything is
-exactly as correct as one that does.
+**No sticker ships, and none will.** The sticker column below is empty for
+every row and stays that way in this repository — a Telegram `file_id` belongs
+to one bot and would be wrong on the next install. The emoji column ships with
+a default set, since an emoji is not an asset: nothing to obtain, nothing
+installation-specific, and a register that reacts with a plain emoji is a
+reasonable thing to want out of the box. Replace any of them freely; deleting
+one back to empty is just as valid.
 
 ## The table
 
 | Token | Sticker (Telegram `file_id`) | Emoji |
 |---|---|---|
-| `filed` | | |
-| `approved` | | |
-| `archived` | | |
-| `pending` | | |
-| `puzzled` | | |
+| `filed` | | 🗂️ |
+| `approved` | | ✅ |
+| `archived` | | 🗃️ |
+| `pending` | | ⏳ |
+| `puzzled` | | 🤔 |
 
 Read the row for the token, left to right, and take the first cell that has a
 value: send the sticker, else add the emoji reaction, else do nothing. An empty
@@ -26,7 +29,7 @@ row is a decision, not an omission.
 Do not add rows. A sixth token is a change to the spec and to
 `skills/gamereg/SKILL.md`, not a change to this file.
 
-## Filling it in
+## Filling in the sticker column
 
 A Telegram `file_id` is not something to look up in a sticker pack's page — it
 comes back from the API when a sticker passes through the bot. Send the sticker

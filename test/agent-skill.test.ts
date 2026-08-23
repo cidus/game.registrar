@@ -220,7 +220,7 @@ test('the skill names the five reaction tokens and no others', () => {
   )
 })
 
-test('the shipped mapping table covers every token and maps none of them', () => {
+test('the shipped mapping table covers every token, and ships no sticker', () => {
   const workspace = join(import.meta.dirname, '..', 'agent', 'workspace', 'REACTIONS.md')
   const rows = tokenRows(readFileSync(workspace, 'utf8'), '\n## The table\n')
 
@@ -232,7 +232,8 @@ test('the shipped mapping table covers every token and maps none of them', () =>
 
   // No artwork ships here: the sticker set is per installation, and a file_id
   // committed to this repository would be one bot's, forever wrong elsewhere.
+  // The emoji column is not an asset and may ship with a default.
   for (const { token, cells } of rows) {
-    assert.deepEqual(cells, ['', ''], `REACTIONS.md ships a mapping for "${token}"`)
+    assert.equal(cells[0], '', `REACTIONS.md ships a sticker file_id for "${token}"`)
   }
 })
