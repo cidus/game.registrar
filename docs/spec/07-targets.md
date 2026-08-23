@@ -100,6 +100,16 @@ this key still builds the notes and the table.
 An unknown target name exits 2 and lists the valid ones, like any other enum. A
 target from a later phase exits 2 saying so.
 
+A third case exists because a phase is delivered in steps rather than all at
+once: a target may be *in* the current phase and not built yet. It also exits 2,
+and it is refused **where it is named** — by `init` and by the config reader —
+rather than later at build time. Refusing early is the whole point: a vault that
+has already written a target into `build.targets` is a vault whose every build
+fails on something the user was never warned about. `core/vocab.ts` names those
+targets, and a test asserts that list plus the registry accounts for every
+target exactly once, so the two cannot drift apart. The registry keeps its own
+refusal as a backstop for the case the list gets it wrong.
+
 ## Ownership and cleanup
 
 `.gamereg/manifest.json`, gitignored, records which files each target wrote:

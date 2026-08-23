@@ -53,10 +53,14 @@ opening a live session with `start`, exit-code-3 disambiguation resolved by
 an actual inline-button tap, a session closed by a voice note, and a full
 `finish` + `verdict` pass — the roadmap's own exit criterion for phase 2, a
 game logged start to finish without opening a terminal once. Phase 3's
-specification is settled and its first step is built: `gamereg due` and
-`gamereg checkin` decide, in code, which open session is due a question right
-now — no published site yet, and nothing on the gateway host schedules `due`
-on a clock, so the Registrar stays silent until spoken to. See
+specification is settled and four of its five steps are built. **The Registrar
+now speaks first:** `gamereg due` decides in code which open session is owed a
+question — three triggers, a delivery slot, quiet hours, an escalating backoff
+ladder and a hard ceiling — and an hourly poll on the gateway host wakes the
+agent only when there is something to ask, so a quiet day costs nothing and
+says nothing. The build also emits a `stats` note with a calendar heatmap and a
+year in review, and the agent can react with a sticker where an installation
+maps one. Not built yet: the published site, which is the last step. See
 [06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *Current
 state* for the detailed status, and [`CHANGELOG.md`](CHANGELOG.md) — or the
 tagged [releases](https://github.com/cidus/game.registrar/releases) for the

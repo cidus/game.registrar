@@ -63,6 +63,12 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   markers. The build never generates prose, and no command files it.
 
 ### Changed
+- The phase-3 site target is named `quartz`, not `site`, and writes `quartz/`
+  rather than `site/`. It names the consumer, the way `obsidian` does, and
+  leaves the generic name free for a second generator later. Renamed before the
+  target was implemented, so nothing on disk migrates — but a vault that named
+  `site` in `build.targets` to see the phase-3 message now gets an unknown-value
+  error instead.
 - `CURRENT_PHASE` is `3`, which is what makes `stats` reachable. `quartz` is in
   the current phase and not built yet, so it is now refused by
   `UNBUILT_TARGETS` (in `core/vocab.ts`, guarded by a test against the

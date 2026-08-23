@@ -195,10 +195,14 @@ hours, notes, ratings and verdicts — which is the point of it.
 
 The CLI works on its own, forever, with no AI involved. The agent is a layer
 on top that turns "starting hollow knight" into `gamereg start "hollow
-knight"` — in whatever language you happen to say it, and nothing more than
-that. It cannot write to your files, compute
-a duration, or invent an identifier; every number it reports comes from the
-database, because it has to ask the CLI like anyone else.
+knight"` — in whatever language you happen to say it. It cannot write to your
+files, compute a duration, or invent an identifier; every number it reports
+comes from the database, because it has to ask the CLI like anyone else.
+
+It can also speak first, if you set up the optional hourly poll described in
+`agent/README.md`: a session left open too long, or still open the morning
+after, gets one question. The CLI decides when that happens, not the model, and
+a poll with nothing to ask says nothing at all.
 
 ### What you need
 
