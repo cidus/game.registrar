@@ -408,19 +408,34 @@ phase 0, `0.1.0` phase 1, `0.2.0` phase 2. `1.0.0` lands only when every phase i
 `06-roadmap.md` is done. A patch (`0.x.1`) is a bug fix within an already-tagged
 phase.
 
+**A phase under development carries a `-dev` suffix** (`0.3.0-dev`), the SemVer
+prerelease identifier — dropped only in the commit that gets tagged. Phase 2
+shipped without this and `gamereg --version` read `0.2.0` for a stretch where
+nothing had actually been released under that name, patched over at the time
+with a one-off note in this file instead of a convention. `-dev` replaces that
+note: `--version` now tells the truth about whether the binary in hand is a
+tagged release, with no per-commit bookkeeping (no `-dev.1`, `-dev.2` — the
+suffix alone carries the meaning, since gamereg is installed from source or a
+tagged image, never pulled mid-phase by version number).
+
 To tag a finished phase or patch:
 
 1. Commit the work as normal.
-2. `git tag -a v0.X.Y -m "..."` on the commit that completes it. **The message is
-   also the release notes** (step 4) — write it as such, not as a label. See
-   `v0.0.0` for the shape.
-3. Bump `version` in `package.json` **and** `package-lock.json` as a separate,
-   untagged commit (`npm version minor --no-git-tag-version` for a phase).
-4. Move `[Unreleased]` in `CHANGELOG.md` to a new `[0.X.Y]` section
-   (Keep a Changelog format — `Added`/`Changed`/`Fixed`/`Removed`, one line per
-   item, no narrative). This is the terse index; the tag message from step 2
-   stays the detailed version, and `CHANGELOG.md`'s own header explains that
-   split so a reader lands on the right one.
+2. Drop the `-dev` suffix: bump `version` in `package.json` **and**
+   `package-lock.json` to the plain `0.X.Y` (`npm version 0.X.Y
+   --no-git-tag-version`), and move `[Unreleased]` in `CHANGELOG.md` to a new
+   `[0.X.Y]` section (Keep a Changelog format —
+   `Added`/`Changed`/`Fixed`/`Removed`, one line per item, no narrative). One
+   commit, since both describe the same boundary: this is the commit that
+   becomes the release.
+3. `git tag -a v0.X.Y -m "..."` on that commit. **The message is also the
+   release notes** (step 5) — write it as such, not as a label. See `v0.0.0`
+   for the shape. This is the terse index; the tag message stays the detailed
+   version, and `CHANGELOG.md`'s own header explains that split so a reader
+   lands on the right one.
+4. Open the next phase's development window: bump `version` again, to
+   `0.(X+1).0-dev`, as a separate commit right after the tag. `--version` never
+   again claims a release that has not happened.
 5. `git push && git push --tags`, then
    `gh release create v0.X.Y --title "v0.X.Y — <summary>" --notes-from-tag`.
    `--notes-from-tag` keeps the description in exactly one place. GitHub marks
