@@ -495,6 +495,17 @@ Each of these cost real time to find. The reasoning, not just the rule:
   projection is the risky part and the only thing that de-risks it is a real
   consumer, which is the same lesson phase 0's exit criterion encodes.
 
+- **`/usr/bin/gamereg` points into this checkout's `dist/`, on purpose.** So
+  `npm run build` changes what the live agent runs, the instant it finishes —
+  including mid-conversation. That is the point: it is what makes it possible to
+  test a change against the real gateway, on a real phone, without a release
+  step. Do not "fix" it into a copy. Two consequences to keep in mind rather
+  than design around: a stale `dist/` means the live agent is running old code
+  while the repository looks current (`agent/README.md` opens with this trap for
+  a reason), and a build mid-session can change behaviour under a conversation
+  already in progress. Revisit only in phase 5, where an image pins CLI, gateway,
+  skill and persona together and this stops being one person's machine.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
@@ -599,6 +610,18 @@ into `obsidian/assets`.
 - The persona (`05-agent.md`) belongs to prose output only. JSON output and event
   payloads stay neutral.
 - Commit messages: conventional commits, English.
+- **Before finishing any change that adds or alters a capability, re-read
+  `README.md`'s *Status* and `docs/getting-started.md`.** Every other document
+  has an obvious owner and gets updated: a spec by the change that implements it,
+  `CHANGELOG.md` by habit, this file's *Current state* because the work is
+  described here. Those two belong to nobody, so they are the two that go stale,
+  and they are the front door — `README.md` in particular states what the tool
+  can and cannot do today, which means a stale line there is not merely
+  incomplete, it is false. Phase 3 proved it: four sessions each updated their
+  own documents correctly and left the README saying the Registrar "stays silent
+  until spoken to" two steps after it stopped being silent. Ask specifically
+  whether any sentence in either file is now untrue, not whether they mention
+  the new thing.
 
 ## Versioning
 
