@@ -25,11 +25,9 @@ logged start to finish with no terminal — has been demonstrated live end to
 end, voice included: `start` through chat, a code-3 menu resolved by an
 actual inline-button tap, a session closed by a voice note, `finish` with a
 drafted verdict. `agent/README.md`'s *Voice* section and its smoke test
-record the confirmation. `CURRENT_PHASE` in `core/vocab.ts` is now `2`; it
-only gates which build targets are available, and phase 2 added none, so
-this bump changes no runtime behavior — `quartz` (phase 3) is still refused.
+record the confirmation.
 
-**Phase 3's specification is settled, and its first three steps are built.** The
+**Phase 3's specification is settled, and its first four steps are built.** The
 spec pass landed the pieces that were missing or contradictory: `quartz` as an
 ordinary target (no second pass, invariant 8 intact), the check-in state machine
 and who owns each transition, `checkin --expire`, a phase-3 exit criterion, and
@@ -58,10 +56,19 @@ with all five rows empty, and the two Telegram switches commented out in
 user's. `test/agent-skill.test.ts` holds both halves: the token list cannot drift
 between the skill and the table, and a `file_id` cannot be committed here.
 
-Still absent from phase 3: the `stats` and `quartz` targets. See
-`agent/README.md`'s *What is not here*.
+Step 4 landed the `stats` target and the two renderers under it:
+`render/heatmap.ts` (a year as inline SVG, no dependency, its own palette) and
+`render/review.ts` (every figure a year in review carries, computed in code).
+The target writes `obsidian/Stats.md`, one `obsidian/reviews/<year>.md` per year
+played and the heatmap of each as a file; `html` embeds the same SVG string in
+`Games.html`, which is the shared-renderer seam used twice. `CURRENT_PHASE` is
+now `3` — see the `UNBUILT_TARGETS` decision below for what that does to
+`quartz`.
 
-`npm test` is 451 tests, all green (`node --test`, no framework, no network).
+Still absent from phase 3: the `quartz` target. See `agent/README.md`'s
+*What is not here*.
+
+`npm test` is 465 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -338,7 +345,6 @@ Each of these cost real time to find. The reasoning, not just the rule:
 - **`example-vault/` carries two real, never-regenerated WebP assets** — a
   golden test for rendering never touches the encoder, only the event log and
   string arithmetic, so `sharp` version drift can't move the hash.
-
 - **A reaction is a second tool call and the mapping is a workspace file, and
   both were forced by what OpenClaw actually has.** The spec said the mapping
   "lives in the user's config"; on 2026.7.1-2 there is no config slot for it —
@@ -361,6 +367,48 @@ Each of these cost real time to find. The reasoning, not just the rule:
   reaction silently does not happen, which is indistinguishable from a correct
   empty installation. That is why the warning is repeated in the spec, in
   `SKILL.md` and in `agent/README.md` rather than written once.
+- **`CURRENT_PHASE` is a phase, and `UNBUILT_TARGETS` is the step.** Bumping the
+  phase to 3 for `stats` also made `quartz` pass the vocabulary's gate, which
+  would have turned a clean "arrives in phase 3, this version builds through 2"
+  into an exit 1 from the registry at build time — later, vaguer, and after the
+  vault already declared it. A phase is delivered in steps, so a target can be
+  current and unbuilt at once; `UNBUILT_TARGETS` in `core/vocab.ts` names those,
+  `checkTarget` refuses them at exit 2 where they are *named* (so `init` and the
+  config reader both catch it), and `test/targets.test.ts` asserts the list plus
+  the registry accounts for `BUILD_TARGET` exactly once, so it cannot rot. The
+  registry's own `unimplemented_target` throw stays as the backstop and became
+  `usage` for the same reason.
+- **A year in review reads no clock, and that is a rule about the log, not
+  about formatting.** Which years exist comes from sessions in the log; a year
+  is always drawn whole, January to December. The temptation is not
+  hypothetical — "year in review" reads like an invitation to call `Date.now()`
+  — and the cost of giving in is that a build in December and a build in
+  January disagree, which is non-negotiable 2 broken by a feature nobody would
+  think to test for it. `test/stats-target.test.ts` builds a log whose only
+  sessions are in 2019 and asserts exactly one review note.
+- **Hours in a year are measured hours, and the gap is the point.** A session
+  has a logical day; stated hours from `import` or `--hours` belong to a run and
+  to no day, so they count in the totals and in a game's note and not in a year.
+  A migrated register therefore shows years emptier than they were, which is
+  true: nobody recorded those days. Do not "fix" this by spreading a run's
+  stated hours across its date range — that invents days.
+- **The heatmap is a string, not a file, and the target decides which.**
+  `heatmapSvg()` returns SVG; `stats` writes it to
+  `obsidian/reviews/heatmap-<year>.svg` and embeds it, `html` pastes it inline.
+  The embed is a Markdown image with a path relative to the note's own folder,
+  which is the one spelling Obsidian, GitHub and a static site generator all
+  resolve identically — a wikilink embed is Obsidian-only, and inline SVG inside
+  Markdown is stripped by GitHub's sanitizer. Fixed level thresholds rather than
+  per-year quantiles, so two years can be read side by side.
+- **The prose half of a review has no command, on purpose for now.** The agent
+  may draft the opening paragraph the way it drafts a verdict, but it writes no
+  files and there is no `review` command, so an accepted paragraph is text the
+  user pastes outside the markers. Filing it would need a new event type — a
+  schema change bought for a nicety — and the argument that puts a verdict in
+  the log (it is the record's opinion of a playthrough) does not obviously carry
+  to a year, which is a view over the record rather than a thing in it. If the
+  pasting is what stops the feature being used, that is the evidence that
+  reopens it.
 
 ## Open items
 

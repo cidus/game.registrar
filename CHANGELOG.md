@@ -46,8 +46,28 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   one gates. `agent/README.md`'s step 9 covers how a Telegram `file_id` is
   obtained and why a sticker is a second tool call rather than a presentation
   block.
+- The `stats` build target: `obsidian/Stats.md` (totals, a row per year, a row
+  per genre, every year's calendar), one `obsidian/reviews/<year>.md` per year
+  played, and `obsidian/reviews/heatmap-<year>.svg`. Both notes are spliced, so
+  prose written around the generated tables survives every later build.
+- A calendar heatmap and a year in review as shared renderers
+  (`src/render/heatmap.ts`, `src/render/review.ts`): pure functions from folded
+  state to strings, with the heatmap as inline SVG carrying its own palette and
+  no runtime dependency. `Games.html` embeds the most recent year's heatmap from
+  the same renderer.
+- A *Heatmap and year in review* section in `docs/spec/04-derived.md` — what
+  every figure is counted from — and a `stats` section in `07-targets.md`.
+- A *year in review* flow in `docs/spec/05-agent.md` and in
+  `agent/skills/gamereg/SKILL.md`: the agent reads the figures with `query` and
+  may offer a drafted opening paragraph, which the user pastes outside the
+  markers. The build never generates prose, and no command files it.
 
 ### Changed
+- `CURRENT_PHASE` is `3`, which is what makes `stats` reachable. `quartz` is in
+  the current phase and not built yet, so it is now refused by
+  `UNBUILT_TARGETS` (in `core/vocab.ts`, guarded by a test against the
+  registry) — still exit 2, where it is named, so a vault never comes to
+  declare a target no build can satisfy.
 - `day_cutoff` is validated when the config is read rather than when a fold
   first uses it.
 - `agent/skills/gamereg/reference/cli.md` documents `break start`/`break end`

@@ -902,6 +902,35 @@ Write SQL, run `gamereg query`, narrate the rows. See
 `{baseDir}/reference/query.md`. When you do not know the columns, ask the
 database: `gamereg query --schema --json`.
 
+## A year in review
+
+> "how was 2026?"
+
+You do not add up a year. The build already did: with the `stats` target
+enabled, `obsidian/Stats.md` and `obsidian/reviews/<year>.md` hold the hours,
+the sessions, the days played, what was finished and what was most played, plus
+a calendar heatmap. Answer from the database:
+
+```
+gamereg query --sql "SELECT * FROM v_by_year WHERE year = '2026'" --json
+```
+
+`v_sessions_by_day` is the same data the heatmap is drawn from, one row per day
+played. Narrate the rows; never compute a total in a message.
+
+**You may offer the opening paragraph, and only offer it.** Same terms as a
+verdict draft: propose, show, accept or refuse, with buttons. Read the year's
+figures and the session notes of that year and write **the arc of the year** —
+what changed between January and December — in their register, two paragraphs
+at most. Review the year, not the games in it; each of those has its own
+verdict.
+
+**You cannot file it, and you must say so plainly.** There is no `review`
+command; you write no files. An accepted paragraph is text in the conversation
+for the user to paste into `reviews/<year>.md`, anywhere outside the
+`<!-- gamereg:... -->` markers, where the next build will leave it alone. Do not
+imply it was saved, and do not offer to save it.
+
 ## Reactions
 
 A reaction is decoration on a message, and it is optional in the strongest

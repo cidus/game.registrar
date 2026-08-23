@@ -106,10 +106,23 @@ test('an unknown build target exits 2', () => {
   assert.equal(run.json['error'], 'usage')
 })
 
-test('a phase-3 target exits 2 saying so', () => {
+test('a target this version cannot build is refused where it is named', () => {
+  // `quartz` is inside the current phase and not written yet, which is refused
+  // at the same exit code a later phase is: either way the vault would come to
+  // declare a target no build could satisfy.
   const run = gamereg(emptyRoot(), 'init', '--targets', 'quartz', '--locale', 'en')
   assert.equal(run.status, 2)
-  assert.match(String(run.json['message']), /phase/)
+  assert.match(String(run.json['message']), /not implemented/)
+})
+
+test('a target the current phase does build is accepted', () => {
+  const root = emptyRoot()
+  const run = gamereg(root, 'init', '--targets', 'obsidian,stats', '--locale', 'en')
+  assert.equal(run.status, 0)
+  assert.deepEqual(
+    ((config(root)['build'] as Record<string, unknown>)['targets']),
+    ['obsidian', 'stats'],
+  )
 })
 
 test('re-running init on an existing vault is a conflict without --yes', () => {

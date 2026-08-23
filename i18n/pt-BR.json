@@ -491,6 +491,74 @@
     "empty": "Nada no acervo ainda.",
     "stated_marker": "declarada"
   },
+  "stats": {
+    "title": "Estatísticas",
+    "heading": {
+      "totals": "Totais",
+      "years": "Por ano",
+      "genres": "Por gênero",
+      "heatmap": "Calendário",
+      "top": "Mais jogados",
+      "ratings": "Notas",
+      "finished": "Concluídos"
+    },
+    "totals": {
+      "games": "Jogos",
+      "runs": "Jornadas",
+      "finished": "Concluídas",
+      "hours": "Horas",
+      "sessions": "Sessões",
+      "days": "Dias jogados"
+    },
+    "years": {
+      "year": "Ano",
+      "runs": "Jornadas"
+    },
+    "genres": {
+      "genre": "Gênero"
+    },
+    "top": {
+      "sessions": "Sessões"
+    },
+    "review": {
+      "title": "Retrospectiva de {year}",
+      "measure": "Medida",
+      "value": "Valor",
+      "hours": "Horas",
+      "sessions": "Sessões",
+      "days": "Dias jogados",
+      "games": "Jogos jogados",
+      "started": "Jornadas iniciadas",
+      "finished": "Jornadas concluídas",
+      "abandoned": "Jornadas abandonadas",
+      "longest": "Sessão mais longa",
+      "mean_rating": "Nota média",
+      "first": "Primeira sessão",
+      "last": "Última sessão"
+    },
+    "heatmap": {
+      "alt": "Sessões em {year}"
+    },
+    "month": {
+      "1": "jan",
+      "2": "fev",
+      "3": "mar",
+      "4": "abr",
+      "5": "mai",
+      "6": "jun",
+      "7": "jul",
+      "8": "ago",
+      "9": "set",
+      "10": "out",
+      "11": "nov",
+      "12": "dez"
+    },
+    "weekday": {
+      "mon": "seg",
+      "wed": "qua",
+      "fri": "sex"
+    }
+  },
   "vocab": {
     "register": {
       "filed": "protocolada",

@@ -517,6 +517,38 @@ person, the user's own register. Do not let it review the game; it reviews *the
 playthrough*. Show the draft before filing it: this is the one piece of text in
 the register that claims to be the user's opinion.
 
+### The year in review
+
+> "how was 2026?"
+
+The numbers are not the agent's to compute. `gamereg build` has already written
+`obsidian/reviews/<year>.md` — hours, sessions, days played, what was finished,
+what was most played, the calendar ([04-derived](04-derived.md)) — and the agent
+reads them with `gamereg query` and relays them. It never adds up a year in a
+chat turn; invariant 7 is the same rule here as everywhere else.
+
+What it may offer is the **opening paragraph**, on exactly the terms a verdict
+draft is offered: propose it, show it, and let the user accept, edit or refuse.
+Feed the model the year's figures and its session notes, and ask for the arc of
+the year — what changed between January and December — in the user's own
+register, two paragraphs at most. It reviews *the year*, not the games in it;
+each of those already has a verdict.
+
+Where the accepted text goes is the one difference from a verdict, and it is a
+boundary, not an oversight. A verdict has a command and becomes an event; a
+year's prose has neither. The agent writes no files (see *Boundary*), so an
+accepted paragraph is text in the conversation that the user pastes into the
+note themselves, anywhere outside the `gamereg` markers, where invariant 3 keeps
+it through every later build. **The build never generates prose**, and nothing
+in the log ever holds this paragraph.
+
+A `review` command that filed the paragraph as an event was considered and left
+undone on purpose: it is a schema change bought for a nicety, and the same
+argument that keeps a verdict in the log — it is the record's own opinion of a
+playthrough — does not obviously carry to a year, which is a view over the
+record rather than a thing in it. If the pasting turns out to be the friction
+that stops the feature being used, that is the evidence that decides it.
+
 ### Questions
 
 > "qual o RPG mais recente que eu gostei bastante?"

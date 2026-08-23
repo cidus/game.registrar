@@ -421,6 +421,74 @@
     "empty": "Nothing on record yet.",
     "stated_marker": "stated"
   },
+  "stats": {
+    "title": "Stats",
+    "heading": {
+      "totals": "Totals",
+      "years": "By year",
+      "genres": "By genre",
+      "heatmap": "Calendar",
+      "top": "Most played",
+      "ratings": "Ratings",
+      "finished": "Finished"
+    },
+    "totals": {
+      "games": "Games",
+      "runs": "Runs",
+      "finished": "Finished",
+      "hours": "Hours",
+      "sessions": "Sessions",
+      "days": "Days played"
+    },
+    "years": {
+      "year": "Year",
+      "runs": "Runs"
+    },
+    "genres": {
+      "genre": "Genre"
+    },
+    "top": {
+      "sessions": "Sessions"
+    },
+    "review": {
+      "title": "{year} in review",
+      "measure": "Measure",
+      "value": "Value",
+      "hours": "Hours",
+      "sessions": "Sessions",
+      "days": "Days played",
+      "games": "Games played",
+      "started": "Runs started",
+      "finished": "Runs finished",
+      "abandoned": "Runs abandoned",
+      "longest": "Longest session",
+      "mean_rating": "Mean rating",
+      "first": "First session",
+      "last": "Last session"
+    },
+    "heatmap": {
+      "alt": "Sessions in {year}"
+    },
+    "month": {
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
+    },
+    "weekday": {
+      "mon": "Mon",
+      "wed": "Wed",
+      "fri": "Fri"
+    }
+  },
   "vocab": {
     "register": {
       "filed": "filed",

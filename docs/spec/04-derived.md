@@ -312,6 +312,70 @@ with a real number instead of a guess.
 The `csv` and `json` targets flatten the same tables with the same column names.
 Where they disagree, this schema is right and the other is a bug.
 
+## Heatmap and year in review
+
+Two artifacts about time rather than about titles, emitted by the `stats` target
+([07-targets](07-targets.md)) and rendered by pure functions in `render/` that
+any other target can call.
+
+### The calendar heatmap
+
+One year per grid, weeks as columns and ISO weekdays as rows, Monday first. A
+cell is a **logical day** — the same grouping `v_sessions_by_day` uses, and the
+reason a session that ran past midnight colours the day it belongs to rather
+than two.
+
+Five levels, from **fixed** thresholds rather than per-year quantiles: nothing,
+under 1h, under 2h, under 4h, and 4h or more. Fixed is what lets two years be
+read side by side; a quantile scale would make a thin year look like a heavy one
+with paler ink. A day whose only session is still open has no measured minutes
+and is drawn at the lowest level — something happened there, and an empty cell
+would say otherwise.
+
+The output is inline SVG with its own palette and a `prefers-color-scheme`
+block. It renders in Obsidian, in `Games.html`, on GitHub and on a published
+page, and it adds no dependency to a build that has none.
+
+### The year in review
+
+Everything below is arithmetic over folded state (invariant 7). Nothing is
+inferred, nothing is phrased, and nothing reads a clock:
+
+| Figure | Counted from |
+|---|---|
+| Hours, sessions, days played | sessions whose `logical_day` falls in the year |
+| Games played | distinct games with such a session |
+| Longest session | the largest `minutes` among them |
+| Runs started | `started_on` in the year |
+| Runs finished / abandoned | `outcome` with `ended_on` in the year |
+| Mean rating, rating distribution | runs finished in the year, `rating` non-null |
+| Most played | the year's session minutes, per game, descending |
+| First and last session | the year's sessions in chronological order |
+
+Hours in a year are therefore **measured** hours. Stated hours — from `import`,
+or from `--hours` on a run opened after the fact — belong to a run and to no
+day, so they count in the register's totals and in the game's own note, and not
+in a year. That is the same distinction `hours_source` already carries, applied
+one level up.
+
+Two figures here restate `v_by_year` deliberately: the SQL view answers the
+question from a query, the renderer answers it in a note, and both compute it
+from the same fold. Where they disagree, it is a bug in one of them and not a
+choice.
+
+**Which years exist comes from the log.** A year is in the register because a
+session happened in it. A build in December and a build the following January
+produce the same bytes, and a register with nothing after 2019 has no 2026 note
+waiting to be filled in.
+
+### The prose is not generated
+
+A review holds no sentence the build wrote. The paragraph that says what the
+year was like is the user's, offered as a draft by the agent the way a verdict
+is ([05-agent](05-agent.md)) and accepted, edited or refused by them. It lives
+outside the markers in a spliced note, which is invariant 3 doing exactly what
+it was written for.
+
 ## Determinism
 
 `gamereg build` twice in a row must produce byte-identical output. This applies

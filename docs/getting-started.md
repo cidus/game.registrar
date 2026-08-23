@@ -137,6 +137,12 @@ obsidian/Game List.md    the consolidated table
 obsidian/Game Database.base
 ```
 
+Add `stats` to `targets` and the build also writes `obsidian/Stats.md` and one
+`obsidian/reviews/<year>.md` per year you played, each with a calendar heatmap.
+Those two notes are spliced like a game note, so anything you write around the
+generated tables — the paragraph that says what the year was actually like —
+survives every later build.
+
 **Open `obsidian/` as your Obsidian vault, not the register root.** That folder
 holds only what the build writes; your log, credentials and build bookkeeping
 stay one level up, out of Obsidian's way.

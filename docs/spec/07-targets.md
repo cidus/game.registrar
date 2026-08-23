@@ -136,6 +136,7 @@ caretaker's index, and only the writer touches it.
 | `sqlite` | `data/log.db` | 1 |
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
+| `stats` | `obsidian/Stats.md`, `obsidian/reviews/<year>.md`, `obsidian/reviews/heatmap-<year>.svg` | 3 |
 | `quartz` | `quartz/content/*.md`, `quartz/quartz.config.yaml` | 3 |
 
 ### `obsidian`
@@ -213,6 +214,64 @@ filesystem, works on a phone, survives being emailed to someone.
 This overlaps the Quartz site of phase 3 and does not replace it: the site is a
 vault-wide, linked, publishable thing; this is one page that answers questions
 about runs. Labels come from `i18n/`; the embedded data stays in schema tokens.
+
+### `stats`
+
+Phase 3. What the register knows about *time*, which no other target answers: a
+calendar heatmap and a year in review.
+
+- `obsidian/Stats.md` — totals, a row per year, a row per genre, and every
+  year's heatmap.
+- `obsidian/reviews/<year>.md` — one note per year: hours, sessions, days
+  played, runs started, finished and abandoned, the longest session, the mean
+  rating, the rating distribution, the most played titles, the runs finished,
+  and the year's own heatmap.
+- `obsidian/reviews/heatmap-<year>.svg` — the heatmap as a file.
+
+**Which years exist comes from the log.** A year appears because a session
+happened in it, never because a clock says it is now, and a year is always drawn
+whole — January 1st to December 31st. A build in December and a build the
+following January produce the same bytes. This is rule 3 restated, and it is
+worth restating because "year in review" is the one artifact in this document
+that reads like an invitation to call `Date.now()`.
+
+**The renderers are shared, and the target decides only which files exist.**
+`render/heatmap.ts` and `render/review.ts` are pure functions from folded state
+to strings; `stats` writes the heatmap as its own file and embeds it, `html`
+pastes the same string into its single page, and a site flavour can do either.
+The SVG is written once. This is the same seam `render/` and `targets/` already
+had — an emitter that does not know what file it is going into — applied twice
+more.
+
+Inline SVG rather than a chart library: no runtime dependency, no build step,
+and it renders in Obsidian, in `Games.html`, on GitHub and on a published page.
+It carries its own palette, including a `prefers-color-scheme` block, because a
+file embedded as an image has no document to inherit a colour from. The embed is
+a Markdown image with a path relative to the note's own folder — the one
+spelling Obsidian, GitHub and a static site generator all resolve the same way.
+
+Both notes are **spliced**, not replaced, and that is the whole reason the
+policy exists. The numbers are the build's; the paragraph that says what the
+year *felt* like is the user's, offered as a draft by the agent the way a
+verdict is (see [05-agent](05-agent.md)) and accepted, edited or refused by
+them. It lands outside the markers, where invariant 3 protects it from every
+later build. **The build never generates prose.**
+
+Two boundaries worth knowing, both of them the model being honest rather than
+the target being lazy:
+
+- **Hours in a year are measured hours.** A session has a logical day; stated
+  hours from an `import` or from `--hours` belong to the run and to no day at
+  all, so they count in the totals and in a game's own note, and not in a year.
+  A register migrated from a spreadsheet therefore has years that look emptier
+  than they were, which is true: nobody recorded those days.
+- **A day with a session still open is drawn at the lowest level**, not left
+  blank. It has no measured minutes yet; something still happened there.
+
+`stats` writes under `obsidian/`, the folder the user opens, even though it is
+not the `obsidian` target — the two never plan the same path, and a stats note
+is a note. A vault that declares `stats` without `obsidian` gets the folder with
+those files in it and nothing else, which is odd but not wrong.
 
 ### `quartz`
 

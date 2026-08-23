@@ -13,7 +13,9 @@ import { appendEvents, readEvents } from '../src/core/events.ts'
 import { fold } from '../src/core/fold.ts'
 import { openVault, timeContext, vaultPath, type Vault } from '../src/core/vault.ts'
 import { translator } from '../src/i18n/index.ts'
+import { BUILD_TARGET, TARGET_PHASE, UNBUILT_TARGETS } from '../src/core/vocab.ts'
 import { build, claimPaths, type BuildResult } from '../src/targets/build.ts'
+import { allTargets } from '../src/targets/registry.ts'
 import { readManifest, serializeManifest } from '../src/targets/manifest.ts'
 import { mirrorAssets } from '../src/targets/obsidian.ts'
 import type { PlannedFile } from '../src/targets/types.ts'
@@ -46,6 +48,20 @@ function rebuild(root: string, only?: string[]): BuildResult {
 function game(gameId: string, slug: string, title: string): ReturnType<typeof event> {
   return event('game.create', { game_id: gameId, slug, title, genres: [], platforms: [], providers: {}, aliases: [] })
 }
+
+test('the vocabulary, the registry and the unbuilt list account for every target once', () => {
+  // `core/` may not depend on `targets/`, so `UNBUILT_TARGETS` is written by
+  // hand next to the vocabulary. This is what stops it from rotting: a target
+  // that lands must leave the list, and one that is named must be in exactly
+  // one of the two places.
+  const built = allTargets().map((target) => target.name)
+  assert.deepEqual([...built, ...UNBUILT_TARGETS].sort(), [...BUILD_TARGET].sort())
+  for (const name of built) assert.equal(UNBUILT_TARGETS.includes(name), false, name)
+})
+
+test('a target declares the same phase the vocabulary does', () => {
+  for (const target of allTargets()) assert.equal(target.since, TARGET_PHASE[target.name], target.name)
+})
 
 test('a rename moves the note, and ownership removes the one left behind', () => {
   const root = vault()

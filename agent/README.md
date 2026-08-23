@@ -977,6 +977,13 @@ and the ceiling; `checkin.sh` and the cron job in step 8 turn a non-empty `due`
 into a wake; `SKILL.md`'s *Check-ins* section says what to do with one. The
 Registrar is no longer silent until spoken to.
 
-What is still absent from phase 3: the `stats` and `quartz` targets.
-`gamereg build quartz` is still refused — `CURRENT_PHASE` in
-`core/vocab.ts` is `2`.
+The `stats` target is built: with it declared in `build.targets`, a build also
+writes `obsidian/Stats.md`, one `obsidian/reviews/<year>.md` per year played and
+a calendar heatmap for each. Both notes are spliced, so a paragraph the user
+pastes around the tables survives the next build — which is the only way a
+review's prose gets there, since the agent writes no files and no command files
+one.
+
+What is still absent from phase 3: the `quartz` target. `gamereg build quartz`
+is still refused, at exit 2 — it is inside the current phase and not written
+yet, which `UNBUILT_TARGETS` in `core/vocab.ts` is what names.
