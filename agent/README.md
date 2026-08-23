@@ -685,12 +685,22 @@ job — the binary with no model attached, which is what makes an empty poll fre
 
 ```bash
 cp agent/checkin.sh ~/.openclaw/checkin.sh
-openclaw cron add --name gamereg-checkin --every 1h --no-deliver \
+openclaw cron add --name gamereg-checkin --cron "0 * * * *" --exact --no-deliver \
   --command-env GAMEREG_VAULT=/opt/gamereg-vault \
   --command-env GAMEREG_CHECKIN_CHANNEL=telegram \
   --command-env GAMEREG_CHECKIN_TO=<your numeric chat id> \
   --command "$HOME/.openclaw/checkin.sh"
 ```
+
+**Not `--every 1h`, and not without `--exact`.** `--every` counts from the
+moment you registered the job, so a job created at 09:58 polls at 09:58 forever
+after; `--exact` sets the stagger window to zero, which OpenClaw otherwise uses
+to spread jobs out. Neither would matter for a poll that only had thresholds to
+check — but `chase_at` is a *delivery slot*, and a tick at 09:58 delivers the
+morning chase 58 minutes after the moment the CLI picked for it. Aligned, the
+empty polls in the run history all finish at `:00:00`; the two that had something
+to say finish later by however long the agent's turn took, the wake being
+synchronous.
 
 Before any of that, run it by hand. `--dry-run` performs nothing and prints the
 message it would have sent, and `--at` evaluates as if it were another time —
@@ -703,8 +713,12 @@ GAMEREG_VAULT=/opt/gamereg-vault ~/.openclaw/checkin.sh --dry-run --at "2026-08-
 
 Everything below was checked against the installed gateway
 (`openclaw 2026.7.1-2`) by running it, not read out of its documentation. Most
-of it contradicts what a reasonable reading would have assumed, and the last
-three were only found by watching a real check-in go out.
+of it contradicts what a reasonable reading would have assumed. They are in the
+order they were found, which is roughly the order they cost time in: the first
+few came out of probing the gateway before anything was built, the rest only
+appeared once real check-ins were going out to a real phone — and the last of
+those was invisible from every artifact this host keeps. It took someone looking
+at the screen.
 
 **`--no-deliver` is not optional, and the default is the dangerous one.** A
 command job's `delivery.mode` comes back as `announce` with `channel: "last"`
@@ -739,15 +753,17 @@ in the environment for exactly that reason. The job is registered with
 docs are right that a command job's output cannot trigger an agent turn, so the
 wrapper has to raise the turn itself. The candidate written down here before
 this was built — `openclaw cron add --at +0s --delete-after-run --message …` —
-works, but it is the worse of the two: a one-shot agent job hits the same
-"refusing implicit isolated cron delivery" wall and needs an explicit
-`--channel` and `--to`, which would put a Telegram chat id inside a file that
-phase 5 is supposed to generate. `openclaw agent --message-file <file>
---deliver`, with no session key at all, runs the turn in the agent's main
-session and delivers over that session's own channel. No ids in the wrapper, and
-the question lands in the same conversation the answer will arrive in — which is
-the part that matters, since the reply has to reach an agent that knows what it
-asked.
+was not pursued, and was never run: a one-shot agent job is delivered by the
+same code path that produced the "refusing implicit isolated cron delivery"
+error above, so it would need an explicit `--channel` and `--to` of its own, and
+it puts a second job in the store on every non-empty poll. `openclaw agent`
+needs neither. Treat "it would have worked" as untested either way — what is
+tested is that the other one does.
+
+`openclaw agent --agent <id> --message-file <file>` runs the turn in that
+agent's main session, so the question lands in the same conversation the answer
+will arrive in — which is the part that matters, since the reply has to reach an
+agent that knows what it asked.
 
 It is also synchronous, and that turns out to be the better failure mode: the
 wrapper files the snoozes only after `openclaw agent` has returned successfully,
@@ -945,19 +961,39 @@ this command exists to remove.
 Then, from a terminal: `gamereg build`, and check that the notes regenerate and
 carry `source: "chat"` on the events.
 
-Then the check-in, which is the one step that cannot start from the phone. Point
-the wrapper at a throwaway vault holding one session opened five hours ago, run
-it by hand, and answer on the phone:
+Then the check-in, which is the one step that cannot start from the phone, and
+the one with a trap in it. Preview it first — this costs nothing and touches no
+vault, and `--at` means you do not have to wait for a session to age into being
+due:
 
 ```bash
-GAMEREG_VAULT=/tmp/checkin-vault ~/.openclaw/checkin.sh
+~/.openclaw/checkin.sh --dry-run
+~/.openclaw/checkin.sh --dry-run --at "2026-08-23 09:00"
 ```
 
+Then run it for real, **against the real vault**, on a session you are willing
+to have a break filed against:
+
+```bash
+~/.openclaw/checkin.sh
+```
+
+A throwaway vault is the obvious idea and it does not work — see *A throwaway
+vault does not isolate the answer half* above. It keeps `due` and `checkin` off
+the real register, but the agent's own vault comes from the gateway process, so
+the tap is answered against the real one regardless.
+
 The message should name the game and how long it has been open, offer a break,
-and read as an offer rather than a verdict. Tap "taking a break" and check the
-throwaway vault: a `session.break_start`, and a `event.amend` moving the
-check-in's outcome to `break_started`. A run of the real thing on the real vault
-files real events, which is why this one gets its own vault.
+and read as an offer rather than a verdict — in the language the register is
+configured for, not the language this file is written in. It should arrive
+**once**. Two copies of it, one with buttons and one without, means `--deliver`
+and the `message` tool are both live; that is the delivery-path section above.
+
+Tap "taking a break", then read the log: a `session.checkin` with
+`source: "cron"`, a `break.open`, and an `event.amend` moving the check-in's
+outcome to `break_started`. The last of the three is the one worth checking —
+it is the agent's only piece of check-in bookkeeping, it needs an id nothing
+handed it, and it is the step it will skip if anything upstream went wrong.
 
 Last: message the bot from another account, and confirm nothing happens.
 
