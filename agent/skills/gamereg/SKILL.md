@@ -902,6 +902,51 @@ Write SQL, run `gamereg query`, narrate the rows. See
 `{baseDir}/reference/query.md`. When you do not know the columns, ask the
 database: `gamereg query --schema --json`.
 
+## Reactions
+
+A reaction is decoration on a message, and it is optional in the strongest
+sense: an installation that reacts with nothing is a correct installation. Do
+not narrate one, apologize for one, or mention that you tried.
+
+There are exactly five **tokens**, and this is the whole list:
+
+| Token | The turn it marks |
+|---|---|
+| `filed` | something went into the register — a session opened, a note attached, a photo ingested |
+| `approved` | a run was finished |
+| `archived` | a run was dropped |
+| `pending` | you are waiting on an answer — a candidate menu, a confirmation |
+| `puzzled` | you could not turn the request into an invocation |
+
+**These are identifiers, not words.** Never translate one, never show one to the
+user, never pass one to `gamereg`. Four of them read like the register's own
+vocabulary — filed, approved, archived, pending clarification — and they are
+not the same thing at all: those are localized prose you get from
+`gamereg vocab` and say out loud, these are keys in a lookup table that happen
+to be spelled in English. A translated token matches no row.
+
+`REACTIONS.md`, in your workspace beside `SOUL.md`, is the mapping. Read the row
+for your token and take the first cell that carries a value: send the sticker,
+else add the emoji reaction, else do nothing. **An empty row means do nothing**
+— it is not a prompt to improvise, to pick some other sticker, or to type an
+emoji into your prose instead.
+
+Rules that hold whatever the table says:
+
+- **At most one per turn**, and only after the command actually returned. A
+  turn that did two things gets the token for the more consequential one.
+- **Never invent a `file_id`.** If the cell is empty, the answer is nothing. The
+  same rule as every other identifier in *Safety*.
+- **Never set `target`.** Same reason as everywhere else: the conversation is
+  already in your context, and a bare channel name is a different chat.
+- **An emoji reaction needs the id of the message you are reacting to.** If you
+  do not have a concrete one, do not react. There is no version of this worth
+  guessing at.
+- **A failure is not an event.** A channel that cannot render stickers, a
+  switch left off on the gateway, an id that no longer resolves — all of these
+  end the same way, silently. The prose already carried everything the user
+  needed.
+
 ## Persona
 
 Your voice is `SOUL.md`, not this file — read it if you haven't. The one rule

@@ -65,6 +65,45 @@
         inlineButtons: "allowlist",
       },
 
+      // Reaction tokens (docs/spec/05-agent.md, "Reactions"). Both switches
+      // are off by default in OpenClaw and both are left off here, because
+      // agent/workspace/REACTIONS.md ships with an empty mapping table:
+      // turning them on before there is any artwork to send buys nothing.
+      // Uncomment the pair you actually intend to use once that table has a
+      // row in it.
+      //
+      // The two paths are genuinely separate mechanisms, not one feature with
+      // a fallback, and each has its own gate:
+      //
+      //   - `sticker` gates `action: "sendSticker"`, which takes a `fileId`
+      //     and posts a sticker as its own message. With it unset, the call
+      //     fails with "Telegram sticker actions are disabled" rather than
+      //     silently doing nothing.
+      //   - `reactions` gates `action: "react"`, which attaches an emoji to
+      //     an existing message and therefore needs that message's id. It is
+      //     gated twice over: `reactionLevel` must also be above "off", and
+      //     with either missing the action returns `{ok: false, reason:
+      //     "disabled"}` and a hint not to retry.
+      //
+      // `reactionLevel` is OpenClaw's own knob for how freely the agent
+      // reacts ("off" | "ack" | "minimal" | "extensive"); "minimal" is the
+      // one that matches this deployment, where a reaction marks a filing and
+      // nothing else. It is not a gamereg setting and it governs more than
+      // these five tokens.
+      //
+      // Verified against this OpenClaw (2026.7.1-2): a sticker is a *channel
+      // action* on the message tool, not a presentation block. The
+      // presentation shape that carries buttons has no sticker or reaction
+      // member at all — MessagePresentationBlock is text | context | divider
+      // | buttons | select — so none of this rides along with a reply the
+      // way an inline keyboard does. It is a second call.
+      //
+      // actions: {
+      //   sticker: true,
+      //   reactions: true,
+      // },
+      // reactionLevel: "minimal",
+
       // Sends through Bot API 10.1's sendRichMessage instead of sendMessage.
       // Turned on for one reason: buttons come out wider, which is what makes
       // a candidate's title readable on its own button.

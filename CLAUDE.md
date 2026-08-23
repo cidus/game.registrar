@@ -29,7 +29,7 @@ record the confirmation. `CURRENT_PHASE` in `core/vocab.ts` is now `2`; it
 only gates which build targets are available, and phase 2 added none, so
 this bump changes no runtime behavior — `quartz` (phase 3) is still refused.
 
-**Phase 3's specification is settled, and its first two steps are built.** The
+**Phase 3's specification is settled, and its first three steps are built.** The
 spec pass landed the pieces that were missing or contradictory: `quartz` as an
 ordinary target (no second pass, invariant 8 intact), the check-in state machine
 and who owns each transition, `checkin --expire`, a phase-3 exit criterion, and
@@ -50,10 +50,18 @@ end against a real vault with only `openclaw` stubbed, so a renamed flag fails
 in CI rather than at 04:00 on a live host. The Registrar is no longer silent
 until spoken to.
 
-Still absent from phase 3: the `stats` and `quartz` targets, and reaction tokens.
-See `agent/README.md`'s *What is not here*.
+Step 3 landed the reaction tokens, and landed them inert: five identifiers
+(`filed`, `approved`, `archived`, `pending`, `puzzled`), a *Reactions* section in
+`SKILL.md`, `agent/workspace/REACTIONS.md` as the per-installation mapping table
+with all five rows empty, and the two Telegram switches commented out in
+`openclaw.example.json5`. No artwork ships and none will — the sticker set is the
+user's. `test/agent-skill.test.ts` holds both halves: the token list cannot drift
+between the skill and the table, and a `file_id` cannot be committed here.
 
-`npm test` is 437 tests, all green (`node --test`, no framework, no network).
+Still absent from phase 3: the `stats` and `quartz` targets. See
+`agent/README.md`'s *What is not here*.
+
+`npm test` is 451 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -330,6 +338,29 @@ Each of these cost real time to find. The reasoning, not just the rule:
 - **`example-vault/` carries two real, never-regenerated WebP assets** — a
   golden test for rendering never touches the encoder, only the event log and
   string arithmetic, so `sharp` version drift can't move the hash.
+
+- **A reaction is a second tool call and the mapping is a workspace file, and
+  both were forced by what OpenClaw actually has.** The spec said the mapping
+  "lives in the user's config"; on 2026.7.1-2 there is no config slot for it —
+  `MessagePresentationBlock` is `text | context | divider | buttons | select`,
+  with no sticker or reaction member, so a reaction cannot ride along with a
+  reply the way an inline keyboard does, and OpenClaw's own config schema has
+  nowhere to put a token table the model would read. What exists is
+  `action: "sendSticker"` (needs a `fileId`) and `action: "react"` (needs a
+  `messageId` and an emoji), each behind its own switch, both off by default.
+  So the table went to `agent/workspace/REACTIONS.md`, which is the gateway's
+  side of the line and copied per installation — the part of the original claim
+  that mattered was *not in the register's config and not in its log*, and that
+  is intact. One consequence the model has to be told about, because it is not
+  inferable: an emoji reaction is *on* a message, so with no concrete message id
+  in hand the correct move is to react with nothing.
+- **The five tokens are identifiers and are never translated — say it wherever
+  they are written down.** Four of them (`filed`, `approved`, `archived`,
+  `pending`) collide by name with the persona's localized vocabulary, which is
+  prose served by `gamereg vocab`. A translated token matches no row and the
+  reaction silently does not happen, which is indistinguishable from a correct
+  empty installation. That is why the warning is repeated in the spec, in
+  `SKILL.md` and in `agent/README.md` rather than written once.
 
 ## Open items
 

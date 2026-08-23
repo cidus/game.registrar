@@ -36,6 +36,16 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 - A *Check-ins* section in `agent/skills/gamereg/SKILL.md`: the register per
   trigger, the three exits (`break start`, `end --note`, nothing) and the amend
   that settles the record.
+- Reaction tokens: a closed list of five identifiers (`filed`, `approved`,
+  `archived`, `pending`, `puzzled`), a *Reactions* section in
+  `agent/skills/gamereg/SKILL.md`, and `agent/workspace/REACTIONS.md` as the
+  per-installation mapping table. Nothing in the CLI, the config or the log
+  touches this.
+- `agent/openclaw.example.json5` carries `channels.telegram.actions.sticker`,
+  `actions.reactions` and `reactionLevel`, commented out and off, with what each
+  one gates. `agent/README.md`'s step 9 covers how a Telegram `file_id` is
+  obtained and why a sticker is a second tool call rather than a presentation
+  block.
 
 ### Changed
 - `day_cutoff` is validated when the config is read rather than when a fold

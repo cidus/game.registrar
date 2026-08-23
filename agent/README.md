@@ -867,6 +867,56 @@ they wrote — has nothing to work with when nobody wrote anything. `checkin.sh`
 therefore reads `gamereg vocab --json`'s `locale` and states it in the wake as a
 fact. A tag, not a phrasing: the vocabulary itself still comes from the CLI.
 
+### 9. Reaction tokens, and why this step does nothing yet
+
+Optional, off, and shipped that way on purpose. `agent/workspace/REACTIONS.md`
+is the mapping table and every one of its five rows is empty, so the Registrar
+reacts with nothing until somebody puts a `file_id` in one. Step 5 already
+copied the file; there is no further install step.
+
+What this step is really for is the two things that are not obvious when you do
+decide to fill it in.
+
+**A sticker is a channel action, not a presentation block.** This was the open
+question when the tokens were specified, and it is answered: on OpenClaw
+2026.7.1-2 the presentation shape that carries inline buttons has no sticker or
+reaction member at all. `MessagePresentationBlock` is `text | context | divider
+| buttons | select` (`payload-vIEr566D.d.ts:111`), which is the same union the
+buttons work in step 3 was written against. So a reaction never rides along with
+a reply the way a keyboard does — it is a second `message` tool call, with its
+own action:
+
+- `action: "sendSticker"`, `to`, `fileId` — posts the sticker as its own
+  message. Gated by `channels.telegram.actions.sticker`; with the switch unset
+  the call throws "Telegram sticker actions are disabled"
+  (`action-runtime-Cv7KsCc_.js:459`), which is at least a loud failure.
+- `action: "react"`, `messageId`, `emoji` — attaches an emoji to an existing
+  message. Gated twice, by `channels.telegram.actions.reactions` *and* by
+  `reactionLevel` being above `"off"`, and a miss on either returns
+  `{ok: false, reason: "disabled"}` with a hint not to retry rather than an
+  error. `openclaw.example.json5` carries both keys, commented out, with the
+  reasoning.
+
+The second one is why `SKILL.md` tells the agent not to react when it has no
+concrete message id: an emoji reaction is *on* a message, and the only way to
+name that message is an id it was actually given.
+
+**A `file_id` belongs to a bot, not to a sticker.** Send the sticker to your bot
+from your own account and read the id off the update it receives; the same
+sticker under a different bot token is a different id. So the table does not
+survive replacing the bot, and it is not something to look up anywhere. There is
+no artwork in this repository and there is not going to be — the sticker set is
+per installation, which is the whole reason the mapping sits in the workspace
+and not in `gamereg.config.json`.
+
+**The tokens are identifiers and are never translated.** Five of them, closed:
+`filed`, `approved`, `archived`, `pending`, `puzzled`. Four collide by name with
+the register's localized vocabulary, which is prose the agent gets from
+`gamereg vocab` and says out loud. A translated token matches no row in the
+table and the reaction silently does not happen. `docs/spec/05-agent.md`'s
+*Reactions* section says this too, and it is written down in three places on
+purpose.
+
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever
@@ -913,8 +963,13 @@ Last: message the bot from another account, and confirm nothing happens.
 
 ## What is not here
 
-Reaction tokens and stickers are specified in `docs/spec/05-agent.md` but belong
-to phase 3, and nothing in this directory implements them.
+**No sticker artwork, and none is coming.** The reaction tokens are wired end to
+end — the vocabulary in `SKILL.md`, the mapping table in
+`workspace/REACTIONS.md`, the two gateway switches in
+`openclaw.example.json5`, and step 9 above for how a `file_id` is obtained —
+but every row of the table is empty, so the feature is inert until somebody
+fills it in. That is the finished state for this repository: the sticker set is
+per installation.
 
 The check-in machinery is built on both sides now. `gamereg due` and
 `gamereg checkin` carry the triggers, the delivery windows, the backoff ladder
@@ -922,6 +977,6 @@ and the ceiling; `checkin.sh` and the cron job in step 8 turn a non-empty `due`
 into a wake; `SKILL.md`'s *Check-ins* section says what to do with one. The
 Registrar is no longer silent until spoken to.
 
-What is still absent from phase 3: the `stats` and `quartz` targets, and reaction
-tokens. `gamereg build quartz` is still refused — `CURRENT_PHASE` in
+What is still absent from phase 3: the `stats` and `quartz` targets.
+`gamereg build quartz` is still refused — `CURRENT_PHASE` in
 `core/vocab.ts` is `2`.

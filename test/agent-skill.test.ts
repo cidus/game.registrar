@@ -184,3 +184,55 @@ test('the skill declares the binary it cannot run without', () => {
   assert.match(frontmatter, /^description: /m)
   assert.match(frontmatter, /"bins": \["gamereg"\]/)
 })
+
+/**
+ * The reaction tokens are a closed list of five identifiers, written down in
+ * three places: the spec, the skill the model reads, and the mapping table a
+ * deployment fills in (docs/spec/05-agent.md, "Reactions"). Nothing at runtime
+ * catches a disagreement between them — an unmapped token resolves to nothing,
+ * silently, which is also what a correct empty installation looks like.
+ */
+const REACTION_TOKENS = ['filed', 'approved', 'archived', 'pending', 'puzzled']
+
+/** The `| `token` | ... |` rows of the first table under a heading. */
+function tokenRows(markdown: string, heading: string): { token: string; cells: string[] }[] {
+  const body = markdown.split(heading)[1] ?? ''
+  const rows: { token: string; cells: string[] }[] = []
+  for (const line of body.split('\n')) {
+    if (!line.startsWith('|')) {
+      if (rows.length > 0) break // past the table
+      continue
+    }
+    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim())
+    const token = cells[0]?.replace(/`/g, '') ?? ''
+    if (REACTION_TOKENS.includes(token)) rows.push({ token, cells: cells.slice(1) })
+  }
+  return rows
+}
+
+test('the skill names the five reaction tokens and no others', () => {
+  const skill = readFileSync(join(SKILL, 'SKILL.md'), 'utf8')
+  const rows = tokenRows(skill, '\n## Reactions\n')
+  assert.deepEqual(
+    rows.map((row) => row.token),
+    REACTION_TOKENS,
+    'the token table in SKILL.md drifted from the closed list in docs/spec/05-agent.md',
+  )
+})
+
+test('the shipped mapping table covers every token and maps none of them', () => {
+  const workspace = join(import.meta.dirname, '..', 'agent', 'workspace', 'REACTIONS.md')
+  const rows = tokenRows(readFileSync(workspace, 'utf8'), '\n## The table\n')
+
+  assert.deepEqual(
+    rows.map((row) => row.token),
+    REACTION_TOKENS,
+    'REACTIONS.md and SKILL.md disagree about which tokens exist',
+  )
+
+  // No artwork ships here: the sticker set is per installation, and a file_id
+  // committed to this repository would be one bot's, forever wrong elsewhere.
+  for (const { token, cells } of rows) {
+    assert.deepEqual(cells, ['', ''], `REACTIONS.md ships a mapping for "${token}"`)
+  }
+})
