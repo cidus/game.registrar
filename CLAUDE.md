@@ -464,6 +464,37 @@ Each of these cost real time to find. The reasoning, not just the rule:
   phase 5 decides about the compose file and the environment has to answer this
   too.
 
+- **Astro is a possible second generator, and it would be fed data rather than
+  Markdown.** Not instead of Quartz — alongside it, which the `site` to `quartz`
+  rename already made room for. The principle behind the shape: Quartz is a
+  document publisher (Markdown in, linked site out) and Astro is a framework
+  (data in, whatever you design out). Feeding Astro the Quartz flavour would cap
+  it at Quartz's ceiling, because a page can then only show what the frontmatter
+  carries — and the interesting fields are already structured. With data, gamereg
+  says what is true and the site decides which pages exist, which also stops
+  gamereg from deciding a downstream site's URL structure. Cross-cutting pages
+  (by year, genre, platform) and any chart then need no new artifact. The `html`
+  target is the precedent: it already embeds JSON and builds its table in the
+  browser.
+
+  **`data/export.json` is not that artifact and must not be widened into it.**
+  Worth knowing before someone re-derives it: the file exists, is committed, and
+  07-targets.md describes it as being "for the site" — but it carries no cover,
+  no genres, no platforms, no `run.note` and no `verdict`, which is most of what
+  a site would want. That is not an oversight; its contract is to mirror the
+  SQLite tables column for column, and genres and platforms live in join tables
+  the flattening drops. Widening it breaks what makes it useful to a spreadsheet
+  and contradicts 04-derived.md's rule that the SQLite schema wins any
+  disagreement. So an Astro path needs its own nested projection — game with its
+  platforms, genres, cover and runs, each run with its verdict, note and
+  sessions. That target is *cheaper* than the Quartz one, not dearer: no remark,
+  no frontmatter, no markers, no splice, just a projection. Field names still
+  come from the SQLite schema, which stays the authority.
+
+  Nothing is scheduled. Build the site before the target — the shape of the
+  projection is the risky part and the only thing that de-risks it is a real
+  consumer, which is the same lesson phase 0's exit criterion encodes.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
