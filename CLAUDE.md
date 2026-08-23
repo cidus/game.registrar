@@ -27,25 +27,31 @@ actual inline-button tap, a session closed by a voice note, `finish` with a
 drafted verdict. `agent/README.md`'s *Voice* section and its smoke test
 record the confirmation. `CURRENT_PHASE` in `core/vocab.ts` is now `2`; it
 only gates which build targets are available, and phase 2 added none, so
-this bump changes no runtime behavior — `site` (phase 3) is still refused.
+this bump changes no runtime behavior — `quartz` (phase 3) is still refused.
 
-**Phase 3's specification is settled, and its first step is built.** The spec
-pass landed the pieces that were missing or contradictory: `site` as an ordinary
-target (no second pass, invariant 8 intact), the check-in state machine and who
-owns each transition, `checkin --expire`, a phase-3 exit criterion, and the
-per-target comparator. `docs/spec/05-agent.md`, `07-targets.md` and
+**Phase 3's specification is settled, and its first two steps are built.** The
+spec pass landed the pieces that were missing or contradictory: `quartz` as an
+ordinary target (no second pass, invariant 8 intact), the check-in state machine
+and who owns each transition, `checkin --expire`, a phase-3 exit criterion, and
+the per-target comparator. `docs/spec/05-agent.md`, `07-targets.md` and
 `06-roadmap.md` are the places to read; the *Decisions* below carry the
 reasoning.
 
 Step 1 landed the CLI half of check-ins: the `checkin` config block,
 `core/due.ts` (the trigger evaluator — all three triggers, the fire-vs-deliver
 split, quiet hours, the ladder, the ceiling), `gamereg due` and
-`gamereg checkin`, including `--expire`. Still absent: the `stats` and `site`
-targets, reaction tokens, and every part that lives on the gateway host — the
-hourly cron job, the wrapper that turns a non-empty `due` into a wake, and the
-`SKILL.md` protocol for answering one. Nothing calls `due` on a schedule yet, so
-the Registrar is still silent until spoken to. See `agent/README.md`'s *What is
-not here*.
+`gamereg checkin`, including `--expire`.
+
+Step 2 landed the other half, the one that lives on the gateway host:
+`agent/checkin.sh` (the hourly poll — sweep, ask, exit silently, wake, file),
+the cron registration in `agent/README.md`'s step 8, and `SKILL.md`'s
+*Check-ins* section. `test/checkin-wrapper.test.ts` drives the wrapper end to
+end against a real vault with only `openclaw` stubbed, so a renamed flag fails
+in CI rather than at 04:00 on a live host. The Registrar is no longer silent
+until spoken to.
+
+Still absent from phase 3: the `stats` and `quartz` targets, and reaction tokens.
+See `agent/README.md`'s *What is not here*.
 
 `npm test` is 437 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
@@ -177,15 +183,25 @@ Each of these cost real time to find. The reasoning, not just the rule:
   promotes to cover when none exists (nothing replaced, so no need to ask) and
   offers when one does; the same photo with `start` infers `--form physical`
   and says so, the way an inferred platform is always mentioned.
-- **`site` generates from folded state; it is not a second pass.** An earlier
+- **The target is `quartz`, not `site`, and it writes `quartz/`.** Two reasons,
+  and the second is the one that would have cost something later. First, it
+  matches the only precedent that fits: `obsidian` is also named for its consumer
+  and also writes a whole tree into a directory of the same name. Second, a
+  target that emits `quartz.config.yaml` is not a generic site builder, and
+  parking it on the generic name would have left a future Astro target with
+  nowhere to write — two targets planning one path is a hard error
+  (`error.target_conflict`), so `site/` could never have been shared. Renamed
+  before anything was implemented on purpose: `06-roadmap.md` says target names
+  are free to move until phase 5 and are a migration owed to a stranger after it.
+- **`quartz` generates from folded state; it is not a second pass.** An earlier
   draft of `07-targets.md` had it running Quartz over the finished vault, which
   made it "the one target that reads what the others wrote" and put invariant 8
   in permanent contradiction with itself. The fix was to make the claim false
-  rather than the invariant weaker: `site` plans its own content from state, and
+  rather than the invariant weaker: `quartz` plans its own content from state, and
   gamereg never runs Quartz at all — it emits the input and stops. Cost: a
   flavour parameter through `render/`. Bought: invariant 8, D8 and
   non-negotiable 8 keep their absolute form, and the build still spawns no
-  subprocess. Do not "reunify" this by having `site` read `obsidian/`; that is
+  subprocess. Do not "reunify" this by having `quartz` read `obsidian/`; that is
   the bug, restored.
 - **Invariant 9 stays a deletion whitelist — do not make it per-target.**
   Proposed once, on the reasonable grounds that a target knows best what its own
@@ -204,6 +220,62 @@ Each of these cost real time to find. The reasoning, not just the rule:
   chose on purpose. A repeat costs one message; a false silence costs a closing
   time nobody remembers. `day_cutoff`'s exemption from the ladder and the ceiling
   is what makes the residual risk survivable.
+- **A wake carries no conversation, and three things the agent normally gets for
+  free are missing from it.** All three were found by watching a real check-in
+  go out, and none of them fails loudly. (1) The delivery target: a turn started
+  by an inbound message has the conversation's target injected into the model's
+  context, a poll-started turn does not, and the agent filled the gap with
+  `target: "telegram"` — which resolved to `@telegram`, the *public channel*, and
+  was stopped only by the bot not being a member of it. `--reply-channel` /
+  `--reply-to` put the routing back, and `SKILL.md` forbids naming a target at
+  all. (2) The session: `openclaw agent` has no implicit main session and refuses
+  without `--agent`. (3) The language: with nothing written, `SKILL.md`'s "reply
+  in whatever they wrote" has no input, and the agent went through session
+  history and memory before answering in the wrong language — so the wrapper
+  states the register's configured locale as a fact. The shape of all three is
+  the same, and it is worth remembering as one lesson rather than three: **the
+  gateway's implicit context is a property of an inbound message, not of a
+  session.** Anything the agent normally infers has to be handed to it here.
+- **A scratch vault isolates the wrapper, never the agent.** The wrapper reads
+  `GAMEREG_VAULT` from its own environment; the agent reads it from the gateway
+  process, which is the live vault. So a check-in raised from a test vault is
+  *answered* against the real one — found by a tap that opened a real break on a
+  real session, undone with `revoke`. Testing the answer half means using the
+  real vault, or repointing the gateway. Two things held up under it: the agent
+  noticed the game did not match and went to `gamereg open` to find out why, and
+  inside a single vault `break start` exits 3 rather than pick between two open
+  sessions.
+- **The wake is `openclaw agent`, run synchronously by the wrapper — not a
+  second cron job.** A command job's output cannot trigger an agent turn, so the
+  wrapper has to raise it. The one-shot `cron add --at +0s --message` written
+  down as the candidate does work, but it refuses to deliver without an explicit
+  `--channel`/`--to`, which would put a Telegram chat id inside the file phase 5
+  is supposed to generate. `openclaw agent --agent <id> --message-file <f>
+  --deliver` runs in that agent's main session and delivers over its own
+  channel, so the question lands in the same conversation the answer will arrive
+  in — which is what makes the reply reach an agent that knows what it asked. It
+  does still need `--reply-to` for buttons, so one chat id ends up in the cron
+  job's environment after all; what it avoids is a second job and a second
+  delivery configuration. Being synchronous is a bonus, not a
+  cost: the snoozes are filed only after the wake returns 0, so a gateway that
+  was down leaves the session eligible next tick instead of silently in backoff.
+- **The wrapper's stdout is empty on every path, and `GAMEREG_SOURCE` is set
+  rather than inherited.** Both were found by probing the live gateway, not by
+  reading its docs. A cron command job's `delivery.mode` defaults to `announce`,
+  so anything on stdout is one missing `--no-deliver` away from being sent to the
+  user as raw text — diagnostics therefore go to stderr, where
+  `openclaw cron runs` still shows them. And a command job inherits the gateway
+  process's environment, which here includes `GAMEREG_SOURCE=chat`: left alone,
+  every check-in the poll files would claim in the log to have come from a
+  conversation.
+- **The agent reads `last_checkin_id` off `gamereg open`; it is never handed the
+  id.** `02-cli.md` used to say the id "comes back in this command's own
+  `result.checkin_id`", which is true for the wrapper and impossible for the
+  agent — the wake is enqueued *before* the check-in is filed, so at the moment
+  the question reaches a conversation the record does not exist. Putting the
+  field on `open`'s row is the smallest fix that survives a context compaction
+  and a gateway restart. Its one sharp edge is in `SKILL.md`: `open` lists open
+  sessions, so an answer that closes one has to read the id first.
 - **`due` returns at most one row per session, and `day_cutoff` outranks the
   other two.** Several triggers stand fired at once far more often than the
   state machine's per-trigger reading suggests — a session open past 4h at
@@ -276,25 +348,27 @@ Each of these cost real time to find. The reasoning, not just the rule:
   of this is ever built.
 
 - **How the Quartz site actually gets built is deliberately unanswered.**
-  `site` emits `site/content/` and a seeded `quartz.config.yaml`; running Quartz
+  `quartz` emits `quartz/content/` and a seeded `quartz.config.yaml`; running Quartz
   is the user's business, and phase 3 ships no GitHub Actions workflow even
   though `06-roadmap.md` lists one. Two reasons to leave it open rather than
   guess: the roadmap bullet is satisfied by documenting a workflow as much as by
   shipping one, and "how this thing runs on a host" is exactly what phase 5
   decides for everything else — the container image, the config generator, the
   cron wrapper below. Deciding it twice, in two phases, is how the two answers
-  end up disagreeing. Nothing is stranded by waiting: `site/content/` is
+  end up disagreeing. Nothing is stranded by waiting: `quartz/content/` is
   committed, so whoever writes the workflow later needs Quartz and nothing else.
   Shipping Quartz in the phase-5 image is the other half of the same question.
 
-- **Phase 3's cron wrapper is a file phase 5 will have to emit.** The hourly
-  check-in poll is a shell wrapper on the gateway host — it runs the `no_reply`
-  sweep, runs `gamereg due --json`, exits silently on empty, and otherwise wakes
-  the agent and files the snoozes. It is the gateway's file, not the agent's, so
-  `agent/workspace/AGENTS.md`'s boundary is intact: the agent still executes one
-  allowlisted binary and still writes no file itself. But it is one more thing
-  the phase-5 generator has to produce declaratively, alongside the compose file
-  and the environment.
+- **`agent/checkin.sh` is a file phase 5 will have to place, and a cron job it
+  will have to register.** The wrapper itself is written and tested; what is not
+  solved is deployment. It is the gateway's file, not the agent's, so
+  `agent/workspace/AGENTS.md`'s boundary is intact — the agent still executes one
+  allowlisted binary and still writes no file itself. But the phase-5 generator
+  has to copy it somewhere stable and then run `openclaw cron add`, and that
+  second half has no declarative form: OpenClaw's config schema carries no
+  `cron.jobs` array, so the job store is only reachable through the CLI. Whatever
+  phase 5 decides about the compose file and the environment has to answer this
+  too.
 
 Add the next one here rather than in a commit message nobody will search for.
 

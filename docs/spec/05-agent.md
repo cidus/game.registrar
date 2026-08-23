@@ -452,6 +452,11 @@ in it belongs to the CLI, per invariant 7, and everything that has to survive
 between two conversations belongs to the wrapper, because a chat turn cannot
 remember a deadline.
 
+The amend in the fourth row needs an id the agent was never handed — the wake is
+enqueued before the check-in is filed, so the record does not exist yet when the
+question arrives. It comes off `gamereg open`'s `last_checkin_id`, read while the
+session is still open. See [02-cli](02-cli.md).
+
 #### Personality
 
 The register comes from a per-installation pre-prompt, so the Registrar can be
@@ -556,15 +561,47 @@ event payloads, or generated blocks.
 
 ## Reactions
 
-Phase 3, and deliberately out of the data model.
+Phase 3, and deliberately out of the data model. Nothing here reaches the CLI,
+`gamereg.config.json`, or the log: a reaction is decoration on a message, and
+the register would be identical without it.
 
-The agent emits a **reaction token** from a list defined in the user's config —
-`filed`, `approved`, `archived`, `pending`, `puzzled`. A mapping table resolves
-the token to a channel-specific asset (Telegram `file_id`, WhatsApp `.webp`).
-Unmapped tokens fall back to an emoji, or to nothing.
+The agent emits a **reaction token** from a closed list of five:
 
-The model never names a file. Sticker sets are per-installation and ship with no
-artwork in this repo.
+| Token | Emitted when |
+|---|---|
+| `filed` | a session was opened, or a note attached — something went into the register |
+| `approved` | a run was finished |
+| `archived` | a run was dropped |
+| `pending` | an answer is being waited on — an ambiguity menu, a confirmation |
+| `puzzled` | the request could not be turned into an invocation |
+
+**The tokens are identifiers, not words.** They are never translated, never
+shown to the user, and never passed to `gamereg`. That has to be said out loud
+because four of them collide by name with the persona's vocabulary above —
+*filed*, *approved*, *archived*, *pending clarification* — which is localized
+prose served by `gamereg vocab`. One is a term the Registrar says in whatever
+language the user speaks; the other is a key in a lookup table that happens to
+read as English. Conflating them puts a Portuguese word in a table lookup, or
+an English one in a sentence, and both fail quietly.
+
+**The mapping lives on the gateway side, per installation, and never in this
+repository.** A table resolves a token to a channel-specific asset (Telegram
+`file_id`, WhatsApp `.webp`); the artwork is the user's. The fallback chain is
+sticker, then emoji, then nothing — an installation that maps no token reacts
+with nothing at all, which is the shipped default and a perfectly good register.
+
+The model never picks a file. It emits a token and substitutes the value the
+mapping hands it; it does not browse a sticker set, invent a `file_id`, or
+decide that some other asset would be funnier here.
+
+Two limits, whatever the gateway is:
+
+- **A reaction is never load-bearing.** Anything the user has to know is in the
+  prose. A sticker that failed to send, a channel with no reaction support, and
+  an unmapped token all produce the same outcome, and none of them is an error
+  worth reporting.
+- **One per turn, at most.** The token marks what the turn did. A turn that did
+  two things gets the token for the more consequential one.
 
 ## Safety
 

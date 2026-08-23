@@ -25,10 +25,27 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   every value parsed and refused by its own path when malformed. The block
   documented in `05-agent.md` now loads instead of exiting 2 as an unknown key.
 - pt-BR names for both commands (`pendencias`, `conferir`) and their flags.
+- `agent/checkin.sh` — the hourly check-in poll for the gateway host. Sweeps
+  unanswered check-ins, asks `gamereg due`, exits silently when nothing is due,
+  and otherwise wakes the agent with every row in one message before filing a
+  `snoozed` check-in for each. `--dry-run` performs none of it. A poll-started
+  turn inherits no conversation, so the wake also carries the delivery routing
+  (`GAMEREG_CHECKIN_CHANNEL`/`GAMEREG_CHECKIN_TO`, without which the question
+  arrives without buttons) and the register's configured locale.
+- A *Check-ins* section in `agent/skills/gamereg/SKILL.md`: the register per
+  trigger, the three exits (`break start`, `end --note`, nothing) and the amend
+  that settles the record.
 
 ### Changed
 - `day_cutoff` is validated when the config is read rather than when a fold
   first uses it.
+- `agent/skills/gamereg/reference/cli.md` documents `break start`/`break end`
+  with the target they have always taken (`[query]`, `--id game:<game_id>`). It
+  described them as taking no arguments, which left the agent unable to say
+  which session it meant.
+- `gamereg open` and `gamereg due` rows carry `last_checkin_id`. It is the
+  agent's only route to the check-in it has to amend: the wake is enqueued
+  before the record is filed, so the id cannot travel with the question.
 
 ## [0.2.0] - Phase 2 — Chat and voice
 

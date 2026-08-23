@@ -14,6 +14,7 @@ skills/gamereg/
   reference/query.md    how to answer questions in SQL
 openclaw.example.json5  channel, allowlist, voice transcription
 approvals.example.json  which commands the agent may run unattended
+checkin.sh              the hourly check-in poll, run by cron on the gateway host
 ```
 
 ## What the agent is allowed to be
@@ -670,6 +671,173 @@ calls first, see whether an unprompted comment about a completed `enrich`/
 `build` actually shows up, and only then decide whether the config is worth
 touching.
 
+### 8. Wire the check-in poll
+
+`agent/checkin.sh` is the gateway's half of the check-in machinery
+(`docs/spec/05-agent.md`, *Check-ins*). It runs `gamereg checkin --expire` and
+`gamereg due --json`, exits silently when nothing is due, and otherwise wakes
+the agent with the rows and files a `snoozed` check-in for each — in that order.
+It is the gateway's file, not the agent's: the agent still executes one
+allowlisted binary and still writes nothing itself.
+
+Copy it somewhere stable on this host and register it as an hourly **command**
+job — the binary with no model attached, which is what makes an empty poll free:
+
+```bash
+cp agent/checkin.sh ~/.openclaw/checkin.sh
+openclaw cron add --name gamereg-checkin --every 1h --no-deliver \
+  --command-env GAMEREG_VAULT=/opt/gamereg-vault \
+  --command-env GAMEREG_CHECKIN_CHANNEL=telegram \
+  --command-env GAMEREG_CHECKIN_TO=<your numeric chat id> \
+  --command "$HOME/.openclaw/checkin.sh"
+```
+
+Before any of that, run it by hand. `--dry-run` performs nothing and prints the
+message it would have sent:
+
+```bash
+GAMEREG_VAULT=/opt/gamereg-vault ~/.openclaw/checkin.sh --dry-run
+```
+
+Everything below was checked against the installed gateway
+(`openclaw 2026.7.1-2`) by running it, not read out of its documentation. Most
+of it contradicts what a reasonable reading would have assumed, and the last
+three were only found by watching a real check-in go out.
+
+**`--no-deliver` is not optional, and the default is the dangerous one.** A
+command job's `delivery.mode` comes back as `announce` with `channel: "last"`
+unless you pass `--no-deliver` — so a job registered without it sends the
+wrapper's stdout to a chat as raw text. On this host the first probe was saved
+by an unrelated refusal:
+
+```
+Refusing implicit isolated cron delivery: the target would be inherited from
+the shared agent-main session bucket's last recipient, which is ambiguous
+across conversations and can deliver to the wrong room
+```
+
+That refusal is not a safety net to rely on — it depends on the delivery target
+being ambiguous, which it stops being the moment anything sets one. Note also
+what it did to the run: the command exited 0 and the run was still recorded
+`status: "error"`, because delivery failed. A run history full of red on a job
+that worked is its own kind of broken. `checkin.sh` therefore keeps **stdout
+empty on every path** and puts diagnostics on stderr, where
+`openclaw cron runs --id <job>` still shows them.
+
+**A command job inherits the gateway process's environment — `GAMEREG_SOURCE`
+included.** A probe job printed `VAULT=[/opt/gamereg-vault] SOURCE=[chat]`. The
+vault being inherited is convenient; `chat` being inherited is a trap, because
+every check-in this poll files would then claim in the log to have come from a
+conversation. `checkin.sh` sets `GAMEREG_SOURCE=cron` itself rather than
+trusting what it was handed, and `test/checkin-wrapper.test.ts` runs with `chat`
+in the environment for exactly that reason. The job is registered with
+`--command-env GAMEREG_VAULT=...` anyway: inheritance is not a contract.
+
+**The wake is `openclaw agent`, not a second cron job.** OpenClaw's automation
+docs are right that a command job's output cannot trigger an agent turn, so the
+wrapper has to raise the turn itself. The candidate written down here before
+this was built — `openclaw cron add --at +0s --delete-after-run --message …` —
+works, but it is the worse of the two: a one-shot agent job hits the same
+"refusing implicit isolated cron delivery" wall and needs an explicit
+`--channel` and `--to`, which would put a Telegram chat id inside a file that
+phase 5 is supposed to generate. `openclaw agent --message-file <file>
+--deliver`, with no session key at all, runs the turn in the agent's main
+session and delivers over that session's own channel. No ids in the wrapper, and
+the question lands in the same conversation the answer will arrive in — which is
+the part that matters, since the reply has to reach an agent that knows what it
+asked.
+
+It is also synchronous, and that turns out to be the better failure mode: the
+wrapper files the snoozes only after `openclaw agent` has returned successfully,
+so a gateway that was down leaves the session eligible on the next tick instead
+of silently in backoff.
+
+**`openclaw cron run <id>` fires a job on demand, and works on a disabled one.**
+That is how to test a registered job without waiting for the hour, and creating
+the job with `--disabled --keep-after-run` first makes the whole loop
+inspectable: run it, read `openclaw cron runs --id <job>`, then enable it.
+
+**`openclaw agent` needs a selector; there is no implicit main session.** The
+first live run failed outright with *"No target session selected. Use --agent
+&lt;id&gt;, --session-key &lt;key&gt;, --session-id &lt;id&gt;, or --to
+&lt;E.164&gt;"*. Its own `--help` says `(omit to use the main session channel)`,
+which is about the delivery *channel* and reads, at a glance, like a statement
+about the session. `checkin.sh` passes `--agent`, defaulting to `main` and
+overridable with `OPENCLAW_AGENT`.
+
+Worth noting what that failure did *right*: `openclaw agent` returned non-zero,
+so the wrapper filed nothing, and the session was still due on the next run. The
+ordering rule is not theoretical — it was exercised on the first attempt.
+
+**A turn started by a poll carries no delivery routing, and the `message` tool
+fails open.** This is the one that matters. In a turn started by an inbound
+message the gateway puts the conversation's target in the model's context — the
+phase-2 transcripts are full of `"target": "telegram:<chat id>"`. A cron wake has
+no inbound message, so nothing is injected, and the agent reached for the only
+plausible-looking value it had:
+
+```
+"target":"telegram"  →  chat_id=-1001005640892
+403: Forbidden: bot is not a member of the channel chat
+Input was: "telegram:@telegram"
+```
+
+`telegram` resolved to **`@telegram`, the public Telegram channel**. The send was
+stopped by the bot not being a member of it, and by nothing else. A wrong target
+here does not fail closed; it addresses a real chat and tries. Read that failure
+as the near miss it is, not as an error message.
+
+The fix is `--reply-channel` and `--reply-to` on `openclaw agent`: with them the
+run carries its own delivery context, the `message` tool defaults to it, and the
+agent names no target at all — confirmed by a second live run, `messageId 478`,
+buttons and all. Which is why `GAMEREG_CHECKIN_TO` exists and why `SKILL.md`'s
+*Check-ins* forbids setting `target` in as many words. Leave both unset and the
+poll still works: the question arrives as the agent's own reply text, which
+`--deliver` routes correctly on its own. What is lost is the buttons.
+
+`break-start:<ulid>` and `close-session:<ulid>` come to 40 bytes, comfortably
+inside the 64-byte `callback_data` ceiling, and rendered as sent.
+
+**A throwaway vault does not isolate the answer half — only the question half.**
+Found the hard way. The wrapper takes its vault from its own environment, so
+pointing it at a scratch vault keeps `due` and `checkin` off the real register.
+The *agent* does not: it takes `GAMEREG_VAULT` from the gateway process, which
+is the live vault and nothing else. So a check-in raised from a scratch vault is
+answered against the real one, and the tap that was meant to open a break on a
+fictional Hollow Knight session opened a real one on whatever session the real
+vault had open. Undone with `revoke`, which is what it is for — the `break.open`
+was the last event in the log, so it came out clean and `doctor` came back with
+no problems.
+
+Two things worth keeping from that. The agent noticed by itself: it read the
+result, saw the game did not match the one it had asked about, and ran
+`gamereg open --json` to work out why — the boundary held, and the model was the
+thing that caught it. And it was only possible because the two vaults disagreed;
+inside one vault, a second open session makes `break start` exit 3 and list them
+rather than pick, which is the whole point of that exit code.
+
+To test the answer half honestly, raise the check-in against the real vault on a
+session you are willing to have a break filed against, or point the gateway's own
+`GAMEREG_VAULT` at the scratch vault for the duration and restart it.
+
+**`break start` takes a target and the skill reference used to hide it.** The
+same episode surfaced this: `reference/cli.md` documented `gamereg break start`
+with no arguments, while the binary has taken `[query]` and `--id` all along.
+`test/agent-skill.test.ts` checks that every flag the reference *names* exists;
+it cannot check the other direction, so a capability the reference omits is
+invisible to the agent no matter how long it has been there. Both `break`
+subcommands are now written out with their target, and `SKILL.md`'s *Check-ins*
+requires passing it: the wake names a `game_id`, and answering a check-in about
+one session by asking which session is meant would be absurd.
+
+**A wake has no language to infer from, and the agent will go looking.** The
+first successful check-in came out in English, to a user who talks to this bot
+in Portuguese, after two `sessions_history` calls and two `memory_search` calls
+spent trying to work it out. `SKILL.md`'s *Language* rule — reply in whatever
+they wrote — has nothing to work with when nobody wrote anything. `checkin.sh`
+therefore reads `gamereg vocab --json`'s `locale` and states it in the wake as a
+fact. A tag, not a phrasing: the vocabulary itself still comes from the CLI.
+
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever
@@ -698,6 +866,20 @@ this command exists to remove.
 Then, from a terminal: `gamereg build`, and check that the notes regenerate and
 carry `source: "chat"` on the events.
 
+Then the check-in, which is the one step that cannot start from the phone. Point
+the wrapper at a throwaway vault holding one session opened five hours ago, run
+it by hand, and answer on the phone:
+
+```bash
+GAMEREG_VAULT=/tmp/checkin-vault ~/.openclaw/checkin.sh
+```
+
+The message should name the game and how long it has been open, offer a break,
+and read as an offer rather than a verdict. Tap "taking a break" and check the
+throwaway vault: a `session.break_start`, and a `event.amend` moving the
+check-in's outcome to `break_started`. A run of the real thing on the real vault
+files real events, which is why this one gets its own vault.
+
 Last: message the bot from another account, and confirm nothing happens.
 
 ## What is not here
@@ -705,37 +887,12 @@ Last: message the bot from another account, and confirm nothing happens.
 Reaction tokens and stickers are specified in `docs/spec/05-agent.md` but belong
 to phase 3, and nothing in this directory implements them.
 
-The check-in machinery is now half built: `gamereg due` and `gamereg checkin`
-exist in the CLI, with all three triggers, the delivery windows, the backoff
-ladder and the ceiling. What is still missing is the half that lives on this
-host — the hourly cron job, the wrapper that turns a non-empty `due` into a
-wake, and the `SKILL.md` protocol for answering one. Until that lands the
-Registrar stays silent until spoken to: nothing invokes `due` on a schedule, so
-nothing it decides ever reaches a conversation.
+The check-in machinery is built on both sides now. `gamereg due` and
+`gamereg checkin` carry the triggers, the delivery windows, the backoff ladder
+and the ceiling; `checkin.sh` and the cron job in step 8 turn a non-empty `due`
+into a wake; `SKILL.md`'s *Check-ins* section says what to do with one. The
+Registrar is no longer silent until spoken to.
 
-### Two things to verify live before phase 3 wires the cron
-
-Both are the same class of question as the button payload above — where this
-gateway's documented behaviour and its actual behaviour have to be checked
-against each other rather than assumed. Neither is settled, and the phase-3
-design should not be built on a guess about either.
-
-**How a `--command` cron job wakes the agent.** The plan for check-ins is an
-hourly cron job whose payload is a *command*, not an agent message: it runs
-`gamereg due --json` on this host with no model attached, so an empty poll costs
-nothing. The catch is that OpenClaw's automation docs state plainly that a
-command job's output cannot trigger an agent turn — a command produces run
-history and stops there. So the wrapper has to schedule the wake itself when
-`due` comes back non-empty. The candidate is `openclaw cron add --at +0s
---delete-after-run --message …`, creating a one-shot agent job carrying the facts
-already fetched. Confirm the exact flag set against the installed version
-(`openclaw 2026.7.1-2` at the time of writing) before designing around it, and
-record what actually worked here.
-
-**Whether the 64-byte `callback_data` ceiling governs the reply buttons.** A
-check-in offers three exits — "taking a break", "stopping now", "still going" —
-and the first two want inline buttons carrying a session id. Session ULIDs are
-26 characters, so `close-session:<ulid>` fits with room to spare and this should
-be fine. It is listed anyway because the failure is silent — see *64 bytes, and
-failure is silent* above: the button is dropped and the message still sends
-without it. Verify with a real tap, the way the button shapes above had to be.
+What is still absent from phase 3: the `stats` and `quartz` targets, and reaction
+tokens. `gamereg build quartz` is still refused — `CURRENT_PHASE` in
+`core/vocab.ts` is `2`.

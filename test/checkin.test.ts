@@ -189,3 +189,36 @@ test('the cron source is recorded on the event, since that is who files it', () 
   assert.equal(last['source'], 'cron')
   assert.equal(last['type'], 'session.checkin')
 })
+
+test('the check-in an answer settles is reachable from open, which is the agent only route to it', () => {
+  const root = vault()
+  const session = openSession(root)
+  const open = (at: string): Record<string, unknown> | undefined =>
+    (result(gamereg(root, 'open', '--at', at))['open'] as Record<string, unknown>[])[0]
+
+  // Never asked about: there is nothing to settle, and the field says so.
+  assert.equal(open('2026-05-04 00:30')?.['last_checkin_id'], null)
+
+  const filed = gamereg(root, 'checkin', session, '--trigger', 'duration', '--at', '2026-05-04 00:31')
+  const checkin = result(filed)['checkin_id'] as string
+  assert.equal(open('2026-05-04 00:32')?.['last_checkin_id'], checkin)
+
+  // The wake is enqueued before the record exists, so `due` can only ever name
+  // the previous question. Asking a second time is what proves the difference:
+  // the row returned the next morning still names the check-in filed at 00:31,
+  // whatever trigger it is standing on by then.
+  const second = rows(gamereg(root, 'due', '--at', '2026-05-04 09:00'))[0]
+  assert.equal(second?.['last_checkin_id'], checkin)
+  assert.equal(second?.['last_checkin_at'], '2026-05-04T00:31:00-03:00')
+
+  // And it is readable only while the session is open, which is why the agent
+  // reads it before closing rather than after.
+  assert.equal(gamereg(root, 'end', '--at', '2026-05-04 00:40').status, 0)
+  assert.equal(open('2026-05-04 00:41'), undefined)
+
+  // The id survives the close, though — the amend targets an event, not a session.
+  assert.equal(
+    gamereg(root, 'amend', checkin, '--reason', 'answered', '--set', 'outcome=session_closed').status,
+    0,
+  )
+})

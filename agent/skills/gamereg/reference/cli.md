@@ -99,11 +99,18 @@ platform mentioned earlier in the conversation gets filed.
 ### `gamereg break start` / `gamereg break end`
 
 ```text
-gamereg break start
-gamereg break end
+gamereg break start <query> --id
+gamereg break end <query> --id
 ```
 
-A pause inside the open session.
+A pause inside the open session. Both take a target the same way `end` does: a
+title, or `--id game:<game_id>` for the exact one. **`--id` here names the game,
+not the session** — a game has at most one open session, which is what makes
+that unambiguous.
+
+With one session open, no target is needed. With several and none given, both
+exit 3 and list them rather than picking; if you already know which session you
+mean, say so and skip the question.
 
 ### `gamereg finish`
 
@@ -176,7 +183,13 @@ The vault summary, or one game's state. `<query>` is optional.
 gamereg open
 ```
 
-Every open session.
+Every open session. Each row carries `session_id`, `run_id`, `game`, `game_id`,
+`opened_at`, `open_for_minutes`, `net_minutes`, `on_break`, `break_started_at`,
+`checkins_so_far` and `last_checkin_id`.
+
+`last_checkin_id` is the check-in you amend when someone answers one — see
+*Check-ins* in `SKILL.md`. It is `null` until a session has been asked about,
+and it is only readable while the session is open.
 
 ### `gamereg search`
 

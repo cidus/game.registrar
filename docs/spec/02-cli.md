@@ -329,6 +329,12 @@ step 6 altogether, which also makes `--provider` moot.
 
 ### `gamereg open` — list open sessions
 
+The row carries `last_checkin_id`, the `session.checkin` event most recently
+filed against that session, or `null`. It is there for one caller: the agent,
+answering a check-in. The wrapper files the record *after* enqueueing the wake,
+so the id cannot travel with the question — this is the way back to it. A
+closed session is not listed, so an answer that closes one reads the id first.
+
 ### `gamereg due [--at <time>]`
 
 Evaluates every check-in trigger against currently open sessions and returns only
@@ -358,12 +364,15 @@ arithmetic so every caller behaves identically — see [05-agent](05-agent.md).
     "trigger": "duration",
     "threshold": "5h",
     "checkins_so_far": 1,
-    "last_checkin_at": "2026-08-12T23:14:00-03:00"
+    "last_checkin_at": "2026-08-12T23:14:00-03:00",
+    "last_checkin_id": "01K..."
   }
 ] } }
 ```
 
-The row is `open`'s, plus `trigger`, `threshold` and `last_checkin_at`.
+The row is `open`'s, plus `trigger` and `threshold`. `last_checkin_at` and
+`last_checkin_id` name the same record, and it is the *previous* question — the
+one this evaluation was measured against, never the one about to be asked.
 `threshold` is the setting that fired, as configured: `4h` for `duration`, the
 hour itself for `clock` and for `day_cutoff`.
 
@@ -389,9 +398,14 @@ bounds a trigger exempt from both.
 Files a `session.checkin`. Called by **the cron wrapper, not the agent**, right
 after the wake carrying the question has been enqueued. `--outcome` defaults to
 `snoozed`, which is the only outcome the wrapper is ever in a position to know.
-The outcome is amended later — `gamereg amend <checkin_id> --set outcome=…`, the
-id coming back in this command's own `result.checkin_id` — by the agent when the
-user answers, or by `--expire` below when nobody does.
+The outcome is amended later — `gamereg amend <checkin_id> --set outcome=…` — by
+the agent when the user answers, or by `--expire` below when nobody does.
+
+Where that id comes from depends on who is asking. The wrapper has it in this
+command's own `result.checkin_id`. The agent does not, and cannot: the wake goes
+out before this command runs, so at the moment the question reaches a
+conversation the record does not exist yet. It reads `last_checkin_id` off
+`gamereg open` instead, which is why that field is on the row.
 
 A check-in never mutates the session, and a session that closed between the wake
 and this call is recorded rather than refused: the question *was* asked, and

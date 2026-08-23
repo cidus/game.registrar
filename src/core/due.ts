@@ -43,6 +43,8 @@ export type DueRow = {
   threshold: string
   checkins_so_far: number
   last_checkin_at: string | null
+  /** Same record as `last_checkin_at` — the *previous* question, not this one. */
+  last_checkin_id: string | null
 }
 
 type Firing = {
@@ -227,6 +229,7 @@ export function due(state: VaultState, config: Config, at: DateTime, time: TimeC
       threshold: firing.threshold,
       checkins_so_far: session.checkins.length,
       last_checkin_at: last?.at ?? null,
+      last_checkin_id: last?.event_id ?? null,
     })
   }
 
