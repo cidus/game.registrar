@@ -811,9 +811,14 @@ bytes. "Still going" needs no button — saying nothing is already that answer.
 was started by a poll rather than by something someone sent, so nothing in your
 context names this conversation — and a bare channel name is not a fallback, it
 is a different chat that will accept the message and show it to strangers. The
-routing came in with the wake; leaving `target` off is what uses it. If the wake
-tells you it has no delivery target, ask in plain text and send nothing with the
-message tool: your own reply reaches them either way.
+routing came in with the wake; leaving `target` off is what uses it.
+
+**One of the two carries the message, and the wake says which.** When it gives
+you buttons to send, that send is the whole message and your own reply text goes
+nowhere — write `NO_REPLY` and nothing else, because anything else is written to
+no one. When it tells you it has no delivery target, the opposite holds: ask in
+plain text, send nothing with the message tool, and your reply is what arrives.
+Doing both at once is what makes a check-in turn up twice.
 
 | What they answer | What you run |
 |---|---|

@@ -31,7 +31,8 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   `snoozed` check-in for each. `--dry-run` performs none of it. A poll-started
   turn inherits no conversation, so the wake also carries the delivery routing
   (`GAMEREG_CHECKIN_CHANNEL`/`GAMEREG_CHECKIN_TO`, without which the question
-  arrives without buttons) and the register's configured locale.
+  arrives without buttons) and the register's configured locale. `--at`
+  evaluates as if it were another time, and `--dry-run` performs none of it.
 - A *Check-ins* section in `agent/skills/gamereg/SKILL.md`: the register per
   trigger, the three exits (`break start`, `end --note`, nothing) and the amend
   that settles the record.

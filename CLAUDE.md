@@ -236,6 +236,21 @@ Each of these cost real time to find. The reasoning, not just the rule:
   the same, and it is worth remembering as one lesson rather than three: **the
   gateway's implicit context is a property of an inbound message, not of a
   session.** Anything the agent normally infers has to be handed to it here.
+- **One delivery path per wake, never two — and the wrapper's `--at` is what
+  makes that testable.** `--deliver` and the agent's own `message` tool are both
+  senders, and with both on every check-in arrived twice: identical text, same
+  minute, one copy with buttons and one without. Nothing generated it twice; the
+  model narrated alongside its tool call, as models do, and `--deliver` delivered
+  the narration. `NO_REPLY` does not help — OpenClaw matches that sentinel per
+  payload, and the turn produced two. So the wrapper picks by mode: routing
+  configured means the message tool sends and `--deliver` is off; no routing
+  means `--deliver` carries the reply and the message tool is forbidden. The
+  reason this needed a live user to find is that every artifact looked correct
+  from the inside — one `message` call, one `messageId`, one `session.checkin`.
+  It is only visible on the phone. Hence `--at` on `checkin.sh`: the wrapper was
+  the one caller that could not use the CLI's own test harness, its first test
+  was built on `Date.now()` and duly failed on the hour of day, and a script
+  that cannot be pinned to an instant cannot be tested at all.
 - **A scratch vault isolates the wrapper, never the agent.** The wrapper reads
   `GAMEREG_VAULT` from its own environment; the agent reads it from the gateway
   process, which is the live vault. So a check-in raised from a test vault is

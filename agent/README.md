@@ -693,10 +693,12 @@ openclaw cron add --name gamereg-checkin --every 1h --no-deliver \
 ```
 
 Before any of that, run it by hand. `--dry-run` performs nothing and prints the
-message it would have sent:
+message it would have sent, and `--at` evaluates as if it were another time —
+the same flag the CLI takes, forwarded to every `gamereg` call the script makes:
 
 ```bash
 GAMEREG_VAULT=/opt/gamereg-vault ~/.openclaw/checkin.sh --dry-run
+GAMEREG_VAULT=/opt/gamereg-vault ~/.openclaw/checkin.sh --dry-run --at "2026-08-23 09:00"
 ```
 
 Everything below was checked against the installed gateway
@@ -829,6 +831,27 @@ invisible to the agent no matter how long it has been there. Both `break`
 subcommands are now written out with their target, and `SKILL.md`'s *Check-ins*
 requires passing it: the wake names a `game_id`, and answering a check-in about
 one session by asking which session is meant would be absurd.
+
+**`--deliver` and the `message` tool are two delivery paths, and turning on both
+sends every check-in twice.** The clearest symptom possible, and still not
+obvious from inside a single run: each check-in arrived as two Telegram
+messages, identical text, same minute, one with buttons and one without. Nothing
+generated the text twice — the model narrated alongside its `message` tool call,
+which is ordinary behaviour, and that narration is the sentence it had just
+sent. `--deliver` then delivered it.
+
+`NO_REPLY` does not save you here. It is a real OpenClaw sentinel — the
+dispatcher logs *"exact NO_REPLY final payload was skipped before delivery"* —
+but it is matched per payload, against `^NO_REPLY$`. The turn produced two
+payloads, the narration and the sentinel; only the second was skipped.
+
+So `checkin.sh` picks exactly one path by mode: with routing configured it drops
+`--deliver` entirely and the `message` tool is the only sender; with no routing
+it passes `--deliver` and forbids the message tool, which cannot reach the
+conversation anyway. `test/checkin-wrapper.test.ts` asserts both directions,
+because the failure is invisible in the run history and in the transcript alike
+— the transcript shows one `message` send and a successful `messageId`, which is
+exactly what a correct run looks like.
 
 **`amend` requires `--reason`, and the skill did not say so.** The first real
 answered check-in cost a wasted round trip to exit 2 before the agent added it.

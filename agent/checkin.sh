@@ -34,12 +34,26 @@
 set -u
 
 DRY_RUN=no
-if [ "${1:-}" = "--dry-run" ]; then
-  DRY_RUN=yes
-elif [ $# -gt 0 ]; then
-  echo "usage: checkin.sh [--dry-run]" >&2
-  exit 2
-fi
+AT=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY_RUN=yes ;;
+    # Evaluate as if it were another time. Forwarded to every `gamereg` call
+    # below, which is what makes this script testable: the CLI has no clock of
+    # its own and `--at` is its whole test harness, and until this existed the
+    # wrapper was the one caller that could not use it.
+    --at) shift; AT=${1:-}; [ -n "$AT" ] || { echo "checkin.sh: --at needs a time" >&2; exit 2; } ;;
+    *) echo "usage: checkin.sh [--dry-run] [--at <when>]" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+# Every `gamereg` call goes through this, so `--at` reaches all three of them or
+# none. A function rather than a string of extra arguments: the value carries a
+# space, and an unquoted expansion would split it into two.
+gamereg_run() {
+  if [ -n "$AT" ]; then "$GAMEREG" "$@" --at "$AT"; else "$GAMEREG" "$@"; fi
+}
 
 GAMEREG=${GAMEREG_BIN:-gamereg}
 OPENCLAW=${OPENCLAW_BIN:-openclaw}
@@ -58,8 +72,8 @@ OPENCLAW_AGENT=${OPENCLAW_AGENT:-main}
 # the command line puts it back, and the agent then names no target itself.
 #
 # Both unset is a supported deployment: the question still arrives, as the
-# agent's own reply text, and `--deliver` routes that correctly on its own. What
-# is lost is the buttons, so the exits have to be typed.
+# agent's own reply text carried by `--deliver`. What is lost is the buttons, so
+# the exits have to be typed.
 GAMEREG_CHECKIN_CHANNEL=${GAMEREG_CHECKIN_CHANNEL:-}
 GAMEREG_CHECKIN_TO=${GAMEREG_CHECKIN_TO:-}
 
@@ -85,12 +99,12 @@ export GAMEREG_SOURCE GAMEREG_NON_INTERACTIVE
 # 1. Sweep the questions nobody answered. A failure here is reported and not
 #    fatal: recording silence matters less than asking the next question, and
 #    whatever broke it will break `due` a line later anyway.
-if ! swept=$("$GAMEREG" checkin --expire --json 2>&1); then
+if ! swept=$(gamereg_run checkin --expire --json 2>&1); then
   echo "checkin.sh: gamereg checkin --expire failed: $swept" >&2
 fi
 
 # 2. What is due now.
-if ! rows=$("$GAMEREG" due --json 2>&1); then
+if ! rows=$(gamereg_run due --json 2>&1); then
   echo "checkin.sh: gamereg due failed: $rows" >&2
   exit 1
 fi
@@ -149,6 +163,10 @@ Offer the exits as buttons. Send them with the message tool and **do not set
 `target`** -- this turn carries its own delivery routing, and a bare channel
 name does not resolve to this conversation.
 
+That send is the only thing that reaches anyone: your own reply text is not
+delivered on this turn. So the question has to go through the message tool, and
+whatever you write around it is seen by nobody. Reply `NO_REPLY`.
+
 BODY
 else
   cat >> "$wake" <<'BODY'
@@ -195,16 +213,30 @@ PAIRS
   exit 0
 fi
 
-# 4. The wake. `openclaw agent` with no session key runs a turn in the agent's
-#    main session and `--deliver` sends the reply back over that session's own
-#    channel -- which is what puts the question in the same conversation the
-#    answer will arrive in. A cron job cannot do this for us: a command job's
-#    output never triggers an agent turn, and a one-shot `--message` job refuses
-#    to deliver without an explicit channel and target, which would put a chat
-#    id in this file.
-set -- --agent "$OPENCLAW_AGENT" --message-file "$wake" --deliver --json
-[ -n "$GAMEREG_CHECKIN_CHANNEL" ] && set -- "$@" --reply-channel "$GAMEREG_CHECKIN_CHANNEL"
-[ -n "$GAMEREG_CHECKIN_TO" ] && set -- "$@" --reply-to "$GAMEREG_CHECKIN_TO"
+# 4. The wake. `openclaw agent` runs a turn in that agent's main session, which
+#    is what puts the question in the same conversation the answer will arrive
+#    in. A cron job cannot do this for us: a command job's output never triggers
+#    an agent turn, and a one-shot `--message` job refuses to deliver without an
+#    explicit channel and target of its own.
+#
+#    Exactly one delivery path, and which one depends on the routing.
+#
+# With a target, the agent sends the question itself through the message tool,
+# which is where buttons live -- and `--deliver` must be *off*, because it
+# delivers the model's own reply text as well. A model narrating alongside a
+# tool call is normal behaviour, and that narration is usually the same sentence
+# it just sent: the result is every check-in arriving twice, once with buttons
+# and once without. Observed on the first two real ones.
+#
+# Without a target the message tool cannot reach the conversation, so the
+# agent's reply *is* the delivery and `--deliver` is what carries it.
+set -- --agent "$OPENCLAW_AGENT" --message-file "$wake" --json
+if [ -n "$GAMEREG_CHECKIN_TO" ]; then
+  [ -n "$GAMEREG_CHECKIN_CHANNEL" ] && set -- "$@" --reply-channel "$GAMEREG_CHECKIN_CHANNEL"
+  set -- "$@" --reply-to "$GAMEREG_CHECKIN_TO"
+else
+  set -- "$@" --deliver
+fi
 
 if ! woken=$("$OPENCLAW" agent "$@" 2>&1); then
   echo "checkin.sh: the wake failed, so nothing was filed: $woken" >&2
@@ -217,7 +249,7 @@ fi
 status=0
 while read -r session trigger; do
   [ -n "$session" ] || continue
-  if ! filed=$("$GAMEREG" checkin "$session" --trigger "$trigger" --outcome snoozed --json 2>&1); then
+  if ! filed=$(gamereg_run checkin "$session" --trigger "$trigger" --outcome snoozed --json 2>&1); then
     echo "checkin.sh: gamereg checkin $session failed: $filed" >&2
     status=1
   fi
