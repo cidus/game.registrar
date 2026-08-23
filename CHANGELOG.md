@@ -39,8 +39,11 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 - Reaction tokens: a closed list of five identifiers (`filed`, `approved`,
   `archived`, `pending`, `puzzled`), a *Reactions* section in
   `agent/skills/gamereg/SKILL.md`, and `agent/workspace/REACTIONS.md` as the
-  per-installation mapping table. Nothing in the CLI, the config or the log
-  touches this.
+  per-installation mapping table. Its emoji column ships filled, one per token,
+  because an emoji is the same character everywhere and there is nothing to
+  obtain; the sticker column ships empty and no artwork ships at all, because a
+  `file_id` names a file in the user's own set. Nothing in the CLI, the config
+  or the log touches this.
 - `agent/openclaw.example.json5` carries `channels.telegram.actions.sticker`,
   `actions.reactions` and `reactionLevel`, commented out and off, with what each
   one gates. `agent/README.md`'s step 9 covers how a Telegram `file_id` is

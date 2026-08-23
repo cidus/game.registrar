@@ -54,15 +54,16 @@ an actual inline-button tap, a session closed by a voice note, and a full
 `finish` + `verdict` pass — the roadmap's own exit criterion for phase 2, a
 game logged start to finish without opening a terminal once. **Phase 3's five
 steps are all built, and the Registrar now speaks first:** `gamereg due`
-decides in code which open session is owed a question — three triggers, a delivery slot, quiet hours, an escalating backoff
-ladder and a hard ceiling — and an hourly poll on the gateway host wakes the
+decides in code which open session is owed a question — three triggers, a
+delivery slot, quiet hours, an escalating backoff ladder and a hard ceiling —
+and an hourly poll on the gateway host wakes the
 agent only when there is something to ask, so a quiet day costs nothing and
 says nothing. The build also emits a `stats` note with a calendar heatmap and a
-year in review, the agent can react with a sticker where an installation maps
-one, and `gamereg build quartz` writes the register a second time as
-[Quartz](https://quartz.jzhao.xyz) input — notes, a front page and a seeded
-config — which gamereg emits and never builds: turning it into a site is
-yours to run, by hand or from CI. See
+year in review, the agent reacts to what it files — with emoji out of the box,
+or a sticker where an installation maps one — and `gamereg build quartz` writes
+the register a second time as [Quartz](https://quartz.jzhao.xyz) input — notes,
+a front page and a seeded config — which gamereg emits and never builds:
+turning it into a site is yours to run, by hand or from CI. See
 [06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *Current
 state* for the detailed status, and [`CHANGELOG.md`](CHANGELOG.md) — or the
 tagged [releases](https://github.com/cidus/game.registrar/releases) for the

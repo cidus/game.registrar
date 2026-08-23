@@ -51,7 +51,8 @@ until spoken to.
 Step 3 landed the reaction tokens, and landed them inert: five identifiers
 (`filed`, `approved`, `archived`, `pending`, `puzzled`), a *Reactions* section in
 `SKILL.md`, `agent/workspace/REACTIONS.md` as the per-installation mapping table
-with all five rows empty, and the two Telegram switches commented out in
+— emoji column filled, sticker column empty, since only the second names an asset
+somebody has to obtain — and the two Telegram switches commented out in
 `openclaw.example.json5`. No artwork ships and none will — the sticker set is the
 user's. `test/agent-skill.test.ts` holds both halves: the token list cannot drift
 between the skill and the table, and a `file_id` cannot be committed here.

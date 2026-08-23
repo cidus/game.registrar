@@ -619,8 +619,16 @@ an English one in a sentence, and both fail quietly.
 **The mapping lives on the gateway side, per installation, and never in this
 repository.** A table resolves a token to a channel-specific asset (Telegram
 `file_id`, WhatsApp `.webp`); the artwork is the user's. The fallback chain is
-sticker, then emoji, then nothing — an installation that maps no token reacts
-with nothing at all, which is the shipped default and a perfectly good register.
+sticker, then emoji, then nothing.
+
+The two columns ship differently, and the line between them is whether the value
+is an asset somebody has to obtain. **The emoji column ships filled**, one per
+token: an emoji is a character, identical on every installation, so leaving it
+blank would only have meant every deployment typing the same five in by hand.
+**The sticker column ships empty and no artwork ships with it** — a `file_id`
+names a file in someone's own sticker set and cannot be anything but theirs.
+So a fresh install reacts with emoji, and an installation that empties the table
+reacts with nothing at all, which remains a perfectly good register.
 
 The model never picks a file. It emits a token and substitutes the value the
 mapping hands it; it does not browse a sticker set, invent a `file_id`, or
