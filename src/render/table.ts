@@ -9,7 +9,8 @@ import { formatHours } from '../core/duration.ts'
 import type { GameState, RunState, VaultState } from '../core/fold.ts'
 import type { DatePrecision } from '../core/vocab.ts'
 import type { Translator } from '../i18n/index.ts'
-import { assetPath } from './assets.ts'
+import { assetThumb } from './assets.ts'
+import { noteRef, type Flavour } from './flavour.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 
 /** Small enough for a table row; Obsidian's own `|<width>` embed sizing. */
@@ -45,7 +46,7 @@ function date(value: string | null, precision: DatePrecision | null): string {
   return value
 }
 
-export function tableBlock(state: VaultState, bundle: Translator): string {
+export function tableBlock(state: VaultState, bundle: Translator, flavour: Flavour): string {
   const rows = rowsOf(state)
   if (rows.length === 0) return bundle.t('table.empty')
 
@@ -68,10 +69,10 @@ export function tableBlock(state: VaultState, bundle: Translator): string {
         : formatHours(run.minutes)
     // Only a locally ingested cover has a file to embed — same rule the game
     // note's own header and the Shelf base view already follow.
-    const cover = game.cover?.sha256 == null ? '' : `![[${assetPath(game.cover.sha256)}\\|${COVER_WIDTH}]]`
+    const cover = game.cover?.sha256 == null ? '' : assetThumb(game.cover.sha256, flavour, COVER_WIDTH)
     return [
       cover,
-      `[[${game.slug}\\|${cell(game.title)}]]`,
+      `[[${noteRef(flavour, 'games', game.slug)}\\|${cell(game.title)}]]`,
       cell(run.platform),
       date(run.started_on, run.started_precision),
       date(run.ended_on, run.ended_precision),
@@ -89,11 +90,23 @@ export function tableBlock(state: VaultState, bundle: Translator): string {
   ].join('\n')
 }
 
-export function tableBlocks(state: VaultState, bundle: Translator): BlockContent[] {
-  return [{ block: TABLE_BLOCK, content: tableBlock(state, bundle) }]
+export function tableBlocks(
+  state: VaultState,
+  bundle: Translator,
+  flavour: Flavour,
+): BlockContent[] {
+  return [{ block: TABLE_BLOCK, content: tableBlock(state, bundle, flavour) }]
 }
 
-/** The table as it would be created from nothing: a title and the block. */
-export function newTable(state: VaultState, bundle: Translator): string {
-  return `# ${bundle.t('table.title')}\n\n${wrapBlock(TABLE_BLOCK, tableBlock(state, bundle))}\n`
+/**
+ * The table as it would be created from nothing: a title and the block.
+ *
+ * The title is an `H1` in the vault and frontmatter on the site, because Quartz
+ * renders `title` as the page's own heading and a note carrying both would show
+ * it twice.
+ */
+export function newTable(state: VaultState, bundle: Translator, flavour: Flavour): string {
+  const block = wrapBlock(TABLE_BLOCK, tableBlock(state, bundle, flavour))
+  if (!flavour.siteFrontmatter) return `# ${bundle.t('table.title')}\n\n${block}\n`
+  return `---\ntitle: ${bundle.t('table.title')}\ndraft: false\n---\n\n${block}\n`
 }

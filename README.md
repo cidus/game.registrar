@@ -41,8 +41,8 @@ Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
 
 ## Status
 
-**Phases 0–2 done and tagged (`v0.2.0`); phase 3 under way.** The CLI
-records, enriches titles and cover art from IGDB, ingests your own photos,
+**Phases 0–2 done and tagged (`v0.2.0`); phase 3 built, not yet tagged.** The
+CLI records, enriches titles and cover art from IGDB, ingests your own photos,
 and regenerates Obsidian notes and a sortable Base, CSV, JSON, an HTML table
 and a SQLite cache — all from one event log. A chat agent for
 [OpenClaw](https://openclaw.ai) lives in [`agent/`](agent/) and is
@@ -52,15 +52,17 @@ already-recorded run, ad hoc questions answered by SQL against the register,
 opening a live session with `start`, exit-code-3 disambiguation resolved by
 an actual inline-button tap, a session closed by a voice note, and a full
 `finish` + `verdict` pass — the roadmap's own exit criterion for phase 2, a
-game logged start to finish without opening a terminal once. Phase 3's
-specification is settled and four of its five steps are built. **The Registrar
-now speaks first:** `gamereg due` decides in code which open session is owed a
-question — three triggers, a delivery slot, quiet hours, an escalating backoff
+game logged start to finish without opening a terminal once. **Phase 3's five
+steps are all built, and the Registrar now speaks first:** `gamereg due`
+decides in code which open session is owed a question — three triggers, a delivery slot, quiet hours, an escalating backoff
 ladder and a hard ceiling — and an hourly poll on the gateway host wakes the
 agent only when there is something to ask, so a quiet day costs nothing and
 says nothing. The build also emits a `stats` note with a calendar heatmap and a
-year in review, and the agent can react with a sticker where an installation
-maps one. Not built yet: the published site, which is the last step. See
+year in review, the agent can react with a sticker where an installation maps
+one, and `gamereg build quartz` writes the register a second time as
+[Quartz](https://quartz.jzhao.xyz) input — notes, a front page and a seeded
+config — which gamereg emits and never builds: turning it into a site is
+yours to run, by hand or from CI. See
 [06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *Current
 state* for the detailed status, and [`CHANGELOG.md`](CHANGELOG.md) — or the
 tagged [releases](https://github.com/cidus/game.registrar/releases) for the

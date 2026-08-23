@@ -61,6 +61,20 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   `agent/skills/gamereg/SKILL.md`: the agent reads the figures with `query` and
   may offer a drafted opening paragraph, which the user pastes outside the
   markers. The build never generates prose, and no command files it.
+- The `quartz` build target: `quartz/content/games/*.md`,
+  `quartz/content/runs/*.md` and `quartz/content/index.md` — the register again
+  in the flavour Quartz reads, with the consolidated table as the front page —
+  plus a seeded `quartz/quartz.config.yaml`. An ordinary target: it plans from
+  folded state, reads no other target's output, spawns no subprocess and never
+  runs Quartz. Emitting Quartz's input is where gamereg stops.
+- Two rendering flavours in `src/render/flavour.ts`. The Obsidian one is
+  unchanged byte for byte; the Quartz one adds `description` and `draft` to
+  frontmatter, names the folder in a wikilink, drops the empty *Notes* heading,
+  and renders a placeholder wherever `images.publish` keeps an asset off the
+  site.
+- Assets are mirrored into `quartz/content/assets` when `images.publish` is on,
+  by the same add-only hardlink pass that serves `obsidian/assets` (moved to
+  `src/targets/mirror.ts`).
 
 ### Changed
 - The phase-3 site target is named `quartz`, not `site`, and writes `quartz/`
@@ -69,11 +83,10 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   target was implemented, so nothing on disk migrates — but a vault that named
   `site` in `build.targets` to see the phase-3 message now gets an unknown-value
   error instead.
-- `CURRENT_PHASE` is `3`, which is what makes `stats` reachable. `quartz` is in
-  the current phase and not built yet, so it is now refused by
-  `UNBUILT_TARGETS` (in `core/vocab.ts`, guarded by a test against the
-  registry) — still exit 2, where it is named, so a vault never comes to
-  declare a target no build can satisfy.
+- `CURRENT_PHASE` is `3`, which is what makes `stats` and `quartz` reachable.
+  `UNBUILT_TARGETS` (in `core/vocab.ts`, guarded by a test against the registry)
+  named `quartz` between the two steps and is empty again now that it is built:
+  every target the vocabulary declares, this version builds.
 - `day_cutoff` is validated when the config is read rather than when a fold
   first uses it.
 - `agent/skills/gamereg/reference/cli.md` documents `break start`/`break end`

@@ -17,7 +17,7 @@ import { BUILD_TARGET, TARGET_PHASE, UNBUILT_TARGETS } from '../src/core/vocab.t
 import { build, claimPaths, type BuildResult } from '../src/targets/build.ts'
 import { allTargets } from '../src/targets/registry.ts'
 import { readManifest, serializeManifest } from '../src/targets/manifest.ts'
-import { mirrorAssets } from '../src/targets/obsidian.ts'
+import { mirrorAssets } from '../src/targets/mirror.ts'
 import type { PlannedFile } from '../src/targets/types.ts'
 import { event, tempDir } from './helpers.ts'
 
@@ -291,14 +291,14 @@ test('mirrorAssets never clobbers something a user put at that path', () => {
   mkdirSync(join(root, 'obsidian'), { recursive: true })
   writeFileSync(join(root, 'obsidian', 'assets'), 'not a directory')
 
-  mirrorAssets(openVault(root))
+  mirrorAssets(openVault(root), 'obsidian')
 
   assert.equal(readFileSync(join(root, 'obsidian', 'assets'), 'utf8'), 'not a directory')
 
   // A symlink pointing somewhere else is someone's own arrangement too.
   rmSync(join(root, 'obsidian', 'assets'))
   symlinkSync('../elsewhere', join(root, 'obsidian', 'assets'), 'dir')
-  mirrorAssets(openVault(root))
+  mirrorAssets(openVault(root), 'obsidian')
   assert.equal(readlinkSync(join(root, 'obsidian', 'assets')), '../elsewhere')
 })
 

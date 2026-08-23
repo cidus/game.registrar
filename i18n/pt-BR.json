@@ -457,6 +457,9 @@
       "total": "{duration} em {sessions} sessões",
       "total_one": "{duration} em uma sessão"
     },
+    "image": {
+      "unpublished": "imagem não publicada"
+    },
     "sessions": {
       "date": "Data",
       "duration": "Duração",

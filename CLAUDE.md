@@ -27,7 +27,7 @@ actual inline-button tap, a session closed by a voice note, `finish` with a
 drafted verdict. `agent/README.md`'s *Voice* section and its smoke test
 record the confirmation.
 
-**Phase 3's specification is settled, and its first four steps are built.** The
+**Phase 3 is built, all five steps, and not yet tagged.** The
 spec pass landed the pieces that were missing or contradictory: `quartz` as an
 ordinary target (no second pass, invariant 8 intact), the check-in state machine
 and who owns each transition, `checkin --expire`, a phase-3 exit criterion, and
@@ -61,14 +61,26 @@ Step 4 landed the `stats` target and the two renderers under it:
 `render/review.ts` (every figure a year in review carries, computed in code).
 The target writes `obsidian/Stats.md`, one `obsidian/reviews/<year>.md` per year
 played and the heatmap of each as a file; `html` embeds the same SVG string in
-`Games.html`, which is the shared-renderer seam used twice. `CURRENT_PHASE` is
-now `3` — see the `UNBUILT_TARGETS` decision below for what that does to
-`quartz`.
+`Games.html`, which is the shared-renderer seam used twice. `CURRENT_PHASE` went
+to `3` here — see the `UNBUILT_TARGETS` decision below for why `quartz` had to
+be named as unbuilt for the one step between this and the next.
 
-Still absent from phase 3: the `quartz` target. See `agent/README.md`'s
-*What is not here*.
+Step 5 landed `quartz`, the last of the phase: `render/flavour.ts` (the seam
+that lets one set of emitters serve two consumers), the target itself
+(`quartz/content/games/*.md`, `runs/*.md`, `index.md`, plus a seeded
+`quartz/quartz.config.yaml`), `templates/quartz.config.yaml`, and
+`targets/mirror.ts` — the asset hardlink pass, generalized out of `obsidian.ts`
+so the site can have the files too when `images.publish` says so.
+`UNBUILT_TARGETS` is empty again. The content tree in `example-vault/` was built
+once by hand against a real Quartz 5.0.0 checkout: pages, wikilinks,
+`description` and the embeds all land, and no link comes out broken.
 
-`npm test` is 465 tests, all green (`node --test`, no framework, no network).
+What phase 3's *exit criterion* still wants is a page a stranger can open, and
+that is hosting — deliberately unanswered here, see the open item below. Every
+bullet of the phase is built; the last sentence of the criterion is waiting on a
+deploy, not on code.
+
+`npm test` is 475 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -375,7 +387,10 @@ Each of these cost real time to find. The reasoning, not just the rule:
   current and unbuilt at once; `UNBUILT_TARGETS` in `core/vocab.ts` names those,
   `checkTarget` refuses them at exit 2 where they are *named* (so `init` and the
   config reader both catch it), and `test/targets.test.ts` asserts the list plus
-  the registry accounts for `BUILD_TARGET` exactly once, so it cannot rot. The
+  the registry accounts for `BUILD_TARGET` exactly once, so it cannot rot. Empty
+  is its normal state — a target lands and leaves the list in one commit, as
+  `quartz` did — and `test/init.test.ts` therefore asserts the rule over
+  whatever it holds rather than over one name. The
   registry's own `unimplemented_target` throw stays as the backstop and became
   `usage` for the same reason.
 - **A year in review reads no clock, and that is a rule about the log, not
@@ -409,6 +424,46 @@ Each of these cost real time to find. The reasoning, not just the rule:
   to a year, which is a view over the record rather than a thing in it. If the
   pasting is what stops the feature being used, that is the evidence that
   reopens it.
+- **A flavour is a record of answers, not a name — and `render/` never asks
+  which consumer it is serving.** `render/flavour.ts` carries four booleans
+  (site frontmatter, assets present, folder-qualified links, a place for
+  prose); the emitters read those and never branch on `flavour.name`. The
+  reason is that every difference then has to be stated as a property of the
+  consumer rather than as a preference, which is what kept the list to four and
+  what keeps a fifth from being added casually. The Obsidian output not moving
+  by a byte is not a hope, it is `example-vault/`: the golden files are the
+  proof, and the refactor landed with them untouched.
+- **A site wikilink names its folder; the vault's does not.** Obsidian resolves
+  `[[hollow-knight]]` by shortest match anywhere in the vault, and Quartz
+  resolves a wikilink from the content root by default (`markdownLinkResolution`,
+  which the user may later set to anything). `[[games/hollow-knight]]` is the
+  one spelling both accept — it is exact under `absolute` and falls back
+  correctly under `shortest` — so the content does not depend on a config key
+  gamereg seeds once and never owns again. Do not "simplify" this by seeding
+  `shortest` and emitting bare names; that makes every link in a committed tree
+  hostage to a file the user is invited to replace.
+- **The front page is `index.md` on the site and `Game List.md` in the vault,
+  and the asymmetry is the point.** `index` is Quartz's landing page and says
+  nothing in Obsidian's quick switcher, which shows a basename; `Game List`
+  reads well there and is not a landing page anywhere. Same block, same
+  renderer, two names because two readers.
+- **The seeded `quartz.config.yaml` is Quartz's own `obsidian` template,
+  vendored, not a minimal config written here.** A hand-written `configuration:`
+  block was tried first and Quartz 5 failed to emit from it — `theme` has no
+  deep default, so a partial config is not a smaller config but a broken one.
+  The template that ships is the one whose link resolution and Obsidian-flavored
+  Markdown already match what this target emits. It is a `seed`, so it is the
+  user's the moment they touch it and `npx quartz create` may replace it
+  wholesale; that is what makes vendoring it cheap rather than a maintenance
+  debt. Verifying a change to it means running Quartz, which gamereg never does.
+- **`images.publish` is rendered, not merely obeyed.** With it off the site says
+  where a picture was withheld instead of embedding one that is not there, and
+  the run note's `cover` property is omitted rather than pointing at a file the
+  tree does not hold. With it on, `targets/mirror.ts` hardlinks the assets into
+  `quartz/content/assets` — the same add-only pass `obsidian/assets` gets, which
+  is why it lives outside the manifest and is not a planned file. The two halves
+  have to move together: rendering the embed without the mirror is a broken
+  page, and mirroring without rendering is dead bytes.
 
 ## Open items
 

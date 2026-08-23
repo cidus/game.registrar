@@ -1,0 +1,50 @@
+---
+gamereg_id: 01K5A00000000000000000GAM1
+title: Hollow Knight
+description: Team Cherry · 2017 · Nintendo Switch · 8h58 across 3 sessions
+draft: false
+aliases: [Hollow Knight]
+status: finished
+platform: Nintendo Switch
+release_year: 2017
+developer: Team Cherry
+publisher: Team Cherry
+genres: [metroidvania, action]
+first_started_on: 2026-05-03
+last_ended_on: 2026-08-12
+runs: 1
+hours: 9.0
+rating: 9
+tags: [gamereg, gamereg/game]
+---
+
+<!-- gamereg:begin block=header -->
+*image not published*
+**Team Cherry** · 2017 · Nintendo Switch · 8h58 across 3 sessions
+<!-- gamereg:end block=header -->
+
+## Verdict
+
+<!-- gamereg:begin block=verdict -->
+Started as a curiosity and turned into the thing I thought about on the way to
+work. The first ten hours are a map problem; the last ten are a nerve problem,
+and somewhere in between it stopped feeling unfair.
+
+What stayed with me is not the difficulty but the silence around it. I would
+file it again.
+<!-- gamereg:end block=verdict -->
+
+## Runs
+
+<!-- gamereg:begin block=runs -->
+| Run | Platform | Started | Ended | Hours | Rating | Criteria |
+|---|---|---|---|---|---|---|
+| [[runs/2026-05-03-hollow-knight\|2026]] | Nintendo Switch | 2026-05-03 | 2026-08-12 | 9.0 | 9 | true_ending |
+<!-- gamereg:end block=runs -->
+
+## Gallery
+
+<!-- gamereg:begin block=gallery -->
+*image not published*
+*2026-05-03 — The shrine, finally.*
+<!-- gamereg:end block=gallery -->

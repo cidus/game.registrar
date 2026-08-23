@@ -18,7 +18,8 @@
       "sqlite",
       "json",
       "html",
-      "stats"
+      "stats",
+      "quartz"
     ],
     "csv": {
       "dir": "data"

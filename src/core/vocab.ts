@@ -62,13 +62,14 @@ export const CURRENT_PHASE = 3
 /**
  * Inside the current phase, and still not built. A phase is delivered in steps,
  * so between two of them a target can be current and absent at once — `quartz`
- * is exactly that until phase 3's site step lands.
+ * was exactly that between phase 3's stats step and its site step.
  *
  * It is written here rather than derived from `targets/registry.ts` because
  * `core/` does not depend on `targets/`; `test/targets.test.ts` asserts the two
- * never disagree, so the duplication cannot rot.
+ * never disagree, so the duplication cannot rot. Empty is the normal state:
+ * a target lands and leaves this list in the same commit.
  */
-export const UNBUILT_TARGETS: readonly BuildTarget[] = ['quartz']
+export const UNBUILT_TARGETS: readonly BuildTarget[] = []
 
 export function checkTarget(value: string): BuildTarget {
   const name = checkEnum('build.targets', value, BUILD_TARGET)

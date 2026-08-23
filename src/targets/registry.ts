@@ -11,11 +11,12 @@ import { csv } from './csv.ts'
 import { html } from './html.ts'
 import { json } from './json.ts'
 import { obsidian } from './obsidian.ts'
+import { quartz } from './quartz.ts'
 import { sqlite } from './sqlite.ts'
 import { stats } from './stats.ts'
 import type { Target } from './types.ts'
 
-const REGISTRY: readonly Target[] = [obsidian, csv, sqlite, json, html, stats]
+const REGISTRY: readonly Target[] = [obsidian, csv, sqlite, json, html, stats, quartz]
 
 export function allTargets(): readonly Target[] {
   return REGISTRY

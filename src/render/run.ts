@@ -18,6 +18,7 @@ import type { GameState, RunState, SessionState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
 import { assetPath } from './assets.ts'
 import { atPrecision } from './dates.ts'
+import { noteRef, type Flavour } from './flavour.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 
 export const RUN_BLOCK_ORDER = ['header', 'verdict', 'sessions'] as const
@@ -78,7 +79,12 @@ function cell(value: string | number | null): string {
   return String(value).replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim()
 }
 
-export function runFrontmatter(game: GameState, run: RunState): string {
+export function runFrontmatter(
+  game: GameState,
+  run: RunState,
+  flavour: Flavour,
+  bundle: Translator,
+): string {
   const document = new Document({})
   const flow = new Set(['genres', 'tags'])
   const set = (key: string, value: unknown): void => {
@@ -90,13 +96,23 @@ export function runFrontmatter(game: GameState, run: RunState): string {
   set('gamereg_run_id', run.run_id)
   set('gamereg_id', game.game_id)
   set('title', game.title)
-  set('game', `[[${game.slug}]]`)
+  // Quartz reads both; Obsidian reads neither.
+  if (flavour.siteFrontmatter) {
+    set('description', describeRun(game, run, bundle))
+    set('draft', false)
+  }
+  set('game', `[[${noteRef(flavour, 'games', game.slug)}]]`)
   // Denormalized so a Bases cards view (the Shelf, 07-targets.md) has an
   // `image` property to point at — cards read a property, not the game
   // note's own header block. Only a locally ingested cover has a file to
   // link; a provider cover that is still URL-only has nothing here yet,
   // the same rule the game note's header embed already follows.
-  set('cover', game.cover?.sha256 == null ? null : `[[${assetPath(game.cover.sha256)}]]`)
+  // Nothing to point at when the file is not in this tree, which on the site
+  // is `images.publish`'s business (docs/spec/04-derived.md, *Publication*).
+  set(
+    'cover',
+    game.cover?.sha256 == null || !flavour.assets ? null : `[[${assetPath(game.cover.sha256)}]]`,
+  )
   set('status', runStatus(run))
   set('platform', run.platform)
   set('form', run.form)
@@ -123,8 +139,13 @@ export function runFrontmatter(game: GameState, run: RunState): string {
   return document.toString({ lineWidth: 0, flowCollectionPadding: false }).trimEnd()
 }
 
-export function runHeaderBlock(game: GameState, run: RunState, bundle: Translator): string {
-  const parts: string[] = [`[[${game.slug}|${game.title}]]`]
+/** Where a run's header goes minus its link, for frontmatter Quartz reads. */
+export function describeRun(game: GameState, run: RunState, bundle: Translator): string {
+  return runHeaderParts(game, run, bundle).slice(1).join(' · ')
+}
+
+function runHeaderParts(game: GameState, run: RunState, bundle: Translator): string[] {
+  const parts: string[] = [game.title]
   if (run.platform !== null) parts.push(run.platform)
 
   const started = atPrecision(run.started_on, run.started_precision)
@@ -144,7 +165,17 @@ export function runHeaderBlock(game: GameState, run: RunState, bundle: Translato
     )
   }
 
-  return parts.join(' · ')
+  return parts
+}
+
+export function runHeaderBlock(
+  game: GameState,
+  run: RunState,
+  bundle: Translator,
+  flavour: Flavour,
+): string {
+  const [, ...rest] = runHeaderParts(game, run, bundle)
+  return [`[[${noteRef(flavour, 'games', game.slug)}|${game.title}]]`, ...rest].join(' · ')
 }
 
 export function runVerdictBlock(run: RunState): string {
@@ -165,9 +196,14 @@ export function runSessionsBlock(run: RunState, bundle: Translator): string {
   return [head, rule, ...rows].join('\n')
 }
 
-export function runBlocks(game: GameState, run: RunState, bundle: Translator): BlockContent[] {
+export function runBlocks(
+  game: GameState,
+  run: RunState,
+  bundle: Translator,
+  flavour: Flavour,
+): BlockContent[] {
   return [
-    { block: 'header', content: runHeaderBlock(game, run, bundle) },
+    { block: 'header', content: runHeaderBlock(game, run, bundle, flavour) },
     { block: 'verdict', content: runVerdictBlock(run), heading: bundle.t('note.heading.verdict') },
     {
       block: 'sessions',
@@ -178,8 +214,13 @@ export function runBlocks(game: GameState, run: RunState, bundle: Translator): B
 }
 
 /** The whole file. There is no other form: a run note is never spliced. */
-export function newRunNote(game: GameState, run: RunState, bundle: Translator): string {
-  const body = runBlocks(game, run, bundle)
+export function newRunNote(
+  game: GameState,
+  run: RunState,
+  bundle: Translator,
+  flavour: Flavour,
+): string {
+  const body = runBlocks(game, run, bundle, flavour)
     .filter((entry) => entry.content.trim() !== '')
     .map((entry) =>
       entry.heading === undefined
@@ -188,5 +229,5 @@ export function newRunNote(game: GameState, run: RunState, bundle: Translator): 
     )
     .join('\n\n')
 
-  return `---\n${runFrontmatter(game, run)}\n---\n\n${body}\n`
+  return `---\n${runFrontmatter(game, run, flavour, bundle)}\n---\n\n${body}\n`
 }

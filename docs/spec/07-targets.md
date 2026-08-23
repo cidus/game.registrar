@@ -147,7 +147,7 @@ caretaker's index, and only the writer touches it.
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
 | `stats` | `obsidian/Stats.md`, `obsidian/reviews/<year>.md`, `obsidian/reviews/heatmap-<year>.svg` | 3 |
-| `quartz` | `quartz/content/*.md`, `quartz/quartz.config.yaml` | 3 |
+| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/quartz.config.yaml` | 3 |
 
 ### `obsidian`
 
@@ -305,6 +305,11 @@ How the site is built from there is the user's business: by hand, from CI, from 
 cron job. The build spawns no subprocess, touches no network, and does not
 require Quartz to be installed in order to build a vault.
 
+The content tree mirrors the vault's own shape — `games/` and `runs/` — with
+the consolidated table as `index.md`, which is Quartz's landing page. It is
+`Game List.md` in the vault for the opposite reason: Obsidian shows a basename,
+and a file called `index` says nothing in a quick switcher.
+
 **The site carries what the log knows** — title, metadata, cover, the runs table,
 sessions, `note`s and `verdict`s — and not prose typed by hand into a game note,
 which lives only on disk, outside the markers, and never reaches the folded
@@ -313,11 +318,24 @@ stays private by construction, and anything meant to be public is filed through
 the CLI as a note or a verdict, which is D2 doing its job. The prose worth
 publishing is already in the log.
 
-Three differences from the `obsidian` flavour, all small. No `.base` is emitted —
-it is an Obsidian artifact and Quartz has no use for one. Quartz reads
-`description` and `draft` in frontmatter, which the Obsidian flavour does not
-write. And an asset embed resolves only if the file is in the content tree, which
-`images.publish` governs — see [04-derived](04-derived.md)'s *Publication*.
+The differences from the `obsidian` flavour are all small, and each is a
+property of the consumer rather than a preference (`render/flavour.ts` holds
+them in one place). No `.base` is emitted — it is an Obsidian artifact and
+Quartz has no use for one. Quartz reads `description` and `draft` in
+frontmatter, which the Obsidian flavour does not write. An asset embed resolves
+only if the file is in the content tree, which `images.publish` governs — see
+[04-derived](04-derived.md)'s *Publication* — and where it is off the note says
+so rather than embedding a picture that is not there. A wikilink names its
+folder (`[[games/hollow-knight]]`), because Quartz resolves one from the content
+root by default while Obsidian resolves it by shortest match anywhere in the
+vault; naming the folder is the spelling both accept. And a game note keeps no
+empty *Notes* heading, since the half it invites is the half that never reaches
+the site.
+
+The seeded `quartz.config.yaml` is Quartz's own `obsidian` template with the
+site's identity changed — that template is the one whose link resolution and
+Obsidian-flavored Markdown match what this target emits. Like any seed it is
+written once and never again, so `npx quartz create` may replace it freely.
 
 ## Bases
 

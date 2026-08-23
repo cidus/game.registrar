@@ -1020,6 +1020,10 @@ pastes around the tables survives the next build — which is the only way a
 review's prose gets there, since the agent writes no files and no command files
 one.
 
-What is still absent from phase 3: the `quartz` target. `gamereg build quartz`
-is still refused, at exit 2 — it is inside the current phase and not written
-yet, which `UNBUILT_TARGETS` in `core/vocab.ts` is what names.
+The `quartz` target is built too, which closes phase 3: with it declared, a
+build also writes `quartz/content/` — the same notes in the flavour Quartz
+reads, plus the table as the site's front page — and seeds
+`quartz/quartz.config.yaml`. Nothing here changes for the agent: gamereg emits
+Quartz's input and never runs Quartz, so no target spawns a subprocess and the
+gateway host needs nothing new installed. `UNBUILT_TARGETS` in `core/vocab.ts`
+is empty again, so every declared target now builds.
