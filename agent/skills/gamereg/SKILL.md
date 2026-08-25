@@ -544,6 +544,16 @@ change of subject, or silence is not a yes — ask again or drop it, never guess
 A tap clears this bar only because its value names the action; that is what the
 rule above buys, and it is why `yes` is never a value.
 
+**Once any button question is answered, strip its button.** Tap or typed
+reply, it makes no difference — the button has done its job and left alone it
+just sits there looking askable when it is not: `message({action:"edit", to,
+messageId, buttons:[]})` on that message's own `messageId` — the same `send`
+call that put the button up returned it (`{ok:true, messageId:"280"}`); keep
+it around until the answer comes back, the same way *Candidates* keeps one
+per candidate. Fire this the same way as *Background maintenance*'s calls: do
+not wait on it, do not mention it or its outcome. A failed edit — message
+already gone, too old — costs nothing and is not worth a word to the user.
+
 ## Candidates (exit code 3)
 
 Exit code 3 means several games match. The envelope carries `candidates[]`, each
@@ -611,26 +621,24 @@ of several candidates they meant.
 
 ### Cleaning up the menu
 
-Once the question is answered — by tap or by typed reply, it makes no
-difference — the candidate messages have done their job and are just clutter
-now: unchosen covers with buttons that no longer mean anything, and a chosen
-one whose button is now redundant. Clean it up alongside re-invoking the CLI:
+*Confirmations*' "strip its button" rule applies here too, on the chosen
+candidate's own message — but a menu has more than one message, and the
+unchosen ones are not just an answered question, they are a whole candidate
+that wasn't picked. Delete those outright rather than merely stripping them:
 
 - **Cover-photo case (one message per candidate):** delete every candidate's
   message except the chosen one — `message({action:"delete", to, messageId})`
-  for each. On the chosen one, strip its button instead of deleting it —
-  `message({action:"edit", to, messageId, buttons:[]})` — so its photo and
-  caption stay behind as a plain, static record of what was picked.
-- **No-cover case (one combined message):** there is only one message, so
-  there is nothing to delete — `edit` that message with `buttons:[]` to drop
-  every button now that it's been answered, leaving the numbered list as
-  text.
+  for each. The chosen one is not deleted; strip its button per
+  *Confirmations*, so its photo and caption stay behind as a plain, static
+  record of what was picked.
+- **No-cover case (one combined message):** there is only one message holding
+  every candidate's button, so "delete the others" doesn't apply — stripping
+  its buttons per *Confirmations* already leaves the numbered list as text,
+  which is the whole cleanup here.
 
-Fire these the same way as *Background maintenance*'s `enrich`/`build` calls:
-do not wait on them, and do not mention them or their outcome. A delete that
-fails — the message is already gone, or too old — costs nothing and is not
-worth a word to the user; the only visible effect this is supposed to have is
-the menu getting quieter, not a line saying so.
+Same treatment as *Confirmations*: fire the deletes without waiting on them,
+and never mention them or their outcome. The only visible effect this is
+supposed to have is the menu getting quieter, not a line saying so.
 
 **Any candidate is missing a `cover_url`** — one message, numbered, with every
 candidate's button in the same `presentation` (rows hold three, and the list
