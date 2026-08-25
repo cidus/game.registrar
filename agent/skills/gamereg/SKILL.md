@@ -948,7 +948,7 @@ the sessions, the days played, what was finished and what was most played, plus
 a calendar heatmap. Answer from the database:
 
 ```
-gamereg query --sql "SELECT * FROM v_by_year WHERE year = '2026'" --json
+gamereg query "SELECT * FROM v_by_year WHERE year = '2026'" --json
 ```
 
 `v_sessions_by_day` is the same data the heatmap is drawn from, one row per day

@@ -177,6 +177,23 @@ test('the skill and its references are written in English, with no phrasebook', 
   }
 })
 
+/**
+ * `query`'s SQL is a positional argument (`gamereg query "SELECT …" --json`),
+ * never a `--sql` flag — that flag has never existed. The command/flag checks
+ * above only read reference/cli.md, which documents `query` with a `<sql>`
+ * placeholder rather than a literal query, so a `--sql` typo baked directly
+ * into SKILL.md's own prose survived undetected and was copied by the agent
+ * into a real invocation more than once, live. This targets that one
+ * confirmed mistake directly rather than teaching the generic tokenizer above
+ * to parse quoted SQL as command-path segments.
+ */
+test('no gamereg query example invents a --sql flag', () => {
+  for (const file of ['SKILL.md', join('reference', 'cli.md'), join('reference', 'query.md')]) {
+    const text = readFileSync(join(SKILL, file), 'utf8')
+    assert.doesNotMatch(text, /gamereg query --sql\b/, `${file} shows "gamereg query --sql" — the SQL is positional, there is no --sql flag`)
+  }
+})
+
 test('the skill declares the binary it cannot run without', () => {
   const skill = readFileSync(join(SKILL, 'SKILL.md'), 'utf8')
   const frontmatter = skill.split('---')[1] ?? ''
