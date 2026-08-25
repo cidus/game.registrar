@@ -16,10 +16,10 @@ one back to empty is just as valid.
 
 | Token | Sticker (Telegram `file_id`) | Emoji |
 |---|---|---|
-| `filed` | | 🗂️ |
-| `approved` | | ✅ |
-| `archived` | | 🗃️ |
-| `pending` | | ⏳ |
+| `filed` | | 👍 |
+| `approved` | | 🏆 |
+| `archived` | | 🕊 |
+| `pending` | | 👀 |
 | `puzzled` | | 🤔 |
 
 Read the row for the token, left to right, and take the first cell that has a
