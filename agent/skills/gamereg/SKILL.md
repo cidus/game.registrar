@@ -586,6 +586,11 @@ covers. So send the covers, **wait for their results**, and only then send
 "Tap one, or reply with the number." as its own call. A message sent after the
 others have come back is the one message whose position is certain.
 
+**Keep what that wait gives you.** Each `send` result carries a `messageId`
+(`{ok:true, messageId:"280"}`) — hold on to it against the candidate it
+belongs to, and the chat target you sent it to. You need both once the
+question is answered; see *Cleaning up the menu* below.
+
 The covers may still land out of order among themselves. That is accepted:
 they race by design, each one carries its number in the caption, and putting
 them in exact order would cost a round trip per candidate on the slowest
@@ -603,6 +608,29 @@ closest-looking candidate. This is the same rule as *Starting a session*
 above — "fix how they wrote it, never decide which game they meant" applies
 here too: complete a title only from the user's own words, never guess which
 of several candidates they meant.
+
+### Cleaning up the menu
+
+Once the question is answered — by tap or by typed reply, it makes no
+difference — the candidate messages have done their job and are just clutter
+now: unchosen covers with buttons that no longer mean anything, and a chosen
+one whose button is now redundant. Clean it up alongside re-invoking the CLI:
+
+- **Cover-photo case (one message per candidate):** delete every candidate's
+  message except the chosen one — `message({action:"delete", to, messageId})`
+  for each. On the chosen one, strip its button instead of deleting it —
+  `message({action:"edit", to, messageId, buttons:[]})` — so its photo and
+  caption stay behind as a plain, static record of what was picked.
+- **No-cover case (one combined message):** there is only one message, so
+  there is nothing to delete — `edit` that message with `buttons:[]` to drop
+  every button now that it's been answered, leaving the numbered list as
+  text.
+
+Fire these the same way as *Background maintenance*'s `enrich`/`build` calls:
+do not wait on them, and do not mention them or their outcome. A delete that
+fails — the message is already gone, or too old — costs nothing and is not
+worth a word to the user; the only visible effect this is supposed to have is
+the menu getting quieter, not a line saying so.
 
 **Any candidate is missing a `cover_url`** — one message, numbered, with every
 candidate's button in the same `presentation` (rows hold three, and the list
@@ -960,21 +988,38 @@ else add the emoji reaction, else do nothing. **An empty row means do nothing**
 — it is not a prompt to improvise, to pick some other sticker, or to type an
 emoji into your prose instead.
 
+**The call, once you have a value.** This is the `message` tool, not `gamereg`
+— the one exception to *Boundary* above, scoped to exactly this. Two shapes,
+depending on which cell had a value:
+
+```
+action: "react", emoji: "<the table's emoji>"
+action: "sendSticker", to: "<this conversation>", fileId: "<the table's file_id>"
+```
+
+**Leave `messageId` out. Do not look for one and do not treat its absence as a
+reason to skip the reaction.** For `react`, omitting it targets the message you
+are currently replying to, which is what you want every time this fires from an
+ordinary turn — that is the one case this file's *Never invent an id* rule does
+not cover, because you are not inventing anything, you are using the default
+that means "this one." The only turns where you *do* have to name a message
+explicitly are the ones with no ordinary turn to default to — a check-in wake,
+which already tells you to skip reactions entirely (see below).
+
 Rules that hold whatever the table says:
 
 - **At most one per turn**, and only after the command actually returned. A
   turn that did two things gets the token for the more consequential one.
-- **Never invent a `file_id`.** If the cell is empty, the answer is nothing. The
-  same rule as every other identifier in *Safety*.
+- **Never invent a `file_id`.** If the cell is empty, the answer is nothing.
 - **Never set `target`.** Same reason as everywhere else: the conversation is
   already in your context, and a bare channel name is a different chat.
-- **An emoji reaction needs the id of the message you are reacting to.** If you
-  do not have a concrete one, do not react. There is no version of this worth
-  guessing at.
+- **No reaction on a check-in wake.** That turn has no ordinary inbound message
+  to default `messageId` to, and the routing rules in *Check-ins* already have
+  your hands full. Skip the token entirely there.
 - **A failure is not an event.** A channel that cannot render stickers, a
-  switch left off on the gateway, an id that no longer resolves — all of these
-  end the same way, silently. The prose already carried everything the user
-  needed.
+  switch left off on the gateway, an emoji Telegram itself doesn't accept — all
+  of these end the same way, silently. The prose already carried everything the
+  user needed.
 
 ## Persona
 
