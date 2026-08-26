@@ -44,6 +44,7 @@ export const BUILTIN_PLATFORMS: readonly PlatformEntry[] = [
       'PC (Microsoft Windows)',
       'Microsoft Windows',
       'Win',
+      'Steam',
       'Steam Deck',
       'SteamDeck',
       'Deck',
