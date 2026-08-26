@@ -228,7 +228,7 @@ test('the consolidated table embeds a reduced cover, only once one is locally in
     OBSIDIAN,
   )
   const coveredRow = withCover.split('\n').find((line) => line.includes('hollow-knight'))!
-  assert.match(coveredRow, new RegExp(`^\\|\\s*!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\\\\\|32\\]\\]\\s*\\|`))
+  assert.match(coveredRow, new RegExp(`^\\|\\s*!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\\\\\|128\\]\\]\\s*\\|`))
 })
 
 test('gameOfEvent resolves through run_id and session_id, not only a direct game_id', () => {

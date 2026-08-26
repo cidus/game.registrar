@@ -13,8 +13,8 @@ import { assetThumb } from './assets.ts'
 import { noteRef, type Flavour } from './flavour.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 
-/** Small enough for a table row; Obsidian's own `|<width>` embed sizing. */
-const COVER_WIDTH = 32
+/** Obsidian's own `|<width>` embed sizing. */
+const COVER_WIDTH = 128
 
 export const TABLE_BLOCK = 'table'
 
