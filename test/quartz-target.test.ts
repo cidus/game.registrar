@@ -23,6 +23,7 @@ import { OBSIDIAN, quartzFlavour } from '../src/render/flavour.ts'
 import { frontmatter, newNote } from '../src/render/note.ts'
 import { build } from '../src/targets/build.ts'
 import { quartz } from '../src/targets/quartz.ts'
+import { template } from '../src/targets/templates.ts'
 import type { PlannedFile } from '../src/targets/types.ts'
 import { event, tempDir } from './helpers.ts'
 
@@ -52,8 +53,6 @@ test('plans a content tree and a seeded config, and no base', () => {
   assert.equal(paths.includes('quartz/content/index.md'), true)
   assert.equal(paths.includes('quartz/content/games/hollow-knight.md'), true)
   assert.equal(paths.includes('quartz/content/runs/2026-05-03-hollow-knight.md'), true)
-  // A base is an Obsidian artifact; Quartz has no use for one.
-  assert.deepEqual(paths.filter((path) => path.endsWith('.base')), [])
 
   // Every note is written whole: the site carries what the log knows, and the
   // prose a game note holds outside its markers never reaches folded state.
@@ -86,6 +85,16 @@ test('plans a Stats page and a review note per year, both replaced whole', () =>
   // as a bare Obsidian wikilink.
   assert.match(text(files, 'quartz/content/stats.md'), /\[\[reviews\/2026\]\]/)
   assert.match(text(files, 'quartz/content/reviews/2026.md'), /\[\[games\/hollow-knight\\\|/)
+})
+
+test('seeds the same Game Database.base the vault gets, for @quartz-community/bases-page', () => {
+  const files = plan()
+  const base = files.find((file) => file.path === 'quartz/content/Game Database.base')
+  assert.equal(base?.policy, 'seed')
+  // Reused verbatim: every property and filter it references — tags, status,
+  // platform, genres — is already written the same way in both flavours, so
+  // there is no quartz-specific fork of this file.
+  assert.equal(base?.content, template('Game Database.base'))
 })
 
 test('nothing the target plans lives outside quartz/', () => {

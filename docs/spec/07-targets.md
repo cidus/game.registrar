@@ -147,7 +147,7 @@ caretaker's index, and only the writer touches it.
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
 | `stats` | `obsidian/Stats.md`, `obsidian/reviews/<year>.md`, `obsidian/reviews/heatmap-<year>.svg` | 3 |
-| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/content/stats.md`, `quartz/content/reviews/<year>.md`, `quartz/content/reviews/heatmap-<year>.svg`, `quartz/quartz.config.yaml` | 3 |
+| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/content/stats.md`, `quartz/content/reviews/<year>.md`, `quartz/content/reviews/heatmap-<year>.svg`, `quartz/content/Game Database.base`, `quartz/quartz.config.yaml` | 3 |
 
 ### `obsidian`
 
@@ -321,8 +321,7 @@ publishing is already in the log.
 
 The differences from the `obsidian` flavour are all small, and each is a
 property of the consumer rather than a preference (`render/flavour.ts` holds
-them in one place). No `.base` is emitted — it is an Obsidian artifact and
-Quartz has no use for one. Quartz reads `description` and `draft` in
+them in one place). Quartz reads `description` and `draft` in
 frontmatter, which the Obsidian flavour does not write. An asset embed resolves
 only if the file is in the content tree, which `images.publish` governs — see
 [04-derived](04-derived.md)'s *Publication* — and where it is off the note says
@@ -350,6 +349,19 @@ note has no hand-prose slot to preserve, so there is no "outside the markers"
 region for the year in review to leave for the user the way it does in the
 vault. `index.md` is unchanged by this — the Stats page is reached through
 Quartz's own content-tree explorer, not a link added to the table.
+
+**`quartz/content/Game Database.base` is the same seed the vault gets** —
+`template('Game Database.base')`, reused byte-for-byte, not forked — for
+`@quartz-community/bases-page`, a Quartz plugin already enabled in the seeded
+`quartz.config.yaml`. It wasn't reused sooner because nobody had checked
+whether the plugin actually renders one: it does, verified against a real
+Quartz 5.0.0 checkout, a themed and sortable HTML table generated from the
+`.base` file. No renderer changed to make this work — `file.hasTag("gamereg")`
+and every property the `.base` references (`status`, `platform`, `genres`,
+`cover` and the rest) are already written identically in both flavours by
+`render/run.ts`, so the site's run notes were already queryable; only the
+`.base` file itself was missing from the tree. The Shelf view's `image: cover`
+still depends on `images.publish`, the same as every other embed on the site.
 
 ## Bases
 

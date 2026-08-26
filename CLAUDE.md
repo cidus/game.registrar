@@ -95,6 +95,18 @@ untouched; the Stats page is reached through Quartz's own content-tree
 explorer. Client-side JS filtering/sorting like `html`'s was raised and
 declined for `quartz` specifically — see the *Decisions* entry below.
 
+`quartz` also gained `content/Game Database.base`, the same seed
+`obsidian.ts` writes, reused byte-for-byte (`template('Game Database.base')`,
+no fork). This was worth checking, and checking meant running actual Quartz:
+a real 5.0.0 checkout, `example-vault/quartz/` copied in, confirmed
+`@quartz-community/bases-page` — already enabled in the seeded
+`quartz.config.yaml`, nothing to turn on — renders a `.base` file into a
+themed, sortable HTML table (`--background-primary: var(--color-base-00)`,
+chained from the config's own palette, not a bolted-on look). Every property
+and filter the seed uses turned out to already be flavour-independent
+(`tags`, `status`, `platform`, `genres`, etc. — see the *Decisions* entry
+below), so this cost nothing in `render/`.
+
 **Vault maintenance moved off the agent, onto `scripts/autobuild.sh`.** `enrich`
 and `build` used to run as backgrounded, unreported `exec` calls from
 `SKILL.md` — a model turn spent deciding something that needed no deciding, on
@@ -281,6 +293,20 @@ Each of these cost real time to find. The reasoning, not just the rule:
   Quartz, which gamereg never does"). If it is ever wanted, the honest way in
   is the Astro path, fed a projection, not a `<script>` smuggled into
   `quartz/content/`.
+- **Porting `Game Database.base` to `quartz` cost no `Flavour` field, because
+  the thing it depends on was never actually a per-flavour difference.** The
+  instinct going in was that `tags` — what the seed's `file.hasTag("gamereg")`
+  matches — would need a fifth `Flavour` boolean the way `assets` gates
+  `cover`. Reading `render/run.ts`'s `runFrontmatter()` first showed otherwise:
+  `set('tags', ['gamereg', 'gamereg/run'])` has no `if` around it at all, in
+  either flavour, and neither does anything else the `.base` reads (`status`,
+  `platform`, `genres`, `hours`, and the rest). Only `cover` is flavour-gated,
+  and it already was, correctly, through `flavour.assets` — the same gate the
+  note's own header embed uses. So the fix was purely in `quartz.ts`: one more
+  `files.push` with `policy: 'seed'`, reusing `template('Game Database.base')`
+  verbatim. Adding a boolean for a difference that doesn't exist would have
+  been exactly the "casually added fifth field" `render/flavour.ts`'s own
+  comment warns against.
 - **Invariant 9 stays a deletion whitelist — do not make it per-target.**
   Proposed once, on the reasonable grounds that a target knows best what its own
   artifacts are and that `.obsidian/` must survive a build. But `.obsidian/`

@@ -221,8 +221,10 @@ survives every later build.
 
 Add `quartz` and the build writes the register a second time, as input for
 [Quartz](https://quartz.jzhao.xyz): `quartz/content/` — one page per game, one
-per playthrough, the consolidated table as the front page, and the same Stats
-page and year-in-review notes `stats` writes into the vault — plus a seeded
+per playthrough, the consolidated table as the front page, the same Stats
+page and year-in-review notes `stats` writes into the vault, and the same
+`Game Database.base` the vault gets, for the `@quartz-community/bases-page`
+plugin the seeded config already enables — plus a seeded
 `quartz/quartz.config.yaml` that is yours the moment you touch it. **gamereg
 never runs Quartz.** It emits the input and stops; building the site is yours
 to run, by hand or from CI, and nothing about the rest of the register depends

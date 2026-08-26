@@ -194,6 +194,54 @@ test('a seed is never removed, not even when its target is gone', () => {
   })
 })
 
+test('the quartz seed follows the same rules: written once, held until --force', () => {
+  const root = vault(['quartz'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  const first = rebuild(root)
+  assert.equal(first.written.includes('quartz/content/Game Database.base'), true)
+
+  const base = join(root, 'quartz', 'content', 'Game Database.base')
+  writeFileSync(base, 'views: []\n# reordered a column through the UI\n')
+  const second = rebuild(root)
+  assert.equal(second.written.includes('quartz/content/Game Database.base'), false)
+  assert.match(readFileSync(base, 'utf8'), /reordered a column/)
+
+  const opened = openVault(root)
+  const state = fold(readEvents(opened.eventsFile), timeContext(opened))
+  build(opened, state, translator('en'), { force: true })
+  assert.equal(readFileSync(base, 'utf8').includes('views: []\n'), false)
+  assert.match(readFileSync(base, 'utf8'), /file\.inFolder\("runs"\)/)
+})
+
+test('a quartz seed is never removed, not even when its target is gone', () => {
+  const root = vault(['quartz'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+
+  writeFileSync(
+    join(root, 'gamereg.config.json'),
+    JSON.stringify({ locale: 'en', timezone: 'America/Sao_Paulo', build: { targets: ['csv'] } }),
+  )
+  const second = rebuild(root)
+
+  assert.equal(second.removed.includes('quartz/content/Game Database.base'), false)
+  assert.equal(existsSync(join(root, 'quartz', 'content', 'Game Database.base')), true)
+  assert.equal(existsSync(join(root, 'quartz', 'content', 'games', 'sabotage.md')), false)
+})
+
+test('obsidian and quartz seed their own Game Database.base at distinct paths, no conflict', () => {
+  const root = vault(['obsidian', 'quartz'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  const result = rebuild(root)
+
+  assert.equal(result.written.includes('obsidian/Game Database.base'), true)
+  assert.equal(result.written.includes('quartz/content/Game Database.base'), true)
+  assert.equal(
+    readFileSync(join(root, 'obsidian', 'Game Database.base'), 'utf8'),
+    readFileSync(join(root, 'quartz', 'content', 'Game Database.base'), 'utf8'),
+  )
+})
+
 test('the argument narrows a build; a target the vault does not declare is refused', () => {
   const root = vault(['obsidian'])
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))

@@ -101,10 +101,21 @@ export const quartz: Target = {
       })
     }
 
-    // Configuration, not derived data — the same argument the `.base` gets:
-    // the user's edit is the point, and regenerating over it would discard
-    // their site on every build. `gamereg build --force` is the way back to
-    // the shipped default.
+    // The same database view Obsidian gets, for the plugin already enabled in
+    // quartz.config.yaml (@quartz-community/bases-page). Every property and
+    // filter it uses — tags, status, platform, genres and the rest — is
+    // already written identically in both flavours (render/run.ts), so the
+    // template is reused verbatim rather than forked.
+    files.push({
+      path: `${CONTENT}/Game Database.base`,
+      content: template('Game Database.base'),
+      policy: 'seed',
+    })
+
+    // Configuration, not derived data — the same argument the `.base` above
+    // gets: the user's edit is the point, and regenerating over it would
+    // discard their site on every build. `gamereg build --force` is the way
+    // back to the shipped default.
     files.push({
       path: 'quartz/quartz.config.yaml',
       content: template('quartz.config.yaml'),
