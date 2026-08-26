@@ -66,8 +66,9 @@ if [ "$DRY_RUN" = yes ]; then
   echo "--- would run, in the vault at $GAMEREG_VAULT ---" >&2
   echo "$GAMEREG enrich --missing --covers --json" >&2
   echo "$GAMEREG build --json" >&2
-  echo "--- then stage data/events.jsonl, assets/ and whatever build wrote or removed," >&2
-  echo "    commit if anything is staged, and push if a remote is configured ---" >&2
+  echo "--- then stage data/events.jsonl, assets/ and every path build plans to own" >&2
+  echo "    (or just removed), commit if anything is staged, and push if a remote" >&2
+  echo "    is configured ---" >&2
   exit 0
 fi
 
@@ -123,20 +124,27 @@ elif [ "$build_code" -eq 1 ]; then
   status=1
 fi
 
-# 4. Stage exactly what this tick could have touched: the log, the asset
-#    store enrich's cover fetch writes into directly, and whatever build's
-#    own plan reports -- never a blind `git add -A`, which would also sweep
-#    up unrelated local changes (Obsidian's own UI state, a stray config
-#    backup) that have nothing to do with this script.
+# 4. Stage every path this build owns right now, plus whatever it just
+#    removed -- not only `written`/`removed`, which name only what changed on
+#    *this* tick and say nothing about a file that already had the right
+#    bytes on disk from a build run outside this script (by hand, or by an
+#    earlier tick that built but was never given the chance to commit). Build
+#    is idempotent by design (invariant 2) -- a no-op rewrite is not evidence
+#    there is nothing to stage, only that the working tree already agreed
+#    with the plan. `planned` is every path the build declares, written or
+#    not, which is what makes this correct regardless of how the file got
+#    there. Still never a blind `git add -A`: this stays scoped to what
+#    gamereg itself could ever own, plus the log and the asset store enrich's
+#    cover fetch writes into directly.
 paths=$(printf '%s' "$build_out" | node -e '
   let raw = ""
   process.stdin.on("data", (chunk) => { raw += chunk })
   process.stdin.on("end", () => {
     let result
     try { result = JSON.parse(raw).result } catch { result = null }
-    const written = result?.written ?? []
+    const planned = (result?.planned ?? []).map((entry) => entry.path)
     const removed = result?.removed ?? []
-    process.stdout.write([...written, ...removed].join("\n"))
+    process.stdout.write([...planned, ...removed].join("\n"))
   })
 ' 2>"$work/paths.err")
 

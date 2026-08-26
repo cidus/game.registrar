@@ -186,6 +186,45 @@ test('a new game with no IGDB credentials still gets committed: exit 6 is not a 
   assert.equal(gateway.commitCount(), before + 1)
 })
 
+test('derived files already correct on disk but never committed still get staged', () => {
+  // Reproduces a real incident: something ran `gamereg build` by hand against
+  // the vault (or an earlier tick built but was killed before it could
+  // commit), leaving obsidian/csv/etc. with the right bytes already on disk
+  // but never staged. `written`/`removed` on the *next* build are empty --
+  // build is idempotent (invariant 2), so a no-op rewrite is exactly what it
+  // is supposed to report -- and a wrapper that only stages `written`/
+  // `removed` never notices the drift. Every subsequent tick then finds the
+  // same "clean" `written: []` build and commits nothing, forever, while
+  // `git status` stays dirty.
+  const gateway = host()
+  gateway.createGame('hollow knight')
+
+  const built = spawnSync(process.execPath, [MAIN, '--vault', gateway.vault, '--json', 'build'], {
+    encoding: 'utf8',
+    env: { ...process.env, GAMEREG_NON_INTERACTIVE: '1' },
+  })
+  assert.equal(built.status, 0, built.stderr)
+  assert.ok(existsSync(join(gateway.vault, 'obsidian', 'Game List.md')))
+
+  const before = gateway.commitCount()
+  const run = gateway.run()
+
+  assert.equal(run.status, 0, run.stderr)
+  assert.equal(gateway.commitCount(), before + 1)
+
+  const committed = execFileSync(REAL_GIT, ['show', '--stat', '--format=', 'HEAD'], {
+    cwd: gateway.vault,
+    encoding: 'utf8',
+  })
+  assert.match(committed, /obsidian\/Game List\.md/)
+
+  // And the tree is genuinely clean afterward -- not just "nothing left to
+  // stage this tick" while still showing dirty on the next status check.
+  const second = gateway.run()
+  assert.equal(second.status, 0)
+  assert.equal(gateway.commitCount(), before + 1)
+})
+
 test('a build lock held by a live process leaves the tick uncommitted', () => {
   const gateway = host()
   gateway.createGame('celeste')
