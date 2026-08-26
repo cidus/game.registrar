@@ -81,7 +81,26 @@ that is hosting — deliberately unanswered here, see the open item below. Every
 bullet of the phase is built; the last sentence of the criterion is waiting on a
 deploy, not on code.
 
-`npm test` is 480 tests, all green (`node --test`, no framework, no network).
+**Vault maintenance moved off the agent, onto `scripts/autobuild.sh`.** `enrich`
+and `build` used to run as backgrounded, unreported `exec` calls from
+`SKILL.md` — a model turn spent deciding something that needed no deciding, on
+a path that silently dropped a build whenever two session closes landed close
+together (`gamereg build`'s lockfile exits 5 immediately rather than queuing,
+and `SKILL.md` said to ignore a non-zero exit from either call). `gamereg
+enrich --missing` (`src/cli/commands/enrich.ts`) is the piece that made an
+external sweep practical — a bulk selector reading only what has no provider
+reference yet, so a periodic call costs nothing when there is nothing new.
+`scripts/autobuild.sh`, timed by `gamereg-autobuild.service`/`.timer` (systemd
+--user, declarative, `scripts/`), polls `git status` in the vault and, when
+dirty, runs `enrich --missing --covers`, then `build`, then commits and pushes.
+It carries no state beyond the repository itself — see the *Decisions* entry
+for why an async flag on the CLI was rejected in its place, and
+`agent/README.md`'s *Maintenance moved off the agent* for the installation
+steps and the `notifyOnExit` risk this closes. `test/autobuild-wrapper.test.ts`
+drives it end to end, `git` stubbed, `gamereg` real, mirroring
+`test/checkin-wrapper.test.ts`.
+
+`npm test` is 496 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -344,9 +363,11 @@ Each of these cost real time to find. The reasoning, not just the rule:
   `due` already decides whether there is anything to say, so the caller must stay
   dumb — and a command payload runs the binary with no model attached, making an
   empty poll free. A heartbeat would ask a model to re-decide what the CLI
-  decided, and it is already in use here for something else: `notifyOnExit` wakes
-  the agent when a backgrounded `enrich`/`build` finishes, which is why
-  `agent/workspace/AGENTS.md` tells it to answer `HEARTBEAT_OK` and stop.
+  decided, and it is already in use here for something else: `notifyOnExit` can
+  wake the agent when a backgrounded `exec` call finishes — the button-strip
+  edit in *Confirmations* is one such call — which is why
+  `agent/workspace/AGENTS.md` tells it to answer `HEARTBEAT_OK` and stop rather
+  than improvise a comment about whatever just finished.
 - **No external service is integrated, and the near miss is worth remembering.**
   HowLongToBeat and Backloggd have no official API; Steam and console playtime
   are the deferred *automatic playtime detection* and the *not a library manager*
@@ -482,6 +503,26 @@ Each of these cost real time to find. The reasoning, not just the rule:
   considered opinion, so `import` stages `run.verdict` against the row's own
   `run_id` alongside its `run.import`, through the same `stage` helper
   `verdict.ts` uses. No change to `run.import`'s payload shape.
+- **Vault maintenance is a periodic external script, not a self-backgrounding
+  CLI flag.** `SKILL.md` used to have the agent fire `gamereg enrich` and
+  `gamereg build` as backgrounded, unreported `exec` calls; the alternative
+  considered in its place was teaching `enrich`/`build` themselves to fork and
+  return immediately, so the CLI backgrounded itself instead of relying on the
+  `exec` tool's `background` param. Rejected against invariant 5
+  (`00-architecture.md`): `enrich` is kept the one command that reaches the
+  network, synchronous and separate, precisely so a caller — a test, a script,
+  a person reading the exit code — has one observable point where "did this
+  succeed" is actually knowable. A self-backgrounding `enrich` returns before
+  that point exists, which is the same failure the old "ignore non-zero exit"
+  rule in `SKILL.md` already had, just moved one layer down into the binary.
+  `scripts/autobuild.sh` keeps every `gamereg` call it makes fully synchronous
+  and backgrounds only itself, as a periodic external process (systemd --user
+  timer) — the boundary invariant 5 draws stays exactly where it was. One
+  side effect worth naming: `tools.exec.notifyOnExit` (`agent/README.md`) was
+  an open risk because a background `enrich`/`build` finishing could enqueue a
+  heartbeat and wake the agent to comment on it unprompted. With no background
+  `exec` calls left in `SKILL.md` at all, that risk did not get fixed, it
+  stopped applying — nothing there needed a config change.
 
 ## Open items
 

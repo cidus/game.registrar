@@ -46,7 +46,7 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   or the log touches this.
 - `agent/openclaw.example.json5` carries `channels.telegram.actions.sticker`,
   `actions.reactions` and `reactionLevel`, commented out and off, with what each
-  one gates. `agent/README.md`'s step 9 covers how a Telegram `file_id` is
+  one gates. `agent/README.md`'s step 10 covers how a Telegram `file_id` is
   obtained and why a sticker is a second tool call rather than a presentation
   block.
 - The `stats` build target: `obsidian/Stats.md` (totals, a row per year, a row
@@ -87,6 +87,24 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   non-obvious warnings (permanent residue from an unmatched title, and empty
   heatmap/year-in-review years for imported history). No behavior beyond the
   new field changed; the engine already worked.
+- `gamereg enrich --missing`, a bulk selector alongside `--all`: every game
+  with no reference on record for `--provider` (default `igdb`), reading
+  folded state, mutually exclusive with `--all`, `--match` and `<query>`.
+  Inherits `--all`'s bulk mode, so an ambiguous provider match collapses to
+  `skipped` rather than exit 3 — what actually makes an incremental cron
+  `enrich` safe: without it, `--all` re-fetches the whole catalog on every
+  run. "Missing" is provider metadata, not cover art — a game enriched before
+  `--covers` existed is not reselected by `--missing --covers`. pt-BR names
+  for the command (`enriquecer`) and its flags (`--faltando`,
+  `--correspondencia`, `--provedor`, `--capas`), filling in a gap left when
+  `enrich` shipped with no localization at all.
+- `scripts/autobuild.sh` — periodic vault maintenance: when `git status` shows
+  the vault is not clean, runs `gamereg enrich --missing --covers`, then
+  `gamereg build`, then commits and pushes (only once a remote is configured).
+  Carries no state of its own; a lock conflict (exit 5) or a provider failure
+  (exit 6) is non-fatal and the next tick just finds more to do.
+  `gamereg-autobuild.service`/`.timer` (systemd --user units) register it.
+  `--dry-run` performs none of it.
 
 ### Changed
 - The phase-3 site target is named `quartz`, not `site`, and writes `quartz/`
@@ -108,6 +126,12 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 - `gamereg open` and `gamereg due` rows carry `last_checkin_id`. It is the
   agent's only route to the check-in it has to amend: the wake is enqueued
   before the record is filed, so the id cannot travel with the question.
+- `agent/skills/gamereg/SKILL.md` no longer has the agent run `enrich`/`build`
+  as backgrounded, unreported calls after every new game or closed session —
+  `scripts/autobuild.sh` (above) does that now, on its own schedule, with
+  nothing spent deciding it and no lost build when two ticks land close
+  together. The agent may still run `gamereg build --json` when the user asks
+  for it explicitly.
 
 ## [0.2.0] - Phase 2 — Chat and voice
 

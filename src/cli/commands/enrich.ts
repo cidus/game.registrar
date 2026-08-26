@@ -1,5 +1,5 @@
 /**
- * `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--covers]`
+ * `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--missing] [--covers]`
  * — the network step, isolated (docs/spec/02-cli.md).
  *
  * The only command that reaches the network (00-architecture.md invariant 5).
@@ -26,7 +26,7 @@ import {
 } from '../../core/platforms.ts'
 import { ingestUrl } from '../../images/ingest.ts'
 import type { Provider, ProviderCandidate, ProviderDetail } from '../../providers/provider.ts'
-import { createProvider, isKnownProvider, providerChain, unknownProvider } from '../../providers/registry.ts'
+import { createProvider, isKnownProvider, KNOWN_PROVIDERS, providerChain, unknownProvider } from '../../providers/registry.ts'
 import { normalize } from '../../resolve/normalize.ts'
 import { candidateFromProvider, CANDIDATE_LIMIT, parseReference } from '../../resolve/resolve.ts'
 import type { Cli } from '../context.ts'
@@ -41,6 +41,7 @@ type Options = {
   provider?: string
   match?: string
   all?: boolean
+  missing?: boolean
   covers?: boolean
 }
 
@@ -274,6 +275,7 @@ export function registerEnrich(registrar: Registrar): void {
     .option('--provider <name>', registrar.t('help.opt.provider'))
     .option('--match <ref>', registrar.t('help.opt.match'))
     .option('--all', registrar.t('help.opt.all_games'))
+    .option('--missing', registrar.t('help.opt.missing'))
     .option('--covers', registrar.t('help.opt.covers'))
     .action(async (query: string | undefined, options: Options, command: Command) => {
       const cli = createContext(command)
@@ -285,6 +287,19 @@ export function registerEnrich(registrar: Registrar): void {
 
       if (options.match !== undefined && options.all === true) {
         throw new GameregError('usage', 'error.match_with_all')
+      }
+
+      // `--missing` is a bulk selector, same family as `--all`: mutually
+      // exclusive with the other ways of naming a target, since it names its
+      // targets itself.
+      if (options.missing === true && options.all === true) {
+        throw new GameregError('usage', 'error.missing_with_all')
+      }
+      if (options.missing === true && options.match !== undefined) {
+        throw new GameregError('usage', 'error.missing_with_match')
+      }
+      if (options.missing === true && query !== undefined) {
+        throw new GameregError('usage', 'error.missing_with_query')
       }
 
       // `--match` is trusted, never searched: the caller already resolved
@@ -303,10 +318,18 @@ export function registerEnrich(registrar: Registrar): void {
         forcedDetail = { provider: reference.provider, detail }
       }
 
+      // "Missing" means no metadata on record for this provider — never
+      // "no cover": a game enriched before `--covers` existed has metadata
+      // and no cover, and `--missing --covers` must not re-select it.
+      const missingProviderName = options.provider ?? KNOWN_PROVIDERS[0]
+      const bulk = options.all === true || options.missing === true
+
       const targets: GameState[] =
         options.all === true
           ? [...workspace.state.games]
-          : [await resolveGame(cli, workspace, query ?? null, { id: options.id, allowCreate: false })]
+          : options.missing === true
+            ? workspace.state.games.filter((game) => game.providers[missingProviderName] === undefined)
+            : [await resolveGame(cli, workspace, query ?? null, { id: options.id, allowCreate: false })]
 
       const providers = providerChain(cli.vault.root, options.provider)
       const covers = options.covers === true
@@ -324,11 +347,11 @@ export function registerEnrich(registrar: Registrar): void {
 
         // The literal `<query>` string, not the resolved game's stored title,
         // is what gets sent to the provider search — see findDetail's doc
-        // comment. `--all` targets every game at once, so there is no single
-        // game a typed `<query>` could mean here; it always searches with
-        // each game's currently stored title, unchanged.
-        const searchTerm = options.all === true ? game.title : (query ?? game.title)
-        const outcome = await enrichGame(cli, workspace, game, providers, covers, options.all === true, searchTerm)
+        // comment. `--all`/`--missing` target every matching game at once, so
+        // there is no single game a typed `<query>` could mean here; both
+        // always search with each game's currently stored title, unchanged.
+        const searchTerm = bulk ? game.title : (query ?? game.title)
+        const outcome = await enrichGame(cli, workspace, game, providers, covers, bulk, searchTerm)
 
         if (outcome.kind === 'ambiguous') {
           if (!cli.interactive) throw ambiguousOutcomeError(game, outcome.provider, outcome.candidates)

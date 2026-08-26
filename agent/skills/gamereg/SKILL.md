@@ -244,11 +244,6 @@ moving on, which is now, unless they tell you it ended earlier.
 gamereg end --note "<transcript, lightly cleaned>" --json
 ```
 
-Once that succeeds, before you're done with this turn: `gamereg build --json`
-in the background, silently — see *Background maintenance*. It is easy to
-consider the turn finished the moment you've replied about the session; it
-isn't, until that call has also been made.
-
 The note is the user's words. **Summarizing here destroys the raw material the
 verdict is built from later.** Fix obvious transcription errors; keep their
 voice, their slang and their profanity.
@@ -550,7 +545,7 @@ just sits there looking askable when it is not: `message({action:"edit", to,
 messageId, buttons:[]})` on that message's own `messageId` — the same `send`
 call that put the button up returned it (`{ok:true, messageId:"280"}`); keep
 it around until the answer comes back, the same way *Candidates* keeps one
-per candidate. Fire this the same way as *Background maintenance*'s calls: do
+per candidate. Fire this `exec` call with `background: true` and move on: do
 not wait on it, do not mention it or its outcome. A failed edit — message
 already gone, too old — costs nothing and is not worth a word to the user.
 
@@ -784,10 +779,6 @@ gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_endi
 gamereg verdict "hollow knight" -m "<the user's words>" --json
 ```
 
-Once `finish` succeeds, the same background `gamereg build --json` from
-*Ending a session* applies here too — do not skip it just because a verdict
-step follows; it isn't waiting on the verdict.
-
 **The verdict is not yours to write uninvited.** `gamereg verdict` takes prose
 from anywhere and the register does not record where it came from. Drafting is
 an *offer*, not a step: propose it, and file what they approve — offered with
@@ -922,33 +913,14 @@ for nothing, say nothing about it, and never mention the id.
 
 "Still going" is already `snoozed` and needs no amend. Neither does silence.
 
-## Background maintenance
+## Maintenance
 
-Two housekeeping calls run on their own — never mentioned in the reply you
-send the user, and never waited on. They keep the register current; they are
-not something anyone asked for in the moment.
-
-**A new game gets `enrich`'d.** The moment `start` or `past` creates a
-`game.create` you haven't seen before — whether from `--id igdb:…` or
-`--no-metadata` — follow it with `gamereg enrich "<the same title>" --covers
---json` in the background. It corrects the stored title, fills in what
-`start` never asked the network for, and files a cover. Never wait for it,
-never report what it found — if the user cares enough to ask, `gamereg
-search`/`status` on that game answers plainly then.
-
-**A closed session gets a `build`.** After `end`, `finish` or `drop` closes a
-session — any of the three, not only `finish` — run `gamereg build --json`
-the same way, in the background, unreported. It keeps the derived notes and
-table caught up with what was just filed, without making the user wait on a
-build to hear their session was recorded.
-
-Both calls are `exec` with `background: true`, and never chained with
-`&&`/`||`/`;` — a single `gamereg` invocation is what the allowlist matches
-(see *Confirmations* and `agent/README.md`); a compound command falls back to
-needing an approval nobody is there to give, for a call the user never knew
-was happening. A non-zero exit from either is not yours to solve or report —
-`enrich`'s own rule is that failure there never blocks recording, and that
-now extends to not reporting the failure either.
+`enrich` and `build` are not run automatically anymore. A host-side timer
+(`scripts/autobuild.sh`) polls the vault on its own schedule and enriches new
+games, rebuilds derived artifacts, and commits — none of it through this
+agent, and none of it worth a mention to the user. Run `gamereg build --json`
+yourself only when the user explicitly asks for it in the moment ("update the
+site now") — not after every `end`/`finish`/`drop`, and not speculatively.
 
 ## Questions
 

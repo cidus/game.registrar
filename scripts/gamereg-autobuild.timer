@@ -1,0 +1,22 @@
+# Fires gamereg-autobuild.service every 10 minutes. A tick against a clean
+# tree costs one `git status` and nothing else (scripts/autobuild.sh), so
+# there is no real cost to keeping this short — 10 minutes is close enough to
+# "the site follows what was just logged" without being a busy-poll.
+#
+# Systemd will not start a second run of a Type=oneshot service while one is
+# still active, so an unusually slow `enrich`/`build` cannot overlap itself;
+# `gamereg build`'s own lockfile (docs/spec/07-targets.md) is the second,
+# independent guard for the case that matters more — a manual `gamereg build`
+# run by hand on the same host while a tick is in flight.
+
+[Unit]
+Description=Run gamereg vault maintenance periodically
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+RandomizedDelaySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

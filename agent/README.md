@@ -646,30 +646,55 @@ branch starts delivering, its opaque envelope lifts the 64-byte ceiling the
 raw-`value` shape lives under. Nothing in `SKILL.md` needs it today — refs and
 ids fit — so this is a note about headroom, not a pending fix.
 
-### Background `enrich`/`build`, and the one config knob left untouched
+### Maintenance moved off the agent, onto `scripts/autobuild.sh`
 
-`SKILL.md`'s *Background maintenance* has the agent fire `gamereg enrich`
-after a new game and `gamereg build` after a session closes, both silent and
-unreported. The mechanism is real, not just a prompt instruction — the `exec`
-tool's schema (`bash-tools.schemas-DSAIk_o8.js` in the installed package) has
-a genuine `background: Type.Boolean()` param ("Run in background immediately"),
-gated by `tools.exec.allowBackground` (default `true`, unset in this
-deployment's `openclaw.json`, so it's on).
+`SKILL.md` used to have the agent fire `gamereg enrich` after a new game and
+`gamereg build` after a session closed, both as backgrounded `exec` calls,
+silent and unreported (the mechanism was real, not just a prompt
+instruction — the `exec` tool's schema (`bash-tools.schemas-DSAIk_o8.js` in
+the installed package) has a genuine `background: Type.Boolean()` param,
+gated by `tools.exec.allowBackground`, default `true`). It had a real bug:
+`gamereg build` invoked while another was still writing exits 5
+(`error.build_in_progress`, `src/targets/lock.ts`) immediately, never
+queuing, and `SKILL.md` told the agent to ignore a non-zero exit from either
+background call — so two session closes near each other silently lost the
+second build, with nothing anywhere positioned to retry it.
 
-**Left open, deliberately: `tools.exec.notifyOnExit`.** Its own description
-(`schema-DRyO1XBt.js`): "When true (default), backgrounded exec sessions on
-exit... enqueue a system event and request a heartbeat." Default is `true`
-here too. A `--json`-emitting command like `enrich`/`build` never has empty
-output, so `notifyOnExitEmptySuccess`'s default-`false` suppression (for
-empty-output successes) does not apply to it — meaning a background
-`enrich`/`build` finishing, even successfully, can still enqueue a heartbeat
-and wake the agent, which could then decide to say something about it
-unprompted. Turning `tools.exec.notifyOnExit` to `false` would close that gap,
-but that's a live config edit, and it was deliberately left alone rather than
-changed alongside a behavior nobody has watched run yet — try the background
-calls first, see whether an unprompted comment about a completed `enrich`/
-`build` actually shows up, and only then decide whether the config is worth
-touching.
+Git now carries that responsibility instead of the model. `scripts/autobuild.sh`,
+run periodically by `gamereg-autobuild.timer` (systemd --user unit files in
+`scripts/`), reads `git status` in the vault and, when it is not clean, runs
+`gamereg enrich --missing --covers`, then `gamereg build`, then commits and
+pushes whatever changed. It keeps no state of its own beyond the repository:
+a missed or overlapping tick just finds more to do on the next one, which is
+what a lock conflict now costs — nothing, since the tick after it tries
+again against whatever the log holds by then.
+
+**An async flag on `gamereg` itself was considered and rejected.** The
+alternative to an external timer was teaching `enrich`/`build` to background
+themselves — fork, return immediately, let the caller move on without
+waiting. That runs into invariant 5 (`00-architecture.md`): `enrich` is kept
+the one command that reaches the network, synchronous and separate,
+precisely so a caller — a test, a script, a person reading the exit code —
+has one observable point where "did this succeed" is actually knowable. A
+self-backgrounding `enrich` returns before that point exists, which is the
+same failure `SKILL.md`'s old "ignore non-zero exit" rule already had, just
+moved one layer down into the binary itself. `scripts/autobuild.sh` keeps
+every `gamereg` call it makes fully synchronous and backgrounds only
+*itself*, as a periodic external process — the boundary invariant 5 draws
+stays exactly where it was.
+
+`SKILL.md` still lets the agent run `gamereg build --json` directly, but only
+when the user explicitly asks for it in the moment ("update the site now")
+— never automatically, and never through the `exec` tool's `background` param.
+
+**`tools.exec.notifyOnExit` no longer needs watching.** The paragraph this
+replaced left it deliberately unresolved: a backgrounded `enrich`/`build`
+finishing could enqueue a heartbeat and wake the agent to comment on
+something nobody asked about (`schema-DRyO1XBt.js`: "When true (default),
+backgrounded exec sessions on exit... enqueue a system event and request a
+heartbeat"). With no background `exec` calls left in `SKILL.md` at all, there
+is nothing left for that knob to suppress — the risk did not get fixed, it
+stopped applying.
 
 ### 8. Wire the check-in poll
 
@@ -883,7 +908,30 @@ they wrote — has nothing to work with when nobody wrote anything. `checkin.sh`
 therefore reads `gamereg vocab --json`'s `locale` and states it in the wake as a
 fact. A tag, not a phrasing: the vocabulary itself still comes from the CLI.
 
-### 9. Reaction tokens, and why this step does nothing yet
+### 9. Wire the maintenance timer
+
+`scripts/autobuild.sh` is the gateway host's file too, same as `checkin.sh` —
+the agent still executes one allowlisted binary and still writes nothing
+itself. Unlike the check-in poll it has nothing to do with OpenClaw at all, so
+it is registered as a plain systemd --user timer instead of an `openclaw cron`
+job:
+
+```bash
+cp scripts/autobuild.sh ~/.local/bin/gamereg-autobuild.sh
+chmod +x ~/.local/bin/gamereg-autobuild.sh
+mkdir -p ~/.config/systemd/user
+cp scripts/gamereg-autobuild.service scripts/gamereg-autobuild.timer ~/.config/systemd/user/
+# edit ExecStart and GAMEREG_VAULT in gamereg-autobuild.service if the
+# defaults (%h/.local/bin, %h/gamereg-vault) don't match this host
+systemctl --user daemon-reload
+systemctl --user enable --now gamereg-autobuild.timer
+```
+
+Push only happens once the vault itself has a `git remote` configured
+(`git -C /opt/gamereg-vault remote add origin ...`) — until then every tick's
+push step is a no-op, not an error.
+
+### 10. Reaction tokens, and why this step does nothing yet
 
 Optional, off, and shipped that way on purpose. `agent/workspace/REACTIONS.md`
 is the mapping table and every one of its five rows is empty, so the Registrar
@@ -1002,7 +1050,7 @@ Last: message the bot from another account, and confirm nothing happens.
 **No sticker artwork, and none is coming.** The reaction tokens are wired end to
 end — the vocabulary in `SKILL.md`, the mapping table in
 `workspace/REACTIONS.md`, the two gateway switches in
-`openclaw.example.json5`, and step 9 above for how a `file_id` is obtained —
+`openclaw.example.json5`, and step 10 above for how a `file_id` is obtained —
 but every row of the table is empty, so the feature is inert until somebody
 fills it in. That is the finished state for this repository: the sticker set is
 per installation.

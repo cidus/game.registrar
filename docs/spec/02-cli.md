@@ -813,7 +813,7 @@ Like `gamereg.config.json`, `gamereg.secrets.json` is read, never written by
 anything but `init`. No command persists a credential it was handed on the
 command line; there is no `--client-secret` flag for exactly that reason.
 
-### `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--covers]`
+### `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--missing] [--covers]`
 
 Network step, isolated. Appends `game.enrich` and fetches provider cover art.
 Safe to run from cron. Failure here never blocks recording.
@@ -863,6 +863,24 @@ just because the two happen to talk about platforms.
 
 **Never overwrites a cover with `source: user`.** `--covers --force` still
 respects that; only `gamereg cover --reset` gives provider art back.
+
+**`--missing` selects every game with no reference on record for `--provider`**
+(default `igdb`) — reading folded state, no network involved in the selection
+itself. It is a bulk selector, a sibling of `--all`, and inherits the same
+`bulk` mode: mutually exclusive with `--all`, `--match` and `<query>` (usage
+error, exit 2), and an ambiguous provider match during a `--missing` run
+collapses to `skipped` rather than exit 3 — the same reasoning that makes
+`--all` safe to run unattended applies here, which is what actually makes the
+"Safe to run from cron" line above true for an incremental run: without
+`--missing`, a cron `enrich --all` re-fetches the whole catalog on every tick,
+one network round trip per game already on record.
+
+**"Missing" means missing provider metadata, not a missing cover.** A game
+enriched before `--covers` existed has a `game.providers` entry and no cover;
+`--missing --covers` does not reselect it, because `--missing` only looks at
+whether a provider reference is on record. Re-fetching art for
+already-enriched games without a cover is not this flag's job — there is no
+selector for that today.
 
 ### `gamereg build [target...] [--force] [--list]`
 
@@ -1029,6 +1047,7 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `query` | `consultar` |
 | `amend` | `corrigir` |
 | `vocab` | `vocabulario` |
+| `enrich` | `enriquecer` |
 
 Flags are localized the same way (`--rating` / `--nota`). Both spellings always
 work regardless of locale — locale sets the *output* language, not the accepted
