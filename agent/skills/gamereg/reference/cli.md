@@ -83,6 +83,17 @@ demo`, and it is settled here or by `amend` — `end`, `finish` and `drop` do no
 take it. `--kind` classifies the photos in this invocation; `--as-cover` makes
 the first one the game's cover, `source: user`.
 
+**`--past-hours <n>`** stamps a stated baseline onto the `run.open` this
+invocation creates — playtime from before this vault tracked it ("already had
+30h on it"). Only valid when this call actually opens a new run: reusing an
+already-open run with `--past-hours` is a usage error (code 2), and there is
+no way to add it after the fact through `start` or `past`. For a run already
+in progress, use `amend` directly on that run's `run.open` event —
+`gamereg amend <event_id> --set hours=<n> --reason "..."` — `hours` is the
+same field name `--past-hours` writes, just via `amend` instead of at open
+time. Find the event id with `gamereg query`: `SELECT event_id FROM events
+WHERE type = 'run.open' AND json_extract(payload, '$.run_id') = '<run_id>'`.
+
 ### `gamereg end`
 
 ```text
