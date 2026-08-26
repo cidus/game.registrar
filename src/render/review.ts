@@ -12,6 +12,7 @@
 import { formatHm, formatHours } from '../core/duration.ts'
 import type { GameState, RunState, SessionState, VaultState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
+import { noteRef, type Flavour } from './flavour.ts'
 import { heatmapSvg, playByDay, yearsPlayed, type DayPlay } from './heatmap.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 
@@ -214,7 +215,12 @@ function summaryBlock(review: YearReview, bundle: Translator): string {
   return table([bundle.t('stats.review.measure'), bundle.t('stats.review.value')], rows)
 }
 
-export function reviewBlocks(state: VaultState, year: number, bundle: Translator): BlockContent[] {
+export function reviewBlocks(
+  state: VaultState,
+  year: number,
+  bundle: Translator,
+  flavour: Flavour,
+): BlockContent[] {
   const review = reviewOf(state, year)
   const days = playByDay(state)
 
@@ -224,7 +230,7 @@ export function reviewBlocks(state: VaultState, year: number, bundle: Translator
       : table(
           [bundle.t('table.game'), bundle.t('table.hours'), bundle.t('stats.top.sessions')],
           review.top_titles.map((entry) => [
-            `[[${entry.slug}\\|${cell(entry.title)}]]`,
+            `[[${noteRef(flavour, 'games', entry.slug)}\\|${cell(entry.title)}]]`,
             formatHours(entry.minutes),
             entry.sessions,
           ]),
@@ -244,7 +250,7 @@ export function reviewBlocks(state: VaultState, year: number, bundle: Translator
       : table(
           [bundle.t('table.game'), bundle.t('table.ended'), bundle.t('table.hours'), bundle.t('table.rating')],
           review.finished.map((entry) => [
-            `[[${entry.slug}\\|${cell(entry.title)}]]`,
+            `[[${noteRef(flavour, 'games', entry.slug)}\\|${cell(entry.title)}]]`,
             entry.ended_on,
             entry.hours,
             entry.rating,
@@ -268,9 +274,17 @@ export function reviewFrontmatter(year: number): string {
   return [`gamereg_year: ${year}`, `title: ${year}`, 'tags: [gamereg, gamereg/review]'].join('\n')
 }
 
-/** The whole note as it would be created from nothing. Prose goes between the blocks. */
-export function newReview(state: VaultState, year: number, bundle: Translator): string {
-  const body = reviewBlocks(state, year, bundle)
+/**
+ * The whole note as it would be created from nothing. Prose goes between the
+ * blocks — on the vault flavour, which has a hand-prose slot; the site flavour
+ * has none (`flavour.prose` is `false`), so the note is generated whole.
+ *
+ * The title is an `H1` in the vault and frontmatter on the site, the same
+ * reason `render/table.ts`'s `newTable` gives: Quartz renders `title` as the
+ * page's own heading, and a note carrying both would show it twice.
+ */
+export function newReview(state: VaultState, year: number, bundle: Translator, flavour: Flavour): string {
+  const body = reviewBlocks(state, year, bundle, flavour)
     .filter((entry) => entry.content.trim() !== '')
     .map((entry) =>
       entry.heading === undefined
@@ -279,8 +293,11 @@ export function newReview(state: VaultState, year: number, bundle: Translator): 
     )
     .join('\n\n')
 
-  const title = bundle.t('stats.review.title', { year })
-  return `---\n${reviewFrontmatter(year)}\n---\n\n# ${title}\n\n${body}\n`
+  if (!flavour.siteFrontmatter) {
+    const title = bundle.t('stats.review.title', { year })
+    return `---\n${reviewFrontmatter(year)}\n---\n\n# ${title}\n\n${body}\n`
+  }
+  return `---\n${reviewFrontmatter(year)}\ndraft: false\n---\n\n${body}\n`
 }
 
 /* ------------------------------------------------------------------ overview */
@@ -363,7 +380,7 @@ export function totalsOf(state: VaultState): Totals {
 
 export const STATS_BLOCK_ORDER = ['totals', 'years', 'genres', 'heatmaps'] as const
 
-export function statsBlocks(state: VaultState, bundle: Translator): BlockContent[] {
+export function statsBlocks(state: VaultState, bundle: Translator, flavour: Flavour): BlockContent[] {
   const totals = totalsOf(state)
   const years = yearRows(state)
 
@@ -393,7 +410,7 @@ export function statsBlocks(state: VaultState, bundle: Translator): BlockContent
             bundle.t('table.rating'),
           ],
           years.map((row) => [
-            `[[${row.year}]]`,
+            `[[${noteRef(flavour, 'reviews', String(row.year))}]]`,
             formatHours(row.minutes),
             row.sessions,
             row.days,
@@ -429,8 +446,12 @@ export function statsBlocks(state: VaultState, bundle: Translator): BlockContent
   ]
 }
 
-export function newStats(state: VaultState, bundle: Translator): string {
-  const body = statsBlocks(state, bundle)
+/**
+ * The title is an `H1` in the vault and frontmatter on the site, the same
+ * reason `render/table.ts`'s `newTable` gives.
+ */
+export function newStats(state: VaultState, bundle: Translator, flavour: Flavour): string {
+  const body = statsBlocks(state, bundle, flavour)
     .filter((entry) => entry.content.trim() !== '')
     .map((entry) =>
       entry.heading === undefined
@@ -439,7 +460,8 @@ export function newStats(state: VaultState, bundle: Translator): string {
     )
     .join('\n\n')
 
-  return `# ${bundle.t('stats.title')}\n\n${body}\n`
+  if (!flavour.siteFrontmatter) return `# ${bundle.t('stats.title')}\n\n${body}\n`
+  return `---\ntitle: ${bundle.t('stats.title')}\ndraft: false\n---\n\n${body}\n`
 }
 
 /** The SVG for one year, as its own file. The renderer does not know it is one. */

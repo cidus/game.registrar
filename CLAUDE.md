@@ -81,6 +81,20 @@ that is hosting — deliberately unanswered here, see the open item below. Every
 bullet of the phase is built; the last sentence of the criterion is waiting on a
 deploy, not on code.
 
+`quartz` gained the vault's Stats page and its per-year reviews after the
+phase's own five steps, closing a gap `render/review.ts` had left since Step 5:
+its wikilinks (`[[slug\|title]]`, `[[year]]`) were hardcoded to the Obsidian
+shape rather than going through `noteRef`/`Flavour` the way `render/table.ts`
+and `render/note.ts` already did. `noteRef` gained a third folder
+(`'reviews'`), `reviewBlocks`/`newReview`/`statsBlocks`/`newStats` all take a
+`Flavour` now, and `quartz.ts` plans `content/stats.md` plus
+`content/reviews/<year>.md` and `content/reviews/heatmap-<year>.svg` — the same
+renderers `stats` already used, unconditionally (this is generated data, not a
+user photo, so it carries no `images.publish`-style gate). `index.md` is
+untouched; the Stats page is reached through Quartz's own content-tree
+explorer. Client-side JS filtering/sorting like `html`'s was raised and
+declined for `quartz` specifically — see the *Decisions* entry below.
+
 **Vault maintenance moved off the agent, onto `scripts/autobuild.sh`.** `enrich`
 and `build` used to run as backgrounded, unreported `exec` calls from
 `SKILL.md` — a model turn spent deciding something that needed no deciding, on
@@ -250,6 +264,23 @@ Each of these cost real time to find. The reasoning, not just the rule:
   non-negotiable 8 keep their absolute form, and the build still spawns no
   subprocess. Do not "reunify" this by having `quartz` read `obsidian/`; that is
   the bug, restored.
+- **`quartz` gets the vault's Stats page and reviews, never `html`'s
+  client-side filtering.** Both were raised together when the site's Stats page
+  was built. The heatmap/review port was mechanical — `render/heatmap.ts` and
+  `render/review.ts` are already pure functions of folded state, the seam
+  `html` was already using — so it landed. JS filtering did not, for two
+  reasons that both survive independently. First, it blurs a boundary
+  `07-targets.md` draws on purpose: `html` is "one self-contained,
+  JS-powered page," `quartz` is "document publisher, Markdown in, linked site
+  out," and the *Astro is a possible second generator* open item below
+  reserves exactly this kind of data-driven, cross-cutting feature for a
+  second generator rather than folding it into Quartz's ceiling. Second, and
+  more concretely, whether a `<script>` tag survives Quartz's own
+  Markdown/HTML pipeline is untested by this repo — the same gap
+  `quartz.config.yaml` already has ("verifying a change to it means running
+  Quartz, which gamereg never does"). If it is ever wanted, the honest way in
+  is the Astro path, fed a projection, not a `<script>` smuggled into
+  `quartz/content/`.
 - **Invariant 9 stays a deletion whitelist — do not make it per-target.**
   Proposed once, on the reasonable grounds that a target knows best what its own
   artifacts are and that `.obsidian/` must survive a build. But `.obsidian/`

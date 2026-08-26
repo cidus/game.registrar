@@ -15,8 +15,9 @@ import { readEvents } from '../src/core/events.ts'
 import { fold, type VaultState } from '../src/core/fold.ts'
 import { openVault, timeContext } from '../src/core/vault.ts'
 import { translator, type Translator } from '../src/i18n/index.ts'
+import { OBSIDIAN, quartzFlavour } from '../src/render/flavour.ts'
 import { heatmapSvg, level, playByDay, yearsPlayed } from '../src/render/heatmap.ts'
-import { reviewOf, totalsOf } from '../src/render/review.ts'
+import { reviewBlocks, reviewOf, statsBlocks, totalsOf } from '../src/render/review.ts'
 import { stats } from '../src/targets/stats.ts'
 import type { PlannedFile } from '../src/targets/types.ts'
 import { context, event } from './helpers.ts'
@@ -143,6 +144,23 @@ test('the review is arithmetic over the log, and says so in every number', () =>
     review.top_titles.map((entry) => entry.minutes),
     [...review.top_titles.map((entry) => entry.minutes)].sort((left, right) => right - left),
   )
+})
+
+test('the flavour decides bare or qualified wikilinks, the vault target passes OBSIDIAN', () => {
+  const state = exampleState()
+  const bundle = translator('en')
+
+  const vaultTop = reviewBlocks(state, 2026, bundle, OBSIDIAN).find((block) => block.block === 'top')
+  assert.match(vaultTop!.content, /\[\[hollow-knight\\\|/)
+
+  const siteTop = reviewBlocks(state, 2026, bundle, quartzFlavour(false)).find((block) => block.block === 'top')
+  assert.match(siteTop!.content, /\[\[games\/hollow-knight\\\|/)
+
+  const vaultYears = statsBlocks(state, bundle, OBSIDIAN).find((block) => block.block === 'years')
+  assert.match(vaultYears!.content, /\[\[2026\]\]/)
+
+  const siteYears = statsBlocks(state, bundle, quartzFlavour(false)).find((block) => block.block === 'years')
+  assert.match(siteYears!.content, /\[\[reviews\/2026\]\]/)
 })
 
 test('stated hours belong to the run, not to a day, so they stay out of the year', () => {

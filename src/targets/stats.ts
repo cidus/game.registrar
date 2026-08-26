@@ -17,6 +17,7 @@
  * December and a build the following January produce the same bytes.
  */
 import type { VaultState } from '../core/fold.ts'
+import { OBSIDIAN } from '../render/flavour.ts'
 import {
   heatmapFor,
   heatmapPath,
@@ -39,18 +40,18 @@ export const stats: Target = {
     const files: PlannedFile[] = [
       {
         path: 'obsidian/Stats.md',
-        content: newStats(state, bundle),
+        content: newStats(state, bundle, OBSIDIAN),
         policy: 'splice',
-        parts: { frontmatter: null, blocks: statsBlocks(state, bundle) },
+        parts: { frontmatter: null, blocks: statsBlocks(state, bundle, OBSIDIAN) },
       },
     ]
 
     for (const year of yearsPlayed(state)) {
       files.push({
         path: `obsidian/${reviewNotePath(year)}`,
-        content: newReview(state, year, bundle),
+        content: newReview(state, year, bundle, OBSIDIAN),
         policy: 'splice',
-        parts: { frontmatter: reviewFrontmatter(year), blocks: reviewBlocks(state, year, bundle) },
+        parts: { frontmatter: reviewFrontmatter(year), blocks: reviewBlocks(state, year, bundle, OBSIDIAN) },
       })
       files.push({
         path: `obsidian/${heatmapPath(year)}`,

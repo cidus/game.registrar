@@ -23,7 +23,9 @@
 import { GameregError } from '../core/errors.ts'
 import type { VaultState } from '../core/fold.ts'
 import { quartzFlavour } from '../render/flavour.ts'
+import { yearsPlayed } from '../render/heatmap.ts'
 import { newNote } from '../render/note.ts'
+import { heatmapFor, heatmapPath, newReview, newStats, reviewNotePath } from '../render/review.ts'
 import { newRunNote, runNotePath } from '../render/run.ts'
 import { newTable } from '../render/table.ts'
 import { template } from './templates.ts'
@@ -76,6 +78,28 @@ export const quartz: Target = {
       content: newTable(state, bundle, flavour),
       policy: 'replace',
     })
+
+    // The vault's Stats.md and its year-in-review notes, on the site too — the
+    // same renderers `stats` uses, reused through the flavour seam rather than
+    // a second set of emitters (render/flavour.ts). Always `replace`: a Quartz
+    // note has no hand-prose slot to preserve (flavour.prose is false).
+    files.push({
+      path: `${CONTENT}/stats.md`,
+      content: newStats(state, bundle, flavour),
+      policy: 'replace',
+    })
+    for (const year of yearsPlayed(state)) {
+      files.push({
+        path: `${CONTENT}/${reviewNotePath(year)}`,
+        content: newReview(state, year, bundle, flavour),
+        policy: 'replace',
+      })
+      files.push({
+        path: `${CONTENT}/${heatmapPath(year)}`,
+        content: heatmapFor(state, year, bundle),
+        policy: 'replace',
+      })
+    }
 
     // Configuration, not derived data — the same argument the `.base` gets:
     // the user's edit is the point, and regenerating over it would discard

@@ -147,7 +147,7 @@ caretaker's index, and only the writer touches it.
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
 | `stats` | `obsidian/Stats.md`, `obsidian/reviews/<year>.md`, `obsidian/reviews/heatmap-<year>.svg` | 3 |
-| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/quartz.config.yaml` | 3 |
+| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/content/stats.md`, `quartz/content/reviews/<year>.md`, `quartz/content/reviews/heatmap-<year>.svg`, `quartz/quartz.config.yaml` | 3 |
 
 ### `obsidian`
 
@@ -248,10 +248,11 @@ that reads like an invitation to call `Date.now()`.
 **The renderers are shared, and the target decides only which files exist.**
 `render/heatmap.ts` and `render/review.ts` are pure functions from folded state
 to strings; `stats` writes the heatmap as its own file and embeds it, `html`
-pastes the same string into its single page, and a site flavour can do either.
-The SVG is written once. This is the same seam `render/` and `targets/` already
-had — an emitter that does not know what file it is going into — applied twice
-more.
+pastes the same string into its single page, and `quartz` writes the same notes
+`stats` does, under its own tree and with the site's own wikilink shape (see
+the `quartz` section below). The SVG is written once per file that needs it.
+This is the same seam `render/` and `targets/` already had — an emitter that
+does not know what file it is going into — applied three times over.
 
 Inline SVG rather than a chart library: no runtime dependency, no build step,
 and it renders in Obsidian, in `Games.html`, on GitHub and on a published page.
@@ -336,6 +337,19 @@ The seeded `quartz.config.yaml` is Quartz's own `obsidian` template with the
 site's identity changed — that template is the one whose link resolution and
 Obsidian-flavored Markdown match what this target emits. Like any seed it is
 written once and never again, so `npx quartz create` may replace it freely.
+
+**The site also carries `Stats.md` and a year in review — the same renderers,
+reused through the flavour seam.** `render/heatmap.ts` and `render/review.ts`
+don't know which consumer they're serving; `quartz` plans `content/stats.md`,
+one `content/reviews/<year>.md` per year the log knows about, and each year's
+heatmap as its own SVG, exactly as `stats` does for the vault, just written
+into `quartz/content/` instead of `obsidian/` and linked with the site's
+qualified wikilinks (`[[reviews/2026]]`, `[[games/hollow-knight]]`) instead of
+Obsidian's bare ones. Every one of these is `replace`, not `splice`: a Quartz
+note has no hand-prose slot to preserve, so there is no "outside the markers"
+region for the year in review to leave for the user the way it does in the
+vault. `index.md` is unchanged by this — the Stats page is reached through
+Quartz's own content-tree explorer, not a link added to the table.
 
 ## Bases
 

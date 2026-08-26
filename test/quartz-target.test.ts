@@ -68,6 +68,26 @@ test('plans a content tree and a seeded config, and no base', () => {
   assert.match(String(config?.content), /^configuration:/m)
 })
 
+test('plans a Stats page and a review note per year, both replaced whole', () => {
+  const files = plan()
+  const paths = files.map((file) => file.path)
+
+  assert.equal(paths.includes('quartz/content/stats.md'), true)
+  assert.equal(paths.includes('quartz/content/reviews/2026.md'), true)
+  assert.equal(paths.includes('quartz/content/reviews/heatmap-2026.svg'), true)
+
+  for (const path of ['quartz/content/stats.md', 'quartz/content/reviews/2026.md', 'quartz/content/reviews/heatmap-2026.svg']) {
+    const found = files.find((file) => file.path === path)
+    assert.equal(found?.policy, 'replace', path)
+  }
+
+  // The year-row and the game links are qualified, the same as everywhere
+  // else on the site — this is the one thing render/review.ts used to hardcode
+  // as a bare Obsidian wikilink.
+  assert.match(text(files, 'quartz/content/stats.md'), /\[\[reviews\/2026\]\]/)
+  assert.match(text(files, 'quartz/content/reviews/2026.md'), /\[\[games\/hollow-knight\\\|/)
+})
+
 test('nothing the target plans lives outside quartz/', () => {
   for (const file of plan()) assert.match(file.path, /^quartz\//, file.path)
 })

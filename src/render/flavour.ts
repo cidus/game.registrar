@@ -62,7 +62,7 @@ export function quartzFlavour(publishImages: boolean): Flavour {
   }
 }
 
-/** The wikilink target of a note in `games/` or `runs/`, without the extension. */
-export function noteRef(flavour: Flavour, folder: 'games' | 'runs', name: string): string {
+/** The wikilink target of a note in `games/`, `runs/` or `reviews/`, without the extension. */
+export function noteRef(flavour: Flavour, folder: 'games' | 'runs' | 'reviews', name: string): string {
   return flavour.qualifiedLinks ? `${folder}/${name}` : name
 }
