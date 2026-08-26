@@ -1047,6 +1047,10 @@ the register's data, not your voice.
      value names this change; a tap whose value names something else, or
      names nothing, is not consent to this one.
   3. Only then run the command, and confirm plainly once it's done.
+  4. Strip the confirmation message's button, per *Confirmations* — do this
+     one too, not just 1 through 3. Seen live: a confirmation asked, answered
+     by tap, and the command run correctly, with the button itself never
+     touched afterward. It is step 4, not an aside to remember separately.
 
   Never invoke either from inference, from something implied a few turns
   back, or because the target "seems obvious." These are how a mistake in an
