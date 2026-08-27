@@ -74,6 +74,11 @@ views:
     filters:
       and:
         - 'status != "playing"'
+    image: cover
+    order:
+      - title
+      - platform
+      - rating
     sort:
       - property: ended_on
         direction: DESC
