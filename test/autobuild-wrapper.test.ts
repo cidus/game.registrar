@@ -23,6 +23,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import sharp from 'sharp'
 
 import { tempDir } from './helpers.ts'
 
@@ -41,6 +42,8 @@ type Host = {
   run: (...args: string[]) => { status: number; stdout: string; stderr: string }
   /** Creates a game directly against the vault, dirtying the tree, the way `start` would. */
   createGame: (title: string) => void
+  /** Same, with a cover photo attached — the path that mirrors into `obsidian/assets`. */
+  createGameWithPhoto: (title: string) => Promise<void>
 }
 
 /**
@@ -100,6 +103,21 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
       const result = spawnSync(
         process.execPath,
         [MAIN, '--vault', vault, '--json', 'start', title, '--no-metadata'],
+        { encoding: 'utf8', env: { ...process.env, GAMEREG_NON_INTERACTIVE: '1' } },
+      )
+      assert.equal(result.status, 0, result.stderr)
+    },
+    createGameWithPhoto: async (title: string) => {
+      const file = join(dir, `${title}-cover.jpg`)
+      writeFileSync(
+        file,
+        await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } } })
+          .jpeg()
+          .toBuffer(),
+      )
+      const result = spawnSync(
+        process.execPath,
+        [MAIN, '--vault', vault, '--json', 'start', title, '--no-metadata', '--photo', file, '--as-cover'],
         { encoding: 'utf8', env: { ...process.env, GAMEREG_NON_INTERACTIVE: '1' } },
       )
       assert.equal(result.status, 0, result.stderr)
@@ -222,6 +240,38 @@ test('derived files already correct on disk but never committed still get staged
   // stage this tick" while still showing dirty on the next status check.
   const second = gateway.run()
   assert.equal(second.status, 0)
+  assert.equal(gateway.commitCount(), before + 1)
+})
+
+test('a mirrored cover photo under obsidian/assets gets staged, not just the original', async () => {
+  // Found live: a new cover photo ingested fine under `assets/` (staged, as
+  // asserted above), but `targets/mirror.ts` hardlinks it a second time into
+  // `obsidian/assets` (and `quartz/content/assets`) as an add-only pass
+  // *outside* the manifest -- CLAUDE.md: "not a planned file", precisely so
+  // nothing here is a deletion candidate. That also means it never appears in
+  // `build --json`'s `planned` array, so a wrapper that only knew about
+  // `planned` plus the root `assets/` left the mirrored copy untracked
+  // forever: the photo itself made it into git, its second name under
+  // `obsidian/assets` never did.
+  const gateway = host()
+  await gateway.createGameWithPhoto('hollow knight')
+  const before = gateway.commitCount()
+
+  const run = gateway.run()
+
+  assert.equal(run.status, 0, run.stderr)
+  assert.equal(gateway.commitCount(), before + 1)
+
+  const committed = execFileSync(REAL_GIT, ['show', '--name-only', '--format=', 'HEAD'], {
+    cwd: gateway.vault,
+    encoding: 'utf8',
+  })
+    .trim()
+    .split('\n')
+  assert.ok(committed.some((path) => path.startsWith('assets/')))
+  assert.ok(committed.some((path) => path.startsWith('obsidian/assets/')))
+
+  assert.equal(gateway.run().status, 0)
   assert.equal(gateway.commitCount(), before + 1)
 })
 

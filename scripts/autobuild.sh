@@ -157,6 +157,17 @@ fi
 "$GIT" add -- data/events.jsonl >/dev/null 2>&1
 "$GIT" add -- assets >/dev/null 2>&1
 
+# `targets/mirror.ts` hardlinks assets into `obsidian/assets` and
+# `quartz/content/assets` as an add-only pass *outside* the manifest --
+# "not a planned file" is the whole point (CLAUDE.md: it stays clear of
+# invariant 9 precisely because nothing here deletes it), which also means it
+# never appears in build's `planned` array above. Left out, a freshly
+# ingested photo's mirrored copy sits untracked forever, even though the
+# original under `assets/` gets staged fine. Both are harmless no-ops when
+# the target that mirrors into them is disabled or has never run.
+"$GIT" add -- obsidian/assets >/dev/null 2>&1
+"$GIT" add -- quartz/content/assets >/dev/null 2>&1
+
 if "$GIT" diff --cached --quiet 2>/dev/null; then
   exit "$status"
 fi
