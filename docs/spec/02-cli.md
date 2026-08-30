@@ -864,7 +864,7 @@ just because the two happen to talk about platforms.
 **Never overwrites a cover with `source: user`.** `--covers --force` still
 respects that; only `gamereg cover --reset` gives provider art back.
 
-**`--missing` selects every game with no reference on record for `--provider`**
+**`--missing` selects every game never actually enriched for `--provider`**
 (default `igdb`) — reading folded state, no network involved in the selection
 itself. It is a bulk selector, a sibling of `--all`, and inherits the same
 `bulk` mode: mutually exclusive with `--all`, `--match` and `<query>` (usage
@@ -875,12 +875,24 @@ collapses to `skipped` rather than exit 3 — the same reasoning that makes
 `--missing`, a cron `enrich --all` re-fetches the whole catalog on every tick,
 one network round trip per game already on record.
 
-**"Missing" means missing provider metadata, not a missing cover.** A game
-enriched before `--covers` existed has a `game.providers` entry and no cover;
-`--missing --covers` does not reselect it, because `--missing` only looks at
-whether a provider reference is on record. Re-fetching art for
-already-enriched games without a cover is not this flag's job — there is no
-selector for that today.
+**"Missing" is keyed on whether an enrich actually completed, not on whether
+a provider id is on record.** `start --id <provider ref>` resolving a `search`
+hit with no local match yet creates the game from that bare reference alone
+(`02-cli.md`'s `start`, invariant 5: no write command touches the network) —
+`game.providers` is set, but no metadata was ever fetched. `--missing` still
+selects that game: it tracks whether a `game.enrich` event has landed for
+this provider, which `game.providers` alone does not tell it. This is what
+makes the reference recorded at creation time actually get used later, the
+way it was meant to — `findDetail` sees the known id and fetches it directly,
+no search needed.
+
+**With `--covers`, `--missing` also selects a game that has metadata but no
+cover on record.** A game enriched before `--covers` existed, or simply never
+given it, has real metadata and `game.cover: null`; `enrich --missing
+--covers` backfills its art the same way a fresh enrich would, without
+touching games that already have a cover (`source: user` or a provider's own,
+either way). Without `--covers`, cover state plays no part in selection — only
+the metadata condition above does.
 
 ### `gamereg build [target...] [--force] [--list]`
 

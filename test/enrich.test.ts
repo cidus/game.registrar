@@ -173,7 +173,7 @@ function gameId(root: string, title: string): string {
   return game.game_id
 }
 
-test('--missing selects only games with no provider reference, and never touches the network for the rest', () => {
+test('--missing selects only games never actually enriched, and never touches the network for the rest', () => {
   const root = vault()
   const enrichedId = gameId(root, 'hollow knight')
   markEnriched(root, enrichedId)
@@ -187,6 +187,37 @@ test('--missing selects only games with no provider reference, and never touches
   const failed = result(run)['failed'] as { title: string }[]
   assert.equal(failed.length, 1)
   assert.equal(failed[0]!.title, 'chrono trigger')
+})
+
+test('--missing selects a game created from a bare provider id (start --id <ref>) with no local match', () => {
+  // Regression: `start "<title>" --id igdb:<id>` with no local match creates
+  // the game carrying only the provider reference (workspace.ts's
+  // `createGame`) — no network call, no metadata, by design (invariant 5).
+  // `--missing` must still treat this as missing: `game.providers` alone
+  // does not mean an enrich ever actually ran for it.
+  const root = vault()
+  const run = gamereg(root, 'start', 'a brand new game', '--id', 'igdb:999999')
+  assert.equal(run.status, 0, run.stdout)
+
+  const enrich = gamereg(root, 'enrich', '--missing')
+  assert.equal(enrich.status, 6)
+  const failed = result(enrich)['failed'] as { title: string }[]
+  assert.equal(failed.length, 1)
+  assert.equal(failed[0]!.title, 'a brand new game')
+})
+
+test('a stub created from a bare provider id is selected by --missing, while a fully enriched but coverless game is not (without --covers)', () => {
+  const root = vault()
+  const enrichedId = gameId(root, 'hollow knight')
+  markEnriched(root, enrichedId)
+  const stub = gamereg(root, 'start', 'a brand new game', '--id', 'igdb:999999')
+  assert.equal(stub.status, 0, stub.stdout)
+
+  const run = gamereg(root, 'enrich', '--missing')
+  assert.equal(run.status, 6)
+  const failed = result(run)['failed'] as { title: string }[]
+  assert.equal(failed.length, 1)
+  assert.equal(failed[0]!.title, 'a brand new game')
 })
 
 test('--missing with every game already enriched selects nothing and writes no event', () => {
@@ -275,16 +306,32 @@ test('--missing inherits bulk mode: an ambiguous provider match collapses to ski
   assert.deepEqual(outcome, { kind: 'skipped' })
 })
 
-test('--missing --covers does not select a game that has metadata but no cover', () => {
-  // The limitation this flag deliberately does not cover: "missing" means no
-  // provider metadata, not "missing a cover". A game enriched before
-  // --covers existed has metadata and no cover, and must not be reselected.
+test('--missing --covers also selects a game that has metadata but no cover on record', () => {
+  // A game enriched before --covers existed (or never given it) has real
+  // metadata and game.cover: null. --missing --covers backfills its art —
+  // proven here by selection alone (no credentials, so it fails at the
+  // provider step rather than being skipped as "not selected").
+  const root = vault()
+  const enrichedId = gameId(root, 'hollow knight')
+  markEnriched(root, enrichedId)
+
+  const run = gamereg(root, 'enrich', '--missing', '--covers')
+  assert.equal(run.status, 6)
+  const failed = result(run)['failed'] as { title: string }[]
+  assert.equal(failed.length, 1)
+  // markEnriched's fixture fields include a title, which fold's game.enrich
+  // case applies over the stored one — same as any real enrich correcting a
+  // title (docs/spec/01-model.md).
+  assert.equal(failed[0]!.title, 'placeholder')
+})
+
+test('without --covers, a fully enriched but coverless game is not selected by --missing', () => {
   const root = vault()
   const enrichedId = gameId(root, 'hollow knight')
   markEnriched(root, enrichedId)
 
   const before = readFileSync(join(root, 'data', 'events.jsonl'), 'utf8')
-  const run = gamereg(root, 'enrich', '--missing', '--covers')
+  const run = gamereg(root, 'enrich', '--missing')
   assert.equal(run.status, 0)
   assert.deepEqual(result(run), { enriched: [], skipped: [], failed: [] })
   assert.equal(readFileSync(join(root, 'data', 'events.jsonl'), 'utf8'), before)

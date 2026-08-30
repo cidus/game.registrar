@@ -162,7 +162,7 @@
       "run": "Qual jogatina. Por padrão, a encerrada mais recentemente.",
       "provider": "Provedor a consultar: igdb. Padrão: igdb.",
       "all_games": "Enriquece todos os títulos do acervo.",
-      "missing": "Enriquece apenas os jogos sem referência registrada para --provedor. Isso é metadado, não capa: um jogo já enriquecido mas nunca alvo de --capas não é selecionado por --faltando --capas.",
+      "missing": "Enriquece apenas os jogos nunca de fato enriquecidos para --provedor — um jogo criado a partir de um id de provedor sem correspondência local (start --id <ref>) ainda conta como faltando. Com --capas, também seleciona um jogo que já tem metadado mas não tem capa registrada.",
       "covers": "Também busca e define a capa, a menos que a capa seja source: user.",
       "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV.",
       "match": "Referência de provedor a buscar direto, como igdb:7346 — sem busca.",

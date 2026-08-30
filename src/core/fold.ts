@@ -133,6 +133,8 @@ export type GameState = {
   genres: string[]
   platforms: string[]
   providers: Record<string, string | number>
+  /** Providers a real `game.enrich` has actually completed for — unlike `providers`, never set by a bare create-time reference (docs/spec/02-cli.md, `enrich --missing`). */
+  enrichedProviders: string[]
   aliases: string[]
   cover: Cover | null
   runs: RunState[]
@@ -322,6 +324,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           genres: strArray(data, 'genres'),
           platforms: strArray(data, 'platforms'),
           providers,
+          enrichedProviders: [],
           aliases: strArray(data, 'aliases'),
           cover: null,
           runs: [],
@@ -399,6 +402,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         const providerId = fields['id']
         if (typeof providerId === 'string' || typeof providerId === 'number') {
           game.providers[provider] = providerId
+          if (!game.enrichedProviders.includes(provider)) game.enrichedProviders.push(provider)
         }
         // A user cover is never replaced by enrichment (01-model, cover precedence).
         // `cover` was a bare URL string before the download pipeline existed;

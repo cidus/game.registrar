@@ -88,14 +88,19 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   heatmap/year-in-review years for imported history). No behavior beyond the
   new field changed; the engine already worked.
 - `gamereg enrich --missing`, a bulk selector alongside `--all`: every game
-  with no reference on record for `--provider` (default `igdb`), reading
-  folded state, mutually exclusive with `--all`, `--match` and `<query>`.
-  Inherits `--all`'s bulk mode, so an ambiguous provider match collapses to
-  `skipped` rather than exit 3 — what actually makes an incremental cron
-  `enrich` safe: without it, `--all` re-fetches the whole catalog on every
-  run. "Missing" is provider metadata, not cover art — a game enriched before
-  `--covers` existed is not reselected by `--missing --covers`. pt-BR names
-  for the command (`enriquecer`) and its flags (`--faltando`,
+  never actually enriched for `--provider` (default `igdb`), reading folded
+  state, mutually exclusive with `--all`, `--match` and `<query>`. Inherits
+  `--all`'s bulk mode, so an ambiguous provider match collapses to `skipped`
+  rather than exit 3 — what actually makes an incremental cron `enrich` safe:
+  without it, `--all` re-fetches the whole catalog on every run. Tracked by a
+  new derived `enrichedProviders` field on folded game state (`core/fold.ts`),
+  set only when a real `game.enrich` event has landed — not by the presence of
+  a provider id alone, since `start --id <provider ref>` with no local match
+  creates a game carrying just that bare reference (no metadata, no network
+  call, by design) for a later enrich to fill in. With `--covers`, `--missing`
+  also selects a game that already has metadata but no cover on record,
+  backfilling art for anything enriched before `--covers` existed. pt-BR
+  names for the command (`enriquecer`) and its flags (`--faltando`,
   `--correspondencia`, `--provedor`, `--capas`), filling in a gap left when
   `enrich` shipped with no localization at all.
 - `scripts/autobuild.sh` — periodic vault maintenance: when `git status` shows

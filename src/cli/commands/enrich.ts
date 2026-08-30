@@ -318,21 +318,31 @@ export function registerEnrich(registrar: Registrar): void {
         forcedDetail = { provider: reference.provider, detail }
       }
 
-      // "Missing" means no metadata on record for this provider — never
-      // "no cover": a game enriched before `--covers` existed has metadata
-      // and no cover, and `--missing --covers` must not re-select it.
+      // "Missing" means never actually enriched for this provider — not
+      // merely "no provider id on record". `start --id <provider ref>` with
+      // no local match creates a game carrying a bare reference (so a later
+      // enrich has something to fetch by id), with no metadata fetched at
+      // create time (invariant 5); that stub must still count as missing.
+      // `enrichedProviders` (core/fold.ts) is set only when a real
+      // `game.enrich` event has landed, which is what distinguishes the two.
       const missingProviderName = options.provider ?? KNOWN_PROVIDERS[0]
       const bulk = options.all === true || options.missing === true
+      const covers = options.covers === true
 
       const targets: GameState[] =
         options.all === true
           ? [...workspace.state.games]
           : options.missing === true
-            ? workspace.state.games.filter((game) => game.providers[missingProviderName] === undefined)
+            ? workspace.state.games.filter((game) => {
+                if (!game.enrichedProviders.includes(missingProviderName)) return true
+                // Already enriched: `--covers` also backfills art for a game
+                // that has metadata but no cover on record (fetched before
+                // `--covers` existed, or never given it).
+                return covers && game.cover === null
+              })
             : [await resolveGame(cli, workspace, query ?? null, { id: options.id, allowCreate: false })]
 
       const providers = providerChain(cli.vault.root, options.provider)
-      const covers = options.covers === true
 
       const enriched: { game_id: string; title: string; provider: string }[] = []
       const skipped: { game_id: string; title: string }[] = []

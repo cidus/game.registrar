@@ -273,11 +273,14 @@ to correct something specific.**
 ## Metadata
 
 ```text
-gamereg enrich <query> --id --provider --match --all --covers
+gamereg enrich <query> --id --provider --match --all --missing --covers
 ```
 
 The only command that touches the network. On exit 3, `candidates[]` are
-provider entries and the retry is `--match <ref>`. `--all` never prompts.
+provider entries and the retry is `--match <ref>`. `--all`/`--missing` never
+prompt. `--missing` is the unattended-cron selector — every game never
+actually enriched for `--provider`, including one `start --id <ref>` created
+from a bare provider reference — not something to reach for mid-conversation.
 Failure here never blocks recording.
 
 ```text
