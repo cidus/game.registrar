@@ -351,7 +351,7 @@ test('--clone fetches upstream and vendors from it, same as --source', () => {
   const run = gateway.run('--clone')
   assert.equal(run.status, 0, run.stderr)
 
-  const [call] = gateway.calls('git')
+  const call = gateway.calls('git')[0]!
   assert.match(call, /^clone --depth 1 https:\/\/github\.com\/jackyzha0\/quartz /)
   assert.doesNotMatch(call, /--branch/)
 
@@ -366,7 +366,7 @@ test('--clone --tag pins the clone to that ref', () => {
   const run = gateway.run('--clone', '--tag', 'v5.0.0')
   assert.equal(run.status, 0, run.stderr)
 
-  const [call] = gateway.calls('git')
+  const call = gateway.calls('git')[0]!
   assert.match(call, /^clone --depth 1 --branch v5\.0\.0 https:\/\/github\.com\/jackyzha0\/quartz /)
 })
 
