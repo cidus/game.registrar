@@ -623,6 +623,10 @@ Each of these cost real time to find. The reasoning, not just the rule:
   end up disagreeing. Nothing is stranded by waiting: `quartz/content/` is
   committed, so whoever writes the workflow later needs Quartz and nothing else.
   Shipping Quartz in the phase-5 image is the other half of the same question.
+  `scripts/vendor-quartz.sh` exists as *a* manual path that has been run
+  against a real vault and a real Cloudflare Workers deploy — it is not the
+  phase-5 answer, just a documented recipe for anyone who wants a working
+  site before phase 5 decides packaging for everything at once.
 
 - **`agent/checkin.sh` is a file phase 5 will have to place, and a cron job it
   will have to register.** The wrapper itself is written and tested; what is not
