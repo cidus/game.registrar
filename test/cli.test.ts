@@ -309,6 +309,63 @@ test('amend --set platform=... canonicalizes, same as the --platform flag', () =
   assert.equal((result(status)['runs'] as { platform: string }[])[0]?.platform, 'Nintendo Switch')
 })
 
+/**
+ * `amend` and `revoke` take an *event* id, and until these two fields existed
+ * the only route to one was raw SQL over the `events` table with
+ * `json_extract` — which is exactly what the live agent did, at the cost of a
+ * `query --schema`, a guessed column name and a retry, every single time. The
+ * measured effect was 34 of 87 `query` calls hitting `events` and only 5
+ * hitting `v_finished`, the view that exists to answer actual questions.
+ *
+ * So the contract asserted here is narrow and load-bearing: the ids `amend`
+ * and `revoke` accept are readable straight off `open` and `status`, they are
+ * the real events (not the entity ids they sit beside, which are famously easy
+ * to confuse), and no SQL is involved in getting them.
+ */
+test('open and status hand back the event ids amend and revoke take, without SQL', () => {
+  const root = vault()
+  const started = gamereg(root, 'start', 'hollow knight', '--no-metadata', '--at', '2026-05-03 20:00')
+  // A game not yet on record: `game.create`, `run.open`, `session.open`, in
+  // that order (docs/spec/05-agent.md's own table of what `start` writes).
+  const events = started.json['events'] as string[]
+
+  const open = (result(gamereg(root, 'open'))['open'] as Record<string, unknown>[])[0]!
+  assert.equal(open['run_open_event_id'], events[1], 'the run.open event, not the run_id')
+  assert.equal(open['session_open_event_id'], events[2], 'the session.open event, not the session_id')
+  assert.notEqual(open['run_open_event_id'], open['run_id'])
+  assert.notEqual(open['session_open_event_id'], open['session_id'])
+
+  const runs = result(gamereg(root, 'status', 'hollow knight'))['runs'] as Record<string, unknown>[]
+  assert.equal(runs[0]!['run_open_event_id'], events[1])
+
+  // The point of carrying it: the amend runs straight off the field.
+  const amended = gamereg(
+    root,
+    'amend',
+    String(open['run_open_event_id']),
+    '--reason',
+    'user stated the platform',
+    '--set',
+    'platform=Switch',
+  )
+  assert.equal(amended.status, 0)
+  assert.equal((result(gamereg(root, 'status', 'hollow knight'))['runs'] as { platform: string }[])[0]?.platform, 'Nintendo Switch')
+})
+
+/**
+ * A closed session is not listed by `open`, so `status` is the only route to a
+ * run filed by `past` — the case that has no `end` to hang a `--platform` on
+ * (docs/spec/05-agent.md). It carries no session, and the field still resolves.
+ */
+test('status carries the run.open event id for a run that never had a session', () => {
+  const root = vault()
+  const filed = gamereg(root, 'past', 'chrono trigger', '--hours', '30', '--no-metadata')
+  assert.equal(filed.status, 0)
+
+  const runs = result(gamereg(root, 'status', 'chrono trigger'))['runs'] as Record<string, unknown>[]
+  assert.equal(runs[0]!['run_open_event_id'], (filed.json['events'] as string[])[1])
+})
+
 test('past files a stated duration and marks it as stated', () => {
   const root = vault()
   const run = gamereg(root, 'past', 'chrono trigger', '--ended', '2011-07', '--rating', '10', '--hours', '30', '--no-metadata')

@@ -67,6 +67,13 @@ export type CheckinState = {
 export type SessionState = {
   session_id: string
   run_id: string
+  /**
+   * The `session.open` event that started it. Carried for the same reason
+   * `CheckinState.event_id` is: `amend` and `revoke` take an *event* id, and
+   * without this the only route to one is raw SQL over the `events` table with
+   * `json_extract` — which is what the agent was reduced to doing, badly.
+   */
+  open_event_id: string
   started_at: string
   ended_at: string | null
   /** Net of every break. Zero while open — never estimated. */
@@ -84,6 +91,12 @@ export type SessionState = {
 export type RunState = {
   run_id: string
   game_id: string
+  /**
+   * The `run.open` (or `run.import`) event that opened it — the target of
+   * every `amend` that corrects a run's own fields, `platform` and the stated
+   * `hours` baseline included. See `SessionState.open_event_id`.
+   */
+  open_event_id: string
   platform: string | null
   /**
    * What the log actually holds, before the build canonicalizes spellings
@@ -453,6 +466,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         const run: RunState = {
           run_id: runId,
           game_id: game.game_id,
+          open_event_id: event.id,
           platform: str(data, 'platform'),
           platform_raw: str(data, 'platform'),
           form: str(data, 'form') as Form | null,
@@ -531,6 +545,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         const session: SessionState = {
           session_id: sessionId,
           run_id: run.run_id,
+          open_event_id: event.id,
           started_at: str(data, 'at') ?? '',
           ended_at: null,
           minutes: 0,

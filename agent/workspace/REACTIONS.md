@@ -1,8 +1,8 @@
 # REACTIONS.md — Sticker Mapping
 
 The five reaction tokens and what this installation resolves them to. The
-tokens are fixed and closed (`docs/spec/05-agent.md`, *Reactions*); the assets
-are yours, and they are the only thing in this file you edit.
+tokens are a fixed, closed list; the assets are yours, and they are the only
+thing in this file you edit.
 
 **No sticker ships, and none will.** The sticker column below is empty for
 every row and stays that way in this repository — a Telegram `file_id` belongs
@@ -26,8 +26,8 @@ Read the row for the token, left to right, and take the first cell that has a
 value: send the sticker, else add the emoji reaction, else do nothing. An empty
 row is a decision, not an omission.
 
-Do not add rows. A sixth token is a change to the spec and to
-`skills/gamereg/SKILL.md`, not a change to this file.
+Do not add rows. A sixth token is a change to the gamereg specification and to
+`skills/gamereg/reference/media.md`, not a change to this file.
 
 ## Filling in the sticker column
 

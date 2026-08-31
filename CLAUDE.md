@@ -126,17 +126,45 @@ steps and the `notifyOnExit` risk this closes. `test/autobuild-wrapper.test.ts`
 drives it end to end, `git` stubbed, `gamereg` real, mirroring
 `test/checkin-wrapper.test.ts`.
 
-`npm test` is 496 tests, all green (`node --test`, no framework, no network).
+**The agent layer had an optimization pass, driven by measurement rather than
+taste.** `~/.openclaw/agents/main/sessions/*.trajectory.jsonl` records the
+compiled context of every turn, and it said three things. OpenClaw was exposing
+**39 tools** whose schemas came to 53,768 characters against a 45,615-character
+system prompt, for an agent that uses three (`exec`, `message`, `read`) — and
+the transcripts showed it reaching for `sessions_history` and `memory_search`
+anyway, both forbidden in prose by two files. `SKILL.md` was read **38 times**
+across the archive at ~14k tokens each, because a skill body is an on-demand
+`read` while `workspace/*.md` is compiled into the system prompt and cached —
+which meant the persona was resident and the operating procedure was bought
+again every session. And of 361 `exec` calls, `query` was 87, of which 34 hit
+`FROM events` and 11 were `--schema` against only 5 on `v_finished`: the agent
+hunting for event ids, which nothing but raw SQL could produce.
+
+So: `tools.allow` in the config; `workspace/AGENTS.md` became the operating
+card and `SKILL.md` a 4KB router with the rare flows in `reference/media.md`,
+`corrections.md` and `checkins.md`; `run_open_event_id` and
+`session_open_event_id` landed on `open` and `status`; `SOUL.md` roughly halved
+with its aside allowance rewritten as positive triggers. `agent/README.md`'s
+*Where the prompt lives* and *The tool surface is part of the prompt* carry the
+numbers and the restart step.
+
+`npm test` is 528 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
 ## The agent layer
 
-`agent/` at the repo root: `skills/gamereg/` (`SKILL.md` plus `reference/cli.md`
-and `reference/query.md`), `workspace/` (persona files), `openclaw.example.json5`,
-`approvals.example.json`, `README.md`, and `PERSONAS.md` (how the two clerks are
-*drawn* — avatar prompts and visual canon, deployed nowhere and read by nobody
-at runtime; `workspace/SOUL.md` wins any disagreement).
+`agent/` at the repo root: `workspace/` (`AGENTS.md`, the operating card the
+gateway keeps in context on every turn, plus `SOUL.md`, `IDENTITY.md` and
+`REACTIONS.md`), `skills/gamereg/` (`SKILL.md`, now a routing table, plus
+`reference/cli.md`, `query.md`, `media.md`, `corrections.md` and
+`checkins.md`, each read only when its flow happens), `openclaw.example.json5`,
+`approvals.example.json`, `README.md`, and `PERSONAS.md` (how the two clerks
+are *drawn* — avatar prompts, visual canon, and the narrative canon that is not
+operative at runtime; deployed nowhere and read by nobody at runtime,
+`workspace/SOUL.md` wins any disagreement). Which half a rule belongs in is a
+decision with a measured reason behind it — see *Decisions* below before moving
+anything between them.
 
 **`agent/README.md` is the deployment log — read it before touching the live
 deployment, not this file.** It carries every operational trap found running
@@ -680,6 +708,148 @@ Each of these cost real time to find. The reasoning, not just the rule:
   a reason), and a build mid-session can change behaviour under a conversation
   already in progress. Revisit only in phase 5, where an image pins CLI, gateway,
   skill and persona together and this stops being one person's machine.
+
+- **What is always in context and what is read on demand is a deployment fact,
+  not a taste, and the original layout had it backwards.** OpenClaw compiles
+  `workspace/*.md` into the system prompt once and caches it; a skill body is a
+  `read` tool call paid for mid-turn, per session. `SOUL.md` was therefore
+  resident on every turn while `SKILL.md` — the actual procedure — was bought
+  again each session at ~14k tokens, sometimes twice in one conversation. The
+  fix was not to shorten anything first but to *move* it: the common path into
+  `workspace/AGENTS.md`, the rare flows into `reference/*.md` that only load
+  when that flow happens. Do not "simplify" this back into one big `SKILL.md`;
+  the split is the whole mechanism, and `test/agent-skill.test.ts` asserts that
+  every routed reference file exists and every existing one is routed to, so a
+  file cannot be orphaned silently.
+- **A tool schema outranks a paragraph — enforce a boundary with `tools.allow`,
+  not with prose.** `AGENTS.md` and `SKILL.md` both forbade reading session
+  history and keeping notes, in bold, and the live transcripts still show
+  `sessions_history` seven times and `memory_search` three; the latter came
+  back with a broken-index error carrying its own instructions for the model to
+  relay to the user. Thirty-nine tool schemas were also ~13k tokens per turn
+  for an agent that uses three. The lesson generalizes past this repo: when a
+  rule and an affordance disagree, remove the affordance. The gateway needs a
+  restart for `tools.allow` to take effect — there is no config-reload path.
+- **`amend` and `revoke` take event ids, so the commands that hand out ids must
+  hand out event ids.** They did not, and the gap did not read as one: the
+  agent was told to write SQL against `events` with `json_extract`, which cost
+  a `query --schema`, a guessed column, a failure (`no such column: opened_at`)
+  and a retry on every single correction. `RunState`/`SessionState` now carry
+  `open_event_id` and `open`/`status` expose it, following the pattern
+  `CheckinState.event_id` already set. It is a derived field on folded state,
+  not a schema change — `01-model.md` is untouched — and it is deliberately
+  *not* on `due`'s row, because a check-in question never amends a run or a
+  session and widening every wake payload for a caller with no use for it is
+  the wrong trade.
+- **A persona's aside allowance has to be stated as when it *does* apply.**
+  `SOUL.md`'s rule was a list of exclusions ending in "never while something is
+  in flight" — and in this deployment nearly every turn is a command in flight,
+  so the net allowance was about zero. Measured: across a full recorded session
+  (start through verdict) the register's vocabulary landed everywhere and the
+  fiction appeared exactly once. ~60% of the file was also example lines
+  labelled "not to be used verbatim" plus prohibitions, and a long list of ways
+  to get it wrong makes emitting nothing the safest move. The rewrite names
+  three positive slots — conversational opener, after a completed write that
+  needs no follow-up, after a real error's real explanation — of which the
+  second is the most common turn of the working day and was previously read as
+  excluded. Non-operative canon went to `agent/PERSONAS.md`, which is already
+  declared deployed nowhere and read by nobody at runtime.
+
+- **A workspace file cannot be deleted, only replaced.** `workspace/TOOLS.md`
+  was removed once `tools.allow` made its content structurally true, and
+  OpenClaw seeded its own default back within the hour — a generic page about
+  camera names, SSH hosts and TTS voices, which then sits in the system prompt
+  every turn describing capabilities this deployment does not have. The slot is
+  occupied either way; the only choice is by what. The file is back, short, and
+  says this in its own header so the next session does not re-derive it.
+- **The prompt may mirror an authority, but only with a test holding the
+  mirror to it.** `reference/query.md` used to list the four views and no
+  tables, on the stated grounds that `--schema` is the authority and a copy
+  would drift. What happened instead is that the agent, wanting a table no view
+  covered, invented `FROM v_sessions` — a name adjacent to the real
+  `v_sessions_by_day` — and the exit 2 reached the user's chat. Withholding the
+  list did not prevent a wrong name, it guaranteed a guessed one. The list is
+  there now and `test/agent-skill.test.ts` parses `SCHEMA_SQL` and compares,
+  the same trade `reference/cli.md` already makes against the real binary.
+  **The saving is not in bytes and it is worth being accurate about that**:
+  `query --schema --json` returns 2,900 bytes, against ~2,600 that the column
+  lists added to `reference/query.md` — near enough a wash, plus a test and a
+  maintenance obligation that did not exist before. What justifies it is
+  *where* the bytes land. `query.md` is read only on a turn that asks a
+  question, and such a turn needs column names by definition, so they are never
+  dead weight there — unlike anything in `workspace/`, which is paid on every
+  turn including "Pausa". If `query.md` keeps growing the arithmetic flips and
+  `--schema` wins again.
+  Two alternatives were measured and declined, and the reason is the same for
+  both: **a wrong guess is not merely a wasted call, it is a failed-exec
+  warning on the user's screen**, and this gateway shows one for every non-zero
+  exit. Telling the agent to call `--schema` first costs a round trip on every
+  question turn (the call itself is ~210ms, indistinguishable from any other
+  query — it is Node startup, not the schema — against a ~10s median turn, so
+  the cost is the model's extra step, not the CLI's). Attaching the available
+  table and view names to `query`'s own error envelope, the way code 3 carries
+  `candidates[]`, is cheaper still and cannot drift — but it only helps *after*
+  the error, which is the part the user actually objects to. Prevention beat
+  recovery here on that ground alone. **Reopen this if wrong names keep
+  reaching chat anyway**; that is the evidence that documenting them did not
+  work, and the error-envelope change is then the first thing to build.
+
+- **A payload shown as a fragment gets a wrapper invented around it.**
+  `AGENTS.md` showed the button `presentation` object alone — accurate, and
+  accurate is not sufficient. The agent inferred the `message` send it belongs
+  in, which was right, and then filled that send's `message` field with the
+  literal string `"placeholder"` while writing the real question as narration
+  that went nowhere: perfect buttons, no question. Only `action` is required by
+  the tool schema, so nothing forced the filler either way. Examples in the
+  always-loaded card are now whole calls rather than the interesting part of
+  one, and `test/agent-skill.test.ts` asserts the button example keeps its
+  `action`, its `message`, and a real sentence in it. This is the cost side of
+  compressing a 56KB skill: the old file taught the pattern by modelling it
+  three times over (candidates, check-ins, confirmations), and a single
+  compressed statement of the same rule left one degree of freedom the model
+  used.
+
+- **Fixing half a reference leaves the other half to be found the same way.**
+  `reference/query.md` was given the tables and their columns after the agent
+  invented `FROM v_sessions`; the views kept their prose one-liners, and the
+  next hard question produced `SUM(minutes)` over `v_sessions_by_day` — a view
+  that is already aggregated and carries `hours`. Same class, same cost, one
+  release apart. When a gap like this is closed, close it across the whole
+  reference, not across the instance that was reported. The test now asks
+  SQLite instead of parsing SQL: `SCHEMA_SQL` into an in-memory database,
+  `pragma_table_info` back out, compared with the file — the same "ask the
+  database, do not remember" rule the file preaches to the agent.
+
+- **A correction states the rule; the incident goes in `agent/README.md`.
+  This is the discipline that keeps the prompt from re-growing, and it was
+  learned by re-growing it.** Three consecutive live bug fixes each landed a
+  paragraph of "seen live: ..." narrative into the always-loaded card, and the
+  card went from 10,999 bytes to 13,616 — putting back a third of what cutting
+  `SOUL.md` had saved. No single addition was wrong. That is the whole point:
+  it is the same mechanism that grew `SKILL.md` to 56KB, and it is invisible
+  per-commit and obvious only in aggregate. The story of how a rule was found
+  is worth keeping and belongs in the deployment log, which people read and
+  models do not.
+  Two mechanisms enforce it now. `test/agent-skill.test.ts` asserts the total
+  size of `agent/workspace/*.md`, so the ceiling is a number in a diff rather
+  than an intention; and the routing table lives in the card, which is free,
+  rather than in `SKILL.md`, which costs a read — leaving `SKILL.md` at 865
+  bytes and unread in the common case. When the budget test fails, the order of
+  questions is: what comes out, does this belong in a `reference/` file instead,
+  and only then should the number move.
+
+- **The deployed prompt may not cite a repository path.** `SKILL.md`, `SOUL.md`,
+  `AGENTS.md`, `REACTIONS.md` and `reference/cli.md` all pointed at
+  `docs/spec/*` or `test/*`. The agent's workspace is `~/.openclaw/workspace/`
+  and holds copies, not a checkout; nothing in its context names the repository
+  at all. Across the whole session archive it never once tried to read one of
+  those paths — but it *does* guess paths when unsure, including seven reads of
+  `/home/claude/.openclaw/...`, a home directory that does not exist on this
+  host. So the citations were inert at best and an invitation to a failed read
+  at worst. What was worth keeping is the *claim* they carried — "these flags
+  are verified, trust them" — restated without a path. The general rule: a
+  deployed file addresses the model; the reason a rule exists addresses the
+  maintainer and belongs in `agent/README.md` or here.
 
 Add the next one here rather than in a commit message nobody will search for.
 

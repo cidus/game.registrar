@@ -13,6 +13,18 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 ## [Unreleased]
 
 ### Added
+
+- `run_open_event_id` and `session_open_event_id` on `gamereg open`'s rows, and
+  `run_open_event_id` on each run of `gamereg status <game>`. These are the ids
+  `amend` and `revoke` take; before them the only route to one was raw SQL over
+  the `events` table.
+- `agent/workspace/AGENTS.md` is now the operating card: boundary, JSON
+  contract, call budget, the common path, buttons and safety, in the context of
+  every turn.
+- `agent/skills/gamereg/reference/media.md`, `corrections.md` and `checkins.md`
+  — one file per rare flow, read only when that flow happens.
+- `tools.allow` in `agent/openclaw.example.json5`, restricting the gateway's
+  tool surface to `exec`, `message` and `read`.
 - `gamereg due` — which open sessions are due a check-in now, with all three
   triggers (`duration`, `clock`, `day_cutoff`), the delivery windows, quiet
   hours, the escalating backoff ladder and the per-session ceiling. Reads and
@@ -137,6 +149,32 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   phase-5 answer for how deployment works.
 
 ### Changed
+
+- `agent/skills/gamereg/SKILL.md` is 865 bytes and unread in the common case:
+  the routing table moved to `AGENTS.md`, which costs nothing to consult, and
+  *A year in review* moved to `reference/query.md`, where a year question
+  already routes. What remains is the frontmatter and a pointer.
+- The deployed prompt no longer cites repository paths (`docs/spec/*`,
+  `test/*`). The agent's workspace holds copies, not a checkout, so those were
+  unreachable; the claim each one carried is restated without the path.
+- Incident narrative was moved out of the prompt files and into
+  `agent/README.md`. The prompt states the rule; the deployment log keeps the
+  story of how it was found.
+- `test/agent-skill.test.ts` asserts a size budget for `agent/workspace/*.md`,
+  the files compiled into the system prompt on every turn.
+- `agent/skills/gamereg/SKILL.md` was a routing table (4KB, from 56KB). The
+  standing orders moved to `AGENTS.md`, which the gateway keeps in context, and
+  the rare flows to `reference/`. A session that opens, pauses, resumes,
+  finishes and files a verdict now reads no file at all.
+- `agent/workspace/SOUL.md` roughly halved, and its allowance for an aside
+  rewritten as three positive triggers rather than a list of moments to avoid.
+  Non-operative canon moved to `agent/PERSONAS.md`.
+- `--dry-run` is advised for `past` and `import` only; everything else is one
+  `revoke` from undone.
+- `test/agent-skill.test.ts` discovers every prompt file instead of naming
+  three, so a new `reference/*.md` inherits the ASCII, `--sql` and
+  command/flag checks; a new test asserts every routed reference file exists
+  and every existing one is routed to.
 - The phase-3 site target is named `quartz`, not `site`, and writes `quartz/`
   rather than `site/`. It names the consumer, the way `obsidian` does, and
   leaves the generic name free for a second generator later. Renamed before the
@@ -162,6 +200,32 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   nothing spent deciding it and no lost build when two ticks land close
   together. The agent may still run `gamereg build --json` when the user asks
   for it explicitly.
+
+### Fixed
+
+- `reference/query.md` lists the columns of the four views, not only of the
+  tables, and warns that three of them are already aggregated: they carry
+  `hours` and never `minutes`, and `COUNT(*)` over them counts groups. The
+  agent had written `SUM(minutes)` against `v_sessions_by_day` and got an exit
+  2. `test/agent-skill.test.ts` now applies `SCHEMA_SQL` to an in-memory
+  database and compares against `pragma_table_info` rather than parsing SQL.
+- The call that strips an answered button, in `agent/workspace/AGENTS.md`, is
+  the verified one: `edit` requires `target`, `messageId`, `message` (the
+  original text again, since it re-sends rather than patches) and the empty
+  buttons inside `presentation`. The documented shape named `to`, put `buttons`
+  at the top level and omitted `message`, and had never worked.
+- The common path in `AGENTS.md` shows real invocations with real values
+  instead of a flag-name synopsis that would break if copied.
+- The button example in `agent/workspace/AGENTS.md` is a whole `message` send
+  with the question in its `message` field, not a bare `presentation` fragment.
+  The fragment led the agent to build the wrapper itself and fill `message`
+  with the literal string `"placeholder"`, delivering correct buttons under it
+  and losing the question. `test/agent-skill.test.ts` holds the example whole.
+- `reference/query.md` now lists every table and its columns, and warns that a
+  question about hours recorded is not the same as hours finished. The agent
+  had invented `FROM v_sessions` — adjacent to the real `v_sessions_by_day` —
+  which exited 2 in front of the user. Two tests hold the list and every
+  offered view name to `src/db/schema.ts`.
 
 ## [0.2.0] - Phase 2 — Chat and voice
 

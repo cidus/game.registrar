@@ -332,8 +332,11 @@ trap that costs an afternoon to diagnose from scratch.
 
 The short version of what you will do there: install the CLI on the
 always-on host, create a bot for your chat channel, restrict who may talk to
-it, tell the gateway where your register lives, copy the skill in, and
-constrain what the agent is allowed to execute.
+it, tell the gateway where your register lives, copy the skill and the
+workspace files in, and constrain what the agent is allowed to execute — both
+which commands it may run and which of the gateway's own tools it can see at
+all. The second one matters more than it sounds: a tool the agent can see is a
+tool it will eventually reach for, whatever the prompt says.
 
 ### Voice
 

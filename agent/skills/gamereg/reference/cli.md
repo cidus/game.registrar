@@ -1,8 +1,8 @@
 # gamereg — the surface you may invoke
 
-Condensed from `docs/spec/02-cli.md`, which stays the source of truth. Every
-invocation below is checked against the real binary by
-`test/agent-skill.test.ts`, so a flag named here exists.
+**Every invocation below is checked against the real binary by a test, so a
+flag named here exists.** Trust it and stop; there is nothing to verify with
+`--help`, which you cannot run anyway.
 
 Always pass `--json`.
 
@@ -91,8 +91,8 @@ no way to add it after the fact through `start` or `past`. For a run already
 in progress, use `amend` directly on that run's `run.open` event —
 `gamereg amend <event_id> --set hours=<n> --reason "..."` — `hours` is the
 same field name `--past-hours` writes, just via `amend` instead of at open
-time. Find the event id with `gamereg query`: `SELECT event_id FROM events
-WHERE type = 'run.open' AND json_extract(payload, '$.run_id') = '<run_id>'`.
+time. The event id is `run_open_event_id`, on the run's row from
+`gamereg open` or `gamereg status <game>`. No SQL.
 
 ### `gamereg end`
 
@@ -186,7 +186,10 @@ art back).
 gamereg status <query> --id
 ```
 
-The vault summary, or one game's state. `<query>` is optional.
+The vault summary, or one game's state. `<query>` is optional. Each run carries
+`run_open_event_id` — the event an `amend` on that run's platform or stated
+hours takes. This is the route for a run with no open session, which `open`
+does not list.
 
 ### `gamereg open`
 
@@ -196,11 +199,17 @@ gamereg open
 
 Every open session. Each row carries `session_id`, `run_id`, `game`, `game_id`,
 `opened_at`, `open_for_minutes`, `net_minutes`, `on_break`, `break_started_at`,
-`checkins_so_far` and `last_checkin_id`.
+`checkins_so_far`, `last_checkin_id`, `run_open_event_id` and
+`session_open_event_id`.
 
-`last_checkin_id` is the check-in you amend when someone answers one — see
-*Check-ins* in `SKILL.md`. It is `null` until a session has been asked about,
-and it is only readable while the session is open.
+`last_checkin_id` is the check-in you amend when someone answers one. It is
+`null` until a session has been asked about, and it is only readable while the
+session is open.
+
+**`run_open_event_id` and `session_open_event_id` are the ids `amend` and
+`revoke` take.** Read them from here; never go looking for an event id with
+SQL. The ids beside them — `run_id`, `session_id` — are entity ids and are not
+accepted by either command.
 
 ### `gamereg search`
 

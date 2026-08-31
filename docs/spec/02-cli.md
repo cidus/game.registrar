@@ -335,6 +335,20 @@ answering a check-in. The wrapper files the record *after* enqueueing the wake,
 so the id cannot travel with the question — this is the way back to it. A
 closed session is not listed, so an answer that closes one reads the id first.
 
+It also carries `run_open_event_id` and `session_open_event_id`: the `run.open`
+and `session.open` events themselves, which is what `amend` and `revoke` take.
+These exist for the same reason `last_checkin_id` does — a caller with no
+terminal needs a route to an event id — and they close the last gap where there
+was none. Before them, the only way to the `run.open` of a run was a `query`
+against the `events` table with `json_extract`, which in practice cost a
+`query --schema`, a guessed column name and a retry on every correction.
+
+The entity ids beside them are *not* interchangeable with them and are cruelly
+easy to confuse: for one real session the `session_id` was
+`01M0JAMZTJQ4W489FNDCREMYB7` and its `session.open` was
+`01M0JAMZTJQ4W489FNDCREMYB8`. `run_open_event_id` is `null` only if the run
+folded without its opening event, which `doctor` already reports as an orphan.
+
 ### `gamereg due [--at <time>]`
 
 Evaluates every check-in trigger against currently open sessions and returns only
@@ -370,7 +384,10 @@ arithmetic so every caller behaves identically — see [05-agent](05-agent.md).
 ] } }
 ```
 
-The row is `open`'s, plus `trigger` and `threshold`. `last_checkin_at` and
+The row is `open`'s, plus `trigger` and `threshold`, and minus the two event
+ids — a check-in question never amends a run or a session, only the
+`session.checkin` record `last_checkin_id` names, so carrying them would widen
+every wake payload for a caller that has no use for them. `last_checkin_at` and
 `last_checkin_id` name the same record, and it is the *previous* question — the
 one this evaluation was measured against, never the one about to be asked.
 `threshold` is the setting that fired, as configured: `4h` for `duration`, the
@@ -434,6 +451,12 @@ on read. See [01-model](01-model.md) for why that distinction is not pedantry.
 ### `gamereg status [<query>]`
 
 Vault summary, or one game's state.
+
+Each run in the per-game form carries `run_open_event_id`, the same field
+`open` exposes and for the same reason. `status` is the only route to it for a
+run with no open session — a run filed by `past`, which never had one and can
+sit with `platform: null` indefinitely, is corrected through an `amend` on this
+event and through nothing else.
 
 ### `gamereg query <sql>`
 

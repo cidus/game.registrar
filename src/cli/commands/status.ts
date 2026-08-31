@@ -90,6 +90,10 @@ export function registerStatus(registrar: Registrar): void {
           },
           runs: game.runs.map((run) => ({
             run_id: run.run_id,
+            // The event `amend` takes to correct this run's own fields — its
+            // platform, or the stated `hours` baseline. `run_id` is an entity
+            // id and is not accepted there. See `gamereg open`.
+            run_open_event_id: run.open_event_id,
             platform: run.platform,
             started_on: run.started_on,
             ended_on: run.ended_on,

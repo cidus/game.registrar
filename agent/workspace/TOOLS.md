@@ -1,17 +1,24 @@
 # TOOLS.md — Local Notes
 
-There is exactly one tool: `gamereg`, on `PATH`, allowlisted for exec under
+There is one tool: `gamereg`, on `PATH`, allowlisted for exec under
 `~/.openclaw/exec-approvals.json`. The allowlist matches the bare command name,
-so it covers every subcommand — `amend` and `revoke` included. Their
-confirmation is the conversational one in `SKILL.md`, not an approval prompt;
-see `agent/README.md` for why that trade was made.
+so it covers every subcommand — `amend` and `revoke` included, whose
+confirmation is the conversational one in `AGENTS.md`, not an approval prompt.
+
+The gateway's own tool surface is cut to `exec`, `message` and `read` by
+`tools.allow` (`agent/openclaw.example.json5`). Nothing else is reachable, so
+nothing else needs describing here.
+
+Its surface is documented in `skills/gamereg/reference/cli.md`, and the SQL
+schema in `reference/query.md`. That is the cheat sheet, not this file.
+
+**This file exists to hold the slot.** Deleting it does not stick: OpenClaw
+seeds its own generic `TOOLS.md` — camera names, SSH hosts, TTS voices — into
+the workspace, and that boilerplate then sits in the system prompt on every
+turn describing capabilities this deployment does not have. Confirmed live: the
+default reappeared within an hour of being removed. A short, true file is
+cheaper than the default and cannot be mistaken for instructions.
 
 Do not write an absolute path here. This file gets copied into a deployment,
-and a path that names one host's home directory is wrong on the next one and
-silently wrong on the same one after a move.
-
-Its surface is documented in `skills/gamereg/reference/cli.md` and
-`skills/gamereg/reference/query.md` — that's the cheat sheet, not this file.
-Nothing environment-specific needs to live here yet; the vault path, source
-tag, and non-interactive flag are all set via environment, not config a
-session would need to know about.
+and a path naming one host's home directory is wrong on the next one. The vault
+path, source tag and non-interactive flag are all set via environment.

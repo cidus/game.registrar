@@ -42,6 +42,15 @@
       // invocation, or the persona: those stay on the primary model above.
       // Same auth profile as Sonnet, no separate credential needed.
       utilityModel: "anthropic/claude-haiku-4-5",
+
+      // Most turns here are one sentence mapped to one invocation — "Pausa"
+      // becomes `gamereg break start`, and no amount of deliberation improves
+      // that. The default resolved to "high" on this install, which bought
+      // latency on every trivial turn and paid for it on none. "adaptive"
+      // keeps the deliberation for the turns that have a decision in them (a
+      // candidate menu, a revoke sequence, a verdict draft) and drops it for
+      // the rest.
+      thinkingDefault: "adaptive",
     },
   },
 
@@ -189,6 +198,37 @@
   },
 
   tools: {
+    // **The single largest thing in this agent's context, and it was all
+    // waste.** OpenClaw ships 39 tools by default, and their JSON schemas
+    // measured 53,768 characters — roughly 13k tokens re-sent on every turn
+    // of every conversation, for an agent whose stated boundary is "invoke
+    // gamereg and nothing else". `cron` alone was 5,868 characters; `browser`
+    // 4,706; then `video_generate`, `image_generate`, `skill_workshop`,
+    // `sessions_*`, `memory_*`, `web_*`, `write`/`edit`/`apply_patch`, and
+    // twenty-odd more, none of which this deployment has any use for.
+    //
+    // Cost is only half of it. A tool schema outranks prose: AGENTS.md and
+    // SKILL.md both forbid reading session history and keeping notes, and
+    // the live transcripts still show `sessions_history` called seven times
+    // and `memory_search` three — the latter returning a broken-index error
+    // carrying its own instructions for the model to relay to the user.
+    // Every one of those was a boundary the prompt stated and the tool list
+    // quietly re-opened. Removing the tool is the enforcement the paragraph
+    // could not be.
+    //
+    // Three survive, and each earns it:
+    //   - `exec` runs gamereg, which is the entire job.
+    //   - `message` sends buttons, candidate covers, and check-in questions;
+    //     `action: "edit"`/`"delete"` strip an answered menu, and
+    //     `"react"`/`"sendSticker"` carry the reaction tokens.
+    //   - `read` loads the skill and its reference/ files. Denying it does
+    //     not harden anything — it breaks skill loading outright.
+    //
+    // `allow` is an absolute list that replaces the profile-derived default
+    // set, so it is the whole surface, not an addition to one. Anything added
+    // here should be argued for the way the three above are.
+    allow: ["exec", "message", "read"],
+
     // Governs whether the agent may run gamereg at all, and what happens to
     // anything not on the allowlist in approvals.example.json.
     //

@@ -18,6 +18,32 @@ Its actual jobs:
 
 That is the whole contract. Every number in every answer comes from the database.
 
+### How many commands a turn takes
+
+**One or two.** This is a property of the CLI's design, not a budget imposed on
+the model: a recording command's own result already carries what the agent
+would otherwise have gone looking for. `start` reports `also_open`, the game's
+record, and `not_found` in one call; `open` and `status` carry the event ids
+`amend` and `revoke` take; a command that returned `ok: true` has already said
+what happened.
+
+Three rules follow, and they are the same rule seen from three sides:
+
+- **Nothing is looked up before a recording command.** Not an open session, not
+  the game's history.
+- **Nothing is looked up to confirm one afterwards.** The result is the answer.
+- **A fourth call in one turn means the agent is investigating rather than
+  working**, and should say what it found instead of looking for more.
+
+The cost of getting this wrong is not only latency. The impulse to check
+something first is what produces an invented, chained invocation
+(`gamereg query --sql "..." 2>&1 || gamereg --help`), and a compound shell
+string is a different, unlisted command that the exec allowlist denies —
+observed live, twice, from exactly this impulse. It is also what turns one
+contradiction into a cascade: a check-in wake naming a session the register did
+not have produced twenty-five commands, none of which could make the wake's
+facts true.
+
 ## Gateway
 
 OpenClaw is the reference deployment: self-hosted, multi-channel, handles voice
@@ -357,6 +383,26 @@ The morning slot is also the natural place for anything else periodic later
 (yesterday's total, a streak). Out of scope for now; the point is that `chase_at`
 is a *delivery slot*, not a single feature.
 
+#### When the wake's facts are already stale
+
+The array the agent is woken with is a snapshot taken by `gamereg due` at poll
+time, in a different process, against a vault the agent shares with a human who
+may have used the CLI directly since. It can therefore name a session that is
+no longer open, or was revoked outright.
+
+**The agent says so in one line and stops.** It does not investigate, does not
+go to `query`, and does not act on the nearest open session instead. This is a
+consequence of the priority in *Boundary* above — the facts are the facts, and
+a check-in is the one message sent without having run anything — extended to
+its only failure mode: when the facts turn out to be false, there is nothing to
+verify them *against* that would make the question answerable, so the only
+correct move is to say the check-in refers to something no longer open.
+
+Observed live: a wake naming a game with no session anywhere in the log
+produced a `break start` on a *different* game, ten diagnostic queries, and a
+break that had to be revoked. Twenty-five commands, every one of them after the
+first contradiction.
+
 #### Chasing vs noticing
 
 `day_cutoff` is **chasing missing data** — it wants a closing time it does not
@@ -649,7 +695,12 @@ The agent has shell access and a public-facing channel.
 
 - Allowlist the sender. Non-negotiable on any channel.
 - The agent may invoke `gamereg` and nothing else. No arbitrary shell.
-- `--dry-run` on anything the agent is unsure about; show the user the diff.
+- `--dry-run` on `past` and `import` — bulk, unobvious, awkward to unpick —
+  and show the user the plan. Not on the rest: `start`, `end`, `break`,
+  `finish`, `attach` and `verdict` are each one `revoke` from undone, and a
+  standing "dry-run anything you are unsure of" doubles every uncertain call
+  for a rehearsal of something already reversible. One such rehearsal died on
+  an approval timeout and cost the user a turn.
 - Never expose `amend` / `revoke` without an explicit user instruction naming the
   event.
 - Log every invocation with its arguments. When something looks wrong months

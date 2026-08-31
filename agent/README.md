@@ -8,14 +8,91 @@ implementation of it, for [OpenClaw](https://openclaw.ai) — the reference
 gateway named in the spec, though any gateway that can shell out works.
 
 ```
+workspace/
+  AGENTS.md             the operating card: in context on every turn
+  SOUL.md               the persona
+  IDENTITY.md           name, creature, vibe
+  REACTIONS.md          the per-installation token mapping
+  TOOLS.md              holds the slot; OpenClaw reseeds its own if deleted
 skills/gamereg/
-  SKILL.md              the agent prompt
+  SKILL.md              a router; the standing orders are in AGENTS.md
   reference/cli.md      the CLI surface, kept honest by test/agent-skill.test.ts
   reference/query.md    how to answer questions in SQL
-openclaw.example.json5  channel, allowlist, voice transcription
+  reference/media.md    candidate menus, photos, covers, reactions
+  reference/corrections.md  amend, revoke, and undoing a mistake
+  reference/checkins.md the check-in wake and its three exits
+openclaw.example.json5  channel, tool allowlist, voice transcription
 approvals.example.json  which commands the agent may run unattended
 checkin.sh              the hourly check-in poll, run by cron on the gateway host
 ```
+
+## Where the prompt lives, and why it is split this way
+
+**Read this before looking for a rule.** `SKILL.md` used to be the whole
+procedure — 56KB of it — and most of this file's older sections still point at
+it by name. Those pointers are historically accurate and mechanically stale:
+the rules did not change, but most of them moved.
+
+The split follows one fact about the gateway: **`workspace/*.md` is compiled
+into the system prompt on every turn and cached there; a skill body is a `read`
+tool call the model pays for, mid-turn, once per session.** The original layout
+had that backwards — the persona was always resident and the operating
+procedure was bought again every session, 14k tokens at a time, sometimes twice
+in one conversation (38 such reads across the archived transcripts).
+
+So:
+
+| Where | What is in it | Cost |
+|---|---|---|
+| `workspace/AGENTS.md` | boundary, JSON contract, call budget, the common path, buttons, safety | always in context |
+| `workspace/SOUL.md` | voice, the register's vocabulary | always in context |
+| `skills/gamereg/SKILL.md` | a routing table and nothing else | one small read |
+| `skills/gamereg/reference/*.md` | one file per rare flow | read only when that flow happens |
+
+A session that opens, pauses, resumes, finishes and files a verdict now reads
+no file at all. A correction or a check-in reads exactly the one file that
+covers it.
+
+**`workspace/TOOLS.md` cannot be deleted, and that is worth knowing before you
+try.** It was removed in this pass — `tools.allow` now guarantees structurally
+what its one paragraph asserted — and **OpenClaw seeded its own default back
+within the hour**: a generic page about camera names, SSH hosts and preferred
+TTS voices, ending in a link to `/concepts/agent-workspace`. That default then
+sits in the system prompt on every turn, describing capabilities this
+deployment does not have, which is worse than the file it replaced.
+
+So the file is back, shortened, and its own header says why. Treat the slot as
+occupied by something: the choice is not "our file or nothing", it is "our file
+or OpenClaw's". The agent did not write it — with `tools.allow` in force it has
+no `write` tool at all — so do not go looking for a prompt bug when it
+reappears.
+
+## The tool surface is part of the prompt, and it was the biggest part
+
+Measured on this install, from `~/.openclaw/agents/main/sessions/*.trajectory.jsonl`:
+OpenClaw exposed **39 tools** whose JSON schemas came to 53,768 characters —
+about 13k tokens re-sent every turn — against a system prompt of 45,615
+characters. `cron` alone was 5,868 characters and `browser` 4,706. This agent
+uses three: `exec`, `message`, `read`.
+
+That is not only cost. **A tool schema outranks a paragraph.** Both `AGENTS.md`
+and `SKILL.md` forbid reading session history or keeping notes, and the
+transcripts still show `sessions_history` called seven times and
+`memory_search` three — the latter returning a broken-index error carrying its
+own instructions for the model to relay to the user. Every one of those was a
+boundary the prompt stated and the tool list quietly reopened.
+
+`tools.allow: ["exec", "message", "read"]` closes it by construction. See
+`openclaw.example.json5` for why each of the three survives. **The gateway must
+be restarted for it to take effect** — there is no config-reload path:
+
+```bash
+systemctl --user restart openclaw-gateway
+```
+
+`agents.defaults.thinkingDefault` moved from `high` to `adaptive` in the same
+pass. Most turns here map one sentence to one invocation; deliberation on
+"Pausa" bought latency and nothing else.
 
 ## What the agent is allowed to be
 
@@ -418,6 +495,65 @@ why the skill now names it and overrules it explicitly rather than merely
 showing the right shape. When it is off,
 the gateway injects the opposite, naming the setting to turn on — which is why
 an agent that cannot show buttons has no excuse for pretending it can.
+
+**The presentation is a fragment, and the model will invent a wrapper for
+it.** Seen live, after the prompt was split into a hot card plus branch files:
+`AGENTS.md` showed the `{"blocks":[...]}` object on its own, correctly, and the
+agent worked out for itself that it needed a `message` send around it —
+then, having written its real question as ordinary narration, filled the send's
+`message` field with the literal string `"placeholder"` and answered
+`NO_REPLY`. The buttons rendered perfectly under the word *placeholder*, and
+the question itself reached nobody.
+
+Nothing in the schema forces that: only `action` is required, so `message` was
+optional and got filled with something rather than left out. The fix is that
+the example in `AGENTS.md` is now a whole `{"action":"send","message":...,
+"presentation":...}` call, with a real sentence in `message`, and
+`test/agent-skill.test.ts` asserts it stays one. **A fragment teaches a
+fragment** — worth remembering for anything else in that file that shows a
+payload.
+
+**The agent guesses a schema name whenever the reference stops short, and it
+guesses plausibly enough to cost a turn each time.** Two instances, one release
+apart, same class:
+
+| Written | Result | Why |
+|---|---|---|
+| `FROM v_sessions` | `no such table` | `query.md` listed the four views and no tables, so a table with no view got a made-up name adjacent to `v_sessions_by_day` |
+| `SUM(minutes)` over `v_sessions_by_day` | `no such column` | the tables were then listed and the *views* still were not; the view is pre-aggregated and carries `hours` |
+
+The second is the one worth the lesson: the first fix closed the gap for
+tables and left it open for views, so the same failure recurred one step over.
+`reference/query.md` now carries the columns of both, plus a warning that three
+of the four views are already grouped — `COUNT(*)` over `v_sessions_by_day`
+counts *days*, which is the variant that returns a plausible number instead of
+an error. `test/agent-skill.test.ts` applies `SCHEMA_SQL` to an in-memory
+database and compares against `pragma_table_info`.
+
+**`edit` is not a patch, and the shape written down for it had never worked.**
+Stripping an answered button was documented as
+`message({action:"edit", to, messageId, buttons:[]})` — wrong in three ways at
+once, and the archive shows four consecutive failures on one message (id 603)
+before the agent brute-forced its way to a working call:
+
+| Attempt | Result |
+|---|---|
+| `messageId` + `presentation` | `ToolInputError: to required` |
+| `+ channel: "telegram"` | `ToolInputError: to required` |
+| `+ target` | `Error: content required.` |
+| `+ message` (the original text again) | `{ok: true, messageId: "603"}` |
+
+So: `target` **is** required on `edit`, unlike on a `send` (17 sends with no
+target in the archive, none refused); `message` is required and must be the
+original text *verbatim*, because an edit re-sends the whole message rather
+than patching it; and the empty buttons belong inside `presentation`, since
+there is no top-level `buttons` argument — one written there is dropped without
+a word, exactly as the schema mismatch above predicts.
+
+The practical consequence is a thing to *keep*: the agent needs the sentence it
+sent, not only the `messageId`. `AGENTS.md` now carries the whole verified call
+and `test/agent-skill.test.ts` asserts it keeps all four fields and never
+reintroduces `to` or a top-level `buttons`.
 
 Two details worth having in writing:
 
