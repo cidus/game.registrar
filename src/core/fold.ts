@@ -686,7 +686,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         break
       }
 
-      // Reserved for phase 4 (board games); folded by a later version.
+      // Reserved for board games; folded by a later version.
       case 'person.create':
       case 'play.record':
         break

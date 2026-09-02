@@ -148,7 +148,7 @@ with its aside allowance rewritten as positive triggers. `agent/README.md`'s
 *Where the prompt lives* and *The tool surface is part of the prompt* carry the
 numbers and the restart step.
 
-`npm test` is 528 tests, all green (`node --test`, no framework, no network).
+`npm test` is 532 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -194,6 +194,15 @@ most of the fixes below came from reading one.
 
 Each of these cost real time to find. The reasoning, not just the rule:
 
+- **Nothing outside `06-roadmap.md` cites a roadmap phase by number.** Phase
+  numbers are the one label in this project designed to move — reordering them
+  is a product decision, not a rename — so a citation of one rots the moment
+  the decision is taken. Found by moving distribution ahead of board games:
+  `src/core/fold.ts`, `01-model.md` and `PERSONAS.md` all said "phase 4" about
+  board games and all became wrong in the same commit. Say what the work *is*
+  ("reserved for board games"); the roadmap owns where it sits. Same shape as
+  the invariant numbering above, one layer up: a number is only safe to cite
+  when something guarantees it will not be renumbered.
 - **`amend`/`revoke` are not behind a platform approval gate.** Live testing
   found the approval UI unreliable (including the agent fabricating an approval
   id when the tool gave it none); confirmation moved into `SKILL.md` as a
@@ -293,7 +302,7 @@ Each of these cost real time to find. The reasoning, not just the rule:
   nowhere to write — two targets planning one path is a hard error
   (`error.target_conflict`), so `site/` could never have been shared. Renamed
   before anything was implemented on purpose: `06-roadmap.md` says target names
-  are free to move until phase 5 and are a migration owed to a stranger after it.
+  are free to move until phase 4 and are a migration owed to a stranger after it.
 - **`quartz` generates from folded state; it is not a second pass.** An earlier
   draft of `07-targets.md` had it running Quartz over the finished vault, which
   made it "the one target that reads what the others wrote" and put invariant 8
@@ -396,7 +405,7 @@ Each of these cost real time to find. The reasoning, not just the rule:
   second cron job.** A command job's output cannot trigger an agent turn, so the
   wrapper has to raise it. The one-shot `cron add --at +0s --message` written
   down as the candidate does work, but it refuses to deliver without an explicit
-  `--channel`/`--to`, which would put a Telegram chat id inside the file phase 5
+  `--channel`/`--to`, which would put a Telegram chat id inside the file phase 4
   is supposed to generate. `openclaw agent --agent <id> --message-file <f>
   --deliver` runs in that agent's main session and delivers over its own
   channel, so the question lands in the same conversation the answer will arrive
@@ -613,8 +622,9 @@ Each of these cost real time to find. The reasoning, not just the rule:
 
 - **Gaby has no `SOUL.md`.** She is drafted only inside Veronika's
   (`agent/workspace/SOUL.md`) — a name, a closed tabletop counter, and a
-  relationship — so that phase 4's second agent inherits a settled character
-  instead of inventing one late. Her own persona files land with phase 4, and
+  relationship — so that the board-game agent inherits a settled character
+  instead of inventing one late. Her own persona files land with board games,
+  which is now after 1.0 rather than before it, and
   the two personas have to agree: she is Veronika's inverse, warm and
   physically clumsy but *immaculate in the register*, and she calls Veronika
   "V". Until then her counter stays closed, which is deliberate — the fiction
@@ -623,7 +633,7 @@ Each of these cost real time to find. The reasoning, not just the rule:
   her text will have to agree with, and which details are canon rather than
   set dressing.
 
-- **Packaging and first-run setup are phase 5, deliberately last.** The shape
+- **Packaging and first-run setup are phase 4, deliberately last.** The shape
   was settled early so the phases before it do not paint it into a corner: a
   generator collects secrets and connectivity and emits declarative
   configuration, the image pins CLI, gateway, skill and persona together, and
@@ -645,26 +655,26 @@ Each of these cost real time to find. The reasoning, not just the rule:
   is the user's business, and phase 3 ships no GitHub Actions workflow even
   though `06-roadmap.md` lists one. Two reasons to leave it open rather than
   guess: the roadmap bullet is satisfied by documenting a workflow as much as by
-  shipping one, and "how this thing runs on a host" is exactly what phase 5
+  shipping one, and "how this thing runs on a host" is exactly what phase 4
   decides for everything else — the container image, the config generator, the
   cron wrapper below. Deciding it twice, in two phases, is how the two answers
   end up disagreeing. Nothing is stranded by waiting: `quartz/content/` is
   committed, so whoever writes the workflow later needs Quartz and nothing else.
-  Shipping Quartz in the phase-5 image is the other half of the same question.
+  Shipping Quartz in the phase-4 image is the other half of the same question.
   `scripts/vendor-quartz.sh` exists as *a* manual path that has been run
   against a real vault and a real Cloudflare Workers deploy — it is not the
-  phase-5 answer, just a documented recipe for anyone who wants a working
-  site before phase 5 decides packaging for everything at once.
+  phase-4 answer, just a documented recipe for anyone who wants a working
+  site before phase 4 decides packaging for everything at once.
 
-- **`agent/checkin.sh` is a file phase 5 will have to place, and a cron job it
+- **`agent/checkin.sh` is a file phase 4 will have to place, and a cron job it
   will have to register.** The wrapper itself is written and tested; what is not
   solved is deployment. It is the gateway's file, not the agent's, so
   `agent/workspace/AGENTS.md`'s boundary is intact — the agent still executes one
-  allowlisted binary and still writes no file itself. But the phase-5 generator
+  allowlisted binary and still writes no file itself. But the phase-4 generator
   has to copy it somewhere stable and then run `openclaw cron add`, and that
   second half has no declarative form: OpenClaw's config schema carries no
   `cron.jobs` array, so the job store is only reachable through the CLI. Whatever
-  phase 5 decides about the compose file and the environment has to answer this
+  phase 4 decides about the compose file and the environment has to answer this
   too.
 
 - **Astro is a possible second generator, and it would be fed data rather than
@@ -706,7 +716,7 @@ Each of these cost real time to find. The reasoning, not just the rule:
   than design around: a stale `dist/` means the live agent is running old code
   while the repository looks current (`agent/README.md` opens with this trap for
   a reason), and a build mid-session can change behaviour under a conversation
-  already in progress. Revisit only in phase 5, where an image pins CLI, gateway,
+  already in progress. Revisit only in phase 4, where an image pins CLI, gateway,
   skill and persona together and this stops being one person's machine.
 
 - **What is always in context and what is read on demand is a deployment fact,
@@ -971,9 +981,16 @@ into `obsidian/assets`.
 ## Versioning
 
 SemVer tied to the roadmap phases, not to feature-by-feature bumps: `0.0.0` was
-phase 0, `0.1.0` phase 1, `0.2.0` phase 2. `1.0.0` lands only when every phase in
-`06-roadmap.md` is done. A patch (`0.x.1`) is a bug fix within an already-tagged
-phase.
+phase 0, `0.1.0` phase 1, `0.2.0` phase 2, and phase 3 is `0.3.0`. A patch
+(`0.x.1`) is a bug fix within an already-tagged phase.
+
+**Phase 4 is the last numbered phase, so it ships as `1.0.0`, not `0.4.0`** —
+its development window is `1.0.0-dev`. That is not a flourish: phase 4 is the
+one that makes the tool installable by a stranger, and `1.0.0` is what tells a
+stranger the contracts are safe to depend on. The two statements are the same
+statement, so they get the same number. Board games sits under *After 1.0* in
+`06-roadmap.md` and lands as `1.1.0`; it was moved out of the numbered sequence
+precisely so it could not hold the release hostage.
 
 **A phase under development carries a `-dev` suffix** (`0.3.0-dev`), the SemVer
 prerelease identifier — dropped only in the commit that gets tagged. Phase 2

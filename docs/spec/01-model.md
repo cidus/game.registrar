@@ -8,7 +8,7 @@
 | `run` | `run_id` (ULID) | One playthrough of a game, start to end. One generated note in `runs/`. |
 | `session` | `session_id` (ULID) | One sitting inside a run. |
 | `break` | `break_id` (ULID) | A pause inside a session. |
-| `person` | `person_id` (ULID) | A player. Reserved for phase 4 (board games). |
+| `person` | `person_id` (ULID) | A player. Reserved for board games. |
 
 A game has N runs. A run has N sessions. A session has N breaks.
 
@@ -203,7 +203,7 @@ timeline; the cover is a separate assertion about the same bytes.
 
 There is no delete. Ever.
 
-### Reserved — phase 4, board games
+### Reserved — board games
 
 | Type | Payload |
 |---|---|

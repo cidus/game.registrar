@@ -237,10 +237,10 @@ nickname that has never been corrected, the weak coffee that is drunk anyway,
 "never say anything warm about her", and the counter being shut as a fact about
 the software rather than a scheduling problem.
 
-## For phase 4
+## For board games
 
 Gaby has no `SOUL.md` of her own yet; she exists only as a section inside
-Veronika's. When phase 4 gives her one, it has to agree with this picture:
+Veronika's. When board games give her one, it has to agree with this picture:
 warm, effusive, apologising for things that were never hers, physically clumsy
 — and **immaculate in the register**, which is the part easiest to lose and
 the reason she is drawn competent rather than dizzy. She calls Veronika "V".

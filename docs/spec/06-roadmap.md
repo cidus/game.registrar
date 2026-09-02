@@ -76,17 +76,13 @@ someone who does not own the vault can read. One sentence, and it exercises all
 four bullets — the backoff ladder, the delivery slot, the site, and the fact that
 a correction propagates.
 
-## Phase 4 — Board games
+That page may be published by hand: `scripts/vendor-quartz.sh` is a recipe that
+has been run against a real Quartz checkout and a real deploy, and following it
+closes this criterion. What the phase below adds is not the page, it is that
+somebody who does not have the recipe can get one — so this phase does not
+depend on the next one existing, only on a person willing to follow steps.
 
-- `person` and `play.record` events
-- BoardGameGeek provider (XML API v2), or the existing BGG MCP for the agent
-- Play-centric notes: players, scores, winner, duration
-- Per-person statistics
-
-The model already accommodates this (D6). If phase 4 requires a schema migration,
-something went wrong earlier.
-
-## Phase 5 — Someone else's machine
+## Phase 4 — Someone else's machine
 
 **Goal:** the tool installs, configures itself and runs on a machine its author
 has never touched.
@@ -101,6 +97,11 @@ has never touched.
   D9 in [00-architecture](00-architecture.md)
 - First-run configuration as a conversation: a second skill with its own binary,
   which leaves the PATH and the exec allowlist once setup is done
+- A home for the two things a host currently supplies and a container does not:
+  the check-in cron job, whose store `openclaw cron add` reaches only through
+  the CLI, and the maintenance timer, which is a systemd unit today
+- The git identity and push credential the vault's own automation needs, which
+  a single-user host has by accident and an installed instance does not
 
 Last for a reason that is not effort. Publishing is a one-way door — a tag can be
 unpublished, a vault on someone else's disk cannot. While config keys,
@@ -115,6 +116,22 @@ accounts is still not.
 **Exit criterion:** someone who has never seen this repository installs it and
 records a session — without cloning anything, and without being told anything
 that is not in the generated README.
+
+## After 1.0
+
+### Board games
+
+- `person` and `play.record` events
+- BoardGameGeek provider (XML API v2), or the existing BGG MCP for the agent
+- Play-centric notes: players, scores, winner, duration
+- Per-person statistics
+
+The model already accommodates this (D6); a schema migration here means
+something went wrong earlier. That is exactly why it moved out of the numbered
+sequence rather than merely swapping places with the phase above it. Work that
+is additive by design is the safe thing to ship *after* contracts freeze, and
+holding `1.0.0` — the version a stranger can install — hostage to a second
+category of game would misprice the release.
 
 ## Explicitly deferred
 

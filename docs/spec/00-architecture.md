@@ -178,7 +178,7 @@ looks like an exception and is not: `obsidian/` is derived and committed too, fo
 the same reason. Committed derived Markdown is what lets something with no
 gamereg installed — a CI runner, most obviously — turn the vault into a site with
 nothing but Quartz. It also keeps the phases honest: publishing the package is
-phase 5, so a phase-3 site that needed gamereg in CI would depend on a later
+phase 4, so a phase-3 site that needed gamereg in CI would depend on a later
 phase. Whatever directory Quartz then writes is Quartz's, gitignored, and not the
 build's to track or clean.
 
@@ -200,6 +200,7 @@ diary alongside the code, or you never publish the code.
 | Dates | `luxon` — timezone handling and date arithmetic must be trustworthy |
 | Tests | `node:test` + golden files |
 | Site | Quartz (phase 3) |
+| Deployment | Docker Compose (phase 4) |
 
 ## Invariants
 
