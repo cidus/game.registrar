@@ -47,6 +47,12 @@ mkdir -p vault config/ssh
 docker compose up -d
 ```
 
+**Use a second bot for the first run if a deployment already exists.** Telegram
+long-polling does not share: two gateways holding the same token fight over
+every update, each getting some fraction of the messages, and the symptom is a
+Registrar that answers intermittently rather than one that fails. Either stop
+the old gateway first, or ask @BotFather for a throwaway bot.
+
 `TELEGRAM_ALLOW_FROM` is the numeric chat id and the entrypoint refuses to
 start without it. Unset, OpenClaw's `dmPolicy` defaults to `pairing`, which
 puts anyone who finds the bot one step from an agent that has a shell.
@@ -77,7 +83,13 @@ image upgrade and a first run all take the same path:
    code, so pulling a new image redeploys it. The `workspace/*.md` persona
    files are **seeded once** and never overwritten, because they become yours
    the moment you edit them.
-5. **Gateway config.** The shipped example is seeded once; the values that
+5. **Model auth.** `openclaw onboard --non-interactive`, once, when
+   `OPENCLAW_AUTH_KEY` is set. Nothing refuses to boot without it — the
+   gateway starts, the channel connects, and the agent never answers, which
+   looks like a prompt problem and is not. It runs before the agent files are
+   deployed, because onboard would otherwise seed OpenClaw's own default
+   workspace files and step 4 does not replace a file that already exists.
+6. **Gateway config.** The shipped example is seeded once; the values that
    belong to this installation — bot token, allowlist, approvers — are patched
    from the environment on every boot, so changing `.env` and restarting moves
    them.

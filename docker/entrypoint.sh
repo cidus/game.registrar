@@ -160,6 +160,52 @@ deploy_agent_files() {
   done
 }
 
+# --- 4b. the model credential ------------------------------------------------
+#
+# The gap that is invisible until the first message: a gateway with a channel,
+# a skill and a vault, and no model behind it. It starts cleanly and answers
+# nothing.
+#
+# This does not go through `config patch` -- model auth is `openclaw onboard`'s
+# business, and onboard is the only command that knows how to write the
+# credential store. `--non-interactive` requires `--accept-risk`, and the
+# skips matter: the daemon is this container, the channel is configured by the
+# patch below, and `--skip-bootstrap` keeps OpenClaw from seeding its own
+# default workspace files ahead of ours -- an existing file is one the deploy
+# step above will not replace, so a default AGENTS.md written here would win
+# permanently.
+#
+# Run once, guarded by the credential store's own presence. Re-running onboard
+# against a configured install is not a no-op.
+
+configure_model_auth() {
+  if [ -f "$STATE_DIR/.gamereg-auth-seeded" ]; then
+    return 0
+  fi
+
+  if [ -z "${OPENCLAW_AUTH_KEY:-}" ]; then
+    log "no OPENCLAW_AUTH_KEY set: the gateway will start, the agent will not answer."
+    log "provision it once with: docker compose exec gateway openclaw onboard"
+    return 0
+  fi
+
+  case "${OPENCLAW_AUTH_CHOICE:-apiKey}" in
+    apiKey|anthropic*) key_flag=--anthropic-api-key ;;
+    openrouter*)       key_flag=--openrouter-api-key ;;
+    *)                 key_flag=--custom-api-key ;;
+  esac
+
+  log "provisioning model auth (${OPENCLAW_AUTH_CHOICE:-apiKey})"
+  run "$OPENCLAW" onboard --non-interactive --accept-risk \
+      --flow manual --skip-channels --skip-daemon --no-install-daemon \
+      --skip-bootstrap \
+      --auth-choice "${OPENCLAW_AUTH_CHOICE:-apiKey}" \
+      "$key_flag" "$OPENCLAW_AUTH_KEY" \
+      || die "openclaw onboard failed -- run it by hand with 'docker compose exec gateway openclaw onboard'"
+
+  run touch "$STATE_DIR/.gamereg-auth-seeded"
+}
+
 # --- 5. the gateway's own configuration --------------------------------------
 #
 # Two patches, and the order is the point. The shipped example carries the
@@ -258,6 +304,7 @@ case "$MODE" in
     preflight
     configure_git
     seed_vault
+    configure_model_auth
     deploy_agent_files
     configure_gateway
     [ "$DRY_RUN" = yes ] && { log "dry run complete, not starting the gateway"; exit 0; }
