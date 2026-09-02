@@ -148,7 +148,7 @@ with its aside allowance rewritten as positive triggers. `agent/README.md`'s
 *Where the prompt lives* and *The tool surface is part of the prompt* carry the
 numbers and the restart step.
 
-`npm test` is 552 tests, all green (`node --test`, no framework, no network).
+`npm test` is 553 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -177,6 +177,17 @@ is about to exec — it moved to a one-shot `provision` service gated on
 `openclaw gateway health`. And `OPENCLAW_STATE_DIR`/`OPENCLAW_CONFIG_PATH`
 exist, which is what lets one mounted directory hold config, workspace, exec
 allowlist, cron store and transcripts.
+
+Two optional profiles ship alongside, both off by default: `site` (a Quartz
+build loop plus Caddy) and `comments` (Remark42 behind a Cloudflare tunnel).
+Neither should run on the e2-micro, and a test asserts the default profile set
+stays exactly the three core services — the numbers that make the site profile
+a bad idea there are invisible in a diff, and dropping a `profiles:` key reads
+as tidying. The site loop watches the vault's git HEAD rather than mtimes,
+because `build` rewrites derived artifacts wholesale and mtimes therefore say
+nothing; and it watches rather than being triggered, because triggering would
+mean the Docker socket in a container sharing a machine with a model that has
+a shell.
 
 `test/entrypoint-wrapper.test.ts` and `test/loop-wrapper.test.ts` follow
 `checkin-wrapper` and `autobuild-wrapper`: real `gamereg`, stubbed `openclaw`,

@@ -26,6 +26,8 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { parse } from 'yaml'
+
 import { tempDir } from './helpers.ts'
 
 const ROOT = join(import.meta.dirname, '..')
@@ -346,6 +348,7 @@ test('the real defaults tree is the one the Dockerfile copies', () => {
     join(ROOT, 'agent', 'checkin.sh'),
     join(ROOT, 'scripts', 'autobuild.sh'),
     join(ROOT, 'docker', 'loop.sh'),
+    join(ROOT, 'docker', 'site-loop.sh'),
   ]) {
     assert.ok(existsSync(path), `${path} is referenced by the Dockerfile and must exist`)
   }
@@ -358,4 +361,25 @@ test('the real defaults tree is the one the Dockerfile copies', () => {
     !/^\s*-\s*\/var\/run\/docker\.sock/m.test(compose),
     'no service mounts the Docker socket: the gateway runs a model with shell access',
   )
+})
+
+test('a bare `compose up` starts the register and nothing that would exhaust a 1 GB machine', () => {
+  // The reason this is worth a test rather than a comment: the numbers that
+  // make the site profile a bad idea here -- a Quartz build's 400-700 MB peak
+  // against a gateway already holding 250-400, and 1 GB of monthly egress
+  // against a vault of cover art -- are invisible in a diff. Dropping a
+  // `profiles:` key reads as tidying and takes the gateway down with the OOM
+  // killer on the next content change.
+  const compose = parse(readFileSync(join(ROOT, 'compose.yml'), 'utf8')) as {
+    services: Record<string, { profiles?: string[] }>
+  }
+
+  const byProfile = (name: string | null) =>
+    Object.keys(compose.services)
+      .filter((s) => (name === null ? !compose.services[s]?.profiles : compose.services[s]?.profiles?.includes(name)))
+      .sort()
+
+  assert.deepEqual(byProfile(null), ['gateway', 'maintenance', 'provision'])
+  assert.deepEqual(byProfile('site'), ['site-build', 'site-serve'])
+  assert.deepEqual(byProfile('comments'), ['remark42', 'tunnel'])
 })

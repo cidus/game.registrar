@@ -87,5 +87,90 @@ services:
       - ${GAMEREG_SSH_PATH:-./config/ssh}:/config/ssh:ro
     mem_limit: ${MAINTENANCE_MEM_LIMIT:-256m}
 
+  # --- profile: site ---------------------------------------------------------
+  #
+  # Off by default, and it should stay off on a 1 GB machine: a Quartz build
+  # peaks at 400-700 MB against a gateway already holding 250-400, and this
+  # machine's monthly egress is smaller than a few crawls of a vault's cover
+  # art. The default topology builds the site from the repository the
+  # maintenance loop already pushes, which costs this machine nothing.
+  #
+  # It is built anyway because an installation with no external account still
+  # needs a page, and because the shape -- something builds, something static
+  # serves -- is the one a future Astro target reuses unchanged.
+  site-build:
+    image: node:22-bookworm-slim
+    container_name: gamereg-site-build
+    profiles: [site]
+    restart: unless-stopped
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    env_file: [.env]
+    command: ["/usr/local/bin/gamereg-site-loop"]
+    volumes:
+      - ${GAMEREG_VAULT_PATH:-./vault}:/vault
+      - ./docker/site-loop.sh:/usr/local/bin/gamereg-site-loop:ro
+      - site:/site
+    mem_limit: ${SITE_BUILD_MEM_LIMIT:-768m}
+
+  site-serve:
+    image: caddy:2-alpine
+    container_name: gamereg-site-serve
+    profiles: [site]
+    restart: unless-stopped
+    command: ["caddy", "file-server", "--root", "/site", "--listen", ":8080"]
+    volumes:
+      - site:/site:ro
+    ports:
+      - "${SITE_PORT:-8080}:8080"
+    mem_limit: 64m
+
+  # --- profile: comments -----------------------------------------------------
+  #
+  # Remark42 is the one piece here with a genuinely ready upstream image: a Go
+  # binary with an embedded BoltDB, so no database service and roughly 30 MB
+  # resident. That is affordable on this machine in a way a Quartz build is not.
+  #
+  # It has to be reachable by a browser, and the site it comments on is served
+  # from somewhere else entirely. A tunnel is what makes that work without
+  # opening a port on a box whose gateway runs a model with a shell, without a
+  # static address, and without certificate management.
+  remark42:
+    image: ghcr.io/umputun/remark42:latest
+    container_name: gamereg-remark42
+    profiles: [comments]
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      # The public address the browser will reach, which is the tunnel's
+      # hostname and not this container's.
+      REMARK_URL: ${REMARK_URL:?set REMARK_URL to the tunnel hostname}
+      SECRET: ${REMARK_SECRET:?set REMARK_SECRET to a long random string}
+      SITE: ${REMARK_SITE:-gamereg}
+      # A register of one person's playthroughs does not need a moderation
+      # team; it needs the owner to be the admin and nobody else.
+      ADMIN_SHARED_ID: ${REMARK_ADMIN_ID:-}
+      EMOJI: "true"
+    volumes:
+      - remark42:/srv/var
+    mem_limit: 96m
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: gamereg-tunnel
+    profiles: [comments]
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN}"]
+    depends_on: [remark42]
+    mem_limit: 64m
+
+volumes:
+  # The built site only. Not the vault, which is a bind mount because it is a
+  # git repository somebody pushes and may want to open in Obsidian.
+  site:
+  remark42:
+
 # Deliberately absent: any mount of /var/run/docker.sock. The gateway runs a
-# language model with shell access, and that socket is root on the host.
+# language model with shell access, and that socket is root on the host. It is
+# also why the site profile watches the vault's git HEAD itself rather than
+# having the maintenance loop trigger a build through Docker.

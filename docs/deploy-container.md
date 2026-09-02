@@ -118,8 +118,46 @@ The `site` profile exists for installations that do not want an external
 account, and for proving the shape works. It is not a good idea on 1 GB:
 
 ```bash
+scripts/vendor-quartz.sh --clone --tag v5.0.0   # once, on the host
 docker compose --profile site up -d
 ```
+
+`gamereg build quartz` writes Quartz's *input*; the framework itself is
+vendored separately by `scripts/vendor-quartz.sh`, which clones a third-party
+repository and is therefore a deliberate step rather than something a boot does
+on your behalf. The build container refuses to start without it rather than
+half-working.
+
+It watches the vault's git HEAD, not the filesystem. `gamereg build` rewrites
+derived artifacts wholesale on every run, so mtimes move constantly and say
+nothing about whether anything changed; a commit means the maintenance loop
+found a real difference. A failed build leaves the previous site in place — a
+stale page beats a blank one — and does not advance the stamp, so the next tick
+retries.
+
+There is no upstream image for this. Quartz's own Dockerfile runs
+`npx quartz build --serve`, a development server with no `EXPOSE`, and
+`ghcr.io/jackyzha0/quartz:hugo` is the abandoned v3 line.
+
+## Comments
+
+```bash
+docker compose --profile comments up -d
+```
+
+[Remark42](https://remark42.com) is a Go binary with an embedded BoltDB — no
+database service, ~30 MB resident — which is affordable here in a way a site
+build is not.
+
+It has to be reachable by a browser, while the page it comments on is served
+from somewhere else. A Cloudflare tunnel is what makes that work **without
+opening a port** on a machine whose gateway runs a language model with a shell,
+without a static address, and with no certificate to renew. Set
+`CLOUDFLARE_TUNNEL_TOKEN` from the dashboard and point `REMARK_URL` at the
+tunnel's hostname.
+
+`REMARK_SECRET` signs the JWTs. Generate it with `openssl rand -hex 32` and
+treat it as a secret — it lives in `.env`, which is gitignored.
 
 ## What is deliberately not here
 
