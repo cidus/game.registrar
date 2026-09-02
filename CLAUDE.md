@@ -223,6 +223,20 @@ Node process: 0.4s here, minutes there, which is longer than the 30s interval
 question `provision` asks. **A health check that costs more than its interval
 is an outage generator**, and nothing short of a slow machine surfaces it.
 
+**Two more came from the first live conversation and the first served page.**
+The agent answered like a stock assistant, with no error anywhere: the seeded
+config names `~/.openclaw/workspace`, which is right on a host and resolves
+beside the state directory rather than into it in the container, so the
+persona and the skill were simply not found. Nothing logs that. And a Claude
+Code OAuth token turns out not to be portable — the credential lives in a
+per-agent SQLite auth store, so a token copied from a working host fails with
+"your saved login looks expired"; OpenRouter is now a first-class primary,
+which is what the fallback had silently been doing anyway. Then serving the
+site found that `caddy file-server` alone 404s every internal link (Quartz
+emits `stats.html` and links to `/stats`), and that the obvious `try_files`
+order is still wrong, because Quartz emits both `tags/gamereg.html` and a
+`tags/gamereg/` directory and the bare path matches the directory first.
+
 What the container bought beyond deployment, as argued for in advance: a
 clean-room `gamereg build` over `example-vault/`'s log, on a different libc,
 locale and install path, came out **byte-identical** to the committed goldens.

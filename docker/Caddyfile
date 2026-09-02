@@ -1,0 +1,16 @@
+# Serving a Quartz build.
+#
+# `caddy file-server` alone is not enough, and the way it fails is quiet: every
+# internal link 404s while the front page works, because Quartz emits
+# `stats.html` and links to `/stats`.
+#
+# The order below matters as much as the rule. Quartz emits *both* a
+# `tags/gamereg.html` file and a `tags/gamereg/` directory, so matching the
+# bare path first finds the directory, which has no index, and returns 404 for
+# a page that is sitting right there. The .html candidate has to come first.
+:8080 {
+	root * /site
+	try_files {path}.html {path}/index.html {path}
+	file_server
+	encode gzip
+}

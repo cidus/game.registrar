@@ -136,11 +136,13 @@ services:
     container_name: gamereg-site-serve
     profiles: [site]
     restart: unless-stopped
-    command: ["caddy", "file-server", "--root", "/site", "--listen", ":8080"]
     volumes:
       - site:/site:ro
+      # Not `caddy file-server`: see the file for why a bare one 404s every
+      # internal link while the front page works.
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
     ports:
-      - "${SITE_PORT:-8080}:8080"
+      - "${SITE_BIND:-127.0.0.1}:${SITE_PORT:-8080}:8080"
     mem_limit: 64m
 
   # --- profile: comments -----------------------------------------------------

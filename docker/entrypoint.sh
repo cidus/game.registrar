@@ -234,6 +234,10 @@ configure_model_auth() {
   # onboarding: it is consumed from the environment by an `anthropic:cli` auth
   # profile, which is two config keys. Preferred when both are present, because
   # it is the arrangement a working host already proves.
+  # Note this is *not* enough on its own for anthropic:cli in every case: the
+  # credential can live in a per-agent auth store rather than the environment,
+  # and a token copied from a working host then fails with "Your saved login
+  # looks expired". Keep a fallback configured.
   if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
     log "using the Claude Code OAuth token from the environment"
     if [ "$DRY_RUN" = yes ]; then
@@ -246,6 +250,21 @@ configure_model_auth() {
     fallbacks: ["%s"],
   } } },
 }\n' "${OPENCLAW_MODEL:-anthropic/claude-sonnet-5}" "${OPENCLAW_MODEL_FALLBACK:-openrouter/auto}" \
+        | "$OPENCLAW" config patch --stdin || die "could not configure the model"
+    fi
+    run touch "$STATE_DIR/.gamereg-auth-seeded"
+    return 0
+  fi
+
+  if [ -n "${OPENROUTER_API_KEY:-}" ] && [ -z "${OPENCLAW_AUTH_KEY:-}" ]; then
+    log "using OpenRouter as the primary model"
+    if [ "$DRY_RUN" = yes ]; then
+      log "would point the model at OpenRouter"
+    else
+      printf '{ agents: { defaults: { model: {
+  primary: "%s",
+  fallbacks: [],
+} } } }\n' "${OPENCLAW_MODEL:-openrouter/openrouter/auto}" \
         | "$OPENCLAW" config patch --stdin || die "could not configure the model"
     fi
     run touch "$STATE_DIR/.gamereg-auth-seeded"
@@ -297,6 +316,13 @@ configure_gateway() {
     run touch "$STATE_DIR/.gamereg-config-seeded"
   fi
 
+  # The workspace path in the overlay is not a detail. The shipped example
+  # names a host path under the user's home, which is right there and wrong
+  # here: the state directory is /config, so the persona and the skills are
+  # deployed to /config/workspace, while the example's path resolves beside it
+  # rather than into it. Nothing errors when it is wrong. The agent simply
+  # comes up with no persona and no skill and answers like a stock assistant --
+  # the hardest symptom here to trace back to a path.
   log "applying environment overlay"
   if [ "$DRY_RUN" = yes ]; then
     log "would patch botToken, allowFrom and execApprovals.approvers from the environment"
@@ -308,6 +334,7 @@ configure_gateway() {
   // because it was written to be patched onto a host that had already been
   // through `openclaw onboard`; in a container there is no already.
   gateway: { mode: "local" },
+  agents: { defaults: { workspace: "%s/workspace" } },
   channels: {
     telegram: {
       enabled: true,
@@ -317,7 +344,7 @@ configure_gateway() {
       execApprovals: { enabled: true, approvers: ["%s"] },
     },
   },
-}\n' "$TELEGRAM_BOT_TOKEN" "$TELEGRAM_ALLOW_FROM" "$TELEGRAM_ALLOW_FROM" \
+}\n' "$STATE_DIR" "$TELEGRAM_BOT_TOKEN" "$TELEGRAM_ALLOW_FROM" "$TELEGRAM_ALLOW_FROM" \
       | "$OPENCLAW" config patch --stdin || die "openclaw config patch --stdin failed"
   fi
 

@@ -227,6 +227,12 @@ test('the shipped config is seeded once, and the environment overlay applied eve
   )
 
   const patched = h.patched()
+  // The one that produces no error at all when it is wrong: the shipped
+  // example's "~/.openclaw/workspace" is a host path, and inside the container
+  // it resolves next to the state directory instead of into it. The agent then
+  // starts with no persona and no skill and answers like a stock assistant.
+  assert.match(patched, /workspace: "[^"]*\/workspace"/)
+  assert.ok(!/~/.test(patched), 'the container config must not lean on ~ expansion')
   assert.match(patched, /botToken: "token-123"/)
   assert.match(patched, /allowFrom: \["4242"\]/)
   assert.match(patched, /dmPolicy: "allowlist"/)

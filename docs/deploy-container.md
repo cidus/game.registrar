@@ -193,6 +193,24 @@ There is no upstream image for this. Quartz's own Dockerfile runs
 `npx quartz build --serve`, a development server with no `EXPOSE`, and
 `ghcr.io/jackyzha0/quartz:hugo` is the abandoned v3 line.
 
+### Serving a build made somewhere else
+
+On a 1 GB machine this is the shape that works: build the site where there is
+memory, ship the static output, serve it with something that costs nothing.
+Proven end to end on the e2-micro — Quartz's own `npm install` and build never
+ran there at all, and the served result is byte-for-byte what the build
+produced.
+
+To look at it without opening a port, forward it over the connection you
+already have:
+
+```bash
+ssh -L 8080:127.0.0.1:8080 <host>
+```
+
+`SITE_BIND` defaults to `127.0.0.1` for the same reason: publishing on
+`0.0.0.0` should be a decision, not a default.
+
 ## Comments
 
 ```bash
