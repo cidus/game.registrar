@@ -330,6 +330,14 @@ key in it was found wrong by upstream documentation at least once and
 corrected against a real install, and it says which — including a permissions
 trap that costs an afternoon to diagnose from scratch.
 
+If you would rather not do any of that by hand, **[*Running the Registrar in
+containers*](deploy-container.md)** is the same deployment as a `compose.yml`:
+one image holding the CLI and the gateway, a boot that seeds the vault and
+deploys the skill on every start, and a timer that keeps the register enriched,
+built and committed. It is newer than the guide below and the image has not
+been built in CI yet, so read `agent/README.md` anyway when something behaves
+in a way the runbook does not explain — that file is where the reasons live.
+
 The short version of what you will do there: install the CLI on the
 always-on host, create a bot for your chat channel, restrict who may talk to
 it, tell the gateway where your register lives, copy the skill and the
