@@ -59,13 +59,18 @@
       enabled: true,
       botToken: "PUT_YOUR_BOT_TOKEN_HERE",
 
-      // "allowlist" is the whole point — without it, dmPolicy defaults to
-      // "pairing", which lets any Telegram user who finds the bot request
-      // access. This is the one non-negotiable line in this file.
+      // "allowlist" is the whole point once you know your id: it answers
+      // exactly these senders and nobody else. The alternative, "pairing",
+      // lets a stranger *request* access — the bot replies with their id and
+      // a code, and only an operator running `openclaw pairing approve` lets
+      // anyone in. Useful for a first boot, wrong as a resting state.
       dmPolicy: "allowlist",
-      // Your own numeric Telegram user id, not your @username. Message the
-      // bot once, then read it back from the Bot API's getUpdates, or from
-      // whatever "who messaged me" tool your OpenClaw version exposes.
+      // Your own numeric Telegram user id, not your @username — a username
+      // passes `config validate` and then matches nobody, so every message is
+      // refused in silence. To find it, start once with dmPolicy "pairing"
+      // and message the bot: it replies with the id. Nothing else can tell
+      // you, since no client displays it and the Bot API will not resolve a
+      // @username.
       allowFrom: ["PUT_YOUR_NUMERIC_CHAT_ID_HERE"],
 
       capabilities: {

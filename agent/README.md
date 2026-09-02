@@ -165,10 +165,25 @@ openclaw config patch --file agent/openclaw.example.json5 --dry-run
 openclaw config patch --file agent/openclaw.example.json5
 ```
 
-**`dmPolicy: "allowlist"` and `allowFrom` are not optional.** Left unset,
-`dmPolicy` defaults to `"pairing"` — not blocked, just one extra step for a
-stranger who finds the bot. The agent has shell access; don't rely on the
-softer default.
+**`dmPolicy: "allowlist"` and `allowFrom` are not optional here.** Left unset,
+`dmPolicy` defaults to `"pairing"`. Be precise about what that means, because
+the sentence that used to sit here — "just one extra step for a stranger" —
+made it sound like the stranger takes the step. They do not: in pairing the bot
+answers them with their own numeric id and a one-time code, and nothing happens
+until *you* run `openclaw pairing approve telegram <code>`. It is a request
+queue, not a soft door.
+
+Which is why `pairing` is the better first boot when you do not yet know your
+id, and it is the only way to find it: no Telegram client shows your own
+numeric id, and the Bot API will not resolve a `@username` — `openclaw channels
+resolve` answers "Telegram username could not be resolved by the configured
+bot". Pair once, read the id off your phone, then set it here and switch to
+`allowlist`.
+
+Do not expect to pair and then tighten in place: `allowlist` ignores the
+pairing store (`credentials/telegram-<account>-allowFrom.json`) entirely, so
+the id has to be copied into `allowFrom` by hand. An approval also fills
+`commands.ownerAllowFrom`, which `openclaw doctor` otherwise nags about.
 
 ### 4. Set the environment the CLI reads
 

@@ -319,6 +319,23 @@ Each of these cost real time to find. The reasoning, not just the rule:
   ("reserved for board games"); the roadmap owns where it sits. Same shape as
   the invariant numbering above, one layer up: a number is only safe to cite
   when something guarantees it will not be renumbered.
+- **A Telegram user cannot look up their own numeric id, and `dmPolicy:
+  "pairing"` is how they get it.** Verified live, because the documentation
+  here had it backwards twice over. There is no official client that displays
+  your own id, and the Bot API will not resolve a `@username` to one --
+  `openclaw channels resolve` answers "Telegram username could not be resolved
+  by the configured bot", for a numeric input too. A username in `allowFrom`
+  is worse than an error: `openclaw config validate` calls it valid and only
+  `doctor` catches it, so it matches nobody and every message is refused with
+  nothing in the log. What pairing does is answer a stranger with *their own*
+  id, a one-time code and the approve command, and then wait -- it is a
+  request queue, not the soft door `agent/README.md` used to describe. An
+  approval writes `credentials/telegram-<account>-allowFrom.json` and fills
+  `commands.ownerAllowFrom`, leaving the config's own `allowFrom` untouched,
+  which is what lets the container's boot-time overlay run forever without
+  undoing a pairing. The edge to remember: the two lists never merge, because
+  `allowlist` ignores the pairing store. They are alternatives, not stages,
+  and tightening after pairing locks you out unless the id is copied across.
 - **`amend`/`revoke` are not behind a platform approval gate.** Live testing
   found the approval UI unreliable (including the agent fabricating an approval
   id when the tool gave it none); confirmation moved into `SKILL.md` as a

@@ -53,17 +53,32 @@ every update, each getting some fraction of the messages, and the symptom is a
 Registrar that answers intermittently rather than one that fails. Either stop
 the old gateway first, or ask @BotFather for a throwaway bot.
 
-`TELEGRAM_ALLOW_FROM` is the numeric chat id and the entrypoint refuses to
-start without it. Unset, OpenClaw's `dmPolicy` defaults to `pairing`, which
-puts anyone who finds the bot one step from an agent that has a shell.
+**You do not need to look up your chat id.** Leave `TELEGRAM_ALLOW_FROM`
+empty, start the stack, and message the bot. It answers:
 
-To find the id: message the bot once, then
-
-```bash
-curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | python3 -m json.tool
+```
+OpenClaw: access not configured.
+Your Telegram user id: 8119169239
+Pairing code: BJTQK882
+Ask the bot owner to approve with:
+openclaw pairing approve telegram BJTQK882
 ```
 
-and read `result[].message.from.id`.
+That is worth knowing because there is no other way to get it: no Telegram
+client displays your own numeric id, and the Bot API will not resolve a
+`@username` to one — a bot only ever learns an id from someone who has already
+written to it.
+
+From there, either path finishes the job:
+
+- **Closed door.** Put the id in `TELEGRAM_ALLOW_FROM` and restart. `dmPolicy`
+  becomes `allowlist` and only that id is ever answered.
+- **One command.** `docker compose exec gateway openclaw pairing approve
+  telegram <code>`, which also configures the command owner. Leaves the stack
+  in `pairing`, where a stranger can queue a request but cannot get in.
+
+They are two paths, not two steps: under `allowlist` the pairing store is
+ignored, so pairing first and tightening after would lock you out.
 
 ## What happens on every boot
 

@@ -139,14 +139,41 @@ test('it refuses to start without a bot token', () => {
   assert.match(r.stderr, /TELEGRAM_BOT_TOKEN/)
 })
 
-test('it refuses to start a bot with shell access and no sender allowlist', () => {
+test('with no sender configured it starts in pairing rather than refusing', () => {
+  // Refusing looks like the safe default and is a dead end: nobody can look up
+  // their own Telegram user id. No official client shows it, and the Bot API
+  // will not resolve a @username to one -- a bot only learns an id from
+  // someone who has already written to it. So the gateway that refuses to boot
+  // is the only thing that could have told you how to boot it.
+  //
+  // In pairing it answers with the id, a one-time code and the approve
+  // command. A stranger can queue a request; they cannot get in.
   const h = host()
   const r = h.run('gateway', { TELEGRAM_ALLOW_FROM: '' })
-  assert.equal(r.status, 2)
-  assert.match(r.stderr, /allowlist/i)
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stderr, /pairing/i)
+
+  const patched = h.patched()
+  assert.match(patched, /dmPolicy: "pairing"/)
+  assert.match(patched, /allowFrom: \[\]/, 'nobody is allowed in yet')
+  assert.ok(!/execApprovals/.test(patched), 'no approver is known yet either')
+})
+
+test('with a sender configured the door is shut, and the pairing store is not consulted', () => {
+  const h = host()
+  const r = h.run('gateway', { TELEGRAM_ALLOW_FROM: '4242' })
+  assert.equal(r.status, 0, r.stderr)
+
+  const patched = h.patched()
+  assert.match(patched, /dmPolicy: "allowlist"/)
+  assert.match(patched, /allowFrom: \["4242"\]/)
+  assert.match(patched, /approvers: \["4242"\]/)
 })
 
 test('a @username where a numeric chat id belongs is refused, not silently accepted', () => {
+  // `openclaw config validate` calls a username-shaped allowlist valid, and
+  // only `doctor` catches it -- so left alone it matches nobody and every
+  // message is refused with no error anywhere. Better to stop at the door.
   const h = host()
   const r = h.run('gateway', { TELEGRAM_ALLOW_FROM: '@alcides' })
   assert.equal(r.status, 2)

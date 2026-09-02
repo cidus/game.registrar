@@ -60,11 +60,30 @@ run() {
 
 preflight() {
   [ -n "${TELEGRAM_BOT_TOKEN:-}" ] || die "TELEGRAM_BOT_TOKEN is not set. The gateway has no channel without it."
-  [ -n "${TELEGRAM_ALLOW_FROM:-}" ] || die "TELEGRAM_ALLOW_FROM is not set. Refusing to start a bot with shell access and no sender allowlist."
 
-  case "${TELEGRAM_ALLOW_FROM}" in
-    *[!0-9]*) die "TELEGRAM_ALLOW_FROM must be the numeric chat id, not a @username." ;;
-  esac
+  # With a sender configured the door is shut: `allowlist` honours exactly that
+  # id and nothing else. Without one, the honest move is not to refuse -- it is
+  # to start in `pairing`, because a person cannot look up their own Telegram
+  # user id anywhere. No official client shows it, and the Bot API cannot
+  # resolve a @username to one; a bot only ever learns an id from someone who
+  # has already written to it. So a gateway that refuses to boot is a gateway
+  # that cannot tell you the one thing you need to boot it.
+  #
+  # In `pairing` it answers a stranger with their own numeric id, a one-time
+  # code and the command that approves it. A stranger can therefore queue a
+  # request; they cannot get in. Verified live.
+  if [ -n "${TELEGRAM_ALLOW_FROM:-}" ]; then
+    case "$TELEGRAM_ALLOW_FROM" in
+      *[!0-9]*) die "TELEGRAM_ALLOW_FROM must be the numeric chat id, not a @username. A username passes config validation and then matches nobody, so every message would be refused in silence." ;;
+    esac
+    DM_POLICY=allowlist
+  else
+    DM_POLICY=pairing
+    log "no TELEGRAM_ALLOW_FROM: starting in pairing mode."
+    log "message the bot and it will reply with your numeric id and a pairing code."
+    log "then either put the id in TELEGRAM_ALLOW_FROM and restart, or run:"
+    log "  docker compose exec gateway openclaw pairing approve telegram <code>"
+  fi
 
   [ -d "$VAULT" ] || die "vault directory $VAULT does not exist. Mount it."
   [ -w "$VAULT" ] || die "vault directory $VAULT is not writable by uid $(id -u). Check the compose \`user:\` against the directory owner."
@@ -324,10 +343,23 @@ configure_gateway() {
   # rather than into it. Nothing errors when it is wrong. The agent simply
   # comes up with no persona and no skill and answers like a stock assistant --
   # the hardest symptom here to trace back to a path.
-  log "applying environment overlay"
+  log "applying environment overlay (dmPolicy=$DM_POLICY)"
   if [ "$DRY_RUN" = yes ]; then
-    log "would patch botToken, allowFrom and execApprovals.approvers from the environment"
+    log "would patch botToken, dmPolicy and the sender list from the environment"
   else
+    # Empty in pairing mode, and deliberately so: an approved sender is
+    # recorded in credentials/telegram-<account>-allowFrom.json, a different
+    # file, which is what lets this overlay run on every boot without undoing
+    # a pairing. The two lists do not merge, though -- `allowlist` ignores the
+    # pairing store entirely -- so these are two paths, never two steps.
+    senders=""
+    approvals=""
+    if [ -n "${TELEGRAM_ALLOW_FROM:-}" ]; then
+      senders="\"$TELEGRAM_ALLOW_FROM\""
+      approvals="
+      execApprovals: { enabled: true, approvers: [$senders] },"
+    fi
+
     printf '{
   // The gateway refuses to start without this and says so in a way that reads
   // as a damaged install: "existing config is missing gateway.mode. Treat this
@@ -340,12 +372,11 @@ configure_gateway() {
     telegram: {
       enabled: true,
       botToken: "%s",
-      dmPolicy: "allowlist",
-      allowFrom: ["%s"],
-      execApprovals: { enabled: true, approvers: ["%s"] },
+      dmPolicy: "%s",
+      allowFrom: [%s],%s
     },
   },
-}\n' "$STATE_DIR" "$TELEGRAM_BOT_TOKEN" "$TELEGRAM_ALLOW_FROM" "$TELEGRAM_ALLOW_FROM" \
+}\n' "$STATE_DIR" "$TELEGRAM_BOT_TOKEN" "$DM_POLICY" "$senders" "$approvals" \
       | "$OPENCLAW" config patch --stdin || die "openclaw config patch --stdin failed"
   fi
 
