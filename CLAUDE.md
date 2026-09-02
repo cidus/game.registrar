@@ -237,6 +237,26 @@ emits `stats.html` and links to `/stats`), and that the obvious `try_files`
 order is still wrong, because Quartz emits both `tags/gamereg.html` and a
 `tags/gamereg/` directory and the bare path matches the directory first.
 
+**Then the `site` profile was exercised on the same machine, and four more
+fell out.** A partial `node_modules` left by an interrupted install is not
+self-healing and `npm install` does not repair it, so the guard became a
+sentinel written after a successful install rather than the directory's
+existence. Quartz removes and recreates its output directory, which a bind
+mount point forbids (`EACCES: rmdir`), so it builds into its own `public/` and
+the result is copied out. A named volume is root-owned while every service runs
+as the host's uid, so both the output and the npm cache became bind mounts --
+the symptom was npm failing to write its log directory, which names neither
+ownership nor volumes. And **nothing may be mounted from the compose project
+directory**: the loop script and the Caddy config were, which works in a
+checkout and nowhere else, and on a machine holding only `compose.yml` and
+`.env` Docker creates a directory at the missing path and the container dies
+on "Permission denied" or "mount a directory onto a file". The script is baked
+into the image now -- it is already a Node image, so `site-build` needs no
+second one -- and the serving config is written by `site-build` into the
+directory it already shares with the server. Measured: `npm install` 14s, the
+Quartz build 4s, two minutes from `up` to a served page, and the whole stack
+together leaves ~280 MB free.
+
 What the container bought beyond deployment, as argued for in advance: a
 clean-room `gamereg build` over `example-vault/`'s log, on a different libc,
 locale and install path, came out **byte-identical** to the committed goldens.

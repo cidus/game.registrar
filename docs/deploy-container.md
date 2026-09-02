@@ -193,6 +193,37 @@ There is no upstream image for this. Quartz's own Dockerfile runs
 `npx quartz build --serve`, a development server with no `EXPOSE`, and
 `ghcr.io/jackyzha0/quartz:hugo` is the abandoned v3 line.
 
+### Running it on the machine after all
+
+It does work, and the numbers are better than the warning above suggests --
+with the agent stopped, `npm install` took 14s and the Quartz build 4s, about
+two minutes from `up` to a served page. What it needs is the room: bring the
+gateway down first, or accept that the whole stack together leaves ~280 MB
+free and a load average around 4.
+
+Four things had to be fixed before it worked at all, and each is the sort that
+only appears on a machine that is not the one that wrote the file:
+
+- **A partial `node_modules` is not self-healing.** An install interrupted
+  once leaves the directory in place and incomplete, `npm install` over it does
+  not reliably repair it, and every later build fails on a missing transitive
+  dependency while the directory the check looks for sits right there. The
+  guard is a sentinel written *after* a successful install.
+- **Quartz removes and recreates its output directory**, and a bind mount
+  point cannot be removed by anyone: `EACCES: permission denied, rmdir`. It
+  builds into its own `public/` and the result is copied out.
+- **A named volume is owned by root**, and every service here runs as the
+  host's uid so the vault is not left owned by a stranger. The symptom is npm
+  failing to create its log directory, which names neither ownership nor
+  volumes. Everything is a bind mount now.
+- **Nothing is mounted from the compose project directory.** The loop script
+  and the serving config used to be, which works in a checkout and nowhere
+  else -- on a machine holding only `compose.yml` and `.env`, Docker creates a
+  directory at the missing path and the container dies on "Permission denied"
+  or "are you trying to mount a directory onto a file". The script is in the
+  image; the config is written by `site-build` into the directory it already
+  shares with the server.
+
 ### Serving a build made somewhere else
 
 On a 1 GB machine this is the shape that works: build the site where there is

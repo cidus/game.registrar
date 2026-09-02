@@ -117,18 +117,28 @@ services:
   # It is built anyway because an installation with no external account still
   # needs a page, and because the shape -- something builds, something static
   # serves -- is the one a future Astro target reuses unchanged.
+  # The same image as the gateway, not a second one. It is already built on
+  # node:22-bookworm-slim, so node, npm and npx are all there -- and mounting
+  # the loop script from ./docker instead only ever worked in a checkout. On a
+  # machine holding just compose.yml and .env, Docker created an empty
+  # directory at that path and the container crash-looped on "Permission
+  # denied", which names the symptom and not the cause.
   site-build:
-    image: node:22-bookworm-slim
+    <<: *image
     container_name: gamereg-site-build
     profiles: [site]
-    restart: unless-stopped
-    user: "${PUID:-1000}:${PGID:-1000}"
-    env_file: [.env]
-    command: ["/usr/local/bin/gamereg-site-loop"]
+    command: ["site"]
+    environment:
+      # The image sets HOME=/config so git and the gateway agree on one place,
+      # and this service does not mount /config -- npm then has nowhere to put
+      # its cache and dies on "Log files were not written". Its own HOME on a
+      # volume also means the npm cache survives a rebuild, which is the
+      # difference between a slow first install and a slow every install.
+      HOME: /cache
     volumes:
       - ${GAMEREG_VAULT_PATH:-./vault}:/vault
-      - ./docker/site-loop.sh:/usr/local/bin/gamereg-site-loop:ro
-      - site:/site
+      - ${GAMEREG_SITE_PATH:-./site}:/site
+      - ${GAMEREG_SITE_CACHE_PATH:-./cache}:/cache
     mem_limit: ${SITE_BUILD_MEM_LIMIT:-768m}
 
   site-serve:
@@ -136,11 +146,13 @@ services:
     container_name: gamereg-site-serve
     profiles: [site]
     restart: unless-stopped
+    # The config comes from the shared directory, written by site-build, rather
+    # than mounted from ./docker -- a path that exists in a checkout and
+    # nowhere else.
+    command: ["caddy", "run", "--config", "/site/Caddyfile", "--adapter", "caddyfile"]
+    depends_on: [site-build]
     volumes:
-      - site:/site:ro
-      # Not `caddy file-server`: see the file for why a bare one 404s every
-      # internal link while the front page works.
-      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${GAMEREG_SITE_PATH:-./site}:/site:ro
     ports:
       - "${SITE_BIND:-127.0.0.1}:${SITE_PORT:-8080}:8080"
     mem_limit: 64m
@@ -192,9 +204,14 @@ services:
     mem_limit: 64m
 
 volumes:
-  # The built site only. Not the vault, which is a bind mount because it is a
-  # git repository somebody pushes and may want to open in Obsidian.
-  site:
+  # Only Remark42's, because only Remark42 runs as its own user.
+  #
+  # Everything else is a bind mount, and not merely because the vault is a git
+  # repository somebody pushes. Docker creates a named volume owned by root,
+  # and every service here runs with `user:` set to the host's uid so the vault
+  # is not left owned by a stranger -- so a named volume is a directory the
+  # container cannot write. It shows up as npm failing to create its log
+  # directory, which names neither ownership nor volumes.
   remark42:
 
 # Deliberately absent: any mount of /var/run/docker.sock. The gateway runs a

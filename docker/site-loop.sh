@@ -50,6 +50,34 @@ if [ ! -f "$QUARTZ/package.json" ]; then
   exit 2
 fi
 
+# The serving configuration is written here, into the directory that is already
+# shared with the server, because the alternative is mounting a file from the
+# compose project directory -- and that only ever works in a checkout. On a
+# machine holding compose.yml and .env, Docker creates a directory at the
+# missing path and the server dies on "are you trying to mount a directory onto
+# a file". Same trap as the loop script itself, one service over.
+write_caddyfile() {
+  cat > "$OUTPUT/Caddyfile" <<'CADDY'
+:8080 {
+	root * /site
+	# The .html candidate first, deliberately. Quartz emits both a
+	# tags/gamereg.html file and a tags/gamereg/ directory, so matching the
+	# bare path finds the directory, which has no index, and 404s a page that
+	# is sitting right there. And without try_files at all, every internal
+	# link 404s while the front page works, because Quartz links to /stats and
+	# emits stats.html.
+	try_files {path}.html {path}/index.html {path}
+	file_server
+	encode gzip
+
+	# Not part of the site.
+	@config path /Caddyfile
+	respond @config 404
+}
+CADDY
+}
+
+write_caddyfile
 log "watching $VAULT for commits, every ${INTERVAL}s"
 
 while true; do
@@ -59,17 +87,36 @@ while true; do
   if [ "$head" != "$built" ]; then
     log "vault at $head, site built from $built -- rebuilding"
 
-    # Only when it is missing. `npm install` is the single most expensive thing
-    # that happens on this machine, and on a burstable instance it drains the
-    # CPU credit that everything else is sharing.
-    if [ ! -d "$QUARTZ/node_modules" ]; then
-      log "installing Quartz dependencies (slow, once)"
-      (cd "$QUARTZ" && "$NPM" install --no-audit --no-fund) || { log "npm install failed"; sleep "$INTERVAL"; continue; }
+    # Guarded by a sentinel written *after* a successful install, not by the
+    # directory's existence. An install killed partway leaves node_modules
+    # there and incomplete, and `npm install` over a corrupt tree does not
+    # reliably repair it -- the symptom is a build failing on a missing
+    # transitive dependency, forever, while the directory the check looks for
+    # sits right there. Seen exactly that, twice, on a machine slow enough to
+    # interrupt.
+    if [ ! -f "$QUARTZ/node_modules/.gamereg-install-ok" ]; then
+      log "installing Quartz dependencies"
+      rm -rf "$QUARTZ/node_modules"
+      if (cd "$QUARTZ" && "$NPM" install --no-audit --no-fund); then
+        touch "$QUARTZ/node_modules/.gamereg-install-ok"
+      else
+        log "npm install failed"
+        sleep "$INTERVAL"
+        continue
+      fi
     fi
 
-    if (cd "$QUARTZ" && "$NPX" quartz build --output "$OUTPUT"); then
-      echo "$head" > "$STAMP"
-      log "built"
+    # Quartz is left to write into its own ./public, and the result is copied
+    # out. Pointing --output at the mount fails with "EACCES: permission
+    # denied, rmdir" -- Quartz removes and recreates its output directory, and
+    # a bind mount point cannot be removed by anyone. Building into a directory
+    # Quartz owns sidesteps the argument entirely.
+    if (cd "$QUARTZ" && "$NPX" quartz build); then
+      # Contents, never the directory itself, for the same reason. The site is
+      # briefly incomplete while this runs; at a megabyte or two that window is
+      # shorter than the poll interval by four orders of magnitude.
+      find "$OUTPUT" -mindepth 1 -delete 2>/dev/null
+      cp -a "$QUARTZ/public/." "$OUTPUT/" && write_caddyfile && echo "$head" > "$STAMP" && log "built"
     else
       # Leave the stamp alone so the next tick retries, and leave whatever was
       # served before in place: a stale page beats a blank one.

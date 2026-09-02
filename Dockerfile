@@ -60,8 +60,10 @@ COPY agent/checkin.sh /usr/local/bin/gamereg-checkin
 COPY scripts/autobuild.sh /usr/local/bin/gamereg-autobuild
 COPY docker/entrypoint.sh /usr/local/bin/gamereg-entrypoint
 COPY docker/loop.sh /usr/local/bin/gamereg-loop
+COPY docker/site-loop.sh /usr/local/bin/gamereg-site-loop
 RUN chmod 0755 /usr/local/bin/gamereg-checkin /usr/local/bin/gamereg-autobuild \
-                /usr/local/bin/gamereg-entrypoint /usr/local/bin/gamereg-loop
+                /usr/local/bin/gamereg-entrypoint /usr/local/bin/gamereg-loop \
+                /usr/local/bin/gamereg-site-loop
 
 # What the entrypoint deploys into the gateway's workspace. Skills are code and
 # are replaced on every boot; workspace persona files are the user's and are

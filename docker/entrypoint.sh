@@ -20,6 +20,7 @@
 #   gateway      full boot, then exec the gateway (the default)
 #   provision    register the check-in cron job against a running gateway
 #   maintenance  git identity only, then exec the enrich/build/commit loop
+#   site         exec the Quartz build loop (the `site` profile)
 #   *            exec the arguments verbatim, no setup -- the escape hatch for
 #                one-off commands like `gamereg --version`
 #
@@ -429,6 +430,10 @@ case "$MODE" in
   provision)
     resolve_gateway_token
     register_cron
+    ;;
+  site)
+    [ "$DRY_RUN" = yes ] && { log "dry run complete, not starting the site loop"; exit 0; }
+    exec /usr/local/bin/gamereg-site-loop
     ;;
   maintenance)
     configure_git
