@@ -15,8 +15,9 @@ import { Document, Scalar } from 'yaml'
 import { formatHm, formatHours } from '../core/duration.ts'
 import { attachmentsOfGame, type GameState, type RunState, type SessionState, type VaultState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
-import { assetPath } from './assets.ts'
+import { assetEmbed } from './assets.ts'
 import { atPrecision } from './dates.ts'
+import { noteRef, type Flavour } from './flavour.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
 import { runNoteNames, runsInOrder } from './run.ts'
 
@@ -69,7 +70,7 @@ function cell(value: string | number | null): string {
   return String(value).replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim()
 }
 
-export function frontmatter(game: GameState): string {
+export function frontmatter(game: GameState, flavour: Flavour, bundle: Translator): string {
   const run = latestRun(game)
   const document = new Document({})
   // Short collections are written inline, as in the specification's example.
@@ -88,6 +89,13 @@ export function frontmatter(game: GameState): string {
 
   set('gamereg_id', game.game_id)
   set('title', game.title)
+  // Quartz reads both; Obsidian reads neither. `description` is what a link
+  // preview and a meta tag show, and it is the header line as plain text —
+  // the same facts, said once.
+  if (flavour.siteFrontmatter) {
+    set('description', describeGame(game, bundle))
+    set('draft', false)
+  }
   // The filename is the slug (01-model.md — filesystem-safe, not pretty). This
   // is what makes the quick switcher find the note by the title people
   // actually type, Obsidian's own mechanism for exactly that gap.
@@ -112,12 +120,12 @@ export function frontmatter(game: GameState): string {
   return document.toString({ lineWidth: 0, flowCollectionPadding: false }).trimEnd()
 }
 
-export function headerBlock(game: GameState, bundle: Translator): string {
-  const run = latestRun(game)
+/** Developer, year, platform, time played — the facts the header leads with. */
+function headerParts(game: GameState, bundle: Translator, emphasis: boolean): string[] {
   const sessions = allSessions(game)
   const parts: string[] = []
 
-  if (game.developer !== null) parts.push(`**${game.developer}**`)
+  if (game.developer !== null) parts.push(emphasis ? `**${game.developer}**` : game.developer)
   if (game.release_year !== null) parts.push(String(game.release_year))
   const platform = recordedPlatform(game)
   if (platform !== null) parts.push(platform)
@@ -135,11 +143,20 @@ export function headerBlock(game: GameState, bundle: Translator): string {
     )
   }
 
+  return parts
+}
+
+/** The header line with no markup in it, for frontmatter Quartz reads. */
+export function describeGame(game: GameState, bundle: Translator): string {
+  return headerParts(game, bundle, false).join(' · ')
+}
+
+export function headerBlock(game: GameState, bundle: Translator, flavour: Flavour): string {
   const lines: string[] = []
   // Only a locally ingested cover has a file to embed. A provider cover is a
   // URL, not an asset on disk — enrich never runs the ingestion pipeline.
-  if (game.cover?.sha256 != null) lines.push(`![[${assetPath(game.cover.sha256)}]]`)
-  lines.push(parts.join(' · '))
+  if (game.cover?.sha256 != null) lines.push(assetEmbed(game.cover.sha256, flavour, bundle))
+  lines.push(headerParts(game, bundle, true).join(' · '))
   return lines.join('\n')
 }
 
@@ -147,7 +164,12 @@ export function headerBlock(game: GameState, bundle: Translator): string {
  * Every photo on this game's timeline, oldest first (docs/spec/04-derived.md
  * "Game note", the Gallery block).
  */
-export function galleryBlock(state: VaultState, game: GameState, bundle: Translator): string {
+export function galleryBlock(
+  state: VaultState,
+  game: GameState,
+  bundle: Translator,
+  flavour: Flavour,
+): string {
   const items = attachmentsOfGame(state, game)
   if (items.length === 0) return ''
 
@@ -157,9 +179,10 @@ export function galleryBlock(state: VaultState, game: GameState, bundle: Transla
       const caption = cell(attachment.caption)
       const line =
         date === '' ? caption : caption === '' ? date : bundle.t('note.gallery.captioned', { date, caption })
+      const embed = assetEmbed(attachment.sha256, flavour, bundle)
       // An undated, uncaptioned photo is just the photo. Emitting the emphasis
       // anyway rendered a bare `**` into the note.
-      return line === '' ? `![[${assetPath(attachment.sha256)}]]` : `![[${assetPath(attachment.sha256)}]]\n*${line}*`
+      return line === '' ? embed : `${embed}\n*${line}*`
     })
     .join('\n\n')
 }
@@ -193,7 +216,7 @@ export function verdictBlock(game: GameState, bundle: Translator): string {
 }
 
 /** One row per playthrough, each linking to the note that is that playthrough. */
-export function runsBlock(game: GameState, bundle: Translator): string {
+export function runsBlock(game: GameState, bundle: Translator, flavour: Flavour): string {
   const runs = runsInOrder(game)
   if (runs.length === 0) return ''
 
@@ -215,7 +238,7 @@ export function runsBlock(game: GameState, bundle: Translator): string {
         ? `${formatHours(run.minutes)} (${bundle.t('table.stated_marker')})`
         : formatHours(run.minutes)
     return [
-      `[[${names.get(run.run_id) ?? ''}\\|${started.slice(0, 4)}]]`,
+      `[[${noteRef(flavour, 'runs', names.get(run.run_id) ?? '')}\\|${started.slice(0, 4)}]]`,
       cell(run.platform),
       started,
       run.ended_on === null ? '' : atPrecision(run.ended_on, run.ended_precision),
@@ -232,26 +255,36 @@ export function runsBlock(game: GameState, bundle: Translator): string {
   ].join('\n')
 }
 
-export function blocksOf(state: VaultState, game: GameState, bundle: Translator): BlockContent[] {
+export function blocksOf(
+  state: VaultState,
+  game: GameState,
+  bundle: Translator,
+  flavour: Flavour,
+): BlockContent[] {
   return [
-    { block: 'header', content: headerBlock(game, bundle) },
+    { block: 'header', content: headerBlock(game, bundle, flavour) },
     {
       block: 'verdict',
       content: verdictBlock(game, bundle),
       heading: bundle.t('note.heading.verdict'),
     },
-    { block: 'runs', content: runsBlock(game, bundle), heading: bundle.t('note.heading.runs') },
+    { block: 'runs', content: runsBlock(game, bundle, flavour), heading: bundle.t('note.heading.runs') },
     {
       block: 'gallery',
-      content: galleryBlock(state, game, bundle),
+      content: galleryBlock(state, game, bundle, flavour),
       heading: bundle.t('note.heading.gallery'),
     },
   ]
 }
 
 /** A brand new note: frontmatter, the blocks in canonical order, a place to write. */
-export function newNote(state: VaultState, game: GameState, bundle: Translator): string {
-  const blocks = blocksOf(state, game, bundle).filter((entry) => entry.content.trim() !== '')
+export function newNote(
+  state: VaultState,
+  game: GameState,
+  bundle: Translator,
+  flavour: Flavour,
+): string {
+  const blocks = blocksOf(state, game, bundle, flavour).filter((entry) => entry.content.trim() !== '')
   const body = blocks
     .map((entry) =>
       entry.heading === undefined
@@ -260,5 +293,8 @@ export function newNote(state: VaultState, game: GameState, bundle: Translator):
     )
     .join('\n\n')
 
-  return `---\n${frontmatter(game)}\n---\n\n${body}\n\n## ${bundle.t('note.heading.notes')}\n`
+  // The site is generated whole and has no hand-written half, so it gets no
+  // empty heading inviting one.
+  const notes = flavour.prose ? `\n## ${bundle.t('note.heading.notes')}\n` : ''
+  return `---\n${frontmatter(game, flavour, bundle)}\n---\n\n${body}\n${notes}`
 }

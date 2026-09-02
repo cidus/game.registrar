@@ -17,6 +17,7 @@ export function registerOpen(registrar: Registrar): void {
 
     const rows = openSessions(workspace.state).map((session) => {
       const game = gameOfSession(workspace.state, session)
+      const run = workspace.state.runsById.get(session.run_id)
       const openFor = minutesBetween(parseISO(session.started_at, cli.time), cli.at)
       const running = session.breaks.find((item) => item.open)
       const breakMinutes = session.breaks.reduce(
@@ -36,6 +37,19 @@ export function registerOpen(registrar: Registrar): void {
         on_break: running !== undefined,
         break_started_at: running?.started_at ?? null,
         checkins_so_far: session.checkins.length,
+        // The two event ids an `amend` or a `revoke` actually takes. Entity
+        // ids (`session_id`, `run_id`) are not interchangeable with them, and
+        // before these were on the row the only way to an event id was raw SQL
+        // over `events` with `json_extract` — which cost a `query --schema`, a
+        // guessed column, and a retry, every time.
+        session_open_event_id: session.open_event_id,
+        run_open_event_id: run?.open_event_id ?? null,
+        // The check-in the agent may have to amend. The wrapper files the
+        // record *after* enqueueing the wake, so the id cannot travel with the
+        // question itself (docs/spec/02-cli.md, `gamereg checkin`); this is how
+        // the answer, when it arrives, finds the record it settles. Read it
+        // before closing the session — a closed session is not listed here.
+        last_checkin_id: session.checkins.at(-1)?.event_id ?? null,
       }
     })
 

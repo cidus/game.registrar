@@ -17,6 +17,12 @@ const API_URL = 'https://api.igdb.com/v4'
 // (cli/commands/search.ts) ranks this raw window by platform ownership
 // before truncating to the display cap, so a platform-tagged match ranked
 // below IGDB's own top 8 by relevance is still there to be found.
+//
+// Widening it further is not what makes `--platform` work — that is
+// `platformFilter` below. IGDB's relevance for a family name is dominated by
+// near-duplicates ("Super Mario" returns fifteen e-Reader card levels before
+// anything else), and the games actually wanted sit past any window worth
+// fetching. Narrow the query instead of enlarging the haystack.
 const SEARCH_FETCH_LIMIT = 24
 
 const SEARCH_FIELDS = 'name,first_release_date,platforms.name,cover.url'
@@ -77,6 +83,24 @@ function fieldsOf(game: IgdbGame): ProviderFields {
 /** Apicalypse search strings are double-quoted; escape embedded quotes. */
 function escapeQuery(query: string): string {
   return query.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+/**
+ * `where platforms.name = ("Super Nintendo Entertainment System", …)`, or `''`
+ * for no hint.
+ *
+ * By **name**, deliberately, not by IGDB's platform ids: the spellings come
+ * from the table in core/platforms.ts, which already carries the providers'
+ * own ("PC (Microsoft Windows)", "Sega Mega Drive/Genesis") for exactly this
+ * kind of matching. An id table would be a second thing to keep in sync with
+ * a catalog nobody here controls. Spellings IGDB does not use are inert — the
+ * filter is an OR over the list — so passing a whole synonym group is safe.
+ */
+function platformFilter(platforms: readonly string[]): string {
+  const names = platforms.filter((name) => name.trim() !== '')
+  if (names.length === 0) return ''
+  const list = names.map((name) => `"${escapeQuery(name)}"`).join(',')
+  return ` where platforms.name = (${list});`
 }
 
 function credentialsOf(root: string): { client_id: string; client_secret: string } {
@@ -151,11 +175,21 @@ export function createIgdbProvider(root: string, fetchImpl: typeof fetch = fetch
   return {
     name: 'igdb',
 
-    async search(query_: string): Promise<ProviderCandidate[]> {
-      const games = await query(
-        'games',
-        `search "${escapeQuery(query_)}"; fields ${SEARCH_FIELDS}; limit ${SEARCH_FETCH_LIMIT};`,
-      )
+    async search(query_: string, platforms: readonly string[] = []): Promise<ProviderCandidate[]> {
+      const search_ = `search "${escapeQuery(query_)}";`
+      const tail = ` fields ${SEARCH_FIELDS}; limit ${SEARCH_FETCH_LIMIT};`
+
+      // Narrowed first. Empty is not "this platform has no such game" — it is
+      // just as likely a spelling IGDB does not use — so it falls through to
+      // the unnarrowed query rather than reporting nothing found. Same shape
+      // as resolveGame retrying without the platform hint.
+      const filter = platformFilter(platforms)
+      if (filter !== '') {
+        const narrowed = await query('games', `${search_}${filter}${tail}`)
+        if (narrowed.length > 0) return narrowed.map(candidateOf)
+      }
+
+      const games = await query('games', `${search_}${tail}`)
       return games.map(candidateOf)
     },
 

@@ -1,8 +1,8 @@
 # gamereg — the surface you may invoke
 
-Condensed from `docs/spec/02-cli.md`, which stays the source of truth. Every
-invocation below is checked against the real binary by
-`test/agent-skill.test.ts`, so a flag named here exists.
+**Every invocation below is checked against the real binary by a test, so a
+flag named here exists.** Trust it and stop; there is nothing to verify with
+`--help`, which you cannot run anyway.
 
 Always pass `--json`.
 
@@ -83,6 +83,17 @@ demo`, and it is settled here or by `amend` — `end`, `finish` and `drop` do no
 take it. `--kind` classifies the photos in this invocation; `--as-cover` makes
 the first one the game's cover, `source: user`.
 
+**`--past-hours <n>`** stamps a stated baseline onto the `run.open` this
+invocation creates — playtime from before this vault tracked it ("already had
+30h on it"). Only valid when this call actually opens a new run: reusing an
+already-open run with `--past-hours` is a usage error (code 2), and there is
+no way to add it after the fact through `start` or `past`. For a run already
+in progress, use `amend` directly on that run's `run.open` event —
+`gamereg amend <event_id> --set hours=<n> --reason "..."` — `hours` is the
+same field name `--past-hours` writes, just via `amend` instead of at open
+time. The event id is `run_open_event_id`, on the run's row from
+`gamereg open` or `gamereg status <game>`. No SQL.
+
 ### `gamereg end`
 
 ```text
@@ -99,11 +110,18 @@ platform mentioned earlier in the conversation gets filed.
 ### `gamereg break start` / `gamereg break end`
 
 ```text
-gamereg break start
-gamereg break end
+gamereg break start <query> --id
+gamereg break end <query> --id
 ```
 
-A pause inside the open session.
+A pause inside the open session. Both take a target the same way `end` does: a
+title, or `--id game:<game_id>` for the exact one. **`--id` here names the game,
+not the session** — a game has at most one open session, which is what makes
+that unambiguous.
+
+With one session open, no target is needed. With several and none given, both
+exit 3 and list them rather than picking; if you already know which session you
+mean, say so and skip the question.
 
 ### `gamereg finish`
 
@@ -168,7 +186,10 @@ art back).
 gamereg status <query> --id
 ```
 
-The vault summary, or one game's state. `<query>` is optional.
+The vault summary, or one game's state. `<query>` is optional. Each run carries
+`run_open_event_id` — the event an `amend` on that run's platform or stated
+hours takes. This is the route for a run with no open session, which `open`
+does not list.
 
 ### `gamereg open`
 
@@ -176,7 +197,19 @@ The vault summary, or one game's state. `<query>` is optional.
 gamereg open
 ```
 
-Every open session.
+Every open session. Each row carries `session_id`, `run_id`, `game`, `game_id`,
+`opened_at`, `open_for_minutes`, `net_minutes`, `on_break`, `break_started_at`,
+`checkins_so_far`, `last_checkin_id`, `run_open_event_id` and
+`session_open_event_id`.
+
+`last_checkin_id` is the check-in you amend when someone answers one. It is
+`null` until a session has been asked about, and it is only readable while the
+session is open.
+
+**`run_open_event_id` and `session_open_event_id` are the ids `amend` and
+`revoke` take.** Read them from here; never go looking for an event id with
+SQL. The ids beside them — `run_id`, `session_id` — are entity ids and are not
+accepted by either command.
 
 ### `gamereg search`
 
@@ -191,6 +224,12 @@ It is the one non-recording command that may reach a provider. `--local-only`
 keeps it to the log; `--provider <name>` narrows the chain, and today `igdb` is
 the only name that exists — a misspelling is a usage error, not a quiet fall
 back to local results.
+
+Pass `--platform` whenever the user named a console. It narrows the catalog
+search itself, not just the list you get back, so it is the difference between
+a family name returning the two entries that happened to survive and returning
+the shelf. It still never resolves anything on its own: several candidates is
+the same question code 3 asks.
 
 ### `gamereg query`
 
@@ -236,17 +275,21 @@ gamereg amend <event> --set --reason
 gamereg revoke <event> --reason
 ```
 
-`--set key=value`, repeatable. Both name an event id. **Never invoke either
-unless the user asked to correct something specific.**
+`--set key=value`, repeatable. Both name an event id. `--reason` is **required
+on both** — they exit 2 without it. **Never invoke either unless the user asked
+to correct something specific.**
 
 ## Metadata
 
 ```text
-gamereg enrich <query> --id --provider --match --all --covers
+gamereg enrich <query> --id --provider --match --all --missing --covers
 ```
 
 The only command that touches the network. On exit 3, `candidates[]` are
-provider entries and the retry is `--match <ref>`. `--all` never prompts.
+provider entries and the retry is `--match <ref>`. `--all`/`--missing` never
+prompt. `--missing` is the unattended-cron selector — every game never
+actually enriched for `--provider`, including one `start --id <ref>` created
+from a bare provider reference — not something to reach for mid-conversation.
 Failure here never blocks recording.
 
 ```text

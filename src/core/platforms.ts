@@ -32,10 +32,26 @@ export type PlatformSource = 'flag' | 'last_run' | 'config_default' | 'intersect
  * on first use.
  */
 export const BUILTIN_PLATFORMS: readonly PlatformEntry[] = [
-  { name: 'PC', aliases: ['Windows', 'PC (Microsoft Windows)', 'Microsoft Windows', 'Win'] },
+  // Steam Deck is filed as a spelling of PC, not a platform of its own: no
+  // catalog lists it as one (IGDB has no such platform at all), so a register
+  // that kept it separate could name it but never look anything up on it. The
+  // cost is accepted and is the whole point — a Deck run reads as PC, here and
+  // retroactively, because canonicalization runs on read too.
+  {
+    name: 'PC',
+    aliases: [
+      'Windows',
+      'PC (Microsoft Windows)',
+      'Microsoft Windows',
+      'Win',
+      'Steam',
+      'Steam Deck',
+      'SteamDeck',
+      'Deck',
+    ],
+  },
   { name: 'macOS', aliases: ['Mac', 'Mac OS', 'OS X', 'Apple Macintosh'] },
   { name: 'Linux', aliases: ['GNU/Linux', 'SteamOS'] },
-  { name: 'Steam Deck', aliases: ['SteamDeck', 'Deck'] },
   { name: 'Nintendo Switch', aliases: ['Switch', 'NSW', 'Switch 1'] },
   { name: 'Nintendo Switch 2', aliases: ['Switch 2', 'NS2'] },
   { name: 'Wii U', aliases: ['WiiU', 'Nintendo Wii U'] },
@@ -69,8 +85,11 @@ export const BUILTIN_PLATFORMS: readonly PlatformEntry[] = [
     name: 'Xbox Series X|S',
     aliases: ['Xbox Series X', 'Xbox Series S', 'Xbox Series X/S', 'Series X', 'XSX'],
   },
-  { name: 'Mega Drive', aliases: ['Genesis', 'Sega Genesis', 'Sega Mega Drive', 'Megadrive', 'MD'] },
-  { name: 'Master System', aliases: ['Sega Master System', 'SMS'] },
+  {
+    name: 'Mega Drive',
+    aliases: ['Genesis', 'Sega Genesis', 'Sega Mega Drive', 'Sega Mega Drive/Genesis', 'Megadrive', 'MD'],
+  },
+  { name: 'Master System', aliases: ['Sega Master System', 'Sega Master System/Mark III', 'SMS'] },
   { name: 'Sega Saturn', aliases: ['Saturn'] },
   { name: 'Dreamcast', aliases: ['Sega Dreamcast', 'DC'] },
   { name: 'Game Gear', aliases: ['Sega Game Gear', 'GG'] },
@@ -92,6 +111,15 @@ export type PlatformTable = {
   lookup: Map<string, string>
   /** The names this vault declares, in config order. */
   configured: string[]
+  /**
+   * Normalized canonical name → every spelling of it, canonical first.
+   *
+   * `lookup` answers "what does this string mean"; this answers the reverse,
+   * "what else is this called" — which is what lets a provider narrow its own
+   * query by platform *name* (providers/igdb.ts) instead of by an id table
+   * this repository would have to keep in sync. See the file header.
+   */
+  spellings: Map<string, string[]>
 }
 
 /** The comparison key. Same normalization `game.alias` uses, on both sides. */
@@ -111,22 +139,43 @@ const keysOf = (entry: PlatformEntry): string[] =>
  */
 export function platformTable(configured: readonly PlatformEntry[] = []): PlatformTable {
   const lookup = new Map<string, string>()
+  const spellings = new Map<string, string[]>()
   const names: string[] = []
   const claimed = new Set<string>()
 
+  /** Words in, de-duplicated by normalization, first spelling of each key wins. */
+  const collect = (words: readonly string[]): string[] => {
+    const out: string[] = []
+    const seen = new Set<string>()
+    for (const word of words) {
+      const key = keyOf(word)
+      if (key === '' || seen.has(key)) continue
+      seen.add(key)
+      out.push(word)
+    }
+    return out
+  }
+
   for (const entry of configured) {
-    const keys = new Set(keysOf(entry))
-    if (keys.size === 0) continue
+    const words = collect([entry.name, ...entry.aliases])
+    if (words.length === 0) continue
+    const keys = new Set(words.map(keyOf))
     for (const builtin of BUILTIN_PLATFORMS) {
       const builtinKeys = keysOf(builtin)
       if (builtinKeys.some((key) => keys.has(key))) {
-        for (const key of builtinKeys) keys.add(key)
+        for (const word of [builtin.name, ...builtin.aliases]) {
+          const key = keyOf(word)
+          if (key === '' || keys.has(key)) continue
+          keys.add(key)
+          words.push(word)
+        }
       }
     }
     for (const key of keys) {
       lookup.set(key, entry.name)
       claimed.add(key)
     }
+    spellings.set(keyOf(entry.name), words)
     names.push(entry.name)
   }
 
@@ -134,9 +183,10 @@ export function platformTable(configured: readonly PlatformEntry[] = []): Platfo
     const keys = keysOf(builtin)
     if (keys.some((key) => claimed.has(key))) continue
     for (const key of keys) lookup.set(key, builtin.name)
+    spellings.set(keyOf(builtin.name), collect([builtin.name, ...builtin.aliases]))
   }
 
-  return { lookup, configured: names }
+  return { lookup, configured: names, spellings }
 }
 
 /**
@@ -148,6 +198,20 @@ export function canonicalPlatform(input: string | null | undefined, table: Platf
   const text = input.trim()
   if (text === '') return null
   return table.lookup.get(keyOf(text)) ?? text
+}
+
+/**
+ * Every spelling this vault knows for one platform, canonical name first.
+ *
+ * A platform the table has never heard of answers with itself: the user's own
+ * word is always a spelling of it. Empty input answers with nothing, so a
+ * caller can treat "no hint" and "unknown hint" differently — the first means
+ * do not narrow, the second means narrow by the one word we were given.
+ */
+export function platformSpellings(input: string | null | undefined, table: PlatformTable): string[] {
+  const name = canonicalPlatform(input, table)
+  if (name === null) return []
+  return table.spellings.get(keyOf(name)) ?? [name]
 }
 
 /** Whether two spellings mean the same platform under this vault's table. */
@@ -260,7 +324,7 @@ export type PlatformGroups = {
   matching: string[]
   /** The rest of the catalog — a console that isn't yours. */
   catalog: string[]
-  /** The rest of this vault's — Steam Deck, an emulator, a fan port. */
+  /** The rest of this vault's — an emulator, a fan port, a handheld nobody catalogs. */
   owned: string[]
 }
 

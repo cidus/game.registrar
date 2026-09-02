@@ -142,8 +142,9 @@ test('finish settles the platform too, and drop accepts the flag', () => {
   assert.equal(result(finished)['platform_source'], 'intersection')
 
   gamereg(root, 'start', 'tunic', '--no-metadata', '--at', '2026-05-04 20:00')
-  const dropped = gamereg(root, 'drop', 'tunic', '--platform', 'steam deck', '--at', '2026-05-04 21:00')
-  assert.equal(result(dropped)['platform'], 'Steam Deck')
+  // A platform no table knows: recorded exactly as typed, and still `flag`.
+  const dropped = gamereg(root, 'drop', 'tunic', '--platform', 'MiSTer FPGA', '--at', '2026-05-04 21:00')
+  assert.equal(result(dropped)['platform'], 'MiSTer FPGA')
   assert.equal(result(dropped)['platform_source'], 'flag')
 })
 

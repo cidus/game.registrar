@@ -62,12 +62,15 @@ exactly three because there are exactly three kinds of file in the vault.
 
 | Policy | Meaning | Used by |
 |---|---|---|
-| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, CSV, SQLite, JSON, HTML |
+| `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, `quartz/content/*.md`, CSV, SQLite, JSON, HTML |
 | `splice` | Only the regions between `gamereg` markers are written. Everything else is preserved byte-identical. | `obsidian/games/*.md`, `obsidian/Game List.md` |
-| `seed` | Written if absent. Never overwritten, never removed. | `*.base` |
+| `seed` | Written if absent. Never overwritten, never removed. | `*.base`, `quartz/quartz.config.yaml` |
 
 `seed` is the exception to "every derived artifact is regenerated", and it is
-deliberate — see *Bases* below.
+deliberate. It covers exactly the files that are *configuration* rather than
+data — a `.base` (see *Bases* below) and `quartz.config.yaml` — where the user's
+edit is the point and regenerating over it would discard their work on every
+build.
 
 ## Declaring targets
 
@@ -96,6 +99,16 @@ this key still builds the notes and the table.
 
 An unknown target name exits 2 and lists the valid ones, like any other enum. A
 target from a later phase exits 2 saying so.
+
+A third case exists because a phase is delivered in steps rather than all at
+once: a target may be *in* the current phase and not built yet. It also exits 2,
+and it is refused **where it is named** — by `init` and by the config reader —
+rather than later at build time. Refusing early is the whole point: a vault that
+has already written a target into `build.targets` is a vault whose every build
+fails on something the user was never warned about. `core/vocab.ts` names those
+targets, and a test asserts that list plus the registry accounts for every
+target exactly once, so the two cannot drift apart. The registry keeps its own
+refusal as a backstop for the case the list gets it wrong.
 
 ## Ownership and cleanup
 
@@ -133,7 +146,8 @@ caretaker's index, and only the writer touches it.
 | `sqlite` | `data/log.db` | 1 |
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
-| `site` | `site/` via Quartz | 3 |
+| `stats` | `obsidian/Stats.md`, `obsidian/reviews/<year>.md`, `obsidian/reviews/heatmap-<year>.svg` | 3 |
+| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/content/stats.md`, `quartz/content/reviews/<year>.md`, `quartz/content/reviews/heatmap-<year>.svg`, `quartz/content/Game Database.base`, `quartz/quartz.config.yaml` | 3 |
 
 ### `obsidian`
 
@@ -211,11 +225,143 @@ This overlaps the Quartz site of phase 3 and does not replace it: the site is a
 vault-wide, linked, publishable thing; this is one page that answers questions
 about runs. Labels come from `i18n/`; the embedded data stays in schema tokens.
 
-### `site`
+### `stats`
 
-Phase 3. Runs Quartz over the finished vault, which means it is the one target
-that reads what the others wrote — and therefore the one that always runs last,
-in a second pass, outside the contract above.
+Phase 3. What the register knows about *time*, which no other target answers: a
+calendar heatmap and a year in review.
+
+- `obsidian/Stats.md` — totals, a row per year, a row per genre, and every
+  year's heatmap.
+- `obsidian/reviews/<year>.md` — one note per year: hours, sessions, days
+  played, runs started, finished and abandoned, the longest session, the mean
+  rating, the rating distribution, the most played titles, the runs finished,
+  and the year's own heatmap.
+- `obsidian/reviews/heatmap-<year>.svg` — the heatmap as a file.
+
+**Which years exist comes from the log.** A year appears because a session
+happened in it, never because a clock says it is now, and a year is always drawn
+whole — January 1st to December 31st. A build in December and a build the
+following January produce the same bytes. This is rule 3 restated, and it is
+worth restating because "year in review" is the one artifact in this document
+that reads like an invitation to call `Date.now()`.
+
+**The renderers are shared, and the target decides only which files exist.**
+`render/heatmap.ts` and `render/review.ts` are pure functions from folded state
+to strings; `stats` writes the heatmap as its own file and embeds it, `html`
+pastes the same string into its single page, and `quartz` writes the same notes
+`stats` does, under its own tree and with the site's own wikilink shape (see
+the `quartz` section below). The SVG is written once per file that needs it.
+This is the same seam `render/` and `targets/` already had — an emitter that
+does not know what file it is going into — applied three times over.
+
+Inline SVG rather than a chart library: no runtime dependency, no build step,
+and it renders in Obsidian, in `Games.html`, on GitHub and on a published page.
+It carries its own palette, including a `prefers-color-scheme` block, because a
+file embedded as an image has no document to inherit a colour from. The embed is
+a Markdown image with a path relative to the note's own folder — the one
+spelling Obsidian, GitHub and a static site generator all resolve the same way.
+
+Both notes are **spliced**, not replaced, and that is the whole reason the
+policy exists. The numbers are the build's; the paragraph that says what the
+year *felt* like is the user's, offered as a draft by the agent the way a
+verdict is (see [05-agent](05-agent.md)) and accepted, edited or refused by
+them. It lands outside the markers, where invariant 3 protects it from every
+later build. **The build never generates prose.**
+
+Two boundaries worth knowing, both of them the model being honest rather than
+the target being lazy:
+
+- **Hours in a year are measured hours.** A session has a logical day; stated
+  hours from an `import` or from `--hours` belong to the run and to no day at
+  all, so they count in the totals and in a game's own note, and not in a year.
+  A register migrated from a spreadsheet therefore has years that look emptier
+  than they were, which is true: nobody recorded those days.
+- **A day with a session still open is drawn at the lowest level**, not left
+  blank. It has no measured minutes yet; something still happened there.
+
+`stats` writes under `obsidian/`, the folder the user opens, even though it is
+not the `obsidian` target — the two never plan the same path, and a stats note
+is a note. A vault that declares `stats` without `obsidian` gets the folder with
+those files in it and nothing else, which is odd but not wrong.
+
+### `quartz`
+
+Phase 3. The vault as a stranger reads it: the same notes, planned a second time
+in the flavour Quartz consumes. An **ordinary target** — it plans its files from
+the folded state like every other one, so rule 1 above holds for it with no
+exception.
+
+That reverses an earlier design in which `quartz` ran Quartz over the finished
+vault and therefore read what the other targets had written. The exception was
+not worth its price. Rule 1 is what keeps the build a projection instead of a
+migration, and it is worth more intact than the shortcut was worth taking —
+especially since the shortcut bought little: `render/` already emits Markdown and
+`targets/` already decides which files exist, so a second flavour of the same
+renderers costs a parameter rather than an architecture.
+
+**gamereg never runs Quartz.** The target emits Quartz's *input* —
+`quartz/content/**.md` under `replace`, and a seeded
+`quartz/quartz.config.yaml`.
+How the site is built from there is the user's business: by hand, from CI, from a
+cron job. The build spawns no subprocess, touches no network, and does not
+require Quartz to be installed in order to build a vault.
+
+The content tree mirrors the vault's own shape — `games/` and `runs/` — with
+the consolidated table as `index.md`, which is Quartz's landing page. It is
+`Game List.md` in the vault for the opposite reason: Obsidian shows a basename,
+and a file called `index` says nothing in a quick switcher.
+
+**The site carries what the log knows** — title, metadata, cover, the runs table,
+sessions, `note`s and `verdict`s — and not prose typed by hand into a game note,
+which lives only on disk, outside the markers, and never reaches the folded
+state. That is a property rather than a shortfall: prose written in Obsidian
+stays private by construction, and anything meant to be public is filed through
+the CLI as a note or a verdict, which is D2 doing its job. The prose worth
+publishing is already in the log.
+
+The differences from the `obsidian` flavour are all small, and each is a
+property of the consumer rather than a preference (`render/flavour.ts` holds
+them in one place). Quartz reads `description` and `draft` in
+frontmatter, which the Obsidian flavour does not write. An asset embed resolves
+only if the file is in the content tree, which `images.publish` governs — see
+[04-derived](04-derived.md)'s *Publication* — and where it is off the note says
+so rather than embedding a picture that is not there. A wikilink names its
+folder (`[[games/hollow-knight]]`), because Quartz resolves one from the content
+root by default while Obsidian resolves it by shortest match anywhere in the
+vault; naming the folder is the spelling both accept. And a game note keeps no
+empty *Notes* heading, since the half it invites is the half that never reaches
+the site.
+
+The seeded `quartz.config.yaml` is Quartz's own `obsidian` template with the
+site's identity changed — that template is the one whose link resolution and
+Obsidian-flavored Markdown match what this target emits. Like any seed it is
+written once and never again, so `npx quartz create` may replace it freely.
+
+**The site also carries `Stats.md` and a year in review — the same renderers,
+reused through the flavour seam.** `render/heatmap.ts` and `render/review.ts`
+don't know which consumer they're serving; `quartz` plans `content/stats.md`,
+one `content/reviews/<year>.md` per year the log knows about, and each year's
+heatmap as its own SVG, exactly as `stats` does for the vault, just written
+into `quartz/content/` instead of `obsidian/` and linked with the site's
+qualified wikilinks (`[[reviews/2026]]`, `[[games/hollow-knight]]`) instead of
+Obsidian's bare ones. Every one of these is `replace`, not `splice`: a Quartz
+note has no hand-prose slot to preserve, so there is no "outside the markers"
+region for the year in review to leave for the user the way it does in the
+vault. `index.md` is unchanged by this — the Stats page is reached through
+Quartz's own content-tree explorer, not a link added to the table.
+
+**`quartz/content/Game Database.base` is the same seed the vault gets** —
+`template('Game Database.base')`, reused byte-for-byte, not forked — for
+`@quartz-community/bases-page`, a Quartz plugin already enabled in the seeded
+`quartz.config.yaml`. It wasn't reused sooner because nobody had checked
+whether the plugin actually renders one: it does, verified against a real
+Quartz 5.0.0 checkout, a themed and sortable HTML table generated from the
+`.base` file. No renderer changed to make this work — `file.hasTag("gamereg")`
+and every property the `.base` references (`status`, `platform`, `genres`,
+`cover` and the rest) are already written identically in both flavours by
+`render/run.ts`, so the site's run notes were already queryable; only the
+`.base` file itself was missing from the tree. The Shelf view's `image: cover`
+still depends on `images.publish`, the same as every other embed on the site.
 
 ## Bases
 

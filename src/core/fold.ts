@@ -12,6 +12,7 @@
 import type { DateTime } from 'luxon'
 
 import { minutesBetween } from './duration.ts'
+import { GameregError } from './errors.ts'
 import type { EventEnvelope } from './events.ts'
 import { normalize } from '../resolve/normalize.ts'
 import { logicalDay, parseISO, type TimeContext } from './time.ts'
@@ -52,6 +53,12 @@ export type BreakState = {
 }
 
 export type CheckinState = {
+  /**
+   * The `session.checkin` event itself. `checkin --expire` amends the record
+   * it finds stale, and an amend needs a target: without the id here, the only
+   * way back to the event is a second scan of the log by hand.
+   */
+  event_id: string
   at: string
   trigger: CheckinTrigger
   outcome: CheckinOutcome
@@ -60,6 +67,13 @@ export type CheckinState = {
 export type SessionState = {
   session_id: string
   run_id: string
+  /**
+   * The `session.open` event that started it. Carried for the same reason
+   * `CheckinState.event_id` is: `amend` and `revoke` take an *event* id, and
+   * without this the only route to one is raw SQL over the `events` table with
+   * `json_extract` — which is what the agent was reduced to doing, badly.
+   */
+  open_event_id: string
   started_at: string
   ended_at: string | null
   /** Net of every break. Zero while open — never estimated. */
@@ -77,6 +91,12 @@ export type SessionState = {
 export type RunState = {
   run_id: string
   game_id: string
+  /**
+   * The `run.open` (or `run.import`) event that opened it — the target of
+   * every `amend` that corrects a run's own fields, `platform` and the stated
+   * `hours` baseline included. See `SessionState.open_event_id`.
+   */
+  open_event_id: string
   platform: string | null
   /**
    * What the log actually holds, before the build canonicalizes spellings
@@ -126,6 +146,8 @@ export type GameState = {
   genres: string[]
   platforms: string[]
   providers: Record<string, string | number>
+  /** Providers a real `game.enrich` has actually completed for — unlike `providers`, never set by a bare create-time reference (docs/spec/02-cli.md, `enrich --missing`). */
+  enrichedProviders: string[]
   aliases: string[]
   cover: Cover | null
   runs: RunState[]
@@ -315,6 +337,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           genres: strArray(data, 'genres'),
           platforms: strArray(data, 'platforms'),
           providers,
+          enrichedProviders: [],
           aliases: strArray(data, 'aliases'),
           cover: null,
           runs: [],
@@ -392,6 +415,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         const providerId = fields['id']
         if (typeof providerId === 'string' || typeof providerId === 'number') {
           game.providers[provider] = providerId
+          if (!game.enrichedProviders.includes(provider)) game.enrichedProviders.push(provider)
         }
         // A user cover is never replaced by enrichment (01-model, cover precedence).
         // `cover` was a bare URL string before the download pipeline existed;
@@ -442,6 +466,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         const run: RunState = {
           run_id: runId,
           game_id: game.game_id,
+          open_event_id: event.id,
           platform: str(data, 'platform'),
           platform_raw: str(data, 'platform'),
           form: str(data, 'form') as Form | null,
@@ -520,6 +545,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         const session: SessionState = {
           session_id: sessionId,
           run_id: run.run_id,
+          open_event_id: event.id,
           started_at: str(data, 'at') ?? '',
           ended_at: null,
           minutes: 0,
@@ -638,6 +664,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           break
         }
         session.checkins.push({
+          event_id: event.id,
           at: str(data, 'at') ?? event.ts,
           trigger: (str(data, 'trigger') ?? 'duration') as CheckinTrigger,
           outcome: (str(data, 'outcome') ?? 'no_reply') as CheckinOutcome,
@@ -742,4 +769,25 @@ export function attachmentsOfGame(state: VaultState, game: GameState): GameAttac
   }
 
   return collected.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0))
+}
+
+/** Every session still open, in the order the log put their games in. */
+export function openSessions(state: VaultState): SessionState[] {
+  const sessions: SessionState[] = []
+  for (const game of state.games) {
+    for (const run of game.runs) {
+      for (const session of run.sessions) {
+        if (session.open) sessions.push(session)
+      }
+    }
+  }
+  return sessions
+}
+
+/** The game a session belongs to. Unreachable unless the fold contradicts itself. */
+export function gameOfSession(state: VaultState, session: SessionState): GameState {
+  const run = state.runsById.get(session.run_id)
+  const game = run === undefined ? undefined : state.gamesById.get(run.game_id)
+  if (game === undefined) throw new GameregError('error', 'error.unexpected', { message: session.session_id })
+  return game
 }

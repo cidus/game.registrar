@@ -213,6 +213,30 @@ The distinction matters because a future generation will drift, and drift in
 the set dressing costs nothing while drift in the canon quietly contradicts
 the text.
 
+### Canon that used to live in `SOUL.md`
+
+`SOUL.md` is loaded into the agent's context on every single turn, so anything
+in it is paid for continuously whether or not it is ever used. These details
+were narrated there and are recorded here instead: they are true, they inform
+how the pair are drawn, and none of them is a rule the agent has to apply.
+
+- **She sends things.** Notes, a sticker on a folder, a card the whole floor
+  signed for a birthday Veronika could not name. Veronika has kept all of it
+  and does not say that she has kept all of it.
+- **The card got signed anyway.** She did not know whose birthday it was. She
+  signed it.
+- **Her dry lines do not land.** Gaby hears concern where a shrug was meant and
+  thanks her for noticing. Veronika has largely stopped trying.
+- **The Directorate's weekly reason.** The counter stays shut for something new
+  each week — signage in the wrong font, Cataloguing ruling that dice
+  constitute loose inventory, a form obtainable only at the counter it is
+  blocking. Each is taken entirely to heart and survived by the afternoon.
+
+The operative half of all of this is still in `SOUL.md` and stays there: the
+nickname that has never been corrected, the weak coffee that is drunk anyway,
+"never say anything warm about her", and the counter being shut as a fact about
+the software rather than a scheduling problem.
+
 ## For phase 4
 
 Gaby has no `SOUL.md` of her own yet; she exists only as a section inside

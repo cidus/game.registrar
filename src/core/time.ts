@@ -38,13 +38,30 @@ export function parseISO(value: string, context: TimeContext): DateTime {
   return context.zone === null ? parsed : parsed.setZone(context.zone)
 }
 
-function cutoffMinutes(dayCutoff: string): number {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(dayCutoff)
-  if (match === null) throw new GameregError('usage', 'error.bad_cutoff', { value: dayCutoff })
-  const hours = Number(match[1])
-  const minutes = Number(match[2])
-  if (hours > 23 || minutes > 59) throw new GameregError('usage', 'error.bad_cutoff', { value: dayCutoff })
-  return hours * 60 + minutes
+/**
+ * `HH:MM`, as a time of day. Every clock setting goes through this one parser:
+ * `day_cutoff`, `checkin.chase_at`, `checkin.clock[]` and `checkin.quiet_hours`
+ * are the same kind of value, and a second regex is a second set of edge cases.
+ */
+export function parseClock(value: string): { hour: number; minute: number } {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value)
+  if (match === null) throw new GameregError('usage', 'error.bad_clock', { value })
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour > 23 || minute > 59) throw new GameregError('usage', 'error.bad_clock', { value })
+  return { hour, minute }
+}
+
+/** Minutes since midnight, for comparing two times of day. */
+export function clockMinutes(value: string): number {
+  const { hour, minute } = parseClock(value)
+  return hour * 60 + minute
+}
+
+/** That time of day, on the calendar day of `instant`. */
+export function atClock(instant: DateTime, value: string): DateTime {
+  const { hour, minute } = parseClock(value)
+  return instant.set({ hour, minute, second: 0, millisecond: 0 })
 }
 
 /**
@@ -53,7 +70,7 @@ function cutoffMinutes(dayCutoff: string): number {
  */
 export function logicalDay(instant: DateTime, dayCutoff: string): string {
   const shifted =
-    instant.hour * 60 + instant.minute < cutoffMinutes(dayCutoff)
+    instant.hour * 60 + instant.minute < clockMinutes(dayCutoff)
       ? instant.minus({ days: 1 })
       : instant
   const date = shifted.toISODate()

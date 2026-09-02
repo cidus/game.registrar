@@ -312,6 +312,70 @@ with a real number instead of a guess.
 The `csv` and `json` targets flatten the same tables with the same column names.
 Where they disagree, this schema is right and the other is a bug.
 
+## Heatmap and year in review
+
+Two artifacts about time rather than about titles, emitted by the `stats` target
+([07-targets](07-targets.md)) and rendered by pure functions in `render/` that
+any other target can call.
+
+### The calendar heatmap
+
+One year per grid, weeks as columns and ISO weekdays as rows, Monday first. A
+cell is a **logical day** — the same grouping `v_sessions_by_day` uses, and the
+reason a session that ran past midnight colours the day it belongs to rather
+than two.
+
+Five levels, from **fixed** thresholds rather than per-year quantiles: nothing,
+under 1h, under 2h, under 4h, and 4h or more. Fixed is what lets two years be
+read side by side; a quantile scale would make a thin year look like a heavy one
+with paler ink. A day whose only session is still open has no measured minutes
+and is drawn at the lowest level — something happened there, and an empty cell
+would say otherwise.
+
+The output is inline SVG with its own palette and a `prefers-color-scheme`
+block. It renders in Obsidian, in `Games.html`, on GitHub and on a published
+page, and it adds no dependency to a build that has none.
+
+### The year in review
+
+Everything below is arithmetic over folded state (invariant 7). Nothing is
+inferred, nothing is phrased, and nothing reads a clock:
+
+| Figure | Counted from |
+|---|---|
+| Hours, sessions, days played | sessions whose `logical_day` falls in the year |
+| Games played | distinct games with such a session |
+| Longest session | the largest `minutes` among them |
+| Runs started | `started_on` in the year |
+| Runs finished / abandoned | `outcome` with `ended_on` in the year |
+| Mean rating, rating distribution | runs finished in the year, `rating` non-null |
+| Most played | the year's session minutes, per game, descending |
+| First and last session | the year's sessions in chronological order |
+
+Hours in a year are therefore **measured** hours. Stated hours — from `import`,
+or from `--hours` on a run opened after the fact — belong to a run and to no
+day, so they count in the register's totals and in the game's own note, and not
+in a year. That is the same distinction `hours_source` already carries, applied
+one level up.
+
+Two figures here restate `v_by_year` deliberately: the SQL view answers the
+question from a query, the renderer answers it in a note, and both compute it
+from the same fold. Where they disagree, it is a bug in one of them and not a
+choice.
+
+**Which years exist comes from the log.** A year is in the register because a
+session happened in it. A build in December and a build the following January
+produce the same bytes, and a register with nothing after 2019 has no 2026 note
+waiting to be filled in.
+
+### The prose is not generated
+
+A review holds no sentence the build wrote. The paragraph that says what the
+year was like is the user's, offered as a draft by the agent the way a verdict
+is ([05-agent](05-agent.md)) and accepted, edited or refused by them. It lives
+outside the markers in a spliced note, which is invariant 3 doing exactly what
+it was written for.
+
 ## Determinism
 
 `gamereg build` twice in a row must produce byte-identical output. This applies
@@ -339,11 +403,47 @@ order — while a second build on one machine is still compared byte for byte.
 Every other artifact this project writes is text it composes itself and is
 compared as bytes everywhere.
 
+### What varies per target is the comparator, not the guarantee
+
+Those are two claims and only the second one bends, so keep them apart:
+
+1. **Build twice on one machine, get identical bytes.** That is invariant 2, it
+   is absolute, and it holds today for every target, SQLite included.
+2. **Compare a committed fixture across machines.** Here SQLite is compared
+   logically, for the reason above.
+
+So a target declares **how its artifact is compared**, never whether it has to be
+deterministic. `dumpDatabase` in `test/helpers.ts` is that declaration for
+`sqlite`, written before there was a name for it; everything else declares
+nothing and gets a byte comparison, which is the right default because everything
+else is text this project composes itself.
+
+Stating it this way also settles a question that will come up for any future
+target that wraps an external encoder: the answer is a comparator, not an
+exemption. A target that cannot promise claim 1 does not belong in the build.
+
 ## Site
 
-Phase 3. Quartz over the vault, since it reads wikilinks and embeds natively.
-`gamereg build site` runs Quartz and writes `site/`. Publication is a GitHub
-Action on push, or nothing at all — the vault is fully usable without it.
+Phase 3. `gamereg build quartz` writes `quartz/content/` — the game and run
+notes again, in the flavour Quartz reads, with the consolidated table as
+`index.md` — plus a seeded `quartz/quartz.config.yaml`.
+**It does not run Quartz.** Turning that content into a site is the user's
+business: by hand, a GitHub Action on push, a cron job, or nothing at all. The
+vault is fully usable without any of them.
+
+Quartz is the generator this content is shaped for, because it reads wikilinks
+and embeds natively and gives backlinks, a graph view and link popovers over
+something that is genuinely a graph — see D4 in
+[00-architecture](00-architecture.md).
+
+`quartz/content/` is derived and **committed**, exactly as `obsidian/` is, and for
+the same reason: it is what lets a CI job build the site with nothing but Quartz
+installed. Quartz's own output directory is Quartz's — gitignored, never listed
+in the build manifest, and the build neither writes it nor removes anything
+inside it.
+
+What reaches the site is what the log knows, which is less than the vault holds;
+[07-targets](07-targets.md)'s `quartz` section says exactly what and why.
 
 ## Image ingestion
 

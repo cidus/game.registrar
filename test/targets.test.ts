@@ -13,9 +13,11 @@ import { appendEvents, readEvents } from '../src/core/events.ts'
 import { fold } from '../src/core/fold.ts'
 import { openVault, timeContext, vaultPath, type Vault } from '../src/core/vault.ts'
 import { translator } from '../src/i18n/index.ts'
+import { BUILD_TARGET, TARGET_PHASE, UNBUILT_TARGETS } from '../src/core/vocab.ts'
 import { build, claimPaths, type BuildResult } from '../src/targets/build.ts'
+import { allTargets } from '../src/targets/registry.ts'
 import { readManifest, serializeManifest } from '../src/targets/manifest.ts'
-import { mirrorAssets } from '../src/targets/obsidian.ts'
+import { mirrorAssets } from '../src/targets/mirror.ts'
 import type { PlannedFile } from '../src/targets/types.ts'
 import { event, tempDir } from './helpers.ts'
 
@@ -46,6 +48,20 @@ function rebuild(root: string, only?: string[]): BuildResult {
 function game(gameId: string, slug: string, title: string): ReturnType<typeof event> {
   return event('game.create', { game_id: gameId, slug, title, genres: [], platforms: [], providers: {}, aliases: [] })
 }
+
+test('the vocabulary, the registry and the unbuilt list account for every target once', () => {
+  // `core/` may not depend on `targets/`, so `UNBUILT_TARGETS` is written by
+  // hand next to the vocabulary. This is what stops it from rotting: a target
+  // that lands must leave the list, and one that is named must be in exactly
+  // one of the two places.
+  const built = allTargets().map((target) => target.name)
+  assert.deepEqual([...built, ...UNBUILT_TARGETS].sort(), [...BUILD_TARGET].sort())
+  for (const name of built) assert.equal(UNBUILT_TARGETS.includes(name), false, name)
+})
+
+test('a target declares the same phase the vocabulary does', () => {
+  for (const target of allTargets()) assert.equal(target.since, TARGET_PHASE[target.name], target.name)
+})
 
 test('a rename moves the note, and ownership removes the one left behind', () => {
   const root = vault()
@@ -178,6 +194,54 @@ test('a seed is never removed, not even when its target is gone', () => {
   })
 })
 
+test('the quartz seed follows the same rules: written once, held until --force', () => {
+  const root = vault(['quartz'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  const first = rebuild(root)
+  assert.equal(first.written.includes('quartz/content/Game Database.base'), true)
+
+  const base = join(root, 'quartz', 'content', 'Game Database.base')
+  writeFileSync(base, 'views: []\n# reordered a column through the UI\n')
+  const second = rebuild(root)
+  assert.equal(second.written.includes('quartz/content/Game Database.base'), false)
+  assert.match(readFileSync(base, 'utf8'), /reordered a column/)
+
+  const opened = openVault(root)
+  const state = fold(readEvents(opened.eventsFile), timeContext(opened))
+  build(opened, state, translator('en'), { force: true })
+  assert.equal(readFileSync(base, 'utf8').includes('views: []\n'), false)
+  assert.match(readFileSync(base, 'utf8'), /file\.inFolder\("runs"\)/)
+})
+
+test('a quartz seed is never removed, not even when its target is gone', () => {
+  const root = vault(['quartz'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  rebuild(root)
+
+  writeFileSync(
+    join(root, 'gamereg.config.json'),
+    JSON.stringify({ locale: 'en', timezone: 'America/Sao_Paulo', build: { targets: ['csv'] } }),
+  )
+  const second = rebuild(root)
+
+  assert.equal(second.removed.includes('quartz/content/Game Database.base'), false)
+  assert.equal(existsSync(join(root, 'quartz', 'content', 'Game Database.base')), true)
+  assert.equal(existsSync(join(root, 'quartz', 'content', 'games', 'sabotage.md')), false)
+})
+
+test('obsidian and quartz seed their own Game Database.base at distinct paths, no conflict', () => {
+  const root = vault(['obsidian', 'quartz'])
+  record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
+  const result = rebuild(root)
+
+  assert.equal(result.written.includes('obsidian/Game Database.base'), true)
+  assert.equal(result.written.includes('quartz/content/Game Database.base'), true)
+  assert.equal(
+    readFileSync(join(root, 'obsidian', 'Game Database.base'), 'utf8'),
+    readFileSync(join(root, 'quartz', 'content', 'Game Database.base'), 'utf8'),
+  )
+})
+
 test('the argument narrows a build; a target the vault does not declare is refused', () => {
   const root = vault(['obsidian'])
   record(root, game('01K5A00000000000000000GAMA', 'sabotage', 'Sabotage'))
@@ -275,14 +339,14 @@ test('mirrorAssets never clobbers something a user put at that path', () => {
   mkdirSync(join(root, 'obsidian'), { recursive: true })
   writeFileSync(join(root, 'obsidian', 'assets'), 'not a directory')
 
-  mirrorAssets(openVault(root))
+  mirrorAssets(openVault(root), 'obsidian')
 
   assert.equal(readFileSync(join(root, 'obsidian', 'assets'), 'utf8'), 'not a directory')
 
   // A symlink pointing somewhere else is someone's own arrangement too.
   rmSync(join(root, 'obsidian', 'assets'))
   symlinkSync('../elsewhere', join(root, 'obsidian', 'assets'), 'dir')
-  mirrorAssets(openVault(root))
+  mirrorAssets(openVault(root), 'obsidian')
   assert.equal(readlinkSync(join(root, 'obsidian', 'assets')), '../elsewhere')
 })
 

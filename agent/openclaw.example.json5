@@ -35,6 +35,22 @@
   agents: {
     defaults: {
       workspace: "~/.openclaw/workspace",
+
+      // Cheaper model for short internal tasks only — confirmed against the
+      // live schema, this is scoped to things like generated session/thread
+      // titles. It does not touch command interpretation, gamereg
+      // invocation, or the persona: those stay on the primary model above.
+      // Same auth profile as Sonnet, no separate credential needed.
+      utilityModel: "anthropic/claude-haiku-4-5",
+
+      // Most turns here are one sentence mapped to one invocation — "Pausa"
+      // becomes `gamereg break start`, and no amount of deliberation improves
+      // that. The default resolved to "high" on this install, which bought
+      // latency on every trivial turn and paid for it on none. "adaptive"
+      // keeps the deliberation for the turns that have a decision in them (a
+      // candidate menu, a revoke sequence, a verdict draft) and drops it for
+      // the rest.
+      thinkingDefault: "adaptive",
     },
   },
 
@@ -58,6 +74,59 @@
         inlineButtons: "allowlist",
       },
 
+      // Reaction tokens (docs/spec/05-agent.md, "Reactions"). Both switches
+      // are off by default in OpenClaw and both are left off here, because
+      // agent/workspace/REACTIONS.md ships with an empty mapping table:
+      // turning them on before there is any artwork to send buys nothing.
+      // Uncomment the pair you actually intend to use once that table has a
+      // row in it.
+      //
+      // The two paths are genuinely separate mechanisms, not one feature with
+      // a fallback, and each has its own gate:
+      //
+      //   - `sticker` gates `action: "sendSticker"`, which takes a `fileId`
+      //     and posts a sticker as its own message. With it unset, the call
+      //     fails with "Telegram sticker actions are disabled" rather than
+      //     silently doing nothing.
+      //   - `reactions` gates `action: "react"`, which attaches an emoji to
+      //     an existing message and therefore needs that message's id. It is
+      //     gated twice over: `reactionLevel` must also be above "off", and
+      //     with either missing the action returns `{ok: false, reason:
+      //     "disabled"}` and a hint not to retry.
+      //
+      // `reactionLevel` is OpenClaw's own knob for how freely the agent
+      // reacts ("off" | "ack" | "minimal" | "extensive"); "minimal" is the
+      // one that matches this deployment, where a reaction marks a filing and
+      // nothing else. It is not a gamereg setting and it governs more than
+      // these five tokens.
+      //
+      // Verified against this OpenClaw (2026.7.1-2): a sticker is a *channel
+      // action* on the message tool, not a presentation block. The
+      // presentation shape that carries buttons has no sticker or reaction
+      // member at all — MessagePresentationBlock is text | context | divider
+      // | buttons | select — so none of this rides along with a reply the
+      // way an inline keyboard does. It is a second call.
+      //
+      // actions: {
+      //   sticker: true,
+      //   reactions: true,
+      // },
+      // reactionLevel: "minimal",
+
+      // Sends through Bot API 10.1's sendRichMessage instead of sendMessage.
+      // Turned on for one reason: buttons come out wider, which is what makes
+      // a candidate's title readable on its own button.
+      //
+      // A `style` on a button does *not* need this — that was tested both
+      // ways and the colours render either way. Only the width changes.
+      //
+      // It is not a buttons-only switch, though: it also turns on rich
+      // rendering for tables and media (`supportsBlockTables`), so a query
+      // result narrated as a table renders differently too. That is the whole
+      // blast radius, and it is why this sits here with a reason rather than
+      // being switched on for tidiness.
+      richMessages: true,
+
       // The channel-native half of exec approvals — distinct from
       // approvals.exec below, which only decides routing. Without this,
       // routing still resolves, but Telegram itself refuses to present an
@@ -77,30 +146,39 @@
       },
 
       // The progress indicator shown while a gamereg command is running.
-      // Telegram runs this in "progress" streaming mode by default; the
-      // default label pool is OpenClaw's own (lobster-themed — "Molting" is
-      // one of them), nothing to do with a card catalog. This pool replaces
-      // it with the Registrar's own vocabulary instead — same register as
-      // SOUL.md's filed/protocolada table, not a generic status word.
+      // Telegram runs this in "progress" streaming mode by default, and the
+      // default label is OpenClaw's own (lobster-themed — "Molting" is one),
+      // nothing to do with a card catalog. This one is the Registrar's own
+      // vocabulary instead: the same word `i18n/`'s pt-BR bundle uses for a
+      // filing, not a generic status word.
       //
-      // `toolProgress: false` keeps that single rotating label as the whole
-      // status draft and suppresses the per-tool-call lines progress mode
-      // would otherwise append under it (raw command text). Confirmed live:
-      // the label still shows and rotates, no command text leaks into chat.
+      // `toolProgress: false` drops the per-tool lines (`exec gamereg …`)
+      // and leaves the label alone as the whole draft.
+      //
+      // **A fixed string on purpose, after trying a pool of eight.** `"auto"`
+      // plus a `labels` array reads like it rotates. It does not: the label is
+      // `labels[hashProgressSeed(seed) % labels.length]`, the seed is the
+      // conversation key (`telegram:<chat id>`), and a single-user bot has
+      // exactly one of those — so one label was drawn and it never changed
+      // again. The random branch beside it only runs when there is no seed. A
+      // pool earns its keep across *different* chats; here it was eight
+      // strings pretending, seven of which no one would ever see.
+      //
+      // **`mode: "progress"` must be written out even though Telegram
+      // already defaults to it.** `resolveChannelStreamingPreviewToolProgress`
+      // only consults `progress.*` when the mode *resolves* to "progress",
+      // and its resolver falls back to "partial" when `streaming.mode` is
+      // absent from config — the channel default never reaches it. Set
+      // `toolProgress` without `mode` and it is silently read as
+      // partial-mode config and ignored: no error, no log line, commands
+      // still on screen. `commandText` is a separate knob and already
+      // defaults to "status"; setting it changes nothing here.
       streaming: {
+        mode: "progress",
         progress: {
-          label: "auto",
-          labels: [
-            "📋 Protocolando",
-            "🗂️ Arquivando",
-            "🖋️ Carimbando",
-            "🔍 Consultando",
-            "🗃️ Catalogando",
-            "📎 Anexando",
-            "🔖 Registrando",
-            "📜 Conferindo",
-          ],
+          label: "📋 Protocolando",
           toolProgress: false,
+          commandText: "status",
         },
       },
     },
@@ -120,6 +198,37 @@
   },
 
   tools: {
+    // **The single largest thing in this agent's context, and it was all
+    // waste.** OpenClaw ships 39 tools by default, and their JSON schemas
+    // measured 53,768 characters — roughly 13k tokens re-sent on every turn
+    // of every conversation, for an agent whose stated boundary is "invoke
+    // gamereg and nothing else". `cron` alone was 5,868 characters; `browser`
+    // 4,706; then `video_generate`, `image_generate`, `skill_workshop`,
+    // `sessions_*`, `memory_*`, `web_*`, `write`/`edit`/`apply_patch`, and
+    // twenty-odd more, none of which this deployment has any use for.
+    //
+    // Cost is only half of it. A tool schema outranks prose: AGENTS.md and
+    // SKILL.md both forbid reading session history and keeping notes, and
+    // the live transcripts still show `sessions_history` called seven times
+    // and `memory_search` three — the latter returning a broken-index error
+    // carrying its own instructions for the model to relay to the user.
+    // Every one of those was a boundary the prompt stated and the tool list
+    // quietly re-opened. Removing the tool is the enforcement the paragraph
+    // could not be.
+    //
+    // Three survive, and each earns it:
+    //   - `exec` runs gamereg, which is the entire job.
+    //   - `message` sends buttons, candidate covers, and check-in questions;
+    //     `action: "edit"`/`"delete"` strip an answered menu, and
+    //     `"react"`/`"sendSticker"` carry the reaction tokens.
+    //   - `read` loads the skill and its reference/ files. Denying it does
+    //     not harden anything — it breaks skill loading outright.
+    //
+    // `allow` is an absolute list that replaces the profile-derived default
+    // set, so it is the whole surface, not an addition to one. Anything added
+    // here should be argued for the way the three above are.
+    allow: ["exec", "message", "read"],
+
     // Governs whether the agent may run gamereg at all, and what happens to
     // anything not on the allowlist in approvals.example.json.
     //
@@ -127,17 +236,23 @@
     // is subject to `ask`. Leaving this unset means "full": every command
     // runs with no gate whatsoever, allowlist file or not.
     //
-    // ask: "on-miss" — anything that isn't allowlisted (a chained command
-    // that doesn't match the plain `gamereg` pattern, or a tool other than
-    // gamereg entirely) pauses for a human decision instead of running or
-    // failing silently — but only because approvals.exec below tells
-    // OpenClaw where to send that prompt. `amend` and `revoke` are on the
-    // allowlist in approvals.example.json like every other gamereg command;
-    // their confirmation is conversational, in SKILL.md, not this gate — see
-    // README.md for why, and what that trades away.
+    // ask: "off" — anything that isn't allowlisted (a chained command that
+    // doesn't match the plain `gamereg` pattern, or a tool other than
+    // gamereg entirely) is denied immediately, with no prompt and no wait.
+    // The agent's own boundary is "gamereg, one invocation, nothing else"
+    // (SKILL.md), so a miss here is always a mistake to recover from, never
+    // something a human is expected to approve — `on-miss` used to route
+    // that decision to chat instead, and in practice it only ever produced
+    // an approval nobody asked for, sometimes minutes of it. `amend` and
+    // `revoke` are on the allowlist in approvals.example.json like every
+    // other gamereg command; their confirmation is conversational, in
+    // SKILL.md, not this gate — see README.md for why, and what that trades
+    // away. `approvals.exec` below is dead weight with `ask: "off"` (nothing
+    // ever asks), kept only in case a future change reintroduces a real
+    // approval path.
     exec: {
       security: "allowlist",
-      ask: "on-miss",
+      ask: "off",
     },
 
     media: {
@@ -159,11 +274,31 @@
         },
 
         // Local: nothing leaves the host, no per-minute cost, more setup.
-        // Not yet verified against a real install — check the provider
-        // spelling against your OpenClaw version before relying on it.
+        // There is no "whisper-local" provider — OpenClaw has no such
+        // provider id. Local Whisper is a CLI entry that shells out to
+        // `whisper-cli` (the `whisper-cpp` binary) directly; OpenClaw's own
+        // audio auto-detect falls back to this same binary if one is on
+        // PATH, but an explicit entry is what lets `-l pt` and `-t` be set.
+        // `-l pt` forces the language instead of paying for auto-detect (and
+        // occasionally mis-detecting) on every note. Verified end-to-end on
+        // a real install (whisper.cpp built from source,
+        // ggml-large-v3-turbo-q5_0.bin, `-t 12`) against a short voice note
+        // transcribed correctly in pt-BR — the longer session-closing smoke
+        // test in README.md's "Voice" section is still open. `ffmpeg` must
+        // also be on PATH; OpenClaw uses it to decode the incoming audio
+        // before handing it to whisper-cli, and fails with a clear "ffmpeg
+        // not found" reason if it's missing.
         // {
-        //   provider: "whisper-local",
-        //   model: "large-v3",
+        //   type: "cli",
+        //   command: "whisper-cli",
+        //   args: [
+        //     "-m", "/path/to/ggml-large-v3-turbo-q5_0.bin",
+        //     "-l", "pt",
+        //     "-nt",
+        //     "-t", "12",
+        //     "{{MediaPath}}",
+        //   ],
+        //   timeoutSeconds: 60,
         //   capabilities: ["audio"],
         // },
       ],

@@ -10,12 +10,15 @@
       "past": "historico",
       "search": "buscar",
       "open": "abertas",
+      "due": "pendencias",
+      "checkin": "conferir",
       "status": "situacao",
       "build": "construir",
       "doctor": "auditoria",
       "alias": "apelido",
       "amend": "corrigir",
       "revoke": "revogar",
+      "enrich": "enriquecer",
       "verdict": "parecer",
       "init": "inicializar",
       "platform": "plataforma",
@@ -55,17 +58,24 @@
       "--set": "--definir",
       "--force": "--forcar",
       "--all": "--tudo",
+      "--missing": "--faltando",
+      "--match": "--correspondencia",
+      "--provider": "--provedor",
+      "--covers": "--capas",
       "--message": "--mensagem",
       "--text": "--texto",
       "--run": "--jogatina",
       "--id": "--referencia",
       "--outcome": "--resultado",
+      "--trigger": "--gatilho",
+      "--expire": "--expirar",
       "--platforms": "--plataformas"
     },
     "arguments": {
       "query": "consulta",
       "term": "termo",
       "event_id": "id_evento",
+      "session_id": "id_sessao",
       "platform_name": "nome_da_plataforma",
       "platform_synonyms": "sinonimos"
     }
@@ -80,6 +90,8 @@
     "drop": "Abandona uma jogatina.",
     "past": "Protocola uma jogatina iniciada no passado.",
     "open": "Lista as sessões em aberto.",
+    "due": "Lista as sessões em aberto que já merecem uma conferência.",
+    "checkin": "Protocola uma conferência sobre uma sessão em aberto, ou expira as sem resposta.",
     "status": "Resumo do acervo, ou a situação de um título.",
     "search": "Consulta um título sem registrar nada.",
     "alias": "Ensina outro nome para um título.",
@@ -97,6 +109,7 @@
       "query": "Título, fragmento ou apelido.",
       "term": "Termo de busca.",
       "event": "Id do evento.",
+      "session": "Id da sessão, como devolvido por abertas ou pendências.",
       "target": "Constrói apenas estes alvos, dentre os de build.targets.",
       "sql": "Uma única instrução SELECT, somente leitura.",
       "csv_file": "Caminho do arquivo CSV a importar.",
@@ -114,6 +127,9 @@
       "locale": "Idioma da saída.",
       "dry_run": "Mostra os eventos que seriam anexados; não grava nada.",
       "at": "Horário semântico: ISO, \"2026-08-12 20:14\", 20:14, -90m.",
+      "trigger": "Qual gatilho perguntou: duration, clock, day_cutoff.",
+      "checkin_outcome": "snoozed (o padrão), break_started, session_closed, no_reply.",
+      "expire": "Corrige para no_reply toda conferência ainda snoozed além de checkin.reply_window.",
       "quiet": "Suprime a prosa; apenas o código de saída.",
       "id": "Resolve por referência, como game:01K… — sem busca.",
       "platform": "Plataforma. Filtra a busca; nunca a resolve.",
@@ -146,6 +162,7 @@
       "run": "Qual jogatina. Por padrão, a encerrada mais recentemente.",
       "provider": "Provedor a consultar: igdb. Padrão: igdb.",
       "all_games": "Enriquece todos os títulos do acervo.",
+      "missing": "Enriquece apenas os jogos nunca de fato enriquecidos para --provedor — um jogo criado a partir de um id de provedor sem correspondência local (start --id <ref>) ainda conta como faltando. Com --capas, também seleciona um jogo que já tem metadado mas não tem capa registrada.",
       "covers": "Também busca e define a capa, a menos que a capa seja source: user.",
       "mapping": "Caminho de um JSON que mapeia campos do gamereg para colunas do CSV.",
       "match": "Referência de provedor a buscar direto, como igdb:7346 — sem busca.",
@@ -173,9 +190,10 @@
     "bad_date": "Não foi possível ler \"{value}\" como data. Tente 2011, 2011-07 ou 2011-07-14.",
     "bad_duration": "Não foi possível ler \"{value}\" como duração. Tente 90, 40m, 2h ou 1h20.",
     "bad_hours": "As horas devem ser um número positivo, e não {value}.",
-    "bad_cutoff": "day_cutoff deve ter a forma 05:00, e não \"{value}\".",
+    "bad_clock": "Um horário deve ter a forma 05:00, e não \"{value}\".",
     "bad_config": "{file} não é um JSON válido.",
     "unknown_config_key": "{file}: \"{key}\" não é uma configuração que o gamereg conheça. Válidas nesse nível: {valid}.",
+    "bad_config_value": "{file}: \"{key}\" não aceita \"{value}\".",
     "corrupt_log": "{file} tem uma linha ilegível em {line}. Execute gamereg auditoria.",
     "not_found": "Nada no acervo corresponde a \"{query}\".",
     "not_found_hint": "Nada no acervo corresponde a \"{query}\". Use --sem-metadados para abrir um registro novo.",
@@ -198,6 +216,10 @@
     "no_open_break": "Nenhum intervalo em aberto.",
     "negative_duration": "O horário de encerramento antecede o de abertura, ou os intervalos excedem a sessão.",
     "unknown_event": "Nenhum evento no acervo tem o id \"{id}\".",
+    "unknown_session": "Nenhuma sessão registrada tem o id \"{id}\".",
+    "checkin_needs_session": "Indique a sessão a conferir, ou passe --expirar.",
+    "checkin_needs_trigger": "Passe --gatilho: duration, clock ou day_cutoff.",
+    "expire_takes_no_session": "--expirar pergunta ao registro quais conferências venceram. Não aceita sessão, gatilho nem resultado.",
     "amend_needs_set": "Nada a corrigir. Informe ao menos um --definir chave=valor.",
     "cannot_amend_correction": "Correções não podem ser corrigidas. Revogue-a.",
     "text_required": "Forneça o parecer com -m, com --text <arquivo>, ou pela entrada padrão.",
@@ -227,7 +249,10 @@
     "import_mapping_incomplete": "O mapeamento em {file} não tem coluna para \"{field}\", que é obrigatório.",
     "import_row_incomplete": "A linha não tem valor para \"{field}\", que é obrigatório.",
     "bad_image": "{file} não pôde ser lido como imagem.",
-    "match_with_all": "--match não pode ser combinado com --all.",
+    "match_with_all": "--correspondencia não pode ser combinado com --tudo.",
+    "missing_with_all": "--faltando não pode ser combinado com --tudo.",
+    "missing_with_match": "--faltando não pode ser combinado com --correspondencia.",
+    "missing_with_query": "--faltando não pode ser combinado com uma consulta.",
     "bad_match_ref": "\"{value}\" não é uma referência de provedor. Esperado <provedor>:<id>, ex.: igdb:7346.",
     "as_cover_without_photo": "--as-cover promove uma foto anexada neste mesmo comando. Informe também --photo.",
     "no_photo_to_attach": "Informe ao menos um --photo.",
@@ -300,6 +325,20 @@
       "none": "Nenhuma sessão em aberto.",
       "row": "{title} — protocolada às {time}, aberta há {duration}.",
       "row_break": "{title} — protocolada às {time}, aberta há {duration}, em intervalo desde as {break_time}."
+    },
+    "due": {
+      "none": "Nada pendente.",
+      "row": "{title} — protocolada às {time}, aberta há {duration}. Pendente: {trigger}.",
+      "trigger": {
+        "duration": "tempo em aberto",
+        "clock": "a hora",
+        "day_cutoff": "aberta desde ontem"
+      }
+    },
+    "checkin": {
+      "filed": "Conferência protocolada: {trigger}.",
+      "expired": "{count} conferências ficaram sem resposta e foram protocoladas como tal.",
+      "none_expired": "Nenhuma conferência ficou sem resposta."
     },
     "status": {
       "vault": "{games} títulos no acervo, {runs} jogatinas, {hours} horas.",
@@ -427,6 +466,9 @@
       "total": "{duration} em {sessions} sessões",
       "total_one": "{duration} em uma sessão"
     },
+    "image": {
+      "unpublished": "imagem não publicada"
+    },
     "sessions": {
       "date": "Data",
       "duration": "Duração",
@@ -460,6 +502,74 @@
     "criteria": "Critério",
     "empty": "Nada no acervo ainda.",
     "stated_marker": "declarada"
+  },
+  "stats": {
+    "title": "Estatísticas",
+    "heading": {
+      "totals": "Totais",
+      "years": "Por ano",
+      "genres": "Por gênero",
+      "heatmap": "Calendário",
+      "top": "Mais jogados",
+      "ratings": "Notas",
+      "finished": "Concluídos"
+    },
+    "totals": {
+      "games": "Jogos",
+      "runs": "Jornadas",
+      "finished": "Concluídas",
+      "hours": "Horas",
+      "sessions": "Sessões",
+      "days": "Dias jogados"
+    },
+    "years": {
+      "year": "Ano",
+      "runs": "Jornadas"
+    },
+    "genres": {
+      "genre": "Gênero"
+    },
+    "top": {
+      "sessions": "Sessões"
+    },
+    "review": {
+      "title": "Retrospectiva de {year}",
+      "measure": "Medida",
+      "value": "Valor",
+      "hours": "Horas",
+      "sessions": "Sessões",
+      "days": "Dias jogados",
+      "games": "Jogos jogados",
+      "started": "Jornadas iniciadas",
+      "finished": "Jornadas concluídas",
+      "abandoned": "Jornadas abandonadas",
+      "longest": "Sessão mais longa",
+      "mean_rating": "Nota média",
+      "first": "Primeira sessão",
+      "last": "Última sessão"
+    },
+    "heatmap": {
+      "alt": "Sessões em {year}"
+    },
+    "month": {
+      "1": "jan",
+      "2": "fev",
+      "3": "mar",
+      "4": "abr",
+      "5": "mai",
+      "6": "jun",
+      "7": "jul",
+      "8": "ago",
+      "9": "set",
+      "10": "out",
+      "11": "nov",
+      "12": "dez"
+    },
+    "weekday": {
+      "mon": "seg",
+      "wed": "qua",
+      "fri": "sex"
+    }
   },
   "vocab": {
     "register": {

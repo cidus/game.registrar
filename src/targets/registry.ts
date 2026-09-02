@@ -11,10 +11,12 @@ import { csv } from './csv.ts'
 import { html } from './html.ts'
 import { json } from './json.ts'
 import { obsidian } from './obsidian.ts'
+import { quartz } from './quartz.ts'
 import { sqlite } from './sqlite.ts'
+import { stats } from './stats.ts'
 import type { Target } from './types.ts'
 
-const REGISTRY: readonly Target[] = [obsidian, csv, sqlite, json, html]
+const REGISTRY: readonly Target[] = [obsidian, csv, sqlite, json, html, stats, quartz]
 
 export function allTargets(): readonly Target[] {
   return REGISTRY
@@ -23,8 +25,12 @@ export function allTargets(): readonly Target[] {
 export function targetByName(name: string): Target {
   const found = REGISTRY.find((target) => target.name === checkTarget(name))
   if (found === undefined) {
-    // Vocabulary and phase both said yes, so nothing is left to say.
-    throw new GameregError('error', 'error.unimplemented_target', { name })
+    // Vocabulary and phase both said yes, so nothing is left to say. Usage,
+    // not error: this is still "that name buys you nothing in this version",
+    // the same answer `error.target_phase` gives with the same exit code — a
+    // phase is delivered in steps, and between two of them a declared target
+    // can be current and unbuilt at once.
+    throw new GameregError('usage', 'error.unimplemented_target', { name })
   }
   return found
 }

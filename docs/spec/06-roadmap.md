@@ -61,6 +61,21 @@ terminal once.
 - Quartz site, GitHub Action on push
 - Calendar heatmap, year-in-review generation
 
+The two halves of the name are one phase because they fail the same way alone: a
+register that only speaks when spoken to loses closing times, and one nobody but
+its author can read is a diary with extra steps.
+
+`quartz` emits Quartz's input and stops there; running Quartz is the user's
+business — see [07-targets](07-targets.md). Nothing in this phase touches a
+provider or any external service: the tempting ones are either deferred already
+(Steam and console playtime) or have no official API at all.
+
+**Exit criterion:** a session left open overnight is chased the next morning,
+answered in chat, and the corrected record appears on a published page that
+someone who does not own the vault can read. One sentence, and it exercises all
+four bullets — the backoff ladder, the delivery slot, the site, and the fact that
+a correction propagates.
+
 ## Phase 4 — Board games
 
 - `person` and `play.record` events
@@ -70,6 +85,36 @@ terminal once.
 
 The model already accommodates this (D6). If phase 4 requires a schema migration,
 something went wrong earlier.
+
+## Phase 5 — Someone else's machine
+
+**Goal:** the tool installs, configures itself and runs on a machine its author
+has never touched.
+
+- Published package; the install path in `docs/getting-started.md` reduced to one
+  command
+- A container image carrying the CLI, the gateway, the skill and the persona at
+  versions known to work together
+- A generator that emits the declarative configuration — compose file and
+  environment — and never becomes part of the runtime
+- `targets --json`, and whatever else the generator would otherwise hardcode; see
+  D9 in [00-architecture](00-architecture.md)
+- First-run configuration as a conversation: a second skill with its own binary,
+  which leaves the PATH and the exec allowlist once setup is done
+
+Last for a reason that is not effort. Publishing is a one-way door — a tag can be
+unpublished, a vault on someone else's disk cannot. While config keys,
+environment names, vault layout and target names can still move, each one is a
+migration owed to a stranger. The phases above are where those contracts settle.
+
+The pressure this phase puts on *Explicitly deferred* is real and does not change
+it: an installer reaches people who will never open a vault in Obsidian, and a
+web UI is what they will ask for. `html` and `quartz` are the answer; a server with
+accounts is still not.
+
+**Exit criterion:** someone who has never seen this repository installs it and
+records a session — without cloning anything, and without being told anything
+that is not in the generated README.
 
 ## Explicitly deferred
 
@@ -90,7 +135,7 @@ something went wrong earlier.
 3. **Franchise / series grouping.** Deferred past Phase 1. Real usage will show
    whether it's actually wanted before the model or the provider mapping is
    committed to.
-5. **Timezone changes while travelling.** Nothing to build; the transparent
+4. **Timezone changes while travelling.** Nothing to build; the transparent
    behaviour was already there. `logical_day` is derived on every fold, and
    `config.timezone` picks which of two coherent readings applies: unset — what
    `init` writes — groups a session by the local day where it was recorded,
@@ -102,11 +147,11 @@ something went wrong earlier.
    considered and rejected: the register would group by which device filed an
    event, and detecting a phone's zone through the chat gateway cannot help,
    because the CLI runs on the always-on host that stayed home.
-6. **A backlog view.** No. The register holds what you played, per the non-goal
+5. **A backlog view.** No. The register holds what you played, per the non-goal
    in [00-architecture](00-architecture.md) — it does not know what you own and
    does not track unplayed games. A game with no runs stays outside the model;
    there is no second base and no `game.add` without a run.
-7. **Retroactive session start.** Designed during Phase 2, per this item's own
+6. **Retroactive session start.** Designed during Phase 2, per this item's own
    note above. Two natural phrasings, both `--at` underneath, no new CLI
    surface needed: a session with both ends known ("forgot to log it, I played
    from 8 to 11 last night") opens and closes in two calls, read before write —

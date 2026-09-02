@@ -16,6 +16,7 @@ import {
   canonicalPlatforms,
   platformGroups,
   platformKey,
+  platformSpellings,
   platformTable,
   platformUsage,
   removePlatform,
@@ -55,6 +56,49 @@ test('a config synonym reaches a name the built-in table never heard of', () => 
   const table = platformTable([{ name: 'O Videogame da Sala', aliases: ['sala', 'tv'] }])
   assert.equal(canonicalPlatform('TV', table), 'O Videogame da Sala')
   assert.equal(canonicalPlatform('sala', table), 'O Videogame da Sala')
+})
+
+test('every spelling of a platform comes back, canonical name first', () => {
+  const table = platformTable()
+  const spellings = platformSpellings('snes', table)
+  assert.equal(spellings[0], 'Super Nintendo')
+  // The reason this exists: the provider's own spelling has to be in there,
+  // or a query narrowed by name (providers/igdb.ts) matches nothing.
+  assert.ok(spellings.includes('Super Nintendo Entertainment System'))
+  assert.ok(spellings.includes('Super Famicom'))
+})
+
+test('the spellings of a renamed platform carry the group, not just the user’s word', () => {
+  const table = platformTable([{ name: 'Genesis', aliases: [] }])
+  const spellings = platformSpellings('Mega Drive', table)
+  assert.equal(spellings[0], 'Genesis')
+  assert.ok(spellings.includes('Mega Drive'))
+  assert.ok(spellings.includes('Sega Mega Drive/Genesis'))
+})
+
+test('Steam Deck is a spelling of PC, in both directions', () => {
+  // Deliberate, and it reaches the register, not only the search: no catalog
+  // carries the Deck as a platform, so keeping it separate would name a
+  // platform nothing could ever be looked up on. A Deck run reads as PC.
+  const table = platformTable()
+  assert.equal(canonicalPlatform('steam deck', table), 'PC')
+  assert.equal(canonicalPlatform('Deck', table), 'PC')
+  assert.ok(platformSpellings('Steam Deck', table).includes('PC (Microsoft Windows)'))
+})
+
+test('a platform nobody knows is a spelling of itself; nothing is a spelling of nothing', () => {
+  const table = platformTable()
+  assert.deepEqual(platformSpellings('O Videogame da Sala', table), ['O Videogame da Sala'])
+  assert.deepEqual(platformSpellings(undefined, table), [])
+  assert.deepEqual(platformSpellings('   ', table), [])
+})
+
+test('the catalogs’ own spellings for the Sega consoles are on record', () => {
+  // Both were missing, and a name-narrowed query for either returned nothing
+  // at all: IGDB writes them with a slash and neither half matched.
+  const table = platformTable()
+  assert.equal(canonicalPlatform('Sega Mega Drive/Genesis', table), 'Mega Drive')
+  assert.equal(canonicalPlatform('Sega Master System/Mark III', table), 'Master System')
 })
 
 test('canonicalization is a fixed point: applying it twice changes nothing', () => {
@@ -149,16 +193,16 @@ function gameWith(platforms: string[], runs: (string | null)[] = []): GameState 
 test('the groups are ordered, and nothing is ever filtered out', () => {
   const table = platformTable([
     { name: 'PlayStation 5', aliases: [] },
-    { name: 'Steam Deck', aliases: [] },
+    { name: 'MiSTer FPGA', aliases: [] },
   ])
   const game = gameWith(['PlayStation 5', 'Nintendo Switch', 'PC'])
   const groups = platformGroups(game, table)
 
   assert.deepEqual(groups.matching, ['PlayStation 5'])
   assert.deepEqual(groups.catalog, ['Nintendo Switch', 'PC'])
-  // Steam Deck intersects with approximately no catalog, and would be retyped
-  // forever if the catalog simply replaced the user's own list.
-  assert.deepEqual(groups.owned, ['Steam Deck'])
+  // An FPGA board intersects with approximately no catalog, and would be
+  // retyped forever if the catalog simply replaced the user's own list.
+  assert.deepEqual(groups.owned, ['MiSTer FPGA'])
 })
 
 test('a game nobody enriched offers what the vault knows, and nothing pretends otherwise', () => {

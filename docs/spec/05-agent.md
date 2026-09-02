@@ -18,6 +18,32 @@ Its actual jobs:
 
 That is the whole contract. Every number in every answer comes from the database.
 
+### How many commands a turn takes
+
+**One or two.** This is a property of the CLI's design, not a budget imposed on
+the model: a recording command's own result already carries what the agent
+would otherwise have gone looking for. `start` reports `also_open`, the game's
+record, and `not_found` in one call; `open` and `status` carry the event ids
+`amend` and `revoke` take; a command that returned `ok: true` has already said
+what happened.
+
+Three rules follow, and they are the same rule seen from three sides:
+
+- **Nothing is looked up before a recording command.** Not an open session, not
+  the game's history.
+- **Nothing is looked up to confirm one afterwards.** The result is the answer.
+- **A fourth call in one turn means the agent is investigating rather than
+  working**, and should say what it found instead of looking for more.
+
+The cost of getting this wrong is not only latency. The impulse to check
+something first is what produces an invented, chained invocation
+(`gamereg query --sql "..." 2>&1 || gamereg --help`), and a compound shell
+string is a different, unlisted command that the exec allowlist denies —
+observed live, twice, from exactly this impulse. It is also what turns one
+contradiction into a cascade: a check-in wake naming a session the register did
+not have produced twenty-five commands, none of which could make the wake's
+facts true.
+
 ## Gateway
 
 OpenClaw is the reference deployment: self-hosted, multi-channel, handles voice
@@ -295,6 +321,16 @@ The Registrar occasionally notices an open session and says something. Cron runs
 `gamereg due --json` on a schedule (hourly is enough); the CLI decides what is
 actually due, so cron carries no state and no logic.
 
+That job is a **command, not an agent turn**: it runs the binary on the gateway
+host and no model is involved. Only when `due` comes back non-empty does the
+wrapper wake the agent, handing over the facts it has already fetched. A poll
+that finds nothing therefore costs nothing, which is what makes hourly
+affordable. The wrapper still decides nothing — it relays what `due` returned and
+records that it did, which is why the sentence above holds — and the decision to
+speak stays inside the CLI, where invariant 7 wants it. A gateway heartbeat would
+work mechanically and is the wrong shape: it asks a model to decide again what
+`due` has already decided.
+
 Empty → say nothing. This matters more than any other rule here: an assistant
 that pings when it has nothing to ask gets muted within a week, and then the
 `day_cutoff` chase stops working too — which is the one that actually costs data.
@@ -347,6 +383,26 @@ The morning slot is also the natural place for anything else periodic later
 (yesterday's total, a streak). Out of scope for now; the point is that `chase_at`
 is a *delivery slot*, not a single feature.
 
+#### When the wake's facts are already stale
+
+The array the agent is woken with is a snapshot taken by `gamereg due` at poll
+time, in a different process, against a vault the agent shares with a human who
+may have used the CLI directly since. It can therefore name a session that is
+no longer open, or was revoked outright.
+
+**The agent says so in one line and stops.** It does not investigate, does not
+go to `query`, and does not act on the nearest open session instead. This is a
+consequence of the priority in *Boundary* above — the facts are the facts, and
+a check-in is the one message sent without having run anything — extended to
+its only failure mode: when the facts turn out to be false, there is nothing to
+verify them *against* that would make the question answerable, so the only
+correct move is to say the check-in refers to something no longer open.
+
+Observed live: a wake naming a game with no session anywhere in the log
+produced a `break start` on a *different* game, ten diagnostic queries, and a
+break that had to be revoked. Twenty-five commands, every one of them after the
+first contradiction.
+
 #### Chasing vs noticing
 
 `day_cutoff` is **chasing missing data** — it wants a closing time it does not
@@ -365,7 +421,7 @@ Each check-in offers three exits, and the reply routes to a command:
 |---|---|
 | "taking a break" | `gamereg break start` |
 | "stopping now" + impressions | `gamereg end --note "..."` |
-| "still going" / anything else | nothing; snooze |
+| "still going" / anything else | nothing; the record already reads `snoozed` |
 
 This is what finally makes breaks get used. Nobody remembers to run
 `break start` on their own; being asked at hour four is exactly when it is
@@ -375,17 +431,77 @@ useful.
 
 Non-optional. Violate these and the feature makes the whole assistant annoying.
 
-1. After asking, file `gamereg checkin --outcome snoozed`. The session is then
-   inside its backoff window and will not be raised again.
+1. The **wrapper** files `gamereg checkin --outcome snoozed`, immediately after
+   enqueueing the wake and never before it — see [02-cli](02-cli.md) for why that
+   order is load-bearing. The session is then inside its backoff window and will
+   not be raised again. The agent does not file this and must not try to.
 2. Backoff **escalates**: `checkin.backoff` is a list, default `[2h, 3h, 5h]`.
    The fourth check-in never happens.
 3. `checkin.max_per_session` (default 3) is a hard ceiling regardless of backoff.
 4. Silence is an answer. After `checkin.reply_window` (default 45m) with no
-   reply, file `no_reply` and move on. Do not re-ask, do not escalate tone.
+   reply, `gamereg checkin --expire` amends the record to `no_reply` on the next
+   tick. Do not re-ask, do not escalate tone. Nothing here is the agent's either:
+   it would have to keep a promise 45 minutes after the fact, which is not
+   something a chat turn can do.
 5. Never auto-close, auto-pause, or estimate a duration. A guessed number
    silently corrupts every statistic downstream.
 6. `day_cutoff` has its own budget and is never suppressed by the other two —
    missing data is worth one ask even after three check-ins.
+
+#### The whole cycle
+
+The parts above are one machine. Read per open session, per trigger:
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    [*] --> Silent : session opens
+
+    Silent --> Fired : threshold crossed
+    Fired --> Withheld : outside delivery window
+    Withheld --> Returned : window opens
+    Fired --> Returned : window already open
+
+    Returned --> Asked : wake enqueued, THEN checkin{snoozed} filed
+
+    Asked --> BreakStarted : "taking a break"
+    Asked --> SessionClosed : "stopping now"
+    Asked --> NoReply : reply_window elapses
+
+    BreakStarted --> Silent : backoff elapses
+    NoReply --> Silent : backoff elapses
+
+    Silent --> Exhausted : checkins == max_per_session
+    Exhausted --> Silent : day_cutoff only (exempt)
+
+    SessionClosed --> [*]
+    Exhausted --> [*] : session closed by hand
+```
+
+`Fired → Withheld` is `quiet_hours` for `duration` and `clock`, and `chase_at`
+for `day_cutoff`. `day_cutoff` ignores `quiet_hours` and is exempt from both the
+backoff ladder and the ceiling, which is why it can leave `Exhausted`. With
+`checkin.after` set to `null` the `duration` trigger never leaves `Silent`.
+
+Three components move this machine, and the split is the whole design:
+
+| Transition | Owner | How |
+|---|---|---|
+| `Silent → Fired → Withheld → Returned` | **CLI** | `gamereg due` — threshold, quiet hours, delivery window, backoff, ceiling |
+| `Returned → Asked` | **cron wrapper** | enqueue the wake, then `gamereg checkin --outcome snoozed` |
+| the wording of the question | **agent** | prose only; the facts come from `due` |
+| `Asked → BreakStarted` / `SessionClosed` | **agent** | `break start` or `end --note`, then amend the outcome |
+| `Asked → NoReply` | **cron wrapper** | `gamereg checkin --expire`, on the same tick |
+
+The agent owns one row and half of another. Everything with a clock or a counter
+in it belongs to the CLI, per invariant 7, and everything that has to survive
+between two conversations belongs to the wrapper, because a chat turn cannot
+remember a deadline.
+
+The amend in the fourth row needs an id the agent was never handed — the wake is
+enqueued before the check-in is filed, so the record does not exist yet when the
+question arrives. It comes off `gamereg open`'s `last_checkin_id`, read while the
+session is still open. See [02-cli](02-cli.md).
 
 #### Personality
 
@@ -447,6 +563,38 @@ person, the user's own register. Do not let it review the game; it reviews *the
 playthrough*. Show the draft before filing it: this is the one piece of text in
 the register that claims to be the user's opinion.
 
+### The year in review
+
+> "how was 2026?"
+
+The numbers are not the agent's to compute. `gamereg build` has already written
+`obsidian/reviews/<year>.md` — hours, sessions, days played, what was finished,
+what was most played, the calendar ([04-derived](04-derived.md)) — and the agent
+reads them with `gamereg query` and relays them. It never adds up a year in a
+chat turn; invariant 7 is the same rule here as everywhere else.
+
+What it may offer is the **opening paragraph**, on exactly the terms a verdict
+draft is offered: propose it, show it, and let the user accept, edit or refuse.
+Feed the model the year's figures and its session notes, and ask for the arc of
+the year — what changed between January and December — in the user's own
+register, two paragraphs at most. It reviews *the year*, not the games in it;
+each of those already has a verdict.
+
+Where the accepted text goes is the one difference from a verdict, and it is a
+boundary, not an oversight. A verdict has a command and becomes an event; a
+year's prose has neither. The agent writes no files (see *Boundary*), so an
+accepted paragraph is text in the conversation that the user pastes into the
+note themselves, anywhere outside the `gamereg` markers, where invariant 3 keeps
+it through every later build. **The build never generates prose**, and nothing
+in the log ever holds this paragraph.
+
+A `review` command that filed the paragraph as an event was considered and left
+undone on purpose: it is a schema change bought for a nicety, and the same
+argument that keeps a verdict in the log — it is the record's own opinion of a
+playthrough — does not obviously carry to a year, which is a view over the
+record rather than a thing in it. If the pasting turns out to be the friction
+that stops the feature being used, that is the evidence that decides it.
+
 ### Questions
 
 > "qual o RPG mais recente que eu gostei bastante?"
@@ -491,15 +639,55 @@ event payloads, or generated blocks.
 
 ## Reactions
 
-Phase 3, and deliberately out of the data model.
+Phase 3, and deliberately out of the data model. Nothing here reaches the CLI,
+`gamereg.config.json`, or the log: a reaction is decoration on a message, and
+the register would be identical without it.
 
-The agent emits a **reaction token** from a list defined in the user's config —
-`filed`, `approved`, `archived`, `pending`, `puzzled`. A mapping table resolves
-the token to a channel-specific asset (Telegram `file_id`, WhatsApp `.webp`).
-Unmapped tokens fall back to an emoji, or to nothing.
+The agent emits a **reaction token** from a closed list of five:
 
-The model never names a file. Sticker sets are per-installation and ship with no
-artwork in this repo.
+| Token | Emitted when |
+|---|---|
+| `filed` | a session was opened, or a note attached — something went into the register |
+| `approved` | a run was finished |
+| `archived` | a run was dropped |
+| `pending` | an answer is being waited on — an ambiguity menu, a confirmation |
+| `puzzled` | the request could not be turned into an invocation |
+
+**The tokens are identifiers, not words.** They are never translated, never
+shown to the user, and never passed to `gamereg`. That has to be said out loud
+because four of them collide by name with the persona's vocabulary above —
+*filed*, *approved*, *archived*, *pending clarification* — which is localized
+prose served by `gamereg vocab`. One is a term the Registrar says in whatever
+language the user speaks; the other is a key in a lookup table that happens to
+read as English. Conflating them puts a Portuguese word in a table lookup, or
+an English one in a sentence, and both fail quietly.
+
+**The mapping lives on the gateway side, per installation, and never in this
+repository.** A table resolves a token to a channel-specific asset (Telegram
+`file_id`, WhatsApp `.webp`); the artwork is the user's. The fallback chain is
+sticker, then emoji, then nothing.
+
+The two columns ship differently, and the line between them is whether the value
+is an asset somebody has to obtain. **The emoji column ships filled**, one per
+token: an emoji is a character, identical on every installation, so leaving it
+blank would only have meant every deployment typing the same five in by hand.
+**The sticker column ships empty and no artwork ships with it** — a `file_id`
+names a file in someone's own sticker set and cannot be anything but theirs.
+So a fresh install reacts with emoji, and an installation that empties the table
+reacts with nothing at all, which remains a perfectly good register.
+
+The model never picks a file. It emits a token and substitutes the value the
+mapping hands it; it does not browse a sticker set, invent a `file_id`, or
+decide that some other asset would be funnier here.
+
+Two limits, whatever the gateway is:
+
+- **A reaction is never load-bearing.** Anything the user has to know is in the
+  prose. A sticker that failed to send, a channel with no reaction support, and
+  an unmapped token all produce the same outcome, and none of them is an error
+  worth reporting.
+- **One per turn, at most.** The token marks what the turn did. A turn that did
+  two things gets the token for the more consequential one.
 
 ## Safety
 
@@ -507,7 +695,12 @@ The agent has shell access and a public-facing channel.
 
 - Allowlist the sender. Non-negotiable on any channel.
 - The agent may invoke `gamereg` and nothing else. No arbitrary shell.
-- `--dry-run` on anything the agent is unsure about; show the user the diff.
+- `--dry-run` on `past` and `import` — bulk, unobvious, awkward to unpick —
+  and show the user the plan. Not on the rest: `start`, `end`, `break`,
+  `finish`, `attach` and `verdict` are each one `revoke` from undone, and a
+  standing "dry-run anything you are unsure of" doubles every uncertain call
+  for a rehearsal of something already reversible. One such rehearsal died on
+  an approval timeout and cost the user a turn.
 - Never expose `amend` / `revoke` without an explicit user instruction naming the
   event.
 - Log every invocation with its arguments. When something looks wrong months

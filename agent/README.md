@@ -8,13 +8,91 @@ implementation of it, for [OpenClaw](https://openclaw.ai) — the reference
 gateway named in the spec, though any gateway that can shell out works.
 
 ```
+workspace/
+  AGENTS.md             the operating card: in context on every turn
+  SOUL.md               the persona
+  IDENTITY.md           name, creature, vibe
+  REACTIONS.md          the per-installation token mapping
+  TOOLS.md              holds the slot; OpenClaw reseeds its own if deleted
 skills/gamereg/
-  SKILL.md              the agent prompt
+  SKILL.md              a router; the standing orders are in AGENTS.md
   reference/cli.md      the CLI surface, kept honest by test/agent-skill.test.ts
   reference/query.md    how to answer questions in SQL
-openclaw.example.json5  channel, allowlist, voice transcription
+  reference/media.md    candidate menus, photos, covers, reactions
+  reference/corrections.md  amend, revoke, and undoing a mistake
+  reference/checkins.md the check-in wake and its three exits
+openclaw.example.json5  channel, tool allowlist, voice transcription
 approvals.example.json  which commands the agent may run unattended
+checkin.sh              the hourly check-in poll, run by cron on the gateway host
 ```
+
+## Where the prompt lives, and why it is split this way
+
+**Read this before looking for a rule.** `SKILL.md` used to be the whole
+procedure — 56KB of it — and most of this file's older sections still point at
+it by name. Those pointers are historically accurate and mechanically stale:
+the rules did not change, but most of them moved.
+
+The split follows one fact about the gateway: **`workspace/*.md` is compiled
+into the system prompt on every turn and cached there; a skill body is a `read`
+tool call the model pays for, mid-turn, once per session.** The original layout
+had that backwards — the persona was always resident and the operating
+procedure was bought again every session, 14k tokens at a time, sometimes twice
+in one conversation (38 such reads across the archived transcripts).
+
+So:
+
+| Where | What is in it | Cost |
+|---|---|---|
+| `workspace/AGENTS.md` | boundary, JSON contract, call budget, the common path, buttons, safety | always in context |
+| `workspace/SOUL.md` | voice, the register's vocabulary | always in context |
+| `skills/gamereg/SKILL.md` | a routing table and nothing else | one small read |
+| `skills/gamereg/reference/*.md` | one file per rare flow | read only when that flow happens |
+
+A session that opens, pauses, resumes, finishes and files a verdict now reads
+no file at all. A correction or a check-in reads exactly the one file that
+covers it.
+
+**`workspace/TOOLS.md` cannot be deleted, and that is worth knowing before you
+try.** It was removed in this pass — `tools.allow` now guarantees structurally
+what its one paragraph asserted — and **OpenClaw seeded its own default back
+within the hour**: a generic page about camera names, SSH hosts and preferred
+TTS voices, ending in a link to `/concepts/agent-workspace`. That default then
+sits in the system prompt on every turn, describing capabilities this
+deployment does not have, which is worse than the file it replaced.
+
+So the file is back, shortened, and its own header says why. Treat the slot as
+occupied by something: the choice is not "our file or nothing", it is "our file
+or OpenClaw's". The agent did not write it — with `tools.allow` in force it has
+no `write` tool at all — so do not go looking for a prompt bug when it
+reappears.
+
+## The tool surface is part of the prompt, and it was the biggest part
+
+Measured on this install, from `~/.openclaw/agents/main/sessions/*.trajectory.jsonl`:
+OpenClaw exposed **39 tools** whose JSON schemas came to 53,768 characters —
+about 13k tokens re-sent every turn — against a system prompt of 45,615
+characters. `cron` alone was 5,868 characters and `browser` 4,706. This agent
+uses three: `exec`, `message`, `read`.
+
+That is not only cost. **A tool schema outranks a paragraph.** Both `AGENTS.md`
+and `SKILL.md` forbid reading session history or keeping notes, and the
+transcripts still show `sessions_history` called seven times and
+`memory_search` three — the latter returning a broken-index error carrying its
+own instructions for the model to relay to the user. Every one of those was a
+boundary the prompt stated and the tool list quietly reopened.
+
+`tools.allow: ["exec", "message", "read"]` closes it by construction. See
+`openclaw.example.json5` for why each of the three survives. **The gateway must
+be restarted for it to take effect** — there is no config-reload path:
+
+```bash
+systemctl --user restart openclaw-gateway
+```
+
+`agents.defaults.thinkingDefault` moved from `high` to `adaptive` in the same
+pass. Most turns here map one sentence to one invocation; deliberation on
+"Pausa" bought latency and nothing else.
 
 ## What the agent is allowed to be
 
@@ -140,37 +218,6 @@ other caller. The skill avoids the collision instead: `search` never exits
 non-zero, answers both "is it on record" and "what does the catalog have", and
 is what a start now leads with when the game may be new.
 
-### Moving a deployment between users
-
-Copying `~/.openclaw` and reinstalling the service is not the whole job. The
-state database keeps absolute paths, and the ones it kept here pointed at a home
-the new user cannot even read:
-
-```
-EACCES: permission denied, mkdir '/home/claude/.openclaw/agents/main/sessions'
-"Source reply transcript mirror failed after delivery."
-```
-
-Delivery succeeded every time, so nothing user-visible broke — the mirror failed
-afterwards, once per message, into a log nobody was reading. Five rows held the
-old path: `skill_usage.skill_file`, `agent_model_catalogs.agent_dir`,
-`config_health_entries.config_path`, `agent_databases.path`, and
-`installed_plugin_index.plugins_json`.
-
-Stop the gateway, back the file up, then rewrite `/home/<old>/.openclaw` to the
-new home in those columns. Two notes from doing it: several tables have a UNIQUE
-index on the path, and the current-path row already exists, so a stale row is a
-duplicate to delete rather than a value to update. And the plugin index is not a
-home-directory rewrite at all — it pointed into a per-user npm prefix that no
-longer exists, so it is cleared and left to re-index.
-
-```bash
-openclaw gateway stop
-cp -a ~/.openclaw/state/openclaw.sqlite /tmp/openclaw-state-backup.sqlite
-# … rewrite the columns, then …
-openclaw gateway start
-```
-
 ### 5. Install what the agent reads
 
 Two copies, and both are required. The skill is the procedure; the workspace
@@ -223,13 +270,34 @@ Four parts, and all four are required — any one missing and either nothing
 is gated, or a gated command just fails outright with no way to approve it.
 
 **The policy**, from step 3: `tools.exec.security: "allowlist"` and
-`tools.exec.ask: "on-miss"`. Skip these and the default is `security: "full"`
-— unrestricted shell, allowlist file or not. Confirm what's actually in
+`tools.exec.ask: "off"`. Skip `security` and the default is `"full"` —
+unrestricted shell, allowlist file or not. Confirm what's actually in
 effect:
 
 ```bash
 openclaw approvals get
 ```
+
+**`ask` moved from `"on-miss"` to `"off"` after watching it fire for real,
+twice.** Both times the agent improvised a chained command it shouldn't have
+(a `query --sql ... 2>&1 || gamereg --help`-shaped guess, from the same "let
+me check something first" impulse — see `SKILL.md`'s *Starting a session*),
+and both times the result was the same: an approval prompt in Telegram that
+nobody asked for, that took anywhere from ~9 to ~300 seconds to resolve by
+denying it, for a command the user never wanted to run in the first place.
+Read `requiresExecApproval` in the installed package
+(`exec-approvals-BIKWP8_V.js:835-839`): with `ask: "off"`,
+`hasGatewayAllowlistMiss` still throws (`bash-tools-DHyGpWCr.js:1391`,
+`"exec denied: allowlist miss"`) for anything outside the allowlist — the
+command still gets refused, just immediately, as a plain tool error the agent
+reads and recovers from on its own, with nothing sent to the user and nothing
+to wait on. The whole point of the allowlist was never "ask a human about
+edge cases" — this agent has exactly one thing it's allowed to run, so a miss
+is always a mistake to recover from, never a legitimate request waiting on a
+decision. The approval-routing setup below (`approvals.exec`, Telegram's
+`execApprovals`) is now dormant with `ask: "off"` — left in place and
+documented in case a future change reintroduces a real approval path, not
+because it still does anything today.
 
 **The allowlist itself.** `openclaw approvals allowlist add <pattern>` only
 takes a bare glob, no way to scope by argument — which matters below, not for
@@ -371,6 +439,11 @@ group came through afterward with the same `/proc/$PID/status` check above.
 
 ### 7. Voice
 
+**Confirmed live:** the smoke test's voice-note step — closing a session by
+speaking, not typing — has been run against this deployment. A session
+closed correctly from a transcribed note, with the platform question
+arriving afterward exactly as text-driven closes already did.
+
 `tools.media.audio` transcribes voice notes before the CLI sees anything.
 `gamereg` never touches audio and must never be asked to.
 
@@ -423,6 +496,65 @@ showing the right shape. When it is off,
 the gateway injects the opposite, naming the setting to turn on — which is why
 an agent that cannot show buttons has no excuse for pretending it can.
 
+**The presentation is a fragment, and the model will invent a wrapper for
+it.** Seen live, after the prompt was split into a hot card plus branch files:
+`AGENTS.md` showed the `{"blocks":[...]}` object on its own, correctly, and the
+agent worked out for itself that it needed a `message` send around it —
+then, having written its real question as ordinary narration, filled the send's
+`message` field with the literal string `"placeholder"` and answered
+`NO_REPLY`. The buttons rendered perfectly under the word *placeholder*, and
+the question itself reached nobody.
+
+Nothing in the schema forces that: only `action` is required, so `message` was
+optional and got filled with something rather than left out. The fix is that
+the example in `AGENTS.md` is now a whole `{"action":"send","message":...,
+"presentation":...}` call, with a real sentence in `message`, and
+`test/agent-skill.test.ts` asserts it stays one. **A fragment teaches a
+fragment** — worth remembering for anything else in that file that shows a
+payload.
+
+**The agent guesses a schema name whenever the reference stops short, and it
+guesses plausibly enough to cost a turn each time.** Two instances, one release
+apart, same class:
+
+| Written | Result | Why |
+|---|---|---|
+| `FROM v_sessions` | `no such table` | `query.md` listed the four views and no tables, so a table with no view got a made-up name adjacent to `v_sessions_by_day` |
+| `SUM(minutes)` over `v_sessions_by_day` | `no such column` | the tables were then listed and the *views* still were not; the view is pre-aggregated and carries `hours` |
+
+The second is the one worth the lesson: the first fix closed the gap for
+tables and left it open for views, so the same failure recurred one step over.
+`reference/query.md` now carries the columns of both, plus a warning that three
+of the four views are already grouped — `COUNT(*)` over `v_sessions_by_day`
+counts *days*, which is the variant that returns a plausible number instead of
+an error. `test/agent-skill.test.ts` applies `SCHEMA_SQL` to an in-memory
+database and compares against `pragma_table_info`.
+
+**`edit` is not a patch, and the shape written down for it had never worked.**
+Stripping an answered button was documented as
+`message({action:"edit", to, messageId, buttons:[]})` — wrong in three ways at
+once, and the archive shows four consecutive failures on one message (id 603)
+before the agent brute-forced its way to a working call:
+
+| Attempt | Result |
+|---|---|
+| `messageId` + `presentation` | `ToolInputError: to required` |
+| `+ channel: "telegram"` | `ToolInputError: to required` |
+| `+ target` | `Error: content required.` |
+| `+ message` (the original text again) | `{ok: true, messageId: "603"}` |
+
+So: `target` **is** required on `edit`, unlike on a `send` (17 sends with no
+target in the archive, none refused); `message` is required and must be the
+original text *verbatim*, because an edit re-sends the whole message rather
+than patching it; and the empty buttons belong inside `presentation`, since
+there is no top-level `buttons` argument — one written there is dropped without
+a word, exactly as the schema mismatch above predicts.
+
+The practical consequence is a thing to *keep*: the agent needs the sentence it
+sent, not only the `messageId`. `AGENTS.md` now carries the whole verified call
+and `test/agent-skill.test.ts` asserts it keeps all four fields and never
+reintroduces `to` or a top-level `buttons`.
+
 Two details worth having in writing:
 
 - **Rows hold three buttons** (`TELEGRAM_INTERACTIVE_ROW_SIZE`), and `buttons`
@@ -456,6 +588,574 @@ agent built the payload wrong" in one shot, and getting those two confused cost
 several rounds here — including one where the test itself was malformed and its
 negative result was believed.
 
+**Button labels: the title fits on a lone button, the number is for a row.**
+Live testing on Sifu (not even a long title) showed the channel clipping it
+mid-word — but that was three buttons sharing a row. A candidate sent as its
+own photo message has the full width to itself, and `richMessages` below widens
+it further, so `SKILL.md`'s cover-photo variant labels the button with the
+title. The no-cover variant still labels with the number: three to a row is
+where the clipping was measured, and there is no cover above to carry the name.
+Digit emoji were considered for that label and dropped — `SKILL.md` is
+ASCII-only by `test/agent-skill.test.ts`, and a plain `"1"` needs no exception.
+
+**`style` works without `richMessages`; only the width needs it.** Both were
+sent side by side, one with the flag off and one on, and `primary`/`success`/
+`danger` rendered coloured either way. Worth knowing before turning on a flag
+that also changes table and media rendering — `channels.telegram.richMessages`
+in `openclaw.example.json5` carries the reasoning. An unstyled button renders
+as barely-visible text, which is why `SKILL.md` requires a style on whichever
+button performs the action.
+
+**Messages sent in one agent turn race, and a DM has nothing to order them.**
+A candidate menu arrived with its closing "tap one" line sitting in the middle
+of the covers. The obvious guess is Telegram latency; the transcript says
+otherwise in one line — the model emitted nine `message` calls in a single
+turn and all nine results came back inside 8ms of each other, with Telegram
+handing out ids 366-374 in arrival order.
+
+Nothing in config fixes it. OpenClaw does have a per-chat ordering queue
+(`GroupFairQueue`, `send-BgA996pw.js:134`), but it is only built when
+`resolveGroupChatKey` returns a key, and that returns one only for
+`chatId < 0` — group chats. A DM's positive id skips the queue entirely and
+goes straight to the throttler. The only lever is how many calls the model puts
+in one turn, so `SKILL.md` sends the covers as a batch and the closing line in
+a second step, after their results land.
+
+**`presentation`'s buttons only attach to the first media item in a multi-media
+send.** Read straight out of the installed package
+(`openclaw/dist/delivery-BzuQz4xo.js`, `deliverMediaReply`):
+
+```js
+const shouldAttachButtonsToMedia = isFirstMedia && params.replyMarkup && !followUpText
+```
+
+So a single `message` call carrying several candidates' cover photos plus one
+button per candidate would strand every photo after the first with no button
+at all — not a smaller version of the desired menu, a broken one. `SKILL.md`'s
+cover-photo variant of *Candidates* sends one `message` per candidate instead
+(one photo, one caption, one button) specifically because of this.
+
+**Confirmed rendering with a real send.** There is no `--caption` flag on the
+CLI (`openclaw message send --help` — the underlying tool schema has one, but
+the CLI does not expose it); `--message` is what becomes the caption when
+paired with `--media`:
+
+```bash
+openclaw message send --channel telegram --target "telegram:<id>" \
+  --message "Sifu: Arenas (2023)" \
+  --media "https://images.igdb.com/igdb/image/upload/t_cover_big/co67x0.jpg" \
+  --presentation '{"blocks":[{"type":"buttons","buttons":[
+     {"label":"Choose this one","action":{"type":"callback","value":"igdb:240171"}}]}]}'
+```
+
+Sent and confirmed on this deployment: photo, caption, one tappable button
+underneath, exactly as `SKILL.md` described it — **but that only confirms the
+button renders.** It does not confirm a tap does anything, and on this
+deployment, right now, it does not.
+
+**A `callback` button's tap never reaches the agent — but that is one branch
+of three, and the other two work.** This started as "buttons are broken" and
+that was too broad: `toTelegramCallbackData`
+(`openclaw/dist/button-types-B2h0t2EL.js:30`) decides the wire format from the
+button's own shape, and only one of the three is dead:
+
+| Button | `callback_data` sent | Tap arrives? |
+|---|---|---|
+| `action: {type:"callback", value}` | `tgcb1:<checksum>:<value>` | **No** |
+| `action: {type:"command", command:"/x"}` | `tgcmd:/x` | Yes, as `/x` |
+| `value` alone, no `action` | the value, raw | Yes, as `callback_data: <value>` |
+
+The dead one was found first because it is the shape both the docs and the
+gateway's injected prompt push you toward. Confirmed twice then — one photo
+message, one plain-text one, both tapped, and the gateway log
+(`journalctl --user -u openclaw-gateway`) showing nothing after either:
+no new `Inbound message` line, no mention of `callback` anywhere.
+`answerCallbackQuery` still runs, so the button stops "loading" and nothing
+*looks* broken from the client — it silently does nothing.
+
+**The raw-`value` shape is confirmed working on this deployment.** Sent from
+the CLI, tapped on a real phone, and the value arrived as an ordinary user
+message in the agent's own transcript:
+
+```bash
+openclaw message send --channel telegram --target "telegram:<id>" \
+  --message "probe" \
+  --presentation '{"blocks":[{"type":"buttons","buttons":[
+     {"label":"A","value":"probe-a"},{"label":"B","value":"probe-b"}]}]}'
+grep -l "callback_data: probe-a" ~/.openclaw/agents/*/sessions/*.jsonl
+```
+
+```json
+{"role":"user","content":"callback_data: probe-a","__openclaw":{"senderIsOwner":true}}
+```
+
+**A tap comes back carrying the media of the message the button was on.**
+`buildSyntheticTextMessage` (`telegram-ingress-spool-Dd3cDhXe.js:2085`) spreads
+the whole base message and overrides only `text`, `caption`, `caption_entities`
+and `entities` — the `photo` array survives:
+
+```js
+const buildSyntheticTextMessage = (params) => ({
+  ...params.base, text: params.text, caption: void 0, ...
+});
+```
+
+Since `base` is the message the button lives on, tapping a candidate's button
+hands the agent that candidate's cover art, indistinguishable from a photo the
+user just sent. Seen live: the agent spent a failed tool call and two turns of
+reasoning before concluding on its own that the image was its own. It happened
+to conclude right. Had it classified the cover as a `box` photo instead,
+`SKILL.md`'s *Photos* rules would have marked the run `--form physical` — a
+claim about how someone played, invented from a tap. `SKILL.md` now says
+outright that media on a `callback_data:` message is furniture from its own
+message.
+
+(The reference itself does not resolve — `Unsupported image reference:
+telegram:file/…` — because the callback path passes `allMedia: []`, so nothing
+downloads the file. That is what made the failure loud rather than silent, and
+it is luck, not a safeguard.)
+
+Two things that shape stakes on, both read out of the package rather than
+guessed:
+
+- **64 bytes, and failure is silent.** `sanitizeTelegramCallbackData` returns
+  `undefined` past `TELEGRAM_CALLBACK_DATA_MAX_BYTES`, and
+  `toTelegramInlineButton` then drops that button from the row. The message
+  still sends, with fewer buttons than were built, and nothing logs it. A ref
+  or an id fits; a title does not. The opaque `tgcb1:` envelope is what used
+  to buy arbitrary length, and it is exactly the branch that no longer
+  delivers — so on the working path the limit is real.
+- **The synthesized message is not a user bubble.** OpenClaw builds it
+  server-side (`buildSyntheticTextMessage`), so a tap leaves nothing in the
+  chat showing what the user answered. This is not Telegram's reply keyboard:
+  `ReplyKeyboardMarkup` appears nowhere in the package, only `inline_keyboard`.
+
+The tool's own schema allows it — `presentationButtonSchema`
+(`openclaw-tools-KulZ1cdH.js:5328`) requires `label` and makes both `action`
+and `value` optional — so the agent can build this shape, not just the CLI.
+
+Traced into the installed package for the dead branch
+(`openclaw@2026.7.1-2`, the current version — `npm view openclaw version`
+confirms no update fixes this):
+
+- Every `action: {type: "callback", value}` button gets its `callback_data`
+  wrapped in an opaque, checksummed envelope on the way out, unconditionally
+  — not only for values over Telegram's 64-byte limit
+  (`button-types-B2h0t2EL.js:37`, `buildTelegramOpaqueCallbackData`).
+- The inbound `callback_query` handler
+  (`telegram-ingress-spool-Dd3cDhXe.js:3483`) decodes that envelope, and if
+  the decoded value doesn't match one of a handful of *specific* built-in
+  cases (exec approval, a managed multi/single-select, command pagination,
+  the `/model` picker, a registered plugin's own interactive component), it
+  hits this and returns, doing nothing further:
+
+  ```js
+  if (opaqueCallbackData) return;  // telegram-ingress-spool-Dd3cDhXe.js:3781
+  ```
+
+  The code that turns a tap into a synthetic `callback_data: <value>`
+  message for the agent — `buildSyntheticTextMessage` /
+  `processMessageWithReplyChain`, around line 3987 — sits **after** that
+  return. An enveloped button never gets there; an unenveloped one does, which
+  is the whole difference between the two shapes.
+
+**Consequence for `SKILL.md`:** *Confirmations* is the one place the button
+shape is written down, and it spells out `{label, value}` with no `action`,
+because the shape the gateway's own injected prompt asks for is the dead one.
+*Candidates*, the session-switch offer, the cover-replace offer, the EXIF
+`captured_at` correction and `amend`/`revoke`'s confirmation all carry buttons
+again — and all stay answerable in plain text, since a tap leaves nothing on
+screen and a typed reply has to keep working.
+
+**Not a new regression on this machine — the installed version has been
+"latest" for over a month.** `npm view openclaw time --json` puts
+`2026.7.1-2`'s publish date at 2026-07-18; it was only installed on this
+machine on 2026-08-19. Whether the bug is older than that release isn't
+something this repo can answer (that's `openclaw`'s own history, not
+`gamereg`'s). What is worth knowing: `npm view openclaw dist-tags` shows a
+`beta` channel well ahead of `latest` (`2026.8.1-beta.2`, published
+2026-08-15) — untested here, but the first thing to try if this ever gets
+revisited, before assuming a fix requires waiting on `latest`.
+
+That upgrade is worth watching for a second reason now: if the `callback`
+branch starts delivering, its opaque envelope lifts the 64-byte ceiling the
+raw-`value` shape lives under. Nothing in `SKILL.md` needs it today — refs and
+ids fit — so this is a note about headroom, not a pending fix.
+
+### Maintenance moved off the agent, onto `scripts/autobuild.sh`
+
+`SKILL.md` used to have the agent fire `gamereg enrich` after a new game and
+`gamereg build` after a session closed, both as backgrounded `exec` calls,
+silent and unreported (the mechanism was real, not just a prompt
+instruction — the `exec` tool's schema (`bash-tools.schemas-DSAIk_o8.js` in
+the installed package) has a genuine `background: Type.Boolean()` param,
+gated by `tools.exec.allowBackground`, default `true`). It had a real bug:
+`gamereg build` invoked while another was still writing exits 5
+(`error.build_in_progress`, `src/targets/lock.ts`) immediately, never
+queuing, and `SKILL.md` told the agent to ignore a non-zero exit from either
+background call — so two session closes near each other silently lost the
+second build, with nothing anywhere positioned to retry it.
+
+Git now carries that responsibility instead of the model. `scripts/autobuild.sh`,
+run periodically by `gamereg-autobuild.timer` (systemd --user unit files in
+`scripts/`), reads `git status` in the vault and, when it is not clean, runs
+`gamereg enrich --missing --covers`, then `gamereg build`, then commits and
+pushes whatever changed. It keeps no state of its own beyond the repository:
+a missed or overlapping tick just finds more to do on the next one, which is
+what a lock conflict now costs — nothing, since the tick after it tries
+again against whatever the log holds by then.
+
+**An async flag on `gamereg` itself was considered and rejected.** The
+alternative to an external timer was teaching `enrich`/`build` to background
+themselves — fork, return immediately, let the caller move on without
+waiting. That runs into invariant 5 (`00-architecture.md`): `enrich` is kept
+the one command that reaches the network, synchronous and separate,
+precisely so a caller — a test, a script, a person reading the exit code —
+has one observable point where "did this succeed" is actually knowable. A
+self-backgrounding `enrich` returns before that point exists, which is the
+same failure `SKILL.md`'s old "ignore non-zero exit" rule already had, just
+moved one layer down into the binary itself. `scripts/autobuild.sh` keeps
+every `gamereg` call it makes fully synchronous and backgrounds only
+*itself*, as a periodic external process — the boundary invariant 5 draws
+stays exactly where it was.
+
+`SKILL.md` still lets the agent run `gamereg build --json` directly, but only
+when the user explicitly asks for it in the moment ("update the site now")
+— never automatically, and never through the `exec` tool's `background` param.
+
+**`tools.exec.notifyOnExit` no longer needs watching.** The paragraph this
+replaced left it deliberately unresolved: a backgrounded `enrich`/`build`
+finishing could enqueue a heartbeat and wake the agent to comment on
+something nobody asked about (`schema-DRyO1XBt.js`: "When true (default),
+backgrounded exec sessions on exit... enqueue a system event and request a
+heartbeat"). With no background `exec` calls left in `SKILL.md` at all, there
+is nothing left for that knob to suppress — the risk did not get fixed, it
+stopped applying.
+
+### 8. Wire the check-in poll
+
+`agent/checkin.sh` is the gateway's half of the check-in machinery
+(`docs/spec/05-agent.md`, *Check-ins*). It runs `gamereg checkin --expire` and
+`gamereg due --json`, exits silently when nothing is due, and otherwise wakes
+the agent with the rows and files a `snoozed` check-in for each — in that order.
+It is the gateway's file, not the agent's: the agent still executes one
+allowlisted binary and still writes nothing itself.
+
+Copy it somewhere stable on this host and register it as an hourly **command**
+job — the binary with no model attached, which is what makes an empty poll free:
+
+```bash
+cp agent/checkin.sh ~/.openclaw/checkin.sh
+openclaw cron add --name gamereg-checkin --cron "0 * * * *" --exact --no-deliver \
+  --command-env GAMEREG_VAULT=/opt/gamereg-vault \
+  --command-env GAMEREG_CHECKIN_CHANNEL=telegram \
+  --command-env GAMEREG_CHECKIN_TO=<your numeric chat id> \
+  --command "$HOME/.openclaw/checkin.sh"
+```
+
+**Not `--every 1h`, and not without `--exact`.** `--every` counts from the
+moment you registered the job, so a job created at 09:58 polls at 09:58 forever
+after; `--exact` sets the stagger window to zero, which OpenClaw otherwise uses
+to spread jobs out. Neither would matter for a poll that only had thresholds to
+check — but `chase_at` is a *delivery slot*, and a tick at 09:58 delivers the
+morning chase 58 minutes after the moment the CLI picked for it. Aligned, the
+empty polls in the run history all finish at `:00:00`; the two that had something
+to say finish later by however long the agent's turn took, the wake being
+synchronous.
+
+Before any of that, run it by hand. `--dry-run` performs nothing and prints the
+message it would have sent, and `--at` evaluates as if it were another time —
+the same flag the CLI takes, forwarded to every `gamereg` call the script makes:
+
+```bash
+GAMEREG_VAULT=/opt/gamereg-vault ~/.openclaw/checkin.sh --dry-run
+GAMEREG_VAULT=/opt/gamereg-vault ~/.openclaw/checkin.sh --dry-run --at "2026-08-23 09:00"
+```
+
+Everything below was checked against the installed gateway
+(`openclaw 2026.7.1-2`) by running it, not read out of its documentation. Most
+of it contradicts what a reasonable reading would have assumed. They are in the
+order they were found, which is roughly the order they cost time in: the first
+few came out of probing the gateway before anything was built, the rest only
+appeared once real check-ins were going out to a real phone — and the last of
+those was invisible from every artifact this host keeps. It took someone looking
+at the screen.
+
+**`--no-deliver` is not optional, and the default is the dangerous one.** A
+command job's `delivery.mode` comes back as `announce` with `channel: "last"`
+unless you pass `--no-deliver` — so a job registered without it sends the
+wrapper's stdout to a chat as raw text. On this host the first probe was saved
+by an unrelated refusal:
+
+```
+Refusing implicit isolated cron delivery: the target would be inherited from
+the shared agent-main session bucket's last recipient, which is ambiguous
+across conversations and can deliver to the wrong room
+```
+
+That refusal is not a safety net to rely on — it depends on the delivery target
+being ambiguous, which it stops being the moment anything sets one. Note also
+what it did to the run: the command exited 0 and the run was still recorded
+`status: "error"`, because delivery failed. A run history full of red on a job
+that worked is its own kind of broken. `checkin.sh` therefore keeps **stdout
+empty on every path** and puts diagnostics on stderr, where
+`openclaw cron runs --id <job>` still shows them.
+
+**A command job inherits the gateway process's environment — `GAMEREG_SOURCE`
+included.** A probe job printed `VAULT=[/opt/gamereg-vault] SOURCE=[chat]`. The
+vault being inherited is convenient; `chat` being inherited is a trap, because
+every check-in this poll files would then claim in the log to have come from a
+conversation. `checkin.sh` sets `GAMEREG_SOURCE=cron` itself rather than
+trusting what it was handed, and `test/checkin-wrapper.test.ts` runs with `chat`
+in the environment for exactly that reason. The job is registered with
+`--command-env GAMEREG_VAULT=...` anyway: inheritance is not a contract.
+
+**The wake is `openclaw agent`, not a second cron job.** OpenClaw's automation
+docs are right that a command job's output cannot trigger an agent turn, so the
+wrapper has to raise the turn itself. The candidate written down here before
+this was built — `openclaw cron add --at +0s --delete-after-run --message …` —
+was not pursued, and was never run: a one-shot agent job is delivered by the
+same code path that produced the "refusing implicit isolated cron delivery"
+error above, so it would need an explicit `--channel` and `--to` of its own, and
+it puts a second job in the store on every non-empty poll. `openclaw agent`
+needs neither. Treat "it would have worked" as untested either way — what is
+tested is that the other one does.
+
+`openclaw agent --agent <id> --message-file <file>` runs the turn in that
+agent's main session, so the question lands in the same conversation the answer
+will arrive in — which is the part that matters, since the reply has to reach an
+agent that knows what it asked.
+
+It is also synchronous, and that turns out to be the better failure mode: the
+wrapper files the snoozes only after `openclaw agent` has returned successfully,
+so a gateway that was down leaves the session eligible on the next tick instead
+of silently in backoff.
+
+**`openclaw cron run <id>` fires a job on demand, and works on a disabled one.**
+That is how to test a registered job without waiting for the hour, and creating
+the job with `--disabled --keep-after-run` first makes the whole loop
+inspectable: run it, read `openclaw cron runs --id <job>`, then enable it.
+
+**`openclaw agent` needs a selector; there is no implicit main session.** The
+first live run failed outright with *"No target session selected. Use --agent
+&lt;id&gt;, --session-key &lt;key&gt;, --session-id &lt;id&gt;, or --to
+&lt;E.164&gt;"*. Its own `--help` says `(omit to use the main session channel)`,
+which is about the delivery *channel* and reads, at a glance, like a statement
+about the session. `checkin.sh` passes `--agent`, defaulting to `main` and
+overridable with `OPENCLAW_AGENT`.
+
+Worth noting what that failure did *right*: `openclaw agent` returned non-zero,
+so the wrapper filed nothing, and the session was still due on the next run. The
+ordering rule is not theoretical — it was exercised on the first attempt.
+
+**A turn started by a poll carries no delivery routing, and the `message` tool
+fails open.** This is the one that matters. In a turn started by an inbound
+message the gateway puts the conversation's target in the model's context — the
+phase-2 transcripts are full of `"target": "telegram:<chat id>"`. A cron wake has
+no inbound message, so nothing is injected, and the agent reached for the only
+plausible-looking value it had:
+
+```
+"target":"telegram"  →  chat_id=-1001005640892
+403: Forbidden: bot is not a member of the channel chat
+Input was: "telegram:@telegram"
+```
+
+`telegram` resolved to **`@telegram`, the public Telegram channel**. The send was
+stopped by the bot not being a member of it, and by nothing else. A wrong target
+here does not fail closed; it addresses a real chat and tries. Read that failure
+as the near miss it is, not as an error message.
+
+The fix is `--reply-channel` and `--reply-to` on `openclaw agent`: with them the
+run carries its own delivery context, the `message` tool defaults to it, and the
+agent names no target at all — confirmed by a second live run, `messageId 478`,
+buttons and all. Which is why `GAMEREG_CHECKIN_TO` exists and why `SKILL.md`'s
+*Check-ins* forbids setting `target` in as many words. Leave both unset and the
+poll still works: the question arrives as the agent's own reply text, which
+`--deliver` routes correctly on its own. What is lost is the buttons.
+
+`break-start:<ulid>` and `close-session:<ulid>` come to 40 bytes, comfortably
+inside the 64-byte `callback_data` ceiling, and rendered as sent.
+
+**A throwaway vault does not isolate the answer half — only the question half.**
+Found the hard way. The wrapper takes its vault from its own environment, so
+pointing it at a scratch vault keeps `due` and `checkin` off the real register.
+The *agent* does not: it takes `GAMEREG_VAULT` from the gateway process, which
+is the live vault and nothing else. So a check-in raised from a scratch vault is
+answered against the real one, and the tap that was meant to open a break on a
+fictional Hollow Knight session opened a real one on whatever session the real
+vault had open. Undone with `revoke`, which is what it is for — the `break.open`
+was the last event in the log, so it came out clean and `doctor` came back with
+no problems.
+
+Two things worth keeping from that. The agent noticed by itself: it read the
+result, saw the game did not match the one it had asked about, and ran
+`gamereg open --json` to work out why — the boundary held, and the model was the
+thing that caught it. And it was only possible because the two vaults disagreed;
+inside one vault, a second open session makes `break start` exit 3 and list them
+rather than pick, which is the whole point of that exit code.
+
+To test the answer half honestly, raise the check-in against the real vault on a
+session you are willing to have a break filed against, or point the gateway's own
+`GAMEREG_VAULT` at the scratch vault for the duration and restart it.
+
+**`break start` takes a target and the skill reference used to hide it.** The
+same episode surfaced this: `reference/cli.md` documented `gamereg break start`
+with no arguments, while the binary has taken `[query]` and `--id` all along.
+`test/agent-skill.test.ts` checks that every flag the reference *names* exists;
+it cannot check the other direction, so a capability the reference omits is
+invisible to the agent no matter how long it has been there. Both `break`
+subcommands are now written out with their target, and `SKILL.md`'s *Check-ins*
+requires passing it: the wake names a `game_id`, and answering a check-in about
+one session by asking which session is meant would be absurd.
+
+**`--deliver` and the `message` tool are two delivery paths, and turning on both
+sends every check-in twice.** The clearest symptom possible, and still not
+obvious from inside a single run: each check-in arrived as two Telegram
+messages, identical text, same minute, one with buttons and one without. Nothing
+generated the text twice — the model narrated alongside its `message` tool call,
+which is ordinary behaviour, and that narration is the sentence it had just
+sent. `--deliver` then delivered it.
+
+`NO_REPLY` does not save you here. It is a real OpenClaw sentinel — the
+dispatcher logs *"exact NO_REPLY final payload was skipped before delivery"* —
+but it is matched per payload, against `^NO_REPLY$`. The turn produced two
+payloads, the narration and the sentinel; only the second was skipped.
+
+So `checkin.sh` picks exactly one path by mode: with routing configured it drops
+`--deliver` entirely and the `message` tool is the only sender; with no routing
+it passes `--deliver` and forbids the message tool, which cannot reach the
+conversation anyway. `test/checkin-wrapper.test.ts` asserts both directions,
+because the failure is invisible in the run history and in the transcript alike
+— the transcript shows one `message` send and a successful `messageId`, which is
+exactly what a correct run looks like.
+
+**`amend` requires `--reason`, and the skill did not say so.** The first real
+answered check-in cost a wasted round trip to exit 2 before the agent added it.
+Written down because it is the shape of mistake this file exists to catch: the
+reference listed the flag, `SKILL.md`'s own worked example omitted it, and a
+worked example is what gets copied. Both now carry it.
+
+**A wake has no language to infer from, and the agent will go looking.** The
+first successful check-in came out in English, to a user who talks to this bot
+in Portuguese, after two `sessions_history` calls and two `memory_search` calls
+spent trying to work it out. `SKILL.md`'s *Language* rule — reply in whatever
+they wrote — has nothing to work with when nobody wrote anything. `checkin.sh`
+therefore reads `gamereg vocab --json`'s `locale` and states it in the wake as a
+fact. A tag, not a phrasing: the vocabulary itself still comes from the CLI.
+
+### 9. Wire the maintenance timer
+
+`scripts/autobuild.sh` is the gateway host's file too, same as `checkin.sh` —
+the agent still executes one allowlisted binary and still writes nothing
+itself. Unlike the check-in poll it has nothing to do with OpenClaw at all, so
+it is registered as a plain systemd --user timer instead of an `openclaw cron`
+job:
+
+```bash
+cp scripts/autobuild.sh ~/.local/bin/gamereg-autobuild.sh
+chmod +x ~/.local/bin/gamereg-autobuild.sh
+mkdir -p ~/.config/systemd/user
+cp scripts/gamereg-autobuild.service scripts/gamereg-autobuild.timer ~/.config/systemd/user/
+# edit ExecStart and GAMEREG_VAULT in gamereg-autobuild.service if the
+# defaults (%h/.local/bin, %h/gamereg-vault) don't match this host
+systemctl --user daemon-reload
+systemctl --user enable --now gamereg-autobuild.timer
+```
+
+Push only happens once the vault itself has a `git remote` configured
+(`git -C /opt/gamereg-vault remote add origin ...`) — until then every tick's
+push step is a no-op, not an error.
+
+### 10. Vendor Quartz for the site (optional)
+
+Only needed if the vault builds the `quartz` target and you want an actual
+site out of it — `gamereg build quartz` only ever emits `quartz/content/` and
+seeds `quartz/quartz.config.yaml`; it never runs Quartz (invariant 8), so
+nothing here makes a site exist on its own. `scripts/vendor-quartz.sh` copies
+a real Quartz checkout's framework files into `<vault>/quartz/`, next to that
+seeded content, without ever touching `content/` or `quartz.config.yaml`
+themselves:
+
+```bash
+gamereg build quartz            # first — seeds quartz.config.yaml and content/
+scripts/vendor-quartz.sh --clone --tag v5.0.0   # fetches upstream itself
+# or, to reuse a checkout already on disk:
+scripts/vendor-quartz.sh --source ~/quartz-src
+```
+
+`--clone` fetches `jackyzha0/quartz` fresh into a throwaway temp directory
+(shallow, discarded after); `--tag` pins it to a released tag instead of
+tracking the default branch. `--source` and `--clone` are mutually
+exclusive, and `--tag` only makes sense with `--clone` — pinning a checkout
+you already keep yourself is your own business, not this script's.
+
+It runs `npm install` and `npx quartz build` as a verification step.
+`package.json` is merged, not overwritten: anything the destination already
+declares as a dependency that the fetched/given checkout doesn't — a Quartz
+theme installed by hand after a build error named it, most often — survives
+every rerun; `package-lock.json` is never copied, only regenerated by `npm
+install` against the merged file, since that's the only way the added
+dependency's own lock entry gets resolved. A minimal `wrangler.jsonc`
+(Cloudflare Workers static-asset deploy) is seeded if one isn't already
+there — never overwritten once it exists, since a custom domain route is
+likely hand-added to it later. Rerunning the same command (`--clone` again,
+optionally with a newer `--tag`, or `--source` against an updated checkout)
+is how the vendored framework gets upgraded; the vault's own `content/` and
+`quartz.config.yaml` survive every run untouched. This is one verified path,
+not the phase-5 answer to how the site gets hosted — see `CLAUDE.md`'s *Open
+items* for why that question stays open.
+
+### 11. Reaction tokens, and why this step does nothing yet
+
+Optional, off, and shipped that way on purpose. `agent/workspace/REACTIONS.md`
+is the mapping table and every one of its five rows is empty, so the Registrar
+reacts with nothing until somebody puts a `file_id` in one. Step 5 already
+copied the file; there is no further install step.
+
+What this step is really for is the two things that are not obvious when you do
+decide to fill it in.
+
+**A sticker is a channel action, not a presentation block.** This was the open
+question when the tokens were specified, and it is answered: on OpenClaw
+2026.7.1-2 the presentation shape that carries inline buttons has no sticker or
+reaction member at all. `MessagePresentationBlock` is `text | context | divider
+| buttons | select` (`payload-vIEr566D.d.ts:111`), which is the same union the
+buttons work in step 3 was written against. So a reaction never rides along with
+a reply the way a keyboard does — it is a second `message` tool call, with its
+own action:
+
+- `action: "sendSticker"`, `to`, `fileId` — posts the sticker as its own
+  message. Gated by `channels.telegram.actions.sticker`; with the switch unset
+  the call throws "Telegram sticker actions are disabled"
+  (`action-runtime-Cv7KsCc_.js:459`), which is at least a loud failure.
+- `action: "react"`, `messageId`, `emoji` — attaches an emoji to an existing
+  message. Gated twice, by `channels.telegram.actions.reactions` *and* by
+  `reactionLevel` being above `"off"`, and a miss on either returns
+  `{ok: false, reason: "disabled"}` with a hint not to retry rather than an
+  error. `openclaw.example.json5` carries both keys, commented out, with the
+  reasoning.
+
+The second one is why `SKILL.md` tells the agent not to react when it has no
+concrete message id: an emoji reaction is *on* a message, and the only way to
+name that message is an id it was actually given.
+
+**A `file_id` belongs to a bot, not to a sticker.** Send the sticker to your bot
+from your own account and read the id off the update it receives; the same
+sticker under a different bot token is a different id. So the table does not
+survive replacing the bot, and it is not something to look up anywhere. There is
+no artwork in this repository and there is not going to be — the sticker set is
+per installation, which is the whole reason the mapping sits in the workspace
+and not in `gamereg.config.json`.
+
+**The tokens are identifiers and are never translated.** Five of them, closed:
+`filed`, `approved`, `archived`, `pending`, `puzzled`. Four collide by name with
+the register's localized vocabulary, which is prose the agent gets from
+`gamereg vocab` and says out loud. A translated token matches no row in the
+table and the reaction silently does not happen. `docs/spec/05-agent.md`'s
+*Reactions* section says this too, and it is written down in three places on
+purpose.
+
 ## Smoke test
 
 In order, from your phone, with no terminal open. Say each of these in whatever
@@ -484,11 +1184,69 @@ this command exists to remove.
 Then, from a terminal: `gamereg build`, and check that the notes regenerate and
 carry `source: "chat"` on the events.
 
+Then the check-in, which is the one step that cannot start from the phone, and
+the one with a trap in it. Preview it first — this costs nothing and touches no
+vault, and `--at` means you do not have to wait for a session to age into being
+due:
+
+```bash
+~/.openclaw/checkin.sh --dry-run
+~/.openclaw/checkin.sh --dry-run --at "2026-08-23 09:00"
+```
+
+Then run it for real, **against the real vault**, on a session you are willing
+to have a break filed against:
+
+```bash
+~/.openclaw/checkin.sh
+```
+
+A throwaway vault is the obvious idea and it does not work — see *A throwaway
+vault does not isolate the answer half* above. It keeps `due` and `checkin` off
+the real register, but the agent's own vault comes from the gateway process, so
+the tap is answered against the real one regardless.
+
+The message should name the game and how long it has been open, offer a break,
+and read as an offer rather than a verdict — in the language the register is
+configured for, not the language this file is written in. It should arrive
+**once**. Two copies of it, one with buttons and one without, means `--deliver`
+and the `message` tool are both live; that is the delivery-path section above.
+
+Tap "taking a break", then read the log: a `session.checkin` with
+`source: "cron"`, a `break.open`, and an `event.amend` moving the check-in's
+outcome to `break_started`. The last of the three is the one worth checking —
+it is the agent's only piece of check-in bookkeeping, it needs an id nothing
+handed it, and it is the step it will skip if anything upstream went wrong.
+
 Last: message the bot from another account, and confirm nothing happens.
 
 ## What is not here
 
-Check-ins (`due`, `checkin`, cron, the backoff ladder), reaction tokens and
-stickers are specified in `docs/spec/05-agent.md` but belong to phase 3. Nothing
-in this directory implements them, and the Registrar stays silent until spoken
-to.
+**No sticker artwork, and none is coming.** The reaction tokens are wired end to
+end — the vocabulary in `SKILL.md`, the mapping table in
+`workspace/REACTIONS.md`, the two gateway switches in
+`openclaw.example.json5`, and step 11 above for how a `file_id` is obtained —
+but every row of the table is empty, so the feature is inert until somebody
+fills it in. That is the finished state for this repository: the sticker set is
+per installation.
+
+The check-in machinery is built on both sides now. `gamereg due` and
+`gamereg checkin` carry the triggers, the delivery windows, the backoff ladder
+and the ceiling; `checkin.sh` and the cron job in step 8 turn a non-empty `due`
+into a wake; `SKILL.md`'s *Check-ins* section says what to do with one. The
+Registrar is no longer silent until spoken to.
+
+The `stats` target is built: with it declared in `build.targets`, a build also
+writes `obsidian/Stats.md`, one `obsidian/reviews/<year>.md` per year played and
+a calendar heatmap for each. Both notes are spliced, so a paragraph the user
+pastes around the tables survives the next build — which is the only way a
+review's prose gets there, since the agent writes no files and no command files
+one.
+
+The `quartz` target is built too, which closes phase 3: with it declared, a
+build also writes `quartz/content/` — the same notes in the flavour Quartz
+reads, plus the table as the site's front page — and seeds
+`quartz/quartz.config.yaml`. Nothing here changes for the agent: gamereg emits
+Quartz's input and never runs Quartz, so no target spawns a subprocess and the
+gateway host needs nothing new installed. `UNBUILT_TARGETS` in `core/vocab.ts`
+is empty again, so every declared target now builds.

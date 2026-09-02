@@ -145,7 +145,11 @@ vite.config.ts.timestamp-*
 # gamereg — build bookkeeping and derived caches inside a vault
 .gamereg/
 *.db
-site/
+# Quartz's own output directory, and only that. What the quartz target writes —
+# quartz/content/ and quartz/quartz.config.yaml — is committed on purpose, so a
+# CI job can build the site with nothing but Quartz installed. See
+# docs/spec/00-architecture.md, "Two repositories".
+quartz/public/
 # ...except the golden fixture: example-vault/ is the committed expected
 # output of every enabled target, sqlite included.
 !/example-vault/data/log.db

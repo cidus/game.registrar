@@ -9,7 +9,15 @@
 import { hoursToMinutes } from '../core/duration.ts'
 import { GameregError } from '../core/errors.ts'
 import { appendEvents, makeEvent, readEvents, type EventEnvelope } from '../core/events.ts'
-import { fold, type GameState, type RunState, type SessionState, type VaultState } from '../core/fold.ts'
+import {
+  fold,
+  gameOfSession,
+  openSessions,
+  type GameState,
+  type RunState,
+  type SessionState,
+  type VaultState,
+} from '../core/fold.ts'
 import { newId } from '../core/ids.ts'
 import {
   canonicalPlatform,
@@ -24,6 +32,10 @@ import { normalize, uniqueSlug } from '../resolve/normalize.ts'
 import { candidateOf, parseReference, resolveLocal, type Candidate, type ResolveOptions } from '../resolve/resolve.ts'
 import type { Cli } from './context.ts'
 import { choose } from './prompt.ts'
+
+// Two pure queries over folded state, which is where they live; re-exported
+// here so a command still has one import for everything session-shaped.
+export { gameOfSession, openSessions }
 
 export type Workspace = {
   events: EventEnvelope[]
@@ -298,25 +310,6 @@ export function openRunOf(game: GameState): RunState | null {
 
 export function openSessionOf(run: RunState): SessionState | null {
   return run.sessions.find((session) => session.open) ?? null
-}
-
-export function openSessions(state: VaultState): SessionState[] {
-  const sessions: SessionState[] = []
-  for (const game of state.games) {
-    for (const run of game.runs) {
-      for (const session of run.sessions) {
-        if (session.open) sessions.push(session)
-      }
-    }
-  }
-  return sessions
-}
-
-export function gameOfSession(state: VaultState, session: SessionState): GameState {
-  const run = state.runsById.get(session.run_id)
-  const game = run === undefined ? undefined : state.gamesById.get(run.game_id)
-  if (game === undefined) throw new GameregError('error', 'error.unexpected', { message: session.session_id })
-  return game
 }
 
 /** The open session this command acts on: named, implied, or ambiguous (code 3). */

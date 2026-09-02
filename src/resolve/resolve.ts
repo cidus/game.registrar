@@ -101,6 +101,9 @@ export function candidateOf(game: GameState): Candidate {
     source: 'local',
     in_log: true,
     status: game.status,
+    // A user photo (`game.cover.source === 'user'`) has no url, only a
+    // sha256 pointing at a local vault asset — no candidate cover for those yet.
+    cover_url: game.cover?.url ?? null,
   }
 }
 

@@ -1,0 +1,26 @@
+# systemd --user unit for scripts/autobuild.sh (agent/README.md documents
+# installation). Declarative on purpose: unlike the check-in poll
+# (agent/checkin.sh, registered through `openclaw cron add` because OpenClaw's
+# own job store has no file form), vault maintenance has nothing to do with
+# the chat gateway, so it does not need to go through it. A plain oneshot
+# service triggered by gamereg-autobuild.timer is systemd doing what it is
+# already for.
+#
+# Edit the two paths below before installing: where autobuild.sh was copied
+# to, and where the vault is. Nothing here is coupled to an install path by
+# gamereg itself (invariant 15, 00-architecture.md) — the coupling is entirely
+# in this unit file, which is host-specific by nature, same as the cron
+# registration example in agent/README.md.
+
+[Unit]
+Description=gamereg vault maintenance (enrich missing metadata, rebuild derived artifacts, commit)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=GAMEREG_VAULT=%h/gamereg-vault
+ExecStart=%h/.local/bin/gamereg-autobuild.sh
+
+[Install]
+WantedBy=default.target

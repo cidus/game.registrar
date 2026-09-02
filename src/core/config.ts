@@ -10,8 +10,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { parseDuration } from './duration.ts'
 import { GameregError } from './errors.ts'
 import type { PlatformEntry } from './platforms.ts'
+import { parseClock } from './time.ts'
 import { checkEnum, checkTarget, FORM, MODE, type BuildTarget, type Form, type Mode } from './vocab.ts'
 
 export type Config = {
@@ -43,6 +45,12 @@ export type Config = {
       dir: string
     }
   }
+  /**
+   * When the Registrar notices an open session and says something
+   * (docs/spec/05-agent.md "Check-ins"). Every value here is a clock or a
+   * counter, which is exactly why they live in the CLI and not in a model.
+   */
+  checkin: CheckinConfig
   /** Image ingestion (docs/spec/04-derived.md "Image ingestion"). */
   images: {
     /** Longest side, in pixels, after normalization. */
@@ -59,6 +67,38 @@ export type Config = {
   }
 }
 
+export type CheckinConfig = {
+  /**
+   * How long a session may stand open before the `duration` trigger fires.
+   * `null` switches that trigger off entirely — someone who wants a silent
+   * ledger must be able to have one, with the `day_cutoff` chase intact.
+   */
+  after: string | null
+  /** Wall-clock times that fire the `clock` trigger while a session is open. */
+  clock: string[]
+  /**
+   * When the `day_cutoff` chase is *delivered*. `day_cutoff` says when the
+   * trigger fires; this says when the question is asked, and the two are
+   * different concepts on purpose — asking at the cutoff asks while the
+   * session is most likely still running. `null` asks at the cutoff itself.
+   */
+  chase_at: string | null
+  /** The escalating ladder, applied in order after each check-in. */
+  backoff: string[]
+  /** A hard ceiling on `duration` and `clock` asks. `day_cutoff` is exempt. */
+  max_per_session: number
+  /** Silence past this long is filed as `no_reply` by `checkin --expire`. */
+  reply_window: string
+  /**
+   * `[from, to]`, `HH:MM`. Suppresses `duration` and `clock` only, and holds
+   * rather than drops: a trigger that fires inside the window is delivered
+   * when it ends. Empty means no quiet hours at all.
+   */
+  quiet_hours: string[]
+  /** The register the check-in is written in. Read by the agent, never here. */
+  persona_prompt: string | null
+}
+
 export const DEFAULT_CONFIG: Config = {
   locale: null,
   timezone: null,
@@ -73,6 +113,16 @@ export const DEFAULT_CONFIG: Config = {
     // A vault that has never heard of this key still builds notes and the table.
     targets: ['obsidian'],
     csv: { dir: 'data' },
+  },
+  checkin: {
+    after: '4h',
+    clock: ['01:00'],
+    chase_at: '09:00',
+    backoff: ['2h', '3h', '5h'],
+    max_per_session: 3,
+    reply_window: '45m',
+    quiet_hours: ['02:00', '09:00'],
+    persona_prompt: null,
   },
   images: {
     max_edge: 2000,
@@ -129,6 +179,91 @@ function rejectUnknownKeys(source: Record<string, unknown>, template: unknown, p
     ) {
       rejectUnknownKeys(value as Record<string, unknown>, nested, path === '' ? key : `${path}.${key}`, file)
     }
+  }
+}
+
+/**
+ * A setting whose *value* is malformed, named by its path.
+ *
+ * `checkin` is the first block where every value is a parsed one — a duration,
+ * a time of day, a counter — so a typo has to be caught here rather than at the
+ * moment the trigger would have fired, which is hours later and unattended.
+ */
+function badValue(key: string, value: unknown, file: string): GameregError {
+  return new GameregError('usage', 'error.bad_config_value', {
+    key,
+    value: typeof value === 'string' ? value : JSON.stringify(value),
+    file,
+  })
+}
+
+function readDuration(value: unknown, key: string, file: string): string {
+  if (typeof value !== 'string') throw badValue(key, value, file)
+  try {
+    parseDuration(value)
+  } catch {
+    throw badValue(key, value, file)
+  }
+  return value
+}
+
+function readClock(value: unknown, key: string, file: string): string {
+  if (typeof value !== 'string') throw badValue(key, value, file)
+  try {
+    parseClock(value)
+  } catch {
+    throw badValue(key, value, file)
+  }
+  return value
+}
+
+function readClockList(value: unknown, key: string, file: string): string[] {
+  if (!Array.isArray(value)) throw badValue(key, value, file)
+  return value.map((entry, index) => readClock(entry, `${key}[${index}]`, file))
+}
+
+/**
+ * `checkin`, with every value parsed on the way in (docs/spec/05-agent.md).
+ *
+ * `after` and `chase_at` accept `null` explicitly rather than by omission:
+ * `null` is what switches the `duration` trigger off and what asks the
+ * `day_cutoff` chase at the cutoff itself, so reading it as "unset" would
+ * silently restore the default and keep asking.
+ */
+function parseCheckin(source: Record<string, unknown>, into: CheckinConfig, file: string): void {
+  if ('after' in source) {
+    into.after = source['after'] === null ? null : readDuration(source['after'], 'checkin.after', file)
+  }
+  if ('clock' in source) into.clock = readClockList(source['clock'], 'checkin.clock', file)
+  if ('chase_at' in source) {
+    into.chase_at = source['chase_at'] === null ? null : readClock(source['chase_at'], 'checkin.chase_at', file)
+  }
+  if ('backoff' in source) {
+    const value = source['backoff']
+    if (!Array.isArray(value)) throw badValue('checkin.backoff', value, file)
+    into.backoff = value.map((entry, index) => readDuration(entry, `checkin.backoff[${index}]`, file))
+  }
+  if ('max_per_session' in source) {
+    const value = source['max_per_session']
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+      throw badValue('checkin.max_per_session', value, file)
+    }
+    into.max_per_session = value
+  }
+  if ('reply_window' in source) {
+    into.reply_window = readDuration(source['reply_window'], 'checkin.reply_window', file)
+  }
+  if ('quiet_hours' in source) {
+    const window = readClockList(source['quiet_hours'], 'checkin.quiet_hours', file)
+    // Two times or none. One is a window with no end, and there is no sane
+    // reading of it that is not a guess.
+    if (window.length !== 0 && window.length !== 2) throw badValue('checkin.quiet_hours', source['quiet_hours'], file)
+    into.quiet_hours = window
+  }
+  if ('persona_prompt' in source) {
+    const value = source['persona_prompt']
+    if (value !== null && typeof value !== 'string') throw badValue('checkin.persona_prompt', value, file)
+    into.persona_prompt = value
   }
 }
 
@@ -214,7 +349,7 @@ export function loadConfig(root: string): Config {
 
   if (typeof source['locale'] === 'string') config.locale = source['locale']
   if (typeof source['timezone'] === 'string') config.timezone = source['timezone']
-  if (typeof source['day_cutoff'] === 'string') config.day_cutoff = source['day_cutoff']
+  if ('day_cutoff' in source) config.day_cutoff = readClock(source['day_cutoff'], 'day_cutoff', file)
 
   const defaults = source['defaults']
   if (typeof defaults === 'object' && defaults !== null && !Array.isArray(defaults)) {
@@ -255,6 +390,11 @@ export function loadConfig(root: string): Config {
       // Trailing slashes are the user being tidy, not a path component.
       if (typeof dir === 'string') config.build.csv.dir = dir.replace(/\/+$/, '')
     }
+  }
+
+  const checkin = source['checkin']
+  if (typeof checkin === 'object' && checkin !== null && !Array.isArray(checkin)) {
+    parseCheckin(checkin as Record<string, unknown>, config.checkin, file)
   }
 
   const images = source['images']

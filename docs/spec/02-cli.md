@@ -329,6 +329,26 @@ step 6 altogether, which also makes `--provider` moot.
 
 ### `gamereg open` — list open sessions
 
+The row carries `last_checkin_id`, the `session.checkin` event most recently
+filed against that session, or `null`. It is there for one caller: the agent,
+answering a check-in. The wrapper files the record *after* enqueueing the wake,
+so the id cannot travel with the question — this is the way back to it. A
+closed session is not listed, so an answer that closes one reads the id first.
+
+It also carries `run_open_event_id` and `session_open_event_id`: the `run.open`
+and `session.open` events themselves, which is what `amend` and `revoke` take.
+These exist for the same reason `last_checkin_id` does — a caller with no
+terminal needs a route to an event id — and they close the last gap where there
+was none. Before them, the only way to the `run.open` of a run was a `query`
+against the `events` table with `json_extract`, which in practice cost a
+`query --schema`, a guessed column name and a retry on every correction.
+
+The entity ids beside them are *not* interchangeable with them and are cruelly
+easy to confuse: for one real session the `session_id` was
+`01M0JAMZTJQ4W489FNDCREMYB7` and its `session.open` was
+`01M0JAMZTJQ4W489FNDCREMYB8`. `run_open_event_id` is `null` only if the run
+folded without its opening event, which `doctor` already reports as an orphan.
+
 ### `gamereg due [--at <time>]`
 
 Evaluates every check-in trigger against currently open sessions and returns only
@@ -347,37 +367,96 @@ arithmetic so every caller behaves identically — see [05-agent](05-agent.md).
 { "ok": true, "result": { "due": [
   {
     "session_id": "01K...",
+    "run_id": "01K...",
     "game": "Hollow Knight",
+    "game_id": "01K...",
     "opened_at": "2026-08-12T20:14:00-03:00",
     "open_for_minutes": 412,
     "net_minutes": 372,
+    "on_break": false,
+    "break_started_at": null,
     "trigger": "duration",
     "threshold": "5h",
     "checkins_so_far": 1,
-    "last_checkin_at": "2026-08-12T23:14:00-03:00"
+    "last_checkin_at": "2026-08-12T23:14:00-03:00",
+    "last_checkin_id": "01K..."
   }
 ] } }
 ```
 
+The row is `open`'s, plus `trigger` and `threshold`, and minus the two event
+ids — a check-in question never amends a run or a session, only the
+`session.checkin` record `last_checkin_id` names, so carrying them would widen
+every wake payload for a caller that has no use for them. `last_checkin_at` and
+`last_checkin_id` name the same record, and it is the *previous* question — the
+one this evaluation was measured against, never the one about to be asked.
+`threshold` is the setting that fired, as configured: `4h` for `duration`, the
+hour itself for `clock` and for `day_cutoff`.
+
 `trigger` is what the agent uses to choose its register — see
 [05-agent](05-agent.md). Never hardcode the phrasing here; the CLI reports facts.
 
+**At most one row per session.** Several triggers can stand fired at once, and
+two questions about one session is the same nagging by a longer route.
+`day_cutoff` wins, being the only one chasing data it does not have; `duration`
+outranks `clock`, knowing how long the session has actually run where `clock`
+only knows what time it is. Several *sessions* still yield several rows, and the
+agent sends one message covering them (05-agent, *One message, not N*).
+
 Backoff and thresholds are read from config; the CLI applies them, so every
-caller behaves identically and cron needs no memory of its own.
+caller behaves identically and cron needs no memory of its own. The ladder is
+measured from the last check-in of any trigger and indexed by how many have been
+asked; the ceiling counts only `duration` and `clock`, since `day_cutoff` has its
+own budget. A `day_cutoff` chase is asked once per delivery slot, which is what
+bounds a trigger exempt from both.
 
-### `gamereg checkin <session_id> --trigger <t> --outcome <o>`
+### `gamereg checkin <session_id> --trigger <t> [--outcome <o>]`
 
-Files a `session.checkin`. Called by the agent right after it asks, with
-`--outcome snoozed`, then amended when the answer lands — or left to expire as
-`no_reply`.
+Files a `session.checkin`. Called by **the cron wrapper, not the agent**, right
+after the wake carrying the question has been enqueued. `--outcome` defaults to
+`snoozed`, which is the only outcome the wrapper is ever in a position to know.
+The outcome is amended later — `gamereg amend <checkin_id> --set outcome=…` — by
+the agent when the user answers, or by `--expire` below when nobody does.
 
-Without this call the session stays outside any backoff window and the next cron
-run asks again. That is the intended failure mode: **forgetting to record a
-check-in makes the assistant repeat itself, never go silent.**
+Where that id comes from depends on who is asking. The wrapper has it in this
+command's own `result.checkin_id`. The agent does not, and cannot: the wake goes
+out before this command runs, so at the moment the question reaches a
+conversation the record does not exist yet. It reads `last_checkin_id` off
+`gamereg open` instead, which is why that field is on the row.
+
+A check-in never mutates the session, and a session that closed between the wake
+and this call is recorded rather than refused: the question *was* asked, and
+losing that fact leaves the session eligible again on the next tick.
+
+The order is load-bearing. Enqueue the wake first, file the check-in second.
+Filing first would put a session inside a backoff window having never actually
+been asked, and that is the one direction this feature must not fail in. Filing
+second preserves the intended failure mode — **forgetting to record a check-in
+makes the assistant repeat itself, never go silent** — and a repeat costs one
+extra message where a false silence costs a closing time nobody will remember.
+
+Why the wrapper rather than the agent: the anti-nagging rules are a clock and a
+counter, and invariant 7 keeps that kind of arithmetic out of a language model.
+The agent's only job in a check-in is choosing the words.
+
+### `gamereg checkin --expire`
+
+Sweeps every check-in still `snoozed` past `checkin.reply_window` and amends it
+to `no_reply`. Takes no session argument — it asks the log which records have
+gone stale. Runs on the same schedule as `due`, from the same wrapper.
+
+Silence is an answer, and this is what records it as one instead of inferring it
+on read. See [01-model](01-model.md) for why that distinction is not pedantry.
 
 ### `gamereg status [<query>]`
 
 Vault summary, or one game's state.
+
+Each run in the per-game form carries `run_open_event_id`, the same field
+`open` exposes and for the same reason. `status` is the only route to it for a
+run with no open session — a run filed by `past`, which never had one and can
+sit with `platform: null` indefinitely, is corrected through an `amend` on this
+event and through nothing else.
 
 ### `gamereg query <sql>`
 
@@ -552,8 +631,12 @@ A **built-in table** ships with the CLI: the common platforms and their
 synonyms, *including the spellings the providers use* — "Nintendo Switch",
 "PC (Microsoft Windows)", "Super Nintendo Entertainment System". Those
 provider spellings are what let the catalog intersection below work by string
-comparison, with no table of provider platform ids to keep in sync. The
-table:
+comparison, with no table of provider platform ids to keep in sync. They are
+also what a provider is *asked* with: 03-resolution.md's step 6 narrows a
+catalog search by every spelling of the hinted platform, so a missing provider
+spelling is not merely a missed intersection — IGDB writes it
+"Sega Mega Drive/Genesis" and "Sega Master System/Mark III", and neither half
+of a slash matches on its own. The table:
 
 - seeds `init`'s suggestions, and supplies the synonyms for a name added
   without any;
@@ -565,6 +648,16 @@ table:
   the "Other" choice come from `i18n/`. This is the one place the
   no-hardcoded-English rule does not apply, and it is worth stating so
   nobody dutifully "fixes" it later.
+
+One entry is curated the other way round, and it is a judgement rather than a
+spelling: **`Steam Deck` is filed as a synonym of `PC`.** No catalog carries the
+Deck as a platform of its own — IGDB has no such platform at all — so an entry
+of its own could be named and never looked anything up on. Because
+canonicalization runs on read as well as on input, this reaches the register and
+not only the search: a run recorded on the Deck reads as `PC` in the notes, the
+table and the SQLite cache, retroactively. A vault that wants the distinction
+back declares `Steam Deck` in `config.platforms`, where the user's own entry
+wins as always.
 
 ### Canonicalization happens at two boundaries
 
@@ -610,7 +703,7 @@ and **nothing is ever filtered out** — the grouping *is* the mechanism:
 |---|---|---|
 | 1 | `game.platforms` ∩ `config.platforms` | the likely answer |
 | 2 | the rest of `game.platforms` | a console that isn't yours — a cousin's, a rental, a demo kiosk |
-| 3 | the rest of `config.platforms` | Steam Deck, an emulator, a fan port, a handheld the catalog never lists |
+| 3 | the rest of `config.platforms` | an emulator, an FPGA board, a fan port, a handheld the catalog never lists |
 | 4 | `Other` | free text |
 
 **Only a platform the user *typed* joins `config.platforms`** — under "Other",
@@ -743,7 +836,7 @@ Like `gamereg.config.json`, `gamereg.secrets.json` is read, never written by
 anything but `init`. No command persists a credential it was handed on the
 command line; there is no `--client-secret` flag for exactly that reason.
 
-### `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--covers]`
+### `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--missing] [--covers]`
 
 Network step, isolated. Appends `game.enrich` and fetches provider cover art.
 Safe to run from cron. Failure here never blocks recording.
@@ -793,6 +886,36 @@ just because the two happen to talk about platforms.
 
 **Never overwrites a cover with `source: user`.** `--covers --force` still
 respects that; only `gamereg cover --reset` gives provider art back.
+
+**`--missing` selects every game never actually enriched for `--provider`**
+(default `igdb`) — reading folded state, no network involved in the selection
+itself. It is a bulk selector, a sibling of `--all`, and inherits the same
+`bulk` mode: mutually exclusive with `--all`, `--match` and `<query>` (usage
+error, exit 2), and an ambiguous provider match during a `--missing` run
+collapses to `skipped` rather than exit 3 — the same reasoning that makes
+`--all` safe to run unattended applies here, which is what actually makes the
+"Safe to run from cron" line above true for an incremental run: without
+`--missing`, a cron `enrich --all` re-fetches the whole catalog on every tick,
+one network round trip per game already on record.
+
+**"Missing" is keyed on whether an enrich actually completed, not on whether
+a provider id is on record.** `start --id <provider ref>` resolving a `search`
+hit with no local match yet creates the game from that bare reference alone
+(`02-cli.md`'s `start`, invariant 5: no write command touches the network) —
+`game.providers` is set, but no metadata was ever fetched. `--missing` still
+selects that game: it tracks whether a `game.enrich` event has landed for
+this provider, which `game.providers` alone does not tell it. This is what
+makes the reference recorded at creation time actually get used later, the
+way it was meant to — `findDetail` sees the known id and fetches it directly,
+no search needed.
+
+**With `--covers`, `--missing` also selects a game that has metadata but no
+cover on record.** A game enriched before `--covers` existed, or simply never
+given it, has real metadata and `game.cover: null`; `enrich --missing
+--covers` backfills its art the same way a fresh enrich would, without
+touching games that already have a cover (`source: user` or a provider's own,
+either way). Without `--covers`, cover state plays no part in selection — only
+the metadata condition above does.
 
 ### `gamereg build [target...] [--force] [--list]`
 
@@ -844,7 +967,93 @@ Both append. Neither touches the original line.
 ### `gamereg import <file.csv> --mapping <file.json>`
 
 Bulk historical import, for people arriving from a spreadsheet. Emits one
-`run.import` per row. `--dry-run` is strongly recommended and documented as such.
+`run.import` per row (plus one `run.verdict` for a row that maps `verdict`).
+`--dry-run` is strongly recommended and documented as such — see the warnings
+below on what an import gets wrong permanently if it isn't checked first.
+
+```
+gamereg import games.csv --mapping mapping.json [--dry-run]
+```
+
+**The mapping file** is a flat JSON object: gamereg field name → the CSV's own
+column header for that field. A field absent from the mapping, or mapped to an
+empty string, is simply not imported.
+
+```json
+{
+  "title": "Title",
+  "ended": "Finished",
+  "started": "Started",
+  "hours": "Hours",
+  "rating": "Rating",
+  "verdict": "Review"
+}
+```
+
+| Field | Required | Accepts |
+|---|---|---|
+| `title` | yes | Free text — the query `resolveGame` matches or creates from, same as `past`'s argument. |
+| `ended` | yes | `2011`, `2011-07` or `2011-07-14` — precision is inferred from the shape, same as `past --ended`. |
+| `started` | no | Same shape rule as `ended`. Defaults to `ended` when omitted. |
+| `hours` | no | A decimal number, e.g. `42.3`. **Decimal point only** — see below. |
+| `rating` | no | An integer 0–11, or `none`. |
+| `difficulty` | no | One of the vocabulary's difficulty tokens. |
+| `criteria` | no | One of the vocabulary's completion-criteria tokens. |
+| `outcome` | no | One of the vocabulary's outcome tokens. |
+| `platform` | no | Free text, canonicalized against `config.platforms` like everywhere else. |
+| `form` | no | One of the vocabulary's form tokens. |
+| `mode` | no | One of the vocabulary's mode tokens. |
+| `note` | no | Free text — what the run itself says. |
+| `verdict` | no | Free text — the considered opinion, filed as a separate `run.verdict` event against the same run. |
+
+Valid tokens for `difficulty`, `criteria`, `outcome`, `form` and `mode` are not
+repeated here — they are the register's own vocabulary and drift the moment
+they are copied. Ask `gamereg vocab --json` (see D9 — *Capability is
+introspectable, never a list the caller keeps* — in
+[00-architecture](00-architecture.md), and *Language* in `CLAUDE.md`).
+
+**Number format is not negotiable.** `hours` accepts a plain decimal point —
+`12.5`, not `12,5`. `1,500` is ambiguous between a thousands separator and a
+comma decimal, and the log has to be readable in ten years regardless of which
+locale exported the spreadsheet; a comma-decimal cell fails that one row with
+"must be a positive number, not NaN" rather than being guessed at. Reformat the
+column before importing, not after.
+
+**Resolution is entirely offline**, same as `past`: no provider is reached
+(non-negotiable 5), an unmatched title becomes a new local entry
+(`allowCreate`, same as `past`'s `query`), and `--platform` is free text
+canonicalized the same way. Run `gamereg enrich --all` afterwards to fetch
+metadata and covers for whatever the import created.
+
+**A row that fails does not stop the import.** Each row is resolved and
+staged independently; a bad row is reported by its 1-indexed line number
+(header is line 1) and everything that succeeded is still committed. The
+command exits 0 only when every row succeeded, 1 when some failed (with
+`result.failed[]` naming which), and 2 for a usage error that stops before any
+row is processed — an unreadable file, or a mapping missing a required field.
+
+```json
+{ "ok": false, "code": 1, "error": "error",
+  "result": { "imported": [{ "row": 2, "game_id": "...", "run_id": "...", "title": "..." }],
+              "failed": [{ "row": 12, "message": "..." }] } }
+```
+
+**Two things a fast `--dry-run` check does not surface, so read them once
+before running for real:**
+
+- **A bad row leaves permanent residue.** An unmatched title becomes a new
+  local game the same instant it's filed, and once a title exists locally,
+  `search` stops asking a provider about it at all. Two hundred badly resolved
+  rows are two hundred phantom games that go on answering silently forever —
+  undoing that is `revoke`, one event at a time. `--dry-run` computes
+  everything an import would do and writes nothing; run it first, read the
+  titles it resolved to, and only then import for real.
+- **Imported years show up empty in the heatmap and the year in review.** A
+  `run.import` has no sessions, and a session is what carries a logical day —
+  see `CLAUDE.md`'s note on measured vs. stated hours. `gamereg stats` will
+  show gaps for years that were, in reality, entirely played. That is not a
+  bug: those hours are stated (`hours_source: stated`), never measured, and
+  the register never invents the days they happened on.
 
 ### `gamereg doctor`
 
@@ -867,11 +1076,13 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `search` | `buscar` |
 | `open` | `abertas` |
 | `due` | `pendencias` |
+| `checkin` | `conferir` |
 | `init` | `inicializar` |
 | `build` | `construir` |
 | `query` | `consultar` |
 | `amend` | `corrigir` |
 | `vocab` | `vocabulario` |
+| `enrich` | `enriquecer` |
 
 Flags are localized the same way (`--rating` / `--nota`). Both spellings always
 work regardless of locale — locale sets the *output* language, not the accepted

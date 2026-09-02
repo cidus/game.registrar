@@ -61,6 +61,65 @@ test('igdb: search exchanges a token once, then queries games', async () => {
   ])
 })
 
+test('igdb: a platform hint narrows the query itself, by every spelling of the platform', async () => {
+  const root = rootWithSecrets({ igdb: { client_id: 'id', client_secret: 'secret' } })
+  const bodies: string[] = []
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    if (String(url).includes('id.twitch.tv')) return jsonResponse({ access_token: 'tok', expires_in: 3600 })
+    bodies.push(String(init?.body ?? ''))
+    return jsonResponse([
+      { id: 1070, name: 'Super Mario World', platforms: [{ name: 'Super Nintendo Entertainment System' }] },
+    ])
+  }) as typeof fetch
+
+  const provider = createIgdbProvider(root, fetchImpl)
+  const results = await provider.search('Super Mario', ['Super Nintendo', 'Super Nintendo Entertainment System'])
+
+  // One call, not two: the narrowed query answered, so there is nothing to
+  // fall back to. Filtering the unnarrowed window instead is what used to
+  // lose this exact game — IGDB ranks it far outside the fetched page.
+  assert.equal(bodies.length, 1)
+  assert.match(bodies[0]!, /^search "Super Mario";/)
+  assert.match(bodies[0]!, /where platforms\.name = \("Super Nintendo","Super Nintendo Entertainment System"\);/)
+  assert.equal(results[0]!.title, 'Super Mario World')
+})
+
+test('igdb: a narrowed query that finds nothing falls back to the unnarrowed one', async () => {
+  const root = rootWithSecrets({ igdb: { client_id: 'id', client_secret: 'secret' } })
+  const bodies: string[] = []
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    if (String(url).includes('id.twitch.tv')) return jsonResponse({ access_token: 'tok', expires_in: 3600 })
+    const body = String(init?.body ?? '')
+    bodies.push(body)
+    // A spelling this catalog does not use — a vault is free to name a
+    // platform no catalog lists — so the narrowed query is empty, not wrong.
+    if (body.includes('where platforms.name')) return jsonResponse([])
+    return jsonResponse([{ id: 7346, name: 'Hollow Knight', platforms: [{ name: 'PC' }] }])
+  }) as typeof fetch
+
+  const provider = createIgdbProvider(root, fetchImpl)
+  const results = await provider.search('hollow knight', ['MiSTer FPGA'])
+
+  assert.equal(bodies.length, 2)
+  assert.doesNotMatch(bodies[1]!, /where platforms\.name/)
+  assert.equal(results[0]!.title, 'Hollow Knight')
+})
+
+test('igdb: no platform hint asks exactly what it always asked', async () => {
+  const root = rootWithSecrets({ igdb: { client_id: 'id', client_secret: 'secret' } })
+  const bodies: string[] = []
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    if (String(url).includes('id.twitch.tv')) return jsonResponse({ access_token: 'tok', expires_in: 3600 })
+    bodies.push(String(init?.body ?? ''))
+    return jsonResponse([])
+  }) as typeof fetch
+
+  const provider = createIgdbProvider(root, fetchImpl)
+  await provider.search('zelda')
+  assert.equal(bodies.length, 1)
+  assert.doesNotMatch(bodies[0]!, /where/)
+})
+
 test('igdb: findExact queries with a literal `where name =`, not the fuzzy search endpoint', async () => {
   const root = rootWithSecrets({ igdb: { client_id: 'id', client_secret: 'secret' } })
   const bodies: string[] = []

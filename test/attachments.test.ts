@@ -10,6 +10,7 @@ import { test } from 'node:test'
 import type { EventEnvelope } from '../src/core/events.ts'
 import { attachmentsOfGame, fold, gameOfEvent } from '../src/core/fold.ts'
 import { translator } from '../src/i18n/index.ts'
+import { OBSIDIAN } from '../src/render/flavour.ts'
 import { galleryBlock, headerBlock } from '../src/render/note.ts'
 import { tableBlock } from '../src/render/table.ts'
 import { context, event } from './helpers.ts'
@@ -134,13 +135,13 @@ test('the gallery block embeds each photo by its content-addressed path, oldest 
     }),
   )
   const state = fold(events, context)
-  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle)
+  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle, OBSIDIAN)
   assert.equal(block, `![[assets/${sha.slice(0, 2)}/${sha}.webp]]\n*2026-05-03 — Watcher Knights, finally*`)
 })
 
 test('a game with no attachments has no gallery block', () => {
   const state = fold(baseLog(), context)
-  assert.equal(galleryBlock(state, state.gamesById.get('G1')!, bundle), '')
+  assert.equal(galleryBlock(state, state.gamesById.get('G1')!, bundle, OBSIDIAN), '')
 })
 
 test('a photo with no caption renders the date alone', () => {
@@ -148,7 +149,7 @@ test('a photo with no caption renders the date alone', () => {
   const sha = 'b'.repeat(64)
   events.push(event('attachment.add', { target: 'G1', attachments: [{ sha256: sha, ext: 'webp', caption: null, captured_at: '2020-01-01T00:00:00', kind: 'other' }] }))
   const state = fold(events, context)
-  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle)
+  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle, OBSIDIAN)
   assert.equal(block, `![[assets/${sha.slice(0, 2)}/${sha}.webp]]\n*2020-01-01*`)
 })
 
@@ -173,7 +174,7 @@ test('a photo filed against the game is dated by the event that filed it', () =>
   const [entry] = attachmentsOfGame(state, state.gamesById.get('G1')!)
   assert.equal(entry?.at, '2026-08-16T10:07:00-03:00')
 
-  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle)
+  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle, OBSIDIAN)
   assert.equal(block, `![[assets/${sha.slice(0, 2)}/${sha}.webp]]\n*2026-08-16*`)
 })
 
@@ -184,7 +185,7 @@ test('an undated, uncaptioned photo renders as the photo, not as empty emphasis'
   const sha = 'd'.repeat(64)
   state.attachments.set('G1', [{ sha256: sha, ext: 'webp', caption: null, captured_at: null, kind: 'other' }])
 
-  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle)
+  const block = galleryBlock(state, state.gamesById.get('G1')!, bundle, OBSIDIAN)
   assert.equal(block, `![[assets/${sha.slice(0, 2)}/${sha}.webp]]`)
 })
 
@@ -192,14 +193,14 @@ test('a user cover is embedded at the top of the header block; a provider cover 
   const events = baseLog()
   const sha = 'c'.repeat(64)
   const withUserCover = fold([...events, event('game.cover', { game_id: 'G1', sha256: sha, source: 'user' })], context)
-  const header = headerBlock(withUserCover.gamesById.get('G1')!, bundle)
+  const header = headerBlock(withUserCover.gamesById.get('G1')!, bundle, OBSIDIAN)
   assert.match(header, new RegExp(`^!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\]\\]\\n`))
 
   const withProviderCover = fold(
     [...events, event('game.cover', { game_id: 'G1', url: 'https://example.com/cover.jpg', source: 'provider' })],
     context,
   )
-  const providerHeader = headerBlock(withProviderCover.gamesById.get('G1')!, bundle)
+  const providerHeader = headerBlock(withProviderCover.gamesById.get('G1')!, bundle, OBSIDIAN)
   assert.equal(providerHeader.includes('![['), false)
 })
 
@@ -210,13 +211,13 @@ test('a downloaded provider cover (has a sha256) embeds the same as a user one',
     [...events, event('game.enrich', { game_id: 'G1', provider: 'igdb', fields: {}, cover: { url: 'https://example.com/x.jpg', sha256: sha } })],
     context,
   )
-  const header = headerBlock(state.gamesById.get('G1')!, bundle)
+  const header = headerBlock(state.gamesById.get('G1')!, bundle, OBSIDIAN)
   assert.match(header, new RegExp(`^!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\]\\]\\n`))
 })
 
 test('the consolidated table embeds a reduced cover, only once one is locally ingested', () => {
   const events = baseLog()
-  const withoutCover = tableBlock(fold(events, context), bundle)
+  const withoutCover = tableBlock(fold(events, context), bundle, OBSIDIAN)
   const g1Row = withoutCover.split('\n').find((line) => line.includes('hollow-knight'))!
   assert.match(g1Row, /^\|\s*\|/) // the cover column is the first, and empty
 
@@ -224,9 +225,10 @@ test('the consolidated table embeds a reduced cover, only once one is locally in
   const withCover = tableBlock(
     fold([...events, event('game.cover', { game_id: 'G1', sha256: sha, source: 'user' })], context),
     bundle,
+    OBSIDIAN,
   )
   const coveredRow = withCover.split('\n').find((line) => line.includes('hollow-knight'))!
-  assert.match(coveredRow, new RegExp(`^\\|\\s*!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\\\\\|32\\]\\]\\s*\\|`))
+  assert.match(coveredRow, new RegExp(`^\\|\\s*!\\[\\[assets/${sha.slice(0, 2)}/${sha}\\.webp\\\\\\|128\\]\\]\\s*\\|`))
 })
 
 test('gameOfEvent resolves through run_id and session_id, not only a direct game_id', () => {

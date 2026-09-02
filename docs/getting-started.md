@@ -115,6 +115,82 @@ Already played it years ago, before any of this existed?
 gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
 ```
 
+### Coming from a spreadsheet
+
+`gamereg past` is fine for a handful of games typed by hand. If you're
+arriving with years of history already tracked in a spreadsheet,
+`gamereg import` files one `past`-shaped run per row instead.
+
+Say `games.csv` looks like this:
+
+```csv
+Title,Finished,Started,Hours,Rating,Review
+Chrono Trigger,2011-07,,30,10,Still the best time-travel plot in the medium.
+Hollow Knight,2026-08-12,2026-05-03,42.3,9,
+Celeste,2026,,,,
+```
+
+A mapping file says which of your columns is which gamereg field — see the
+[full field table](spec/02-cli.md#gamereg-import-filecsv---mapping-filejson)
+for everything beyond what's used here:
+
+```json
+{
+  "title": "Title",
+  "ended": "Finished",
+  "started": "Started",
+  "hours": "Hours",
+  "rating": "Rating",
+  "verdict": "Review"
+}
+```
+
+`hours` needs a plain decimal point (`42.3`), not a comma — reformat the
+column first if your spreadsheet exported one.
+
+Check what it would do before doing it:
+
+```bash
+gamereg import games.csv --mapping mapping.json --dry-run
+```
+
+`--dry-run` resolves every row and reports the result without writing
+anything. Read it — specifically, read which titles it matched to existing
+games and which it's about to create. **This is the step not to skip:** an
+unmatched title becomes a brand-new local game the instant a real import runs,
+and once a title exists locally, `gamereg search` stops asking a provider
+about it at all. A batch of badly resolved rows becomes that many phantom
+games that go on answering silently forever; undoing one is `gamereg revoke`,
+event by event. A `--dry-run` pass costs nothing and catches this before it
+happens.
+
+Happy with what `--dry-run` reported:
+
+```bash
+gamereg import games.csv --mapping mapping.json
+```
+
+```json
+{ "ok": true, "result": { "imported": [
+  { "row": 2, "game_id": "...", "run_id": "...", "title": "Chrono Trigger" },
+  { "row": 3, "game_id": "...", "run_id": "...", "title": "Hollow Knight" },
+  { "row": 4, "game_id": "...", "run_id": "...", "title": "Celeste" } ],
+  "failed": [] } }
+```
+
+A row that fails — an out-of-range rating, an unparseable `hours` cell —
+doesn't stop the rest; it's reported by CSV line number in `result.failed[]`
+and everything else still gets written. Run `gamereg enrich --all` afterward
+to fetch metadata and cover art for whatever got created — import itself
+never touches the network (non-negotiable 5).
+
+**One more thing worth knowing going in:** an imported run has no sessions —
+there was nothing to time. `gamereg stats`'s heatmap and year-in-review read
+sessions to know which days you played, so years you just imported will show
+up empty there even though you played every day of them. That's not a bug;
+the hours are recorded as *stated*, not *measured*, and the register doesn't
+invent days nobody logged at the time.
+
 ### Generate the artifacts
 
 ```bash
@@ -136,6 +212,25 @@ obsidian/runs/*.md       one note per playthrough
 obsidian/Game List.md    the consolidated table
 obsidian/Game Database.base
 ```
+
+Add `stats` to `targets` and the build also writes `obsidian/Stats.md` and one
+`obsidian/reviews/<year>.md` per year you played, each with a calendar heatmap.
+Those two notes are spliced like a game note, so anything you write around the
+generated tables — the paragraph that says what the year was actually like —
+survives every later build.
+
+Add `quartz` and the build writes the register a second time, as input for
+[Quartz](https://quartz.jzhao.xyz): `quartz/content/` — one page per game, one
+per playthrough, the consolidated table as the front page, the same Stats
+page and year-in-review notes `stats` writes into the vault, and the same
+`Game Database.base` the vault gets, for the `@quartz-community/bases-page`
+plugin the seeded config already enables — plus a seeded
+`quartz/quartz.config.yaml` that is yours the moment you touch it. **gamereg
+never runs Quartz.** It emits the input and stops; building the site is yours
+to run, by hand or from CI, and nothing about the rest of the register depends
+on Quartz being installed. Your own photos and cover art reach the site only if
+you set `images.publish` to `true` — off by default, and the pages say plainly
+where a picture was withheld.
 
 **Open `obsidian/` as your Obsidian vault, not the register root.** That folder
 holds only what the build writes; your log, credentials and build bookkeeping
@@ -189,10 +284,14 @@ hours, notes, ratings and verdicts — which is the point of it.
 
 The CLI works on its own, forever, with no AI involved. The agent is a layer
 on top that turns "starting hollow knight" into `gamereg start "hollow
-knight"` — in whatever language you happen to say it, and nothing more than
-that. It cannot write to your files, compute
-a duration, or invent an identifier; every number it reports comes from the
-database, because it has to ask the CLI like anyone else.
+knight"` — in whatever language you happen to say it. It cannot write to your
+files, compute a duration, or invent an identifier; every number it reports
+comes from the database, because it has to ask the CLI like anyone else.
+
+It can also speak first, if you set up the optional hourly poll described in
+`agent/README.md`: a session left open too long, or still open the morning
+after, gets one question. The CLI decides when that happens, not the model, and
+a poll with nothing to ask says nothing at all.
 
 ### What you need
 
@@ -233,8 +332,11 @@ trap that costs an afternoon to diagnose from scratch.
 
 The short version of what you will do there: install the CLI on the
 always-on host, create a bot for your chat channel, restrict who may talk to
-it, tell the gateway where your register lives, copy the skill in, and
-constrain what the agent is allowed to execute.
+it, tell the gateway where your register lives, copy the skill and the
+workspace files in, and constrain what the agent is allowed to execute — both
+which commands it may run and which of the gateway's own tools it can see at
+all. The second one matters more than it sounds: a tool the agent can see is a
+tool it will eventually reach for, whatever the prompt says.
 
 ### Voice
 

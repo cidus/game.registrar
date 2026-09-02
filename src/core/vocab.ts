@@ -26,7 +26,7 @@ export const CHECKIN_TRIGGER = ['duration', 'clock', 'day_cutoff'] as const
 export const CHECKIN_OUTCOME = ['snoozed', 'break_started', 'session_closed', 'no_reply'] as const
 export const GAME_STATUS = ['unplayed', 'playing', 'finished', 'abandoned'] as const
 export const HOURS_SOURCE = ['measured', 'stated', 'mixed'] as const
-export const BUILD_TARGET = ['obsidian', 'csv', 'sqlite', 'json', 'html', 'site'] as const
+export const BUILD_TARGET = ['obsidian', 'csv', 'sqlite', 'json', 'html', 'stats', 'quartz'] as const
 
 export type Outcome = (typeof OUTCOME)[number]
 export type CompletionCriteria = (typeof COMPLETION_CRITERIA)[number]
@@ -53,10 +53,23 @@ export const TARGET_PHASE: Record<BuildTarget, 0 | 1 | 3> = {
   sqlite: 1,
   json: 1,
   html: 1,
-  site: 3,
+  stats: 3,
+  quartz: 3,
 }
 
-export const CURRENT_PHASE = 1
+export const CURRENT_PHASE = 3
+
+/**
+ * Inside the current phase, and still not built. A phase is delivered in steps,
+ * so between two of them a target can be current and absent at once — `quartz`
+ * was exactly that between phase 3's stats step and its site step.
+ *
+ * It is written here rather than derived from `targets/registry.ts` because
+ * `core/` does not depend on `targets/`; `test/targets.test.ts` asserts the two
+ * never disagree, so the duplication cannot rot. Empty is the normal state:
+ * a target lands and leaves this list in the same commit.
+ */
+export const UNBUILT_TARGETS: readonly BuildTarget[] = []
 
 export function checkTarget(value: string): BuildTarget {
   const name = checkEnum('build.targets', value, BUILD_TARGET)
@@ -66,6 +79,12 @@ export function checkTarget(value: string): BuildTarget {
       phase: TARGET_PHASE[name],
       current: CURRENT_PHASE,
     })
+  }
+  // Refused where it is named, not where it would have been built: `init` and
+  // the config reader both go through here, so a vault never comes to hold a
+  // target this version cannot write.
+  if (UNBUILT_TARGETS.includes(name)) {
+    throw new GameregError('usage', 'error.unimplemented_target', { name })
   }
   return name
 }

@@ -43,7 +43,20 @@ export type ProviderDetail = {
 
 export type Provider = {
   readonly name: string
-  search(query: string): Promise<ProviderCandidate[]>
+  /**
+   * `platforms` is every spelling this vault knows for a `--platform` hint
+   * (core/platforms.ts `platformSpellings`), never the raw flag. It is a
+   * hint about the *query*, not a post-filter: a provider whose API can
+   * narrow by platform is expected to do it server-side, because relevance
+   * truncation happens before any caller-side filter can run — IGDB's
+   * `search "Super Mario"` puts Super Mario World at rank 64 and Super Mario
+   * RPG at 103, both far outside the fetched window, so filtering the window
+   * afterwards returns neither. A provider that cannot narrow ignores it and
+   * the caller filters as before; a narrowed query that comes back empty
+   * falls back to the unnarrowed one, so an unknown spelling costs relevance,
+   * never every result.
+   */
+  search(query: string, platforms?: readonly string[]): Promise<ProviderCandidate[]>
   fetch(id: string): Promise<ProviderDetail | null>
   /** Every entry titled exactly `title` — complete, not relevance-truncated. See file comment above. */
   findExact(title: string): Promise<ProviderCandidate[]>

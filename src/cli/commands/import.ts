@@ -21,7 +21,7 @@ import { createContext } from '../context.ts'
 import { fileHistoricalRun, type HistoricalRunInput } from '../historical-run.ts'
 import { emit, emitFailure } from '../output.ts'
 import type { Registrar } from '../register.ts'
-import { commit, load } from '../workspace.ts'
+import { commit, load, stage } from '../workspace.ts'
 
 type Options = { mapping: string }
 
@@ -38,6 +38,7 @@ const OPTIONAL_FIELDS = [
   'form',
   'mode',
   'note',
+  'verdict',
 ] as const
 const MAPPING_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS] as const
 
@@ -77,7 +78,10 @@ function loadMapping(file: string): Mapping {
   return mapping
 }
 
-function rowInput(row: Record<string, string>, mapping: Mapping): HistoricalRunInput {
+function rowInput(
+  row: Record<string, string>,
+  mapping: Mapping,
+): { input: HistoricalRunInput; verdict?: string } {
   const value = (field: MappingField): string | undefined => {
     const column = mapping[field]
     if (column === undefined) return undefined
@@ -94,22 +98,25 @@ function rowInput(row: Record<string, string>, mapping: Mapping): HistoricalRunI
   }
 
   return {
-    query: title,
-    ended,
-    started: value('started'),
-    hours: value('hours'),
-    rating: value('rating'),
-    difficulty: value('difficulty'),
-    criteria: value('criteria'),
-    outcome: value('outcome'),
-    platform: value('platform'),
-    form: value('form'),
-    mode: value('mode'),
-    note: value('note'),
-    // A bulk historical import never prompts and never touches a provider —
-    // an unmatched title becomes a new local entry, the same escape hatch
-    // `--no-metadata` gives a single `past` call.
-    metadata: false,
+    input: {
+      query: title,
+      ended,
+      started: value('started'),
+      hours: value('hours'),
+      rating: value('rating'),
+      difficulty: value('difficulty'),
+      criteria: value('criteria'),
+      outcome: value('outcome'),
+      platform: value('platform'),
+      form: value('form'),
+      mode: value('mode'),
+      note: value('note'),
+      // A bulk historical import never prompts and never touches a provider —
+      // an unmatched title becomes a new local entry, the same escape hatch
+      // `--no-metadata` gives a single `past` call.
+      metadata: false,
+    },
+    verdict: value('verdict'),
   }
 }
 
@@ -137,7 +144,7 @@ export function registerImport(registrar: Registrar): void {
       for (const [index, row] of rows.entries()) {
         const lineNumber = index + 2 // header is line 1
         try {
-          const input = rowInput(row, mapping)
+          const { input, verdict } = rowInput(row, mapping)
           const { game, run } = await fileHistoricalRun(
             cli,
             workspace,
@@ -145,6 +152,7 @@ export function registerImport(registrar: Registrar): void {
             { attachments: [], photos: [], suggestedAt: null },
             false,
           )
+          if (verdict !== undefined) stage(cli, workspace, 'run.verdict', { run_id: run.run_id, text: verdict })
           imported.push({ row: lineNumber, game_id: game.game_id, run_id: run.run_id, title: game.title })
         } catch (error) {
           const message = error instanceof GameregError ? cli.t(error.key, error.params) : String(error)

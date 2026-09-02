@@ -10,6 +10,7 @@
 import { formatHours } from '../core/duration.ts'
 import type { GameState, RunState, VaultState } from '../core/fold.ts'
 import type { DatePrecision } from '../core/vocab.ts'
+import { heatmapSvg, playByDay, yearsPlayed } from '../render/heatmap.ts'
 import type { PlannedFile, Target, TargetContext } from './types.ts'
 
 type Row = {
@@ -81,6 +82,8 @@ const STYLE = `
   th[aria-sort="descending"]::after { content: " \\2193"; }
   td.num { text-align: right; }
   tbody tr.open td.status { font-style: italic; }
+  figure.heatmap { margin: 0 0 1.5rem; overflow-x: auto; }
+  figure.heatmap figcaption { font-weight: 600; margin-bottom: 0.4rem; }
 `.trim()
 
 const SCRIPT = `
@@ -166,6 +169,16 @@ export const html: Target = {
       { key: 'completion_criteria', label: bundle.t('table.criteria') },
     ]
 
+    // The heatmap of the most recent year the log knows about — the same
+    // renderer the `stats` target writes to its own file, inlined here
+    // instead. Which year that is comes from the log; nothing reads a clock.
+    const years = yearsPlayed(state)
+    const year = years[years.length - 1]
+    const heatmap =
+      year === undefined
+        ? ''
+        : `<figure class="heatmap"><figcaption>${escapeHtml(bundle.t('stats.heatmap.alt', { year }))}</figcaption>${heatmapSvg(year, playByDay(state), bundle)}</figure>\n`
+
     const document = `<!doctype html>
 <html lang="${escapeHtml(bundle.locale)}">
 <head>
@@ -176,7 +189,7 @@ export const html: Target = {
 </head>
 <body>
 <h1>${escapeHtml(bundle.t('table.title'))}</h1>
-<input type="search" id="filter" placeholder="${escapeHtml(bundle.t('table.game'))}">
+${heatmap}<input type="search" id="filter" placeholder="${escapeHtml(bundle.t('table.game'))}">
 <table>
 <thead>
 <tr>${columns.map((column) => `<th data-key="${column.key}">${escapeHtml(column.label)}</th>`).join('')}</tr>

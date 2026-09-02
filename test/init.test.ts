@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { BUILD_TARGET, CURRENT_PHASE, TARGET_PHASE, UNBUILT_TARGETS } from '../src/core/vocab.ts'
 import { tempDir } from './helpers.ts'
 
 const MAIN = join(import.meta.dirname, '..', 'src', 'cli', 'main.ts')
@@ -106,10 +107,32 @@ test('an unknown build target exits 2', () => {
   assert.equal(run.json['error'], 'usage')
 })
 
-test('a phase-3 target exits 2 saying so', () => {
-  const run = gamereg(emptyRoot(), 'init', '--targets', 'site', '--locale', 'en')
-  assert.equal(run.status, 2)
-  assert.match(String(run.json['message']), /phase/)
+test('a target this version cannot build is refused where it is named', () => {
+  // A target inside the current phase and not written yet is refused at the
+  // same exit code a later phase is: either way the vault would come to
+  // declare a target no build could satisfy. `UNBUILT_TARGETS` is empty
+  // between two such steps, so this asserts the rule over whatever it holds —
+  // and that everything else `init` is offered is genuinely accepted.
+  for (const name of UNBUILT_TARGETS) {
+    const run = gamereg(emptyRoot(), 'init', '--targets', name, '--locale', 'en')
+    assert.equal(run.status, 2, name)
+    assert.match(String(run.json['message']), /not implemented/)
+  }
+
+  for (const name of BUILD_TARGET.filter((target) => !UNBUILT_TARGETS.includes(target))) {
+    const run = gamereg(emptyRoot(), 'init', '--targets', name, '--locale', 'en')
+    assert.equal(run.status, TARGET_PHASE[name] > CURRENT_PHASE ? 2 : 0, name)
+  }
+})
+
+test('a target the current phase does build is accepted', () => {
+  const root = emptyRoot()
+  const run = gamereg(root, 'init', '--targets', 'obsidian,stats', '--locale', 'en')
+  assert.equal(run.status, 0)
+  assert.deepEqual(
+    ((config(root)['build'] as Record<string, unknown>)['targets']),
+    ['obsidian', 'stats'],
+  )
 })
 
 test('re-running init on an existing vault is a conflict without --yes', () => {
