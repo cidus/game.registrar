@@ -1,0 +1,15 @@
+# The build context is the repository. Keep out what the image never needs and
+# what would bust the layer cache on every commit.
+.git
+.github
+node_modules
+dist
+*.tgz
+
+# Documentation and fixtures. `example-vault/` is deliberately kept: the
+# clean-room golden check runs `gamereg build` over its event log inside the
+# image, which is the one test a container can run and a host cannot.
+docs
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md

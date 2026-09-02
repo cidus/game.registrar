@@ -1,0 +1,91 @@
+# The Registrar, as an installation (06-roadmap.md, phase 4).
+#
+# This file is hand-written now and generated later: phase 4's own bullet says
+# the generator "emits the declarative configuration -- compose file and
+# environment -- and never becomes part of the runtime". This is that artifact.
+#
+# Sized for the smallest machine anyone will actually use: a GCP always-free
+# e2-micro, which is 1 GB of RAM and 1 GB of egress a month. Both numbers
+# decide something here, and docs/deploy-container.md explains which.
+#
+#   docker compose up -d                      register and agent
+#   docker compose --profile site up -d       ... and a locally built site
+#   docker compose --profile comments up -d   ... and comments
+#
+# The two profiles are off by default and stay off on an e2-micro. See the
+# runbook before turning either on.
+
+name: gamereg
+
+x-gamereg:
+  # Read by the generator when it later regenerates this file, so it can tell
+  # what produced the version on disk and whether the schema has moved. `x-`
+  # keys are Compose's own extension mechanism: ignored by Docker, ours to use.
+  schema: 1
+  generated_by: hand
+
+x-image: &image
+  image: gamereg:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file: [.env]
+  user: "${PUID:-1000}:${PGID:-1000}"
+  restart: unless-stopped
+  init: true
+
+services:
+  # The gateway. Long-lived, holds the compiled system prompt and every open
+  # session, and is the only service a person talks to.
+  gateway:
+    <<: *image
+    container_name: gamereg-gateway
+    command: ["gateway"]
+    volumes:
+      - ${GAMEREG_VAULT_PATH:-./vault}:/vault
+      - ${GAMEREG_CONFIG_PATH:-./config}:/config
+    # Telegram is long-polled, so nothing needs to reach in: no ports, no
+    # firewall rule, no public address. That is worth keeping true.
+    healthcheck:
+      test: ["CMD", "openclaw", "gateway", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    mem_limit: ${GATEWAY_MEM_LIMIT:-480m}
+
+  # One shot, then gone. `openclaw cron add` is a Gateway *client* command --
+  # it connects over the WebSocket -- so the check-in job cannot be registered
+  # by the gateway's own entrypoint, before the gateway exists. Hence a service
+  # that waits for the health check above and then registers it, idempotently.
+  provision:
+    <<: *image
+    container_name: gamereg-provision
+    command: ["provision"]
+    restart: "no"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    volumes:
+      - ${GAMEREG_VAULT_PATH:-./vault}:/vault
+      - ${GAMEREG_CONFIG_PATH:-./config}:/config
+
+  # enrich, build, commit, push -- on an interval. Replaces the systemd timer,
+  # which has no meaning here. Same image as the gateway because the agent's
+  # boundary requires `gamereg` to be a local binary, and this needs the same
+  # binary.
+  maintenance:
+    <<: *image
+    container_name: gamereg-maintenance
+    command: ["maintenance"]
+    depends_on: [gateway]
+    volumes:
+      - ${GAMEREG_VAULT_PATH:-./vault}:/vault
+      - ${GAMEREG_CONFIG_PATH:-./config}:/config
+      # The deploy key for the vault's push, read-only. Never baked into the
+      # image and never in the repository.
+      - ${GAMEREG_SSH_PATH:-./config/ssh}:/config/ssh:ro
+    mem_limit: ${MAINTENANCE_MEM_LIMIT:-256m}
+
+# Deliberately absent: any mount of /var/run/docker.sock. The gateway runs a
+# language model with shell access, and that socket is root on the host.

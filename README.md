@@ -101,7 +101,23 @@ year in review, the agent reacts to what it files — with emoji out of the box,
 or a sticker where an installation maps one — and `gamereg build quartz` writes
 the register a second time as [Quartz](https://quartz.jzhao.xyz) input — notes,
 a front page and a seeded config — which gamereg emits and never builds:
-turning it into a site is yours to run, by hand or from CI. See
+turning it into a site is yours to run, by hand or from CI.
+
+**Phase 4 is under way, and it moved ahead of board games.** Phase 3's own exit
+criterion asks for a page a stranger can open, which is hosting — so the phase
+that makes this installable had to come first, and board games moved to *After
+1.0* because it is additive by design and should not hold a release hostage.
+The first piece is here: a [`Dockerfile`](Dockerfile) and a
+[`compose.yml`](compose.yml) that run the CLI and the gateway together from one
+image, seed an empty vault, deploy the skill and persona on every boot, register
+the check-in job against the running gateway and keep the vault enriched, built
+and committed on a timer — sized for a 1 GB machine, with no published port and
+no Docker socket. See [*Running the Registrar in
+containers*](docs/deploy-container.md). It is not published anywhere yet and the
+image has not been built in CI; what is covered by tests is the boot script and
+the maintenance loop.
+
+See
 [06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *Current
 state* for the detailed status, and [`CHANGELOG.md`](CHANGELOG.md) — or the
 tagged [releases](https://github.com/cidus/game.registrar/releases) for the

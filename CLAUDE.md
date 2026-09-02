@@ -148,9 +148,42 @@ with its aside allowance rewritten as positive triggers. `agent/README.md`'s
 *Where the prompt lives* and *The tool surface is part of the prompt* carry the
 numbers and the restart step.
 
-`npm test` is 532 tests, all green (`node --test`, no framework, no network).
+`npm test` is 552 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
+
+**Phase 4 opened, ahead of board games, and its first piece is a container.**
+The reorder is in `06-roadmap.md`: phase 3's exit criterion wants a page a
+stranger can open, which is hosting, so the phase that makes this installable
+could not sit behind the one that adds a second category of game. Board games
+moved to *After 1.0* rather than to slot 5, because it is additive by design
+(D6) and a release should not wait on it. Phase 4 is therefore the last
+numbered phase and ships as `1.0.0`.
+
+`Dockerfile`, `compose.yml`, `.env.example`, `docker/entrypoint.sh`,
+`docker/loop.sh` and `docs/deploy-container.md` are the build. One image holds
+the CLI and the gateway and serves two services, because the agent's boundary
+requires `gamereg` to be a local binary and the maintenance sweep needs the
+same one. The image is built from `npm pack`, not from a copied `dist/`, so it
+exercises the `files` allowlist and the `prepare` hook that a real publish will
+use. `docker/loop.sh` replaces `gamereg-autobuild.timer`, which has no meaning
+in a container; overlap needs no guard because `build`'s lockfile and
+autobuild's git-status-is-the-state design already provide one.
+
+Two things were found by reading the real gateway rather than its docs, and
+both changed the design. `openclaw cron add` is a Gateway *client* command, so
+the check-in job cannot be registered by the entrypoint before the gateway it
+is about to exec — it moved to a one-shot `provision` service gated on
+`openclaw gateway health`. And `OPENCLAW_STATE_DIR`/`OPENCLAW_CONFIG_PATH`
+exist, which is what lets one mounted directory hold config, workspace, exec
+allowlist, cron store and transcripts.
+
+`test/entrypoint-wrapper.test.ts` and `test/loop-wrapper.test.ts` follow
+`checkin-wrapper` and `autobuild-wrapper`: real `gamereg`, stubbed `openclaw`,
+`HOME` in a temp dir so `git config --global` never reaches the developer's
+own. **The image itself is unbuilt and unverified** — there is no Docker daemon
+on the development machine and no CI — so what is proven is the boot script,
+not the Dockerfile.
 
 ## The agent layer
 
@@ -660,22 +693,30 @@ Each of these cost real time to find. The reasoning, not just the rule:
   cron wrapper below. Deciding it twice, in two phases, is how the two answers
   end up disagreeing. Nothing is stranded by waiting: `quartz/content/` is
   committed, so whoever writes the workflow later needs Quartz and nothing else.
-  Shipping Quartz in the phase-4 image is the other half of the same question.
+  Shipping Quartz in the phase-4 image is the other half of the same question,
+  and the container answered the *hosting* half without answering the build
+  half: the default topology builds the site off-box, because an e2-micro is
+  1 GB of RAM against a Quartz build's 400-700 MB peak and 1 GB of egress a
+  month against a vault's worth of cover art. The vault is already pushed by
+  `autobuild.sh`, so building from that repository costs the machine nothing.
+  A local `site` profile is still wanted for installations with no external
+  account, and is not built yet.
   `scripts/vendor-quartz.sh` exists as *a* manual path that has been run
   against a real vault and a real Cloudflare Workers deploy — it is not the
   phase-4 answer, just a documented recipe for anyone who wants a working
   site before phase 4 decides packaging for everything at once.
 
-- **`agent/checkin.sh` is a file phase 4 will have to place, and a cron job it
-  will have to register.** The wrapper itself is written and tested; what is not
-  solved is deployment. It is the gateway's file, not the agent's, so
-  `agent/workspace/AGENTS.md`'s boundary is intact — the agent still executes one
-  allowlisted binary and still writes no file itself. But the phase-4 generator
-  has to copy it somewhere stable and then run `openclaw cron add`, and that
-  second half has no declarative form: OpenClaw's config schema carries no
-  `cron.jobs` array, so the job store is only reachable through the CLI. Whatever
-  phase 4 decides about the compose file and the environment has to answer this
-  too.
+- **`agent/checkin.sh`'s deployment is answered in the container and nowhere
+  else.** The image places it at `/usr/local/bin/gamereg-checkin` and the
+  one-shot `provision` service registers it. The registration could not go where
+  it looked like it belonged: `openclaw cron add` is a Gateway *client* command,
+  so the entrypoint cannot run it before the gateway it is about to exec, and
+  OpenClaw's config schema still carries no `cron.jobs` array — the job store is
+  reachable only through the CLI, against a running gateway. Hence a service
+  gated on `openclaw gateway health` rather than a step in the boot script.
+  What remains open is a host install: someone following `agent/README.md`
+  still registers the job by hand, and the generator will have to do the same
+  for anyone not using the image.
 
 - **Astro is a possible second generator, and it would be fed data rather than
   Markdown.** Not instead of Quartz — alongside it, which the `site` to `quartz`
