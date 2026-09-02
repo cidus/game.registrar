@@ -148,7 +148,7 @@ with its aside allowance rewritten as positive triggers. `agent/README.md`'s
 *Where the prompt lives* and *The tool surface is part of the prompt* carry the
 numbers and the restart step.
 
-`npm test` is 553 tests, all green (`node --test`, no framework, no network).
+`npm test` is 555 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -188,6 +188,29 @@ because `build` rewrites derived artifacts wholesale and mtimes therefore say
 nothing; and it watches rather than being triggered, because triggering would
 mean the Docker socket in a container sharing a machine with a model that has
 a shell.
+
+**The image has now been built and the stack run, and doing so found seven
+things reading could not.** Four were the gateway refusing to start, each with
+a message pointing somewhere other than the cause: no `gateway.mode` in the
+config (the shipped example was written to be patched onto a host that had
+already been onboarded — in a container there is no already); a container bind
+switching to `0.0.0.0` and demanding auth, which the entrypoint now answers
+with a token it generates into `/config`; `gateway health` exiting 1 without
+that token, which would have left the gateway permanently unhealthy and
+`provision` waiting on it forever; and `openclaw onboard` being the only owner
+of the model credential, absent entirely from the first draft. Two were
+Compose: `${VAR:?}` in an opt-in profile breaks *every* command for everyone,
+because interpolation happens before profile filtering; and `provision` needs
+`network_mode: "service:gateway"`, since OpenClaw refuses plaintext `ws://` to
+a non-loopback address. The seventh is the subtlest — a freshly seeded vault
+must be committed, because `autobuild.sh` reads "tree is dirty" as its whole
+state and never stages `gamereg.config.json`, so an uncommitted seed means
+every tick forever runs an enrichment that reaches the network. Each of the
+Compose ones is now a test rather than a comment.
+
+What the container bought beyond deployment, as argued for in advance: a
+clean-room `gamereg build` over `example-vault/`'s log, on a different libc,
+locale and install path, came out **byte-identical** to the committed goldens.
 
 `test/entrypoint-wrapper.test.ts` and `test/loop-wrapper.test.ts` follow
 `checkin-wrapper` and `autobuild-wrapper`: real `gamereg`, stubbed `openclaw`,

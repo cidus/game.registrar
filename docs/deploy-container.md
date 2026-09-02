@@ -104,6 +104,31 @@ to talk to.
 > the container does not change that, and the symptom is a Registrar behaving
 > like the previous version with no error anywhere.
 
+## Things the first real run turned up
+
+All of these were found by running the stack, not by reading documentation, and
+all of them are already handled — they are here because the symptoms do not
+point at the causes.
+
+- **The gateway generates its own token, and needs one.** OpenClaw detects a
+  container, switches its bind from loopback to `0.0.0.0`, and then refuses to
+  start unauthenticated — correctly. The entrypoint writes a random token to
+  `/config/.gateway-token` on first boot and reuses it. Set
+  `OPENCLAW_GATEWAY_TOKEN` yourself if you would rather manage it.
+- **`provision` shares the gateway's network stack.** OpenClaw refuses
+  plaintext `ws://` to any non-loopback address, so reaching the gateway as
+  `ws://gateway:18789` across the compose network is rejected outright. Sharing
+  one loopback is cheaper than terminating TLS between two local containers.
+- **`docker compose up` does not rebuild.** After editing anything in the image,
+  `docker compose build` first — otherwise the stack silently runs the previous
+  one, which is a confusing half-hour.
+- **A new vault is committed at creation.** `autobuild.sh` treats "is the tree
+  dirty" as its entire state and only ever stages build output, never
+  `gamereg.config.json` or `.gitignore`. Left uncommitted, those two keep the
+  tree dirty forever, and every tick runs an enrichment that reaches the
+  network and a build with nothing to do. On a host a person commits them
+  without thinking; nobody is here to.
+
 ## Pushing the vault
 
 `scripts/autobuild.sh` commits and pushes on every tick that finds a dirty

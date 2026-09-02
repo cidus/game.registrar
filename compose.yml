@@ -32,7 +32,6 @@ x-image: &image
   env_file: [.env]
   user: "${PUID:-1000}:${PGID:-1000}"
   restart: unless-stopped
-  init: true
 
 services:
   # The gateway. Long-lived, holds the compiled system prompt and every open
@@ -46,8 +45,12 @@ services:
       - ${GAMEREG_CONFIG_PATH:-./config}:/config
     # Telegram is long-polled, so nothing needs to reach in: no ports, no
     # firewall rule, no public address. That is worth keeping true.
+    # The token is not optional here. `gateway health` exits 1 without one --
+    # "reachable, but this CLI has no token for read-scope health RPCs" -- so a
+    # bare health check marks the gateway permanently unhealthy and `provision`
+    # below, which waits on it, never runs at all.
     healthcheck:
-      test: ["CMD", "openclaw", "gateway", "health"]
+      test: ["CMD-SHELL", "openclaw gateway health --token \"$$(cat /config/.gateway-token)\""]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -63,6 +66,13 @@ services:
     container_name: gamereg-provision
     command: ["provision"]
     restart: "no"
+    # Share the gateway's network stack, so 127.0.0.1 here *is* the gateway.
+    # The alternative -- reaching it as ws://gateway:18789 over the compose
+    # network -- is refused outright, and rightly: "plaintext ws:// to a
+    # non-loopback address. Both credentials and chat data would be exposed."
+    # Giving two containers one loopback is cheaper than terminating TLS
+    # between them, and keeps the gateway unreachable from anywhere else.
+    network_mode: "service:gateway"
     depends_on:
       gateway:
         condition: service_healthy
@@ -78,7 +88,9 @@ services:
     <<: *image
     container_name: gamereg-maintenance
     command: ["maintenance"]
-    depends_on: [gateway]
+    depends_on:
+      gateway:
+        condition: service_healthy
     volumes:
       - ${GAMEREG_VAULT_PATH:-./vault}:/vault
       - ${GAMEREG_CONFIG_PATH:-./config}:/config
@@ -103,7 +115,6 @@ services:
     container_name: gamereg-site-build
     profiles: [site]
     restart: unless-stopped
-    init: true
     user: "${PUID:-1000}:${PGID:-1000}"
     env_file: [.env]
     command: ["/usr/local/bin/gamereg-site-loop"]
@@ -144,8 +155,15 @@ services:
     environment:
       # The public address the browser will reach, which is the tunnel's
       # hostname and not this container's.
-      REMARK_URL: ${REMARK_URL:?set REMARK_URL to the tunnel hostname}
-      SECRET: ${REMARK_SECRET:?set REMARK_SECRET to a long random string}
+      #
+      # Empty defaults rather than `${VAR:?}`, which reads like the better
+      # error message and is not: Compose interpolates the whole file before
+      # it filters by profile, so one required variable in an opt-in service
+      # breaks every command for everyone who never enables it -- `up`
+      # included. Remark42 reports its own missing configuration at start,
+      # which is late but only reaches the person who asked for it.
+      REMARK_URL: ${REMARK_URL:-}
+      SECRET: ${REMARK_SECRET:-}
       SITE: ${REMARK_SITE:-gamereg}
       # A register of one person's playthroughs does not need a moderation
       # team; it needs the owner to be the admin and nobody else.
@@ -160,7 +178,7 @@ services:
     container_name: gamereg-tunnel
     profiles: [comments]
     restart: unless-stopped
-    command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN}"]
+    command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
     depends_on: [remark42]
     mem_limit: 64m
 

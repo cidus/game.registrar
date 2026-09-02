@@ -383,3 +383,34 @@ test('a bare `compose up` starts the register and nothing that would exhaust a 1
   assert.deepEqual(byProfile('site'), ['site-build', 'site-serve'])
   assert.deepEqual(byProfile('comments'), ['remark42', 'tunnel'])
 })
+
+test('no service declares a required variable, because that breaks every other service', () => {
+  // Found by running it. Compose interpolates the whole file before it filters
+  // by profile, so a single `${VAR:?message}` in an opt-in service makes every
+  // command fail for everyone who never enables that profile -- `config`,
+  // `up`, all of it. It reads like the more helpful error and is the opposite.
+  const compose = readFileSync(join(ROOT, 'compose.yml'), 'utf8')
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line)) // the comment explaining this names the syntax
+    .join('\n')
+  const required = compose.match(/\$\{[A-Z_]+:\?[^}]*\}/g)
+  assert.equal(required, null, `remove the required-variable syntax: ${required?.join(', ')}`)
+})
+
+test('the gateway health check carries a token, or nothing ever becomes healthy', () => {
+  // `openclaw gateway health` exits 1 without one -- reachable, but no
+  // credentials for read-scope RPCs -- so a bare check marks the gateway
+  // permanently unhealthy, and `provision` waits on exactly that condition.
+  const compose = parse(readFileSync(join(ROOT, 'compose.yml'), 'utf8')) as {
+    services: Record<string, { healthcheck?: { test?: string[] }; network_mode?: string }>
+  }
+
+  const check = compose.services['gateway']?.healthcheck?.test?.join(' ') ?? ''
+  assert.match(check, /gateway health/)
+  assert.match(check, /--token/)
+
+  // And provision reaches it over a shared loopback: OpenClaw refuses
+  // plaintext ws:// to any non-loopback address, so the compose network is not
+  // a route to it without terminating TLS between two local containers.
+  assert.equal(compose.services['provision']?.network_mode, 'service:gateway')
+})

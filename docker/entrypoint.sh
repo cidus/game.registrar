@@ -125,6 +125,18 @@ seed_vault() {
   if [ ! -d "$VAULT/.git" ]; then
     log "vault is not a git repository, creating one"
     run "$GIT" -C "$VAULT" init -q
+
+    # And commit what init just wrote, which matters more than it looks.
+    # scripts/autobuild.sh uses "is the working tree dirty" as its entire
+    # state, and it only ever stages build output and the event log -- never
+    # gamereg.config.json or .gitignore, which are not artifacts. Left
+    # uncommitted those two make the tree permanently dirty, so every tick
+    # forever runs an enrich that reaches the network and a build that has
+    # nothing to do. On a host a person commits them without thinking about
+    # it; nobody is here to.
+    run "$GIT" -C "$VAULT" add -A
+    run "$GIT" -C "$VAULT" commit -q -m "chore(vault): initial commit" \
+      || log "nothing to commit in the new vault"
   fi
 }
 
@@ -158,6 +170,41 @@ deploy_agent_files() {
       run cp "$f" "$target"
     fi
   done
+}
+
+# --- 3b. the gateway's own token ---------------------------------------------
+#
+# OpenClaw detects a container and switches its bind from loopback to 0.0.0.0,
+# for port-forwarding compatibility, and then refuses to start without auth --
+# correctly, since binding a gateway with shell access to every interface
+# unauthenticated is not a thing anyone wants by accident.
+#
+# So a token is mandatory, and asking a person to invent one is a step that
+# earns nothing: it is a local secret shared between two containers that
+# already share a volume. Generated once into /config, reused forever, and
+# overridable for anyone who would rather manage it themselves.
+#
+# It is also what lets `provision` register the cron job at all: `cron add`
+# opens an authenticated websocket, and without this it fails with
+# GatewayCredentialsRequiredError.
+
+resolve_gateway_token() {
+  if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+    return 0
+  fi
+
+  token_file="$STATE_DIR/.gateway-token"
+  if [ ! -f "$token_file" ]; then
+    [ "$DRY_RUN" = yes ] && { log "would generate a gateway token"; return 0; }
+    log "generating a gateway token"
+    mkdir -p "$STATE_DIR"
+    node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("hex"))' > "$token_file" \
+      || die "could not generate a gateway token"
+    chmod 600 "$token_file"
+  fi
+
+  OPENCLAW_GATEWAY_TOKEN="$(cat "$token_file")"
+  export OPENCLAW_GATEWAY_TOKEN
 }
 
 # --- 4b. the model credential ------------------------------------------------
@@ -233,6 +280,12 @@ configure_gateway() {
     log "would patch botToken, allowFrom and execApprovals.approvers from the environment"
   else
     printf '{
+  // The gateway refuses to start without this and says so in a way that reads
+  // as a damaged install: "existing config is missing gateway.mode. Treat this
+  // as suspicious or clobbered config." The shipped example never carried it
+  // because it was written to be patched onto a host that had already been
+  // through `openclaw onboard`; in a container there is no already.
+  gateway: { mode: "local" },
   channels: {
     telegram: {
       enabled: true,
@@ -271,7 +324,17 @@ configure_gateway() {
 register_cron() {
   name="${GAMEREG_CHECKIN_JOB:-gamereg-checkin}"
 
-  if "$OPENCLAW" cron list --all --json 2>/dev/null | grep -q "\"$name\""; then
+  # Two containers, so the gateway is a hostname and not localhost, and the
+  # token resolved above is what gets past the credentials check.
+  if [ -n "${OPENCLAW_GATEWAY_URL:-}" ]; then
+    set -- --url "$OPENCLAW_GATEWAY_URL"
+  else
+    set --
+  fi
+  [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ] && set -- "$@" --token "$OPENCLAW_GATEWAY_TOKEN"
+  CLIENT_ARGS="$*"
+
+  if "$OPENCLAW" cron list --all --json $CLIENT_ARGS 2>/dev/null | grep -q "\"$name\""; then
     log "cron job $name already registered"
     return 0
   fi
@@ -279,6 +342,7 @@ register_cron() {
   log "registering cron job $name"
   set -- cron add --name "$name" --cron "${GAMEREG_CHECKIN_CRON:-0 * * * *}" \
       --exact --no-deliver \
+      --agent "${OPENCLAW_AGENT:-main}" \
       --command-env "GAMEREG_VAULT=$VAULT" \
       --command "/usr/local/bin/gamereg-checkin"
   if [ -n "${GAMEREG_CHECKIN_CHANNEL:-}" ]; then
@@ -287,7 +351,8 @@ register_cron() {
   if [ -n "${GAMEREG_CHECKIN_TO:-}" ]; then
     set -- "$@" --command-env "GAMEREG_CHECKIN_TO=$GAMEREG_CHECKIN_TO"
   fi
-  run "$OPENCLAW" "$@" || die "cron registration failed"
+  # shellcheck disable=SC2086 -- CLIENT_ARGS is deliberately word-split
+  run "$OPENCLAW" "$@" $CLIENT_ARGS || die "cron registration failed"
 }
 
 # --- dispatch ----------------------------------------------------------------
@@ -304,6 +369,7 @@ case "$MODE" in
     preflight
     configure_git
     seed_vault
+    resolve_gateway_token
     configure_model_auth
     deploy_agent_files
     configure_gateway
@@ -312,6 +378,7 @@ case "$MODE" in
     exec "$OPENCLAW" gateway run
     ;;
   provision)
+    resolve_gateway_token
     register_cron
     ;;
   maintenance)
