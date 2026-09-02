@@ -129,6 +129,23 @@ point at the causes.
   network and a build with nothing to do. On a host a person commits them
   without thinking; nobody is here to.
 
+- **The health check is a TCP connect, not `openclaw gateway health`.** The
+  latter is a whole Node process — 0.4s on a laptop, minutes on a shared
+  0.25 vCPU under memory pressure, which is longer than the check interval. The
+  checks piled up, a dozen Node processes took the load average past 30, and
+  they starved the boot they were waiting on. If you raise anything here, raise
+  `GATEWAY_START_PERIOD`, not the frequency.
+- **Boot takes minutes on an e2-micro**, and that is normal: each `openclaw`
+  invocation in the entrypoint is a Node start. `docker compose up -d` blocks
+  waiting on the health condition, so run it detached and poll
+  `docker compose ps` rather than assuming it hung.
+- **`HOME` is set in the image on purpose.** Compose overrides the image's user
+  with the host's uid; when that uid is not in the container's `/etc/passwd`,
+  Docker falls back to `HOME=/`, `git config --global` fails silently, and the
+  vault's first commit aborts. It works on any host whose uid is 1000 and fails
+  on every other, which is the sort of coincidence a container should remove
+  rather than inherit.
+
 ## Pushing the vault
 
 `scripts/autobuild.sh` commits and pushes on every tick that finds a dirty

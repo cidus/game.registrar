@@ -208,6 +208,21 @@ state and never stages `gamereg.config.json`, so an uncommitted seed means
 every tick forever runs an enrichment that reaches the network. Each of the
 Compose ones is now a test rather than a comment.
 
+**Deploying it to a real always-free e2-micro then found two more, and both
+were the machine rather than the code.** The image declares `USER node`
+(uid 1000) and compose overrides it with the host's uid so the bind-mounted
+vault is not owned by a stranger; that host's uid was 1001, absent from the
+image's `/etc/passwd`, so Docker fell back to `HOME=/` and `git config
+--global` failed silently, aborting the vault's first commit. It had passed
+locally purely because the development uid is 1000. `ENV HOME=/config` removes
+the coincidence. And the health check was `openclaw gateway health`, a whole
+Node process: 0.4s here, minutes there, which is longer than the 30s interval
+— so the checks piled up, a dozen Node processes pushed the load average past
+30, and they starved the very boot they were gating. It is a bare
+`bash /dev/tcp` connect now, which spawns nothing and answers the only
+question `provision` asks. **A health check that costs more than its interval
+is an outage generator**, and nothing short of a slow machine surfaces it.
+
 What the container bought beyond deployment, as argued for in advance: a
 clean-room `gamereg build` over `example-vault/`'s log, on a different libc,
 locale and install path, came out **byte-identical** to the committed goldens.

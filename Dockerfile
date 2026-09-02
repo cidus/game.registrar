@@ -75,7 +75,15 @@ COPY agent/approvals.example.json /opt/gamereg/agent-defaults/exec-approvals.jso
 # Both are read by the OpenClaw CLI and the gateway alike, which is what makes
 # a single mounted directory hold every piece of gateway state: config, the
 # workspace, the exec allowlist, the cron store and the session transcripts.
-ENV OPENCLAW_STATE_DIR=/config \
+# HOME is not decoration here. The image declares `USER node` (uid 1000), but
+# compose overrides it with the host's own uid so the bind-mounted vault is not
+# owned by somebody else -- and when that uid is absent from /etc/passwd, Docker
+# falls back to HOME=/, which is root-owned. `git config --global` then fails
+# silently, and the first `git commit` aborts with "Please tell me who you are".
+# Found on a host whose uid was 1001; it passes on any host whose uid is 1000,
+# which is exactly the kind of coincidence a container is supposed to remove.
+ENV HOME=/config \
+    OPENCLAW_STATE_DIR=/config \
     OPENCLAW_CONFIG_PATH=/config/openclaw.json \
     GAMEREG_VAULT=/vault \
     GAMEREG_SOURCE=chat \

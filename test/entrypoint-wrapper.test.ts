@@ -356,6 +356,13 @@ test('the real defaults tree is the one the Dockerfile copies', () => {
   const dockerfile = readFileSync(join(ROOT, 'Dockerfile'), 'utf8')
   assert.ok(!/docker\.sock/.test(dockerfile), 'the image never asks for the Docker socket')
 
+  // Compose overrides the image's USER with the host's uid, and Docker falls
+  // back to HOME=/ when that uid is not in /etc/passwd. `git config --global`
+  // then fails silently and the vault's first commit aborts -- on a host whose
+  // uid happens to be 1000 it all works, which is the coincidence a container
+  // exists to remove.
+  assert.match(dockerfile, /ENV HOME=\/config/, 'HOME must not depend on the uid resolving')
+
   const compose = readFileSync(join(ROOT, 'compose.yml'), 'utf8')
   assert.ok(
     !/^\s*-\s*\/var\/run\/docker\.sock/m.test(compose),
@@ -405,9 +412,13 @@ test('the gateway health check carries a token, or nothing ever becomes healthy'
     services: Record<string, { healthcheck?: { test?: string[] }; network_mode?: string }>
   }
 
+  // And it must not be a Node process. `openclaw gateway health` costs 0.4s on
+  // a laptop and minutes on a shared 0.25 vCPU, which is longer than the
+  // interval -- checks pile up, and on a real e2-micro a dozen of them pushed
+  // the load average past 30 and starved the boot they were waiting on.
   const check = compose.services['gateway']?.healthcheck?.test?.join(' ') ?? ''
-  assert.match(check, /gateway health/)
-  assert.match(check, /--token/)
+  assert.match(check, /dev\/tcp/, 'the health check must be a bare TCP connect')
+  assert.ok(!/openclaw|gamereg|node/.test(check), `the health check spawns a process: ${check}`)
 
   // And provision reaches it over a shared loopback: OpenClaw refuses
   // plaintext ws:// to any non-loopback address, so the compose network is not

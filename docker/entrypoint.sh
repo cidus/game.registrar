@@ -230,9 +230,31 @@ configure_model_auth() {
     return 0
   fi
 
+  # A Claude Code OAuth token is a different shape from an API key and needs no
+  # onboarding: it is consumed from the environment by an `anthropic:cli` auth
+  # profile, which is two config keys. Preferred when both are present, because
+  # it is the arrangement a working host already proves.
+  if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    log "using the Claude Code OAuth token from the environment"
+    if [ "$DRY_RUN" = yes ]; then
+      log "would patch the anthropic:cli auth profile and the model"
+    else
+      printf '{
+  auth: { profiles: { "anthropic:cli": { provider: "anthropic", mode: "token" } } },
+  agents: { defaults: { model: {
+    primary: "%s",
+    fallbacks: ["%s"],
+  } } },
+}\n' "${OPENCLAW_MODEL:-anthropic/claude-sonnet-5}" "${OPENCLAW_MODEL_FALLBACK:-openrouter/auto}" \
+        | "$OPENCLAW" config patch --stdin || die "could not configure the model"
+    fi
+    run touch "$STATE_DIR/.gamereg-auth-seeded"
+    return 0
+  fi
+
   if [ -z "${OPENCLAW_AUTH_KEY:-}" ]; then
-    log "no OPENCLAW_AUTH_KEY set: the gateway will start, the agent will not answer."
-    log "provision it once with: docker compose exec gateway openclaw onboard"
+    log "no model credential set: the gateway will start, the agent will not answer."
+    log "set CLAUDE_CODE_OAUTH_TOKEN or OPENCLAW_AUTH_KEY, or run: docker compose exec gateway openclaw onboard"
     return 0
   fi
 

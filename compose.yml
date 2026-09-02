@@ -45,16 +45,23 @@ services:
       - ${GAMEREG_CONFIG_PATH:-./config}:/config
     # Telegram is long-polled, so nothing needs to reach in: no ports, no
     # firewall rule, no public address. That is worth keeping true.
-    # The token is not optional here. `gateway health` exits 1 without one --
-    # "reachable, but this CLI has no token for read-scope health RPCs" -- so a
-    # bare health check marks the gateway permanently unhealthy and `provision`
-    # below, which waits on it, never runs at all.
+    # A TCP connect, and nothing heavier, for a reason that took a real
+    # e2-micro to find. `openclaw gateway health` is a whole Node process: 0.4s
+    # on a laptop, minutes on a shared 0.25 vCPU under memory pressure. Longer
+    # than the interval, so the checks piled up, and a dozen Node processes
+    # competing pushed the load average past 30 and starved the very boot they
+    # were waiting on. The health check became the outage.
+    #
+    # bash's /dev/tcp spawns nothing, and it answers the only question
+    # `provision` actually asks: is the gateway listening. Whether it will
+    # accept an authenticated RPC yet is provision's own business, and it
+    # retries.
     healthcheck:
-      test: ["CMD-SHELL", "openclaw gateway health --token \"$$(cat /config/.gateway-token)\""]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${OPENCLAW_GATEWAY_PORT:-18789}"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 40s
+      retries: 10
+      start_period: ${GATEWAY_START_PERIOD:-300s}
     mem_limit: ${GATEWAY_MEM_LIMIT:-480m}
 
   # One shot, then gone. `openclaw cron add` is a Gateway *client* command --
@@ -65,7 +72,7 @@ services:
     <<: *image
     container_name: gamereg-provision
     command: ["provision"]
-    restart: "no"
+    restart: on-failure:5
     # Share the gateway's network stack, so 127.0.0.1 here *is* the gateway.
     # The alternative -- reaching it as ws://gateway:18789 over the compose
     # network -- is refused outright, and rightly: "plaintext ws:// to a
