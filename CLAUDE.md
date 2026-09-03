@@ -247,10 +247,22 @@ The agent answered like a stock assistant, with no error anywhere: the seeded
 config names `~/.openclaw/workspace`, which is right on a host and resolves
 beside the state directory rather than into it in the container, so the
 persona and the skill were simply not found. Nothing logs that. And a Claude
-Code OAuth token turns out not to be portable — the credential lives in a
-per-agent SQLite auth store, so a token copied from a working host fails with
-"your saved login looks expired"; OpenRouter is now a first-class primary,
-which is what the fallback had silently been doing anyway. Then serving the
+Code OAuth token in the environment authenticates nothing — the credential
+lives in a per-agent SQLite auth store, and the variable is merely what an
+already-onboarded host *also* has. That one took two deployments and a third
+machine to get right, and the shape of the mistake is the part worth keeping:
+setting `CLAUDE_CODE_OAUTH_TOKEN` and writing an `anthropic:cli` profile into
+the config looks exactly like configuration and is not, so the gateway starts
+clean and fails at the first message. `openclaw models auth paste-token
+--provider anthropic` writes that store, takes the token on stdin and needs no
+running gateway, so the entrypoint does it at boot; verified from a wiped
+store, a real turn came back from claude-sonnet-5 with `authMode=auth-profile`
+and no fallback. **A credential that is present is not a credential that is
+installed**, and nothing surfaces the difference until something asks the model
+a question. Model *choice* became its own step for a related reason
+(`OPENCLAW_MODEL`, `OPENCLAW_MODEL_FALLBACK`): it had been a side effect of
+whichever auth branch ran, so an installation with an OpenRouter key could not
+pick Anthropic without a hand edit. Then serving the
 site found that `caddy file-server` alone 404s every internal link (Quartz
 emits `stats.html` and links to `/stats`), and that the obvious `try_files`
 order is still wrong, because Quartz emits both `tags/gamereg.html` and a
