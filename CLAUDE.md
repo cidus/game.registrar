@@ -178,8 +178,27 @@ is about to exec — it moved to a one-shot `provision` service gated on
 exist, which is what lets one mounted directory hold config, workspace, exec
 allowlist, cron store and transcripts.
 
-Two optional profiles ship alongside, both off by default: `site` (a Quartz
-build loop plus Caddy) and `comments` (Remark42 behind a Cloudflare tunnel).
+Three optional profiles ship alongside, all off by default: `site` (a Quartz
+build loop plus Caddy), `comments` (Remark42) and `tunnel` (cloudflared). The
+last two are separate because they answer different questions — what runs here
+and what may reach in — and bundling them meant `site`, which exists for an
+installation with no external account, could not have comments without opening
+one.
+
+**The subpath proxy survived the test that was supposed to break it.**
+`site-serve` can front Remark42 at `/remark42` on the site's own origin
+(`SITE_COMMENTS_UPSTREAM`), buying one published port and no CORS allowlist.
+The reason to doubt it was Remark42's own tracker: under a subpath, OAuth
+sign-in links reportedly lose the prefix (umputun/remark42#961). It did not
+reproduce — a real GitHub login completed through the proxy on v1.16.4 and a
+comment was posted while authenticated. The separate-port topology stays
+documented as an escape rather than a default; left as a warning it would have
+pushed every installation with a GitHub login into a more complicated
+arrangement for a problem it does not have. One correction landed with it: an
+earlier last-comments failure had been written down as cross-origin blocking
+and was not — the test page passed `components: ["last"]`, which makes the
+loader request `/web/last.mjs`, a file Remark42 does not ship (the real ones
+are `last-comments.js`/`.mjs`). The proxy is worth having, but not for that.
 Neither should run on the e2-micro, and a test asserts the default profile set
 stays exactly the three core services — the numbers that make the site profile
 a bad idea there are invisible in a diff, and dropping a `profiles:` key reads
