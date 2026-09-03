@@ -98,12 +98,31 @@ image upgrade and a first run all take the same path:
    code, so pulling a new image redeploys it. The `workspace/*.md` persona
    files are **seeded once** and never overwritten, because they become yours
    the moment you edit them.
-5. **Model auth.** `openclaw onboard --non-interactive`, once, when
-   `OPENCLAW_AUTH_KEY` is set. Nothing refuses to boot without it — the
-   gateway starts, the channel connects, and the agent never answers, which
-   looks like a prompt problem and is not. It runs before the agent files are
-   deployed, because onboard would otherwise seed OpenClaw's own default
-   workspace files and step 4 does not replace a file that already exists.
+5. **Model auth and model choice, separately.** A credential comes from
+   `CLAUDE_CODE_OAUTH_TOKEN` (a subscription), `OPENCLAW_AUTH_KEY` (an API
+   key, through `openclaw onboard`), or `OPENROUTER_API_KEY`. Which model
+   answers is `OPENCLAW_MODEL` and `OPENCLAW_MODEL_FALLBACK`, patched every
+   boot — they used to be one step, so the model was a side effect of whichever
+   credential happened to be present. Nothing refuses to boot without either — the gateway starts, the channel
+   connects, and the agent never answers, which looks like a prompt problem and
+   is not. It runs before the agent files are deployed, because onboard would
+   otherwise seed OpenClaw's own default workspace files and step 4 does not
+   replace a file that already exists.
+
+   **A Claude Code subscription works, through the auth store and never
+   through the environment.** The distinction is the whole trap. Copying
+   `CLAUDE_CODE_OAUTH_TOKEN` out of a working host's `.env` and writing an
+   `anthropic:cli` profile into the config is what an already-onboarded host
+   *looks* like, and it authenticates nothing — the gateway starts clean and
+   fails at the first message with `No API key found for provider "anthropic"`,
+   naming the per-agent store it looked in. `openclaw models auth paste-token`
+   writes that store, reads the token from stdin, and needs no running gateway,
+   so the entrypoint does it during boot. The profile lands on the `/config`
+   volume and survives restarts and image upgrades.
+
+   Mint the token with `claude setup-token` on a machine where you are signed
+   in. Verified from a wiped auth store: a real turn came back from
+   `claude-sonnet-5` with `authMode=auth-profile` and no fallback.
 6. **Gateway config.** The shipped example is seeded once; the values that
    belong to this installation — bot token, allowlist, approvers — are patched
    from the environment on every boot, so changing `.env` and restarting moves

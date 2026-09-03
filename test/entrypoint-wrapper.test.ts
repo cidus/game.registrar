@@ -238,6 +238,42 @@ test('persona files are seeded once and never overwritten, because the user owns
   assert.equal(readFileSync(soul, 'utf8'), 'my own voice\n', 'an edited persona survives a restart')
 })
 
+test('a Claude Code OAuth token goes into the auth store, never into the config', () => {
+  // The distinction cost two deployments. Setting the variable and writing an
+  // `anthropic:cli` profile into the config is what an onboarded host looks
+  // like and authenticates nothing -- the gateway starts clean and fails at
+  // the first message. `paste-token` writes the per-agent store, which is what
+  // the provider actually reads, and a real turn then comes back from
+  // Anthropic with no fallback.
+  const h = host()
+  const r = h.run('gateway', { CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-whatever' })
+  assert.equal(r.status, 0, r.stderr)
+
+  const paste = h.calls().find((c) => c.includes('paste-token'))
+  assert.ok(paste, 'the token must be pasted into the auth store')
+  assert.match(paste, /--provider anthropic/)
+
+  assert.ok(
+    !/anthropic:cli|auth:/.test(h.patched()),
+    'and never written into the config, which is the shape that does not work',
+  )
+})
+
+test('the model is chosen separately from the credential', () => {
+  // They used to be one step, so the model was a side effect of whichever auth
+  // branch ran and picking Anthropic after an OpenRouter key was present meant
+  // editing the config by hand.
+  const h = host()
+  h.run('gateway', {
+    OPENROUTER_API_KEY: 'k',
+    OPENCLAW_MODEL: 'anthropic/claude-sonnet-5',
+    OPENCLAW_MODEL_FALLBACK: 'openrouter/auto',
+  })
+  const patched = h.patched()
+  assert.match(patched, /primary: "anthropic\/claude-sonnet-5"/)
+  assert.match(patched, /fallbacks: \["openrouter\/auto"\]/)
+})
+
 test('the shipped config is seeded once, and the environment overlay applied every boot', () => {
   const h = host()
   h.run('gateway')

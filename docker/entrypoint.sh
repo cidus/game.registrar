@@ -250,50 +250,48 @@ configure_model_auth() {
     return 0
   fi
 
-  # A Claude Code OAuth token is a different shape from an API key and needs no
-  # onboarding: it is consumed from the environment by an `anthropic:cli` auth
-  # profile, which is two config keys. Preferred when both are present, because
-  # it is the arrangement a working host already proves.
-  # Note this is *not* enough on its own for anthropic:cli in every case: the
-  # credential can live in a per-agent auth store rather than the environment,
-  # and a token copied from a working host then fails with "Your saved login
-  # looks expired". Keep a fallback configured.
+  # A Claude Code OAuth token authenticates Anthropic here, but only through
+  # the auth store -- never through the environment.
+  #
+  # The distinction cost two wasted deployments to find. Setting the variable
+  # and writing an `anthropic:cli` profile into the config is what an already
+  # onboarded host looks like, and it authenticates nothing: the gateway starts
+  # clean and fails at the first message with `No API key found for provider
+  # "anthropic"`, naming the per-agent store it looked in and did not find.
+  #
+  # `paste-token` is what actually writes that store. It reads the token from
+  # stdin, needs no running gateway -- it is a local write, which is why it can
+  # live here rather than in `provision` -- and the profile it creates lands on
+  # the /config volume, so it survives restarts and image upgrades. Verified on
+  # a fresh config: a real turn came back from claude-sonnet-5 with
+  # authMode=auth-profile and no fallback.
+  #
+  # Mint one with `claude setup-token` on a machine where you are signed in.
   if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-    log "using the Claude Code OAuth token from the environment"
+    log "claiming the Anthropic subscription from CLAUDE_CODE_OAUTH_TOKEN"
     if [ "$DRY_RUN" = yes ]; then
-      log "would patch the anthropic:cli auth profile and the model"
+      log "would paste the token into the auth store"
     else
-      printf '{
-  auth: { profiles: { "anthropic:cli": { provider: "anthropic", mode: "token" } } },
-  agents: { defaults: { model: {
-    primary: "%s",
-    fallbacks: ["%s"],
-  } } },
-}\n' "${OPENCLAW_MODEL:-anthropic/claude-sonnet-5}" "${OPENCLAW_MODEL_FALLBACK:-openrouter/auto}" \
-        | "$OPENCLAW" config patch --stdin || die "could not configure the model"
+      printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" \
+        | "$OPENCLAW" models auth paste-token --provider anthropic \
+            --expires-in "${OPENCLAW_AUTH_EXPIRES_IN:-365d}" >/dev/null \
+        || die "could not store the Anthropic token"
     fi
     run touch "$STATE_DIR/.gamereg-auth-seeded"
     return 0
   fi
 
-  if [ -n "${OPENROUTER_API_KEY:-}" ] && [ -z "${OPENCLAW_AUTH_KEY:-}" ]; then
-    log "using OpenRouter as the primary model"
-    if [ "$DRY_RUN" = yes ]; then
-      log "would point the model at OpenRouter"
-    else
-      printf '{ agents: { defaults: { model: {
-  primary: "%s",
-  fallbacks: [],
-} } } }\n' "${OPENCLAW_MODEL:-openrouter/openrouter/auto}" \
-        | "$OPENCLAW" config patch --stdin || die "could not configure the model"
-    fi
-    run touch "$STATE_DIR/.gamereg-auth-seeded"
-    return 0
-  fi
-
+  # Without a key there is nothing to provision. That is a supported state, not
+  # a failure: OpenRouter needs only OPENROUTER_API_KEY in the environment, and
+  # an Anthropic subscription is claimed by one interactive login inside the
+  # container, which writes the per-agent auth store on the /config volume and
+  # therefore survives restarts and image upgrades.
   if [ -z "${OPENCLAW_AUTH_KEY:-}" ]; then
-    log "no model credential set: the gateway will start, the agent will not answer."
-    log "set CLAUDE_CODE_OAUTH_TOKEN or OPENCLAW_AUTH_KEY, or run: docker compose exec gateway openclaw onboard"
+    if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+      log "no model credential configured. Either set OPENCLAW_AUTH_KEY with"
+      log "OPENCLAW_AUTH_CHOICE, or claim a subscription once with:"
+      log "  docker compose exec gateway openclaw models auth login --provider anthropic"
+    fi
     return 0
   fi
 
@@ -313,6 +311,52 @@ configure_model_auth() {
 
   run touch "$STATE_DIR/.gamereg-auth-seeded"
 }
+
+# --- 4c. which model ---------------------------------------------------------
+#
+# Separate from the credential on purpose. They used to be one step, so the
+# model was a side effect of whichever auth branch ran, and choosing Anthropic
+# after an OpenRouter key was present meant editing the config by hand.
+#
+# Patched on every boot, like the channel overlay, so changing OPENCLAW_MODEL
+# in .env and restarting actually moves it. The default follows whatever
+# credential is configured, which is right for a first run and wrong to rely on
+# afterwards -- name the model you want.
+
+configure_model() {
+  primary="${OPENCLAW_MODEL:-}"
+  if [ -z "$primary" ]; then
+    if [ -n "${OPENCLAW_AUTH_KEY:-}" ]; then
+      case "${OPENCLAW_AUTH_CHOICE:-apiKey}" in
+        openrouter*) primary="openrouter/auto" ;;
+        *)           primary="anthropic/claude-sonnet-5" ;;
+      esac
+    elif [ -n "${OPENROUTER_API_KEY:-}" ]; then
+      primary="openrouter/auto"
+    else
+      log "no model configured and no credential to infer one from; leaving it alone"
+      return 0
+    fi
+  fi
+
+  fallbacks="${OPENCLAW_MODEL_FALLBACK:-}"
+  if [ -n "$fallbacks" ]; then
+    fallbacks="\"$fallbacks\""
+  fi
+
+  log "model: $primary${OPENCLAW_MODEL_FALLBACK:+ (fallback ${OPENCLAW_MODEL_FALLBACK})}"
+  if [ "$DRY_RUN" = yes ]; then
+    log "would patch the model"
+    return 0
+  fi
+
+  printf '{ agents: { defaults: { model: {
+  primary: "%s",
+  fallbacks: [%s],
+} } } }\n' "$primary" "$fallbacks" \
+    | "$OPENCLAW" config patch --stdin || die "could not configure the model"
+}
+
 
 # --- 5. the gateway's own configuration --------------------------------------
 #
@@ -452,6 +496,7 @@ case "$MODE" in
     seed_vault
     resolve_gateway_token
     configure_model_auth
+    configure_model
     deploy_agent_files
     configure_gateway
     [ "$DRY_RUN" = yes ] && { log "dry run complete, not starting the gateway"; exit 0; }
