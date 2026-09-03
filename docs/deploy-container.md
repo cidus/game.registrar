@@ -341,10 +341,22 @@ them the wrong way round locks out the only page that should work.
 
 ### Who may comment
 
-Auth providers are configured in `.env` and nowhere else: Remark42 reads its
-own environment through `env_file`, so adding one never touches `compose.yml`.
-Only variables generic enough to collide in a shared file get renamed there —
-`REMARK_SECRET` to `SECRET`, `REMARK_SITE` to `SITE`.
+Auth providers are set in `.env` **and named in `compose.yml`** — both, and the
+second half is the security-relevant one. Remark42 is the only service here a
+stranger can reach, so it gets no `env_file`: Compose would load the whole file
+into it, handing a public comment engine the model credential, the Telegram bot
+token, the tunnel token and the IGDB keys, none of which it reads. Every
+variable it does need is listed explicitly instead.
+
+The cost is one line in `compose.yml` per provider. That is the right trade for
+the service facing the internet, and it is why the list there is long.
+
+Two shapes to respect when adding one. Variables generic enough to collide in a
+shared file are renamed (`REMARK_SECRET` to `SECRET`, `REMARK_TELEGRAM_TOKEN`
+to `TELEGRAM_TOKEN`). And **boolean flags take an explicit `false`, never an
+empty string** — Remark42 reads a variable's *presence* as enable, so
+`AUTH_TELEGRAM=""` advertises a sign-in method that then fails against the
+Telegram API with an empty token.
 
 Anonymous (`AUTH_ANON=true`) needs nothing. OAuth providers follow one shape,
 `AUTH_GITHUB_CID` / `AUTH_GITHUB_CSEC` and so on, with the callback at

@@ -466,6 +466,30 @@ test('a bare `compose up` starts the register and nothing that would exhaust a 1
   assert.deepEqual(byProfile('tunnel'), ['tunnel'])
 })
 
+test('the publicly reachable service never gets the whole .env', () => {
+  // Compose loads an env_file wholesale, not the keys a service renames. With
+  // one on remark42 -- the only thing here a stranger can reach -- the running
+  // container held the model credential, the Telegram bot token, the tunnel
+  // token and the IGDB keys, none of which it reads. Verified against a live
+  // deployment before this was removed.
+  const compose = parse(readFileSync(join(ROOT, 'compose.yml'), 'utf8')) as {
+    services: Record<string, { env_file?: unknown; environment?: Record<string, string> }>
+  }
+
+  assert.equal(compose.services['remark42']?.env_file, undefined)
+  assert.equal(compose.services['tunnel']?.env_file, undefined)
+
+  // And a boolean flag must carry an explicit false: Remark42 reads a
+  // variable's presence as enable, so AUTH_TELEGRAM="" advertises a sign-in
+  // method that then fails against the Telegram API with an empty token.
+  const env = compose.services['remark42']?.environment ?? {}
+  for (const [key, value] of Object.entries(env)) {
+    if (/^AUTH_(ANON|TELEGRAM)$/.test(key)) {
+      assert.match(String(value), /:-false\}$/, `${key} must default to false, not empty`)
+    }
+  }
+})
+
 test('no service declares a required variable, because that breaks every other service', () => {
   // Found by running it. Compose interpolates the whole file before it filters
   // by profile, so a single `${VAR:?message}` in an opt-in service makes every

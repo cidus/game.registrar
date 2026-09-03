@@ -180,7 +180,16 @@ services:
     container_name: gamereg-remark42
     profiles: [comments]
     restart: unless-stopped
-    env_file: [.env]
+    # No `env_file` here, deliberately, and it is the one service in this file
+    # that must not have one. Compose loads the whole file, not the keys named
+    # below -- so this container, the only thing here reachable from the public
+    # internet, would hold the model credential, the Telegram bot token, the
+    # tunnel token and the IGDB keys, none of which Remark42 reads. Any
+    # environment-disclosure bug in it, or a compromised `:latest` pull, would
+    # hand all of them over at once.
+    #
+    # The cost is that adding an auth provider now needs a line here as well as
+    # in .env. That is the right trade for the service facing strangers.
     environment:
       # The public address the browser will reach, which is the tunnel's
       # hostname and not this container's.
@@ -205,6 +214,24 @@ services:
       # services read, and it is a *different bot*: Telegram allows one
       # consumer per bot, so sharing one would stop the register answering.
       TELEGRAM_TOKEN: ${REMARK_TELEGRAM_TOKEN:-}
+      # Who may embed the threads, and who may sign in. Every one of these has
+      # to be named, because nothing reaches this container implicitly.
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
+      # Boolean flags get an explicit `false`, never an empty string. Passing
+      # AUTH_TELEGRAM="" is not the same as not passing it: Remark42 reads the
+      # variable's *presence* as enable, then fails against the Telegram API
+      # with an empty token. Harmless but noisy, and it advertises a sign-in
+      # method that cannot work.
+      AUTH_ANON: ${AUTH_ANON:-false}
+      AUTH_GITHUB_CID: ${AUTH_GITHUB_CID:-}
+      AUTH_GITHUB_CSEC: ${AUTH_GITHUB_CSEC:-}
+      AUTH_GOOGLE_CID: ${AUTH_GOOGLE_CID:-}
+      AUTH_GOOGLE_CSEC: ${AUTH_GOOGLE_CSEC:-}
+      AUTH_DISCORD_CID: ${AUTH_DISCORD_CID:-}
+      AUTH_DISCORD_CSEC: ${AUTH_DISCORD_CSEC:-}
+      AUTH_YANDEX_CID: ${AUTH_YANDEX_CID:-}
+      AUTH_YANDEX_CSEC: ${AUTH_YANDEX_CSEC:-}
+      AUTH_TELEGRAM: ${AUTH_TELEGRAM:-false}
     volumes:
       - remark42:/srv/var
     mem_limit: 96m
@@ -234,7 +261,12 @@ services:
     container_name: gamereg-tunnel
     profiles: [tunnel]
     restart: unless-stopped
-    command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
+    # Through the environment, never argv: a token on the command line lands in
+    # /proc/<pid>/cmdline, which is world-readable on a default host, for the
+    # whole lifetime of a service that restarts unless stopped.
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command: ["tunnel", "--no-autoupdate", "run"]
     mem_limit: 64m
 
 volumes:
