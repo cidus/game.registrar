@@ -284,6 +284,27 @@ tunnel's hostname.
 `REMARK_SECRET` signs the JWTs. Generate it with `openssl rand -hex 32` and
 treat it as a secret — it lives in `.env`, which is gitignored.
 
+### Who may comment
+
+Auth providers are configured in `.env` and nowhere else: Remark42 reads its
+own environment through `env_file`, so adding one never touches `compose.yml`.
+Only variables generic enough to collide in a shared file get renamed there —
+`REMARK_SECRET` to `SECRET`, `REMARK_SITE` to `SITE`.
+
+Anonymous (`AUTH_ANON=true`) needs nothing. OAuth providers follow one shape,
+`AUTH_GITHUB_CID` / `AUTH_GITHUB_CSEC` and so on, with the callback at
+`<REMARK_URL>/auth/<provider>/callback`.
+
+**Telegram is the cheapest of them** — no OAuth app, no callback URL, so none
+of the subpath question applies. The commenter messages a bot and is signed in.
+
+> **It has to be its own bot, not the Registrar's.** Both would need to read the
+> same bot's messages, and Telegram permits exactly one consumer: two pollers
+> steal each other's updates, and setting a webhook makes `getUpdates` return
+> 409 for anyone else listening. Either way the register stops answering, and
+> the symptom is a bot that replies *sometimes* rather than one that fails.
+> Ask @BotFather for a second bot and set `REMARK_TELEGRAM_TOKEN`.
+
 ### Telling Quartz about it
 
 The plugin is declared in the vault's own `quartz/quartz.config.yaml`. gamereg

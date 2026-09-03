@@ -198,6 +198,13 @@ services:
       # team; it needs the owner to be the admin and nobody else.
       ADMIN_SHARED_ID: ${REMARK_ADMIN_ID:-}
       EMOJI: "true"
+      # Renamed on the way in. Every other auth variable (AUTH_GITHUB_CID and
+      # friends) reaches Remark42 straight through env_file and needs nothing
+      # here -- only names generic enough to collide get an entry. This one
+      # would sit beside the gateway's own TELEGRAM_BOT_TOKEN in a file both
+      # services read, and it is a *different bot*: Telegram allows one
+      # consumer per bot, so sharing one would stop the register answering.
+      TELEGRAM_TOKEN: ${REMARK_TELEGRAM_TOKEN:-}
     volumes:
       - remark42:/srv/var
     mem_limit: 96m
