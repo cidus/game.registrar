@@ -57,7 +57,34 @@ fi
 # missing path and the server dies on "are you trying to mount a directory onto
 # a file". Same trap as the loop script itself, one service over.
 write_caddyfile() {
-  cat > "$OUTPUT/Caddyfile" <<'CADDY'
+  # Comments served under the site's own origin, when they run on this machine
+  # too. `handle_path` strips the prefix before proxying, which is exactly what
+  # Remark42 behind a subpath needs -- its documented nginx recipe is
+  # `rewrite /remark42/(.*) /$1 break`, and this is Caddy's equivalent.
+  #
+  # What this buys: one published port instead of two, no CORS allowlist to keep
+  # in step with the site's address, and a `REMARK_URL` that is just the site's
+  # own. Verified through the proxy -- config, auth status, thread reads and the
+  # web assets all answer 200 under the prefix.
+  #
+  # `REMARK_URL` has to carry the path to match: http://host:8080/remark42. It
+  # is the one pairing that fails silently, together with the plugin's `host`.
+  #
+  # Known limit, from Remark42's own tracker: under a subpath, OAuth sign-in
+  # links can lose the prefix (umputun/remark42#961). Anonymous auth is
+  # unaffected. With OAuth providers configured, publish Remark42 on its own
+  # port instead and leave SITE_COMMENTS_UPSTREAM empty.
+  comments=""
+  if [ -n "${SITE_COMMENTS_UPSTREAM:-}" ]; then
+    comments="
+	handle_path /remark42/* {
+		reverse_proxy ${SITE_COMMENTS_UPSTREAM}
+	}
+"
+    log "serving comments under /remark42/ from $SITE_COMMENTS_UPSTREAM"
+  fi
+
+  cat > "$OUTPUT/Caddyfile" <<CADDY
 :8080 {
 	root * /site
 	# The .html candidate first, deliberately. Quartz emits both a
@@ -69,7 +96,7 @@ write_caddyfile() {
 	try_files {path}.html {path}/index.html {path}
 	file_server
 	encode gzip
-
+${comments}
 	# Not part of the site.
 	@config path /Caddyfile
 	respond @config 404

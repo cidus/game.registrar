@@ -259,23 +259,60 @@ ssh -L 8080:127.0.0.1:8080 <host>
 
 ## Comments
 
-```bash
-docker compose --profile comments up -d
-```
-
 [Remark42](https://remark42.com) is a Go binary with an embedded BoltDB — no
 database service, ~30 MB resident — which is affordable here in a way a site
-build is not.
+build is not. It always runs *here*, because it is stateful. What changes is
+how a browser reaches it, and that is a separate profile:
 
-It has to be reachable by a browser, while the page it comments on is served
-from somewhere else. A Cloudflare tunnel is what makes that work **without
-opening a port** on a machine whose gateway runs a language model with a shell,
-without a static address, and with no certificate to renew. Set
+| what you want | command |
+|---|---|
+| site here, comments here | `--profile site --profile comments` |
+| site on Cloudflare, comments here | `--profile comments --profile tunnel` |
+| both public | all three |
+
+**Both here.** Set `SITE_COMMENTS_UPSTREAM=remark42:8080` and Caddy serves the
+comments under the site's own origin at `/remark42/`, so there is one published
+port and no CORS allowlist to keep in step. `REMARK_URL` must then carry the
+same path: `http://127.0.0.1:8080/remark42`.
+
+**Reachable from outside.** `--profile tunnel` adds cloudflared, which carries
+it with no published port, no static address and no certificate to renew — worth
+having on a machine whose gateway runs a language model with a shell. Set
 `CLOUDFLARE_TUNNEL_TOKEN` from the dashboard and point `REMARK_URL` at the
 tunnel's hostname.
 
 `REMARK_SECRET` signs the JWTs. Generate it with `openssl rand -hex 32` and
 treat it as a secret — it lives in `.env`, which is gitignored.
+
+### Telling Quartz about it
+
+The plugin is declared in the vault's own `quartz/quartz.config.yaml`. gamereg
+seeds that file once and never rewrites it, so this is a one-time hand edit —
+and it travels with the vault, which means a site built off-box picks up the
+same configuration.
+
+```yaml
+plugins:
+  - source: "github:cidus/remark42.quartz"
+    enabled: true
+    options:
+      host: "http://127.0.0.1:8080/remark42"
+      site_id: "gamereg"
+    layout:
+      position: afterBody
+      priority: 10
+```
+
+Two things that cost time otherwise. `source:` does **not** accept a bare npm
+package name, even with the package installed — it takes a local path,
+`github:owner/repo`, a full URL, or an object. And **`host` here must equal
+`REMARK_URL`**: a mismatch loads the widget from one address while Remark42
+believes it lives at another, and nothing errors.
+
+One known limit: under a subpath, Remark42's OAuth sign-in links can lose the
+prefix ([umputun/remark42#961](https://github.com/umputun/remark42/issues/961)).
+Anonymous commenting is unaffected. If you configure OAuth providers, give
+Remark42 its own published port and leave `SITE_COMMENTS_UPSTREAM` empty.
 
 ## What is deliberately not here
 

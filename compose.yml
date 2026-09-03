@@ -11,6 +11,13 @@
 #   docker compose up -d                      register and agent
 #   docker compose --profile site up -d       ... and a locally built site
 #   docker compose --profile comments up -d   ... and comments
+#   docker compose --profile tunnel up -d     ... reachable from outside
+#
+# The profiles compose, because the questions are independent:
+#
+#   site here, comments here      --profile site --profile comments
+#   site on Cloudflare, comments here    --profile comments --profile tunnel
+#   both public                   all three
 #
 # The two profiles are off by default and stay off on an e2-micro. See the
 # runbook before turning either on.
@@ -163,10 +170,11 @@ services:
   # binary with an embedded BoltDB, so no database service and roughly 30 MB
   # resident. That is affordable on this machine in a way a Quartz build is not.
   #
-  # It has to be reachable by a browser, and the site it comments on is served
-  # from somewhere else entirely. A tunnel is what makes that work without
-  # opening a port on a box whose gateway runs a model with a shell, without a
-  # static address, and without certificate management.
+  # It always runs *here*, because it is stateful. What changes is how a browser
+  # reaches it, and that is a separate decision -- hence a separate `tunnel`
+  # profile below. Bundling the two meant the `site` profile, which exists
+  # precisely for an installation with no external account, could not have
+  # comments at all without opening a Cloudflare account for them.
   remark42:
     image: ghcr.io/umputun/remark42:latest
     container_name: gamereg-remark42
@@ -194,13 +202,23 @@ services:
       - remark42:/srv/var
     mem_limit: 96m
 
+  # --- profile: tunnel -------------------------------------------------------
+  #
+  # Only needed when something outside this machine has to reach in -- a site
+  # built and served by Cloudflare, commenting against a Remark42 that lives
+  # here. Then this carries it with no published port, no static address and no
+  # certificate to renew, which matters on a box whose gateway runs a model
+  # with a shell.
+  #
+  # With the site served locally too, skip this entirely: `site-serve` can front
+  # both on one origin (SITE_COMMENTS_UPSTREAM), which needs no second port and
+  # no CORS allowlist.
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: gamereg-tunnel
-    profiles: [comments]
+    profiles: [tunnel]
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
-    depends_on: [remark42]
     mem_limit: 64m
 
 volumes:

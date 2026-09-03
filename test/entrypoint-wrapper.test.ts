@@ -421,7 +421,13 @@ test('a bare `compose up` starts the register and nothing that would exhaust a 1
 
   assert.deepEqual(byProfile(null), ['gateway', 'maintenance', 'provision'])
   assert.deepEqual(byProfile('site'), ['site-build', 'site-serve'])
-  assert.deepEqual(byProfile('comments'), ['remark42', 'tunnel'])
+
+  // Remark42 and the tunnel answer different questions -- what runs here, and
+  // what may reach in from outside -- so they are separate profiles. Bundled,
+  // the `site` profile could not have comments without a Cloudflare account,
+  // which is the one thing that profile exists to avoid.
+  assert.deepEqual(byProfile('comments'), ['remark42'])
+  assert.deepEqual(byProfile('tunnel'), ['tunnel'])
 })
 
 test('no service declares a required variable, because that breaks every other service', () => {
