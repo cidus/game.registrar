@@ -180,6 +180,23 @@ point at the causes.
   on every other, which is the sort of coincidence a container should remove
   rather than inherit.
 
+### Migrating a host install
+
+Two things bite when the containers replace a working host setup, and neither
+announces itself.
+
+**Disable the old units, do not merely stop them.** A `systemctl --user stop`
+leaves `openclaw-gateway.service` enabled, so the next reboot starts it
+alongside the container — two consumers of one bot token, which Telegram does
+not allow. The symptom is a register that answers *sometimes*, not one that
+fails. `systemctl --user disable openclaw-gateway.service gamereg-autobuild.timer`.
+
+**The deploy key has to exist before the first push.** If `GAMEREG_SSH_PATH`
+points at a path that does not exist, Docker creates an empty root-owned
+directory there and the push fails with `Host key verification failed`, which
+names neither the key nor the mount. Populate it first — the key, and a
+`known_hosts` from `ssh-keyscan`.
+
 ## Pushing the vault
 
 `scripts/autobuild.sh` commits and pushes on every tick that finds a dirty
@@ -315,6 +332,12 @@ tunnel's hostname.
 
 `REMARK_SECRET` signs the JWTs. Generate it with `openssl rand -hex 32` and
 treat it as a secret — it lives in `.env`, which is gitignored.
+
+`ALLOWED_HOSTS` names the origins allowed to embed the threads. Empty, Remark42
+accepts any — which is why the widget works before you have thought about it —
+so set it to the *site's* address. With the site on Pages and the comments
+behind a tunnel that is a different hostname from `REMARK_URL`, and getting
+them the wrong way round locks out the only page that should work.
 
 ### Who may comment
 
