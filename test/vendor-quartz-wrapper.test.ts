@@ -27,7 +27,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { test } from 'node:test'
 
 import { tempDir } from './helpers.ts'
@@ -307,7 +307,18 @@ test('wrangler.jsonc is seeded once and never overwritten', () => {
 
   const wranglerPath = join(gateway.vault, 'quartz', 'wrangler.jsonc')
   assert.equal(existsSync(wranglerPath), true)
-  assert.match(readFileSync(wranglerPath, 'utf8'), /"directory": "\.\/public"/)
+
+  const seeded = readFileSync(wranglerPath, 'utf8')
+  assert.match(seeded, /"directory": "\.\/public"/)
+
+  // The name is the vault's own, with nothing appended. An earlier version
+  // added "-site", which produced a name no Worker had -- wrong from the first
+  // write and never noticed, because Cloudflare's dashboard builds know which
+  // Worker they are building and only warn. A manual `wrangler deploy` does
+  // not, and would target a Worker that does not exist.
+  assert.match(seeded, new RegExp(`"name": "${basename(gateway.vault)}"`))
+  assert.ok(!/-site"/.test(seeded), 'no invented suffix')
+  assert.match(seeded, /GUESS/, 'and it says that it is a guess')
 
   // Simulate a hand edit, then run again -- the edit must survive.
   writeFileSync(wranglerPath, '{ "name": "hand-edited" }\n')

@@ -350,6 +350,19 @@ Each of these cost real time to find. The reasoning, not just the rule:
   ("reserved for board games"); the roadmap owns where it sits. Same shape as
   the invariant numbering above, one layer up: a number is only safe to cite
   when something guarantees it will not be renumbered.
+- **A seeded value that nothing can verify has to say it is a guess.**
+  `vendor-quartz.sh` wrote `wrangler.jsonc` with `name: <vault basename>-site`,
+  inventing a suffix; the Worker was called `gamereg-vault`, so the file was
+  wrong from its first write and stayed wrong for weeks. Nothing caught it
+  because Cloudflare's dashboard builds know which Worker they are building and
+  merely warn, so every deploy that mattered worked — the mismatch only bites a
+  manual `wrangler deploy`, which reads the file and targets a Worker that does
+  not exist. The seed-once policy was not the problem and worked exactly as
+  designed; the guess was. The suffix is gone and the generated file now says
+  in its own comment that the name is unverifiable from here. Same shape as the
+  pairing and auth-store findings: **a value that is present and plausible
+  reads as configured**, and the gap only shows when something finally depends
+  on it.
 - **A Telegram user cannot look up their own numeric id, and `dmPolicy:
   "pairing"` is how they get it.** Verified live, because the documentation
   here had it backwards twice over. There is no official client that displays

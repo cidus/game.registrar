@@ -308,12 +308,27 @@ fi
 # already uses in gamereg itself (docs/spec/07-targets.md), applied here
 # because this file may have been hand-edited since (a custom domain route,
 # for instance).
+#
+# `name` is a guess and nothing here can make it better: it has to equal the
+# Worker you actually created, and this script has no way to know that. The
+# guess used to append "-site" to the vault's directory name, which produced
+# `gamereg-vault-site` against a Worker called `gamereg-vault` -- wrong from
+# the moment it was first written, and never noticed, because Cloudflare's own
+# dashboard builds know which Worker they are building and only warn about the
+# mismatch. What it does break is a manual `wrangler deploy`, which reads this
+# file and would target a Worker that does not exist.
+#
+# So the suffix is gone, and the guess says out loud that it is one.
 if [ ! -f "$DEST/wrangler.jsonc" ]; then
   name=$(basename "$GAMEREG_VAULT")
   today=$(date +%Y-%m-%d)
   cat > "$DEST/wrangler.jsonc" <<EOF
 {
-	"name": "$name-site",
+	// GUESS: this must match the Worker's own name, and nothing that wrote
+	// this file knew it. Check it against the dashboard before deploying by
+	// hand -- \`wrangler deploy\` reads this and will happily target a Worker
+	// that does not exist.
+	"name": "$name",
 	// Bump this if you ever touch this file again; otherwise leave it be —
 	// it only affects which Workers runtime behaviors apply, not the build.
 	"compatibility_date": "$today",
@@ -322,7 +337,7 @@ if [ ! -f "$DEST/wrangler.jsonc" ]; then
 	}
 }
 EOF
-  echo "  seeded wrangler.jsonc (name: $name-site)"
+  echo "  seeded wrangler.jsonc (name: $name — a guess; check it against the Worker)"
 else
   echo "  wrangler.jsonc already exists, left alone"
 fi
