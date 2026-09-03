@@ -309,10 +309,13 @@ package name, even with the package installed — it takes a local path,
 `REMARK_URL`**: a mismatch loads the widget from one address while Remark42
 believes it lives at another, and nothing errors.
 
-One known limit: under a subpath, Remark42's OAuth sign-in links can lose the
-prefix ([umputun/remark42#961](https://github.com/umputun/remark42/issues/961)).
-Anonymous commenting is unaffected. If you configure OAuth providers, give
-Remark42 its own published port and leave `SITE_COMMENTS_UPSTREAM` empty.
+OAuth works through the proxy — a real GitHub sign-in completed under the
+`/remark42` prefix on v1.16.4, comment posted while logged in. Remark42's
+tracker carries a subpath defect where those links lose the prefix
+([umputun/remark42#961](https://github.com/umputun/remark42/issues/961)) and it
+did not reproduce. If a sign-in link ever does come back without `/remark42`,
+that is the bug: give Remark42 its own published port and leave
+`SITE_COMMENTS_UPSTREAM` empty.
 
 ## What is deliberately not here
 

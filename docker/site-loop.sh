@@ -70,10 +70,12 @@ write_caddyfile() {
   # `REMARK_URL` has to carry the path to match: http://host:8080/remark42. It
   # is the one pairing that fails silently, together with the plugin's `host`.
   #
-  # Known limit, from Remark42's own tracker: under a subpath, OAuth sign-in
-  # links can lose the prefix (umputun/remark42#961). Anonymous auth is
-  # unaffected. With OAuth providers configured, publish Remark42 on its own
-  # port instead and leave SITE_COMMENTS_UPSTREAM empty.
+  # Remark42's tracker carries a subpath defect where OAuth sign-in links lose
+  # the prefix (umputun/remark42#961). It did not reproduce here: a real GitHub
+  # login completed through this proxy, comment posted, on v1.16.4. Keep the
+  # pointer anyway -- if a sign-in link ever comes back without /remark42, that
+  # is the bug, and the escape is to publish Remark42 on its own port and leave
+  # SITE_COMMENTS_UPSTREAM empty.
   comments=""
   if [ -n "${SITE_COMMENTS_UPSTREAM:-}" ]; then
     comments="
