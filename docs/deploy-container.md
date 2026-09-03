@@ -264,11 +264,24 @@ database service, ~30 MB resident — which is affordable here in a way a site
 build is not. It always runs *here*, because it is stateful. What changes is
 how a browser reaches it, and that is a separate profile:
 
-| what you want | command |
-|---|---|
-| site here, comments here | `--profile site --profile comments` |
-| site on Cloudflare, comments here | `--profile comments --profile tunnel` |
-| both public | all three |
+| what you want | profiles | tunnel points at | `REMARK_URL` |
+|---|---|---|---|
+| nothing published | `site` `comments` | — | `http://127.0.0.1:8080/remark42` |
+| site built elsewhere, comments here | `comments` `tunnel` | `remark42:8080` | `https://comments.example.com` |
+| everything published from here | `site` `comments` `tunnel` | `site-serve:8080` | `https://example.com/remark42` |
+
+What the tunnel points at is configured in Cloudflare's dashboard, not in
+compose; both services sit on the same network, so either is reachable as a
+target.
+
+The third row is worth noticing. Pointing the tunnel at `site-serve` publishes
+the site *and* the comments through one hostname, and since `site-serve`
+already proxies `/remark42`, they share an origin — no CORS, no second
+hostname, and the site never leaves this machine to be built.
+
+**`REMARK_URL` takes one value.** It builds the OAuth callbacks and the links
+in feeds, so it names whichever address a browser will really use. No
+configuration makes a tunnel hostname and a localhost address both work.
 
 **Both here.** Set `SITE_COMMENTS_UPSTREAM=remark42:8080` and Caddy serves the
 comments under the site's own origin at `/remark42/`, so there is one published

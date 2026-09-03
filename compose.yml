@@ -211,15 +211,24 @@ services:
 
   # --- profile: tunnel -------------------------------------------------------
   #
-  # Only needed when something outside this machine has to reach in -- a site
-  # built and served by Cloudflare, commenting against a Remark42 that lives
-  # here. Then this carries it with no published port, no static address and no
-  # certificate to renew, which matters on a box whose gateway runs a model
-  # with a shell.
+  # Whenever something outside this machine has to reach in, with no published
+  # port, no static address and no certificate to renew -- which matters on a
+  # box whose gateway runs a model with a shell.
   #
-  # With the site served locally too, skip this entirely: `site-serve` can front
-  # both on one origin (SITE_COMMENTS_UPSTREAM), which needs no second port and
-  # no CORS allowlist.
+  # What it points at is configured in Cloudflare, not here, and both choices
+  # are on this network:
+  #
+  #   remark42:8080    the site is built and served elsewhere, and only the
+  #                    comments live here
+  #   site-serve:8080  everything is published from this machine through one
+  #                    hostname -- and because site-serve already proxies
+  #                    /remark42, the comments come along on the same origin,
+  #                    which is the arrangement with no cross-origin question
+  #                    left in it at all
+  #
+  # `REMARK_URL` takes a single value, so it names whichever address the
+  # browser will actually use. There is no configuration in which both the
+  # tunnel hostname and a localhost address work at once.
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: gamereg-tunnel
