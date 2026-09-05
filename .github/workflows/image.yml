@@ -14,13 +14,32 @@ name: image
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+# This one builds a whole image, so a superseded run is worth cancelling
+# rather than leaving to finish.
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The clean-room check below runs test/dump-db.ts on the runner itself,
+      # not inside the image, and that needs a Node new enough for two things:
+      # `node:sqlite` (22.5+) and running TypeScript through its own type
+      # stripping, unflagged (22.18+). The runner's preinstalled Node is
+      # whatever the image ships and is not a version this repository chose.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18'
 
       - name: build the image
         run: docker build -t gamereg:ci .
@@ -60,11 +79,16 @@ jobs:
           # difference in what the database actually says (CLAUDE.md,
           # test/helpers.ts's dumpDatabase). Every other artifact is text this
           # project writes itself and stays byte for byte.
-          node --no-warnings .github/workflows/dump-sqlite.cjs example-vault/data/log.db > /tmp/log.db.golden.sql
-          node --no-warnings .github/workflows/dump-sqlite.cjs "$scratch/data/log.db" > /tmp/log.db.built.sql
+          # test/dump-db.ts, which is a shell over the same dumpDatabase()
+          # test/golden.test.ts compares with. Not a second implementation:
+          # this check and that test have to agree by construction, and a
+          # standalone copy of the dump logic was already silently wrong about
+          # blobs, bigints and NULL before it was removed.
+          node --no-warnings test/dump-db.ts example-vault/data/log.db > /tmp/log.db.golden.sql
+          node --no-warnings test/dump-db.ts "$scratch/data/log.db" > /tmp/log.db.built.sql
           diff /tmp/log.db.golden.sql /tmp/log.db.built.sql
           # A different runner every time is stronger evidence for
           # non-negotiable 2 (idempotent, byte-identical output) than any one
           # developer's own machine can produce -- this was previously only
           # ever checked by hand, once, on one libc and one install path.
-          diff -rq --exclude=log.db example-vault "$scratch"
+          diff -rq --exclude=log.db --exclude=.gamereg example-vault "$scratch"

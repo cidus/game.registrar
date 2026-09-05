@@ -11,6 +11,9 @@ on:
   schedule:
     - cron: '0 6 * * 1'
 
+permissions:
+  contents: read
+
 jobs:
   live:
     runs-on: ubuntu-latest
@@ -23,6 +26,23 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # `test:live` skips cleanly with no credentials, which is right for the
+      # command -- it is what makes `npm run test:live` safe to type on any
+      # machine -- and wrong for a scheduled job whose only purpose is to make
+      # real calls. Without this the workflow would report success having
+      # tested nothing, which is the failure it exists to detect.
+      - name: credentials are actually present
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: |
+          set -eu
+          if [ -z "${IGDB_CLIENT_ID:-}" ] || [ -z "${IGDB_CLIENT_SECRET:-}" ]; then
+            echo "IGDB_CLIENT_ID/IGDB_CLIENT_SECRET are not set as repository secrets." >&2
+            echo "Every test below would skip and this run would pass having called nothing." >&2
+            exit 1
+          fi
 
       - run: npm run test:live
         env:
