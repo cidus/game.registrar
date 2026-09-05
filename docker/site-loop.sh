@@ -23,11 +23,24 @@
 # What this deliberately does not do is ask Docker to run anything. Triggering
 # a build from the maintenance container would mean mounting the Docker socket
 # into a container that shares a network with a language model holding a shell.
+#
+# And it never writes to the vault. `npm install` and `quartz build` between
+# them run whatever a third-party plugin declared -- `quartz plugin add` takes
+# a GitHub URL and clones it -- and the vault is the append-only event log plus
+# the git tree whose dirty state is autobuild.sh's entire notion of state. So
+# the tree is copied into a scratch directory under the cache mount and built
+# there, which is what lets compose mount /vault read-only for this service.
+# The copy is not a performance cost worth avoiding: it is a few megabytes of
+# Markdown, against an npm install measured at 14 seconds.
 
 set -u
 
 VAULT="${GAMEREG_VAULT:-/vault}"
 QUARTZ="$VAULT/quartz"
+# Where the build actually happens. Under the cache mount, so node_modules and
+# the plugins Quartz clones survive a restart the way they did when the build
+# ran in the vault.
+WORK="${GAMEREG_SITE_WORK:-/cache/quartz-build}"
 OUTPUT="${GAMEREG_SITE_OUTPUT:-/site}"
 INTERVAL="${GAMEREG_SITE_INTERVAL:-300}"
 GIT="${GIT_BIN:-git}"
@@ -106,8 +119,28 @@ ${comments}
 CADDY
 }
 
+# Copies the vault's Quartz tree into the scratch directory, replacing what was
+# there. Everything the build generates is kept: node_modules because
+# reinstalling it every commit would cost 14 seconds for nothing, .quartz
+# because that is where `quartz plugin add` puts the plugins it cloned, and
+# public because Quartz owns it and removes it itself.
+#
+# Replacing rather than overlaying matters. A file deleted in the vault -- a
+# game revoked, a run note renamed -- has to disappear from the build too, and
+# copying on top of a previous tree would leave the site publishing a page for
+# something no longer in the register.
+refresh_work() {
+  mkdir -p "$WORK" || return 1
+  find "$WORK" -mindepth 1 -maxdepth 1 \
+    ! -name node_modules ! -name .quartz ! -name public \
+    -exec rm -rf {} + || return 1
+  tar -C "$QUARTZ" -cf - \
+      --exclude=./node_modules --exclude=./.quartz --exclude=./public --exclude=./.git . \
+    | tar -C "$WORK" -xf -
+}
+
 write_caddyfile
-log "watching $VAULT for commits, every ${INTERVAL}s"
+log "watching $VAULT for commits, every ${INTERVAL}s (building in $WORK)"
 
 while true; do
   head="$("$GIT" -C "$VAULT" rev-parse HEAD 2>/dev/null || echo none)"
@@ -116,6 +149,13 @@ while true; do
   if [ "$head" != "$built" ]; then
     log "vault at $head, site built from $built -- rebuilding"
 
+    if ! refresh_work; then
+      log "could not stage $QUARTZ into $WORK"
+      sleep "$INTERVAL" &
+      wait $!
+      continue
+    fi
+
     # Guarded by a sentinel written *after* a successful install, not by the
     # directory's existence. An install killed partway leaves node_modules
     # there and incomplete, and `npm install` over a corrupt tree does not
@@ -123,11 +163,15 @@ while true; do
     # transitive dependency, forever, while the directory the check looks for
     # sits right there. Seen exactly that, twice, on a machine slow enough to
     # interrupt.
-    if [ ! -f "$QUARTZ/node_modules/.gamereg-install-ok" ]; then
+    #
+    # The sentinel records which lockfile it was written for, so vendoring a
+    # new Quartz reinstalls instead of building against the old tree.
+    lock="$(cksum "$WORK/package-lock.json" 2>/dev/null || echo none)"
+    if [ "$(cat "$WORK/node_modules/.gamereg-install-ok" 2>/dev/null || true)" != "$lock" ]; then
       log "installing Quartz dependencies"
-      rm -rf "$QUARTZ/node_modules"
-      if (cd "$QUARTZ" && "$NPM" install --no-audit --no-fund); then
-        touch "$QUARTZ/node_modules/.gamereg-install-ok"
+      rm -rf "$WORK/node_modules"
+      if (cd "$WORK" && "$NPM" install --no-audit --no-fund); then
+        echo "$lock" > "$WORK/node_modules/.gamereg-install-ok"
       else
         log "npm install failed"
         sleep "$INTERVAL"
@@ -140,12 +184,12 @@ while true; do
     # denied, rmdir" -- Quartz removes and recreates its output directory, and
     # a bind mount point cannot be removed by anyone. Building into a directory
     # Quartz owns sidesteps the argument entirely.
-    if (cd "$QUARTZ" && "$NPX" quartz build); then
+    if (cd "$WORK" && "$NPX" quartz build); then
       # Contents, never the directory itself, for the same reason. The site is
       # briefly incomplete while this runs; at a megabyte or two that window is
       # shorter than the poll interval by four orders of magnitude.
       find "$OUTPUT" -mindepth 1 -delete 2>/dev/null
-      cp -a "$QUARTZ/public/." "$OUTPUT/" && write_caddyfile && echo "$head" > "$STAMP" && log "built"
+      cp -a "$WORK/public/." "$OUTPUT/" && write_caddyfile && echo "$head" > "$STAMP" && log "built"
     else
       # Leave the stamp alone so the next tick retries, and leave whatever was
       # served before in place: a stale page beats a blank one.

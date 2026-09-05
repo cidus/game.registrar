@@ -44,6 +44,33 @@ test('PRAGMA is refused, even alone', () => {
   refuses('PRAGMA journal_mode=WAL', /error\.query_not_select/)
 })
 
+test('the reserved sqlite_ and pragma_ namespaces are refused', () => {
+  // `\b` does not separate `pragma` from `_table_info`, because `_` is a word
+  // character -- so this passed every check the guard made and executed.
+  // Read-only, so nothing was writable through it, but the boundary is stated
+  // without exception and `query --schema` answers the same question.
+  refuses("SELECT * FROM pragma_table_info('games')", /error\.query_forbidden/)
+  refuses("SELECT * FROM PRAGMA_TABLE_INFO('games')", /error\.query_forbidden/)
+  // No paren: this one takes no arguments and is spelled without one.
+  refuses('SELECT * FROM pragma_database_list', /error\.query_forbidden/)
+  refuses('SELECT name FROM sqlite_schema', /error\.query_forbidden/)
+  refuses('SELECT name FROM sqlite_master', /error\.query_forbidden/)
+})
+
+test('the reported keyword names the function, not the paren that identified it', () => {
+  assert.throws(
+    () => checkReadOnlySelect("SELECT * FROM pragma_table_info('games')"),
+    (error: unknown) => (error as { params?: { keyword?: string } }).params?.keyword === 'pragma_table_info',
+  )
+})
+
+test('a name that merely contains the prefix mid-identifier is still allowed', () => {
+  // The namespace is reserved at the start of an identifier only, so a column
+  // gamereg could plausibly emit is unaffected.
+  accepts('SELECT my_pragma_note FROM games')
+  accepts("SELECT * FROM games WHERE title = 'pragma_table_info'")
+})
+
 test('ATTACH is refused', () => {
   refuses("ATTACH DATABASE 'x.db' AS x", /error\.query_not_select/)
 })

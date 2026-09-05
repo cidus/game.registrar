@@ -221,13 +221,13 @@ One self-contained file. Data embedded as JSON, table sorted and filtered in
 plain JavaScript, no build step, no CDN, no network at runtime. Opens from the
 filesystem, works on a phone, survives being emailed to someone.
 
-This overlaps the Quartz site of phase 3 and does not replace it: the site is a
+This overlaps the Quartz site and does not replace it: the site is a
 vault-wide, linked, publishable thing; this is one page that answers questions
 about runs. Labels come from `i18n/`; the embedded data stays in schema tokens.
 
 ### `stats`
 
-Phase 3. What the register knows about *time*, which no other target answers: a
+What the register knows about *time*, which no other target answers: a
 calendar heatmap and a year in review.
 
 - `obsidian/Stats.md` — totals, a row per year, a row per genre, and every
@@ -286,7 +286,7 @@ those files in it and nothing else, which is odd but not wrong.
 
 ### `quartz`
 
-Phase 3. The vault as a stranger reads it: the same notes, planned a second time
+The vault as a stranger reads it: the same notes, planned a second time
 in the flavour Quartz consumes. An **ordinary target** — it plans its files from
 the folded state like every other one, so rule 1 above holds for it with no
 exception.

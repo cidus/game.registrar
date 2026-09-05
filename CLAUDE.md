@@ -148,7 +148,7 @@ with its aside allowance rewritten as positive triggers. `agent/README.md`'s
 *Where the prompt lives* and *The tool surface is part of the prompt* carry the
 numbers and the restart step.
 
-`npm test` is 555 tests, all green (`node --test`, no framework, no network).
+`npm test` is 567 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -295,9 +295,37 @@ locale and install path, came out **byte-identical** to the committed goldens.
 `test/entrypoint-wrapper.test.ts` and `test/loop-wrapper.test.ts` follow
 `checkin-wrapper` and `autobuild-wrapper`: real `gamereg`, stubbed `openclaw`,
 `HOME` in a temp dir so `git config --global` never reaches the developer's
-own. **The image itself is unbuilt and unverified** — there is no Docker daemon
-on the development machine and no CI — so what is proven is the boot script,
-not the Dockerfile.
+own. The image has since been built and the stack run in production; **there is
+still no CI building it**, so a Dockerfile change is verified by hand or not at
+all.
+
+**A security pass over the deployment found one live problem and several
+latent ones, and the live one is the shape worth remembering.** `remark42`
+carried `env_file: [.env]` — added so the `AUTH_*` variables would reach it,
+which they did, along with everything else in the file. Compose loads an
+`env_file` wholesale; the `environment:` block beside it renames a few keys and
+excludes nothing. So the one container reachable from the public internet held
+the model credential, the Telegram bot token, the tunnel token and the IGDB
+keys, none of which Remark42 reads. Confirmed by `docker inspect` on the
+running container, not inferred. **`env_file` is a grant of the whole file, and
+the service facing strangers gets its variables named one by one** — the cost
+is a line per auth provider, and it is the right cost. The fix then introduced
+its own bug, which is the second half of the lesson: `AUTH_TELEGRAM: ""` is not
+equivalent to omitting it, because Remark42 reads a variable's *presence* as
+enable. It advertised a sign-in method and failed against the API with an empty
+token. Boolean flags carry an explicit `false`.
+
+The latent ones: the query guard refused `pragma` but not `pragma_table_info(`,
+because `_` is a word character and `\b` finds no boundary there — read-only,
+so nothing was writable through it, but the boundary is stated without
+exception and an undocumented exception is one somebody leans on; the reserved
+`pragma_`/`sqlite_` namespaces are refused now. `site-build` mounted the vault
+writable while executing third-party plugin code, and now stages into a scratch
+directory so the mount can be `:ro`. Values interpolated into the gateway's
+JSON5 patches were unescaped, where a quote adds configuration rather than
+breaking it — `config patch` merges whatever parses. And `provision --dry-run`
+reached a gateway through `cron list`, which is the one call a dry run of that
+mode exists to avoid.
 
 ## The agent layer
 
@@ -341,15 +369,25 @@ most of the fixes below came from reading one.
 
 Each of these cost real time to find. The reasoning, not just the rule:
 
-- **Nothing outside `06-roadmap.md` cites a roadmap phase by number.** Phase
-  numbers are the one label in this project designed to move — reordering them
-  is a product decision, not a rename — so a citation of one rots the moment
-  the decision is taken. Found by moving distribution ahead of board games:
-  `src/core/fold.ts`, `01-model.md` and `PERSONAS.md` all said "phase 4" about
-  board games and all became wrong in the same commit. Say what the work *is*
-  ("reserved for board games"); the roadmap owns where it sits. Same shape as
-  the invariant numbering above, one layer up: a number is only safe to cite
-  when something guarantees it will not be renumbered.
+- **No phase number in code or in a spec — only `06-roadmap.md` and the
+  narrative documents.** Phase numbers are the one label in this project
+  designed to move: reordering them is a product decision, not a rename, so a
+  citation of one rots the moment the decision is taken. Found by moving
+  distribution ahead of board games — `src/core/fold.ts`, `01-model.md` and
+  `PERSONAS.md` all said "phase 4" about board games and all became wrong in
+  the same commit. In a comment or a spec, say what the work *is* ("reserved
+  for board games") and let the roadmap own where it sits.
+
+  Stated absolutely at first, and that was wrong in a way worth recording: the
+  first draft of this rule was violated by the commit that introduced it, and
+  `CLAUDE.md` broke it twenty times over. The difference is that a *narrative*
+  document — this file, `CHANGELOG.md`, `agent/README.md`, a tag message — is
+  telling the story of when something happened, and "phase 3 shipped without
+  this" stays true after a renumbering because it is a claim about history
+  rather than a pointer at a plan. A comment in `fold.ts` saying a field is for
+  phase 4 is a pointer, and pointers rot. Same shape as the invariant numbering
+  above, one layer up: a number is only safe to cite when something guarantees
+  it will not be renumbered, or when nothing about it is a forward reference.
 - **A seeded value that nothing can verify has to say it is a guess.**
   `vendor-quartz.sh` wrote `wrangler.jsonc` with `name: <vault basename>-site`,
   inventing a suffix; the Worker was called `gamereg-vault`, so the file was

@@ -41,6 +41,20 @@ WORKSPACE="$STATE_DIR/workspace"
 
 DRY_RUN=no
 
+# Escapes a value for a JSON5 double-quoted string. Every interpolation below
+# goes through this.
+#
+# Nothing here is expected to contain a quote or a backslash -- a bot token is
+# base64-ish, a chat id is numeric, a model name is a slug -- but "expected"
+# is doing real work in that sentence, and the failure is not a syntax error
+# somebody notices. `config patch` merges whatever parses, so a value carrying
+# `", "admin": true` would add keys to the gateway's configuration rather than
+# break it. The values come from .env, which is the operator's own file, so
+# this is a robustness boundary and not a privilege one; it costs one sed.
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
 log() { echo "entrypoint: $*" >&2; }
 die() { log "$*"; exit 2; }
 run() {
@@ -341,7 +355,7 @@ configure_model() {
 
   fallbacks="${OPENCLAW_MODEL_FALLBACK:-}"
   if [ -n "$fallbacks" ]; then
-    fallbacks="\"$fallbacks\""
+    fallbacks="\"$(json_escape "$fallbacks")\""
   fi
 
   log "model: $primary${OPENCLAW_MODEL_FALLBACK:+ (fallback ${OPENCLAW_MODEL_FALLBACK})}"
@@ -353,7 +367,7 @@ configure_model() {
   printf '{ agents: { defaults: { model: {
   primary: "%s",
   fallbacks: [%s],
-} } } }\n' "$primary" "$fallbacks" \
+} } } }\n' "$(json_escape "$primary")" "$fallbacks" \
     | "$OPENCLAW" config patch --stdin || die "could not configure the model"
 }
 
@@ -399,7 +413,7 @@ configure_gateway() {
     senders=""
     approvals=""
     if [ -n "${TELEGRAM_ALLOW_FROM:-}" ]; then
-      senders="\"$TELEGRAM_ALLOW_FROM\""
+      senders="\"$(json_escape "$TELEGRAM_ALLOW_FROM")\""
       approvals="
       execApprovals: { enabled: true, approvers: [$senders] },"
     fi
@@ -420,7 +434,7 @@ configure_gateway() {
       allowFrom: [%s],%s
     },
   },
-}\n' "$STATE_DIR" "$TELEGRAM_BOT_TOKEN" "$DM_POLICY" "$senders" "$approvals" \
+}\n' "$(json_escape "$STATE_DIR")" "$(json_escape "$TELEGRAM_BOT_TOKEN")" "$DM_POLICY" "$senders" "$approvals" \
       | "$OPENCLAW" config patch --stdin || die "openclaw config patch --stdin failed"
   fi
 
@@ -458,6 +472,15 @@ register_cron() {
   fi
   [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ] && set -- "$@" --token "$OPENCLAW_GATEWAY_TOKEN"
   CLIENT_ARGS="$*"
+
+  if [ "$DRY_RUN" = yes ]; then
+    # `cron list` reaches a running gateway over the network, so it is not a
+    # read this mode may make: --dry-run is documented as performing nothing,
+    # and `provision --dry-run` is how the boot script is exercised in a test
+    # where no gateway exists.
+    log "would register cron job $name if absent"
+    return 0
+  fi
 
   if "$OPENCLAW" cron list --all --json $CLIENT_ARGS 2>/dev/null | grep -q "\"$name\""; then
     log "cron job $name already registered"

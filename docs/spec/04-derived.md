@@ -424,7 +424,7 @@ exemption. A target that cannot promise claim 1 does not belong in the build.
 
 ## Site
 
-Phase 3. `gamereg build quartz` writes `quartz/content/` — the game and run
+`gamereg build quartz` writes `quartz/content/` — the game and run
 notes again, in the flavour Quartz reads, with the consolidated table as
 `index.md` — plus a seeded `quartz/quartz.config.yaml`.
 **It does not run Quartz.** Turning that content into a site is the user's

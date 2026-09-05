@@ -639,7 +639,7 @@ event payloads, or generated blocks.
 
 ## Reactions
 
-Phase 3, and deliberately out of the data model. Nothing here reaches the CLI,
+Deliberately out of the data model. Nothing here reaches the CLI,
 `gamereg.config.json`, or the log: a reaction is decoration on a message, and
 the register would be identical without it.
 

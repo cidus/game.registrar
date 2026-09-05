@@ -332,11 +332,16 @@ trap that costs an afternoon to diagnose from scratch.
 
 If you would rather not do any of that by hand, **[*Running the Registrar in
 containers*](deploy-container.md)** is the same deployment as a `compose.yml`:
-one image holding the CLI and the gateway, a boot that seeds the vault and
-deploys the skill on every start, and a timer that keeps the register enriched,
-built and committed. It is newer than the guide below and the image has not
-been built in CI yet, so read `agent/README.md` anyway when something behaves
-in a way the runbook does not explain — that file is where the reasons live.
+one image holding the CLI and the gateway, a boot that seeds the vault, installs
+the model credential and deploys the skill on every start, and a loop that keeps
+the register enriched, built, committed and pushed. Optional profiles add a
+local site, comments and a tunnel.
+
+That is the shorter path and the one to take. It has been run in production —
+on a 1 GB always-free cloud instance and as the maintainer's own install — but
+there is no published image yet, so you still clone this repository and build.
+Read `agent/README.md` anyway when something behaves in a way the runbook does
+not explain: that file is where the reasons live.
 
 The short version of what you will do there: install the CLI on the
 always-on host, create a bot for your chat channel, restrict who may talk to

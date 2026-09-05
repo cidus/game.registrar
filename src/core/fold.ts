@@ -161,7 +161,7 @@ export type VaultState = {
   runsById: Map<string, RunState>
   sessionsById: Map<string, SessionState>
   breaksById: Map<string, BreakState>
-  /** Keyed by target: an event id, or a game id. Not rendered in phase 0. */
+  /** Keyed by target: an event id, or a game id. Collected before anything renders it. */
   attachments: Map<string, Attachment[]>
   eventsById: Map<string, EventEnvelope>
   problems: FoldProblem[]

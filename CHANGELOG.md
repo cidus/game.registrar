@@ -14,6 +14,24 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Added
 
+- `Dockerfile` and `compose.yml`: the CLI and the OpenClaw gateway in one image,
+  at versions pinned to work together. Three core services — the gateway, the
+  maintenance loop, and a one-shot `provision` that registers the check-in cron
+  job against the running gateway.
+- `docker/entrypoint.sh`, which seeds an empty vault and commits it, configures
+  git, installs the model credential into the per-agent auth store, deploys the
+  skill and persona, and patches the gateway configuration from the environment
+  on every boot. `--dry-run` performs nothing.
+- `docker/loop.sh` and `scripts/autobuild.sh` as a container service: enrich,
+  build, commit and push whenever the vault's tree is dirty.
+- Optional compose profiles, all off by default: `site` (a Quartz build loop
+  plus Caddy), `comments` (Remark42) and `tunnel` (cloudflared). `site` can
+  serve the comments on its own origin under `/remark42`.
+- `docs/deploy-container.md` and `.env.example`.
+- `scripts/gamereg-autobuild.service` / `.timer` for a host install, and a
+  systemd unit for the container stack.
+- `test/entrypoint-wrapper.test.ts`, `test/loop-wrapper.test.ts` and
+  `test/phase-citations.test.ts`.
 - `run_open_event_id` and `session_open_event_id` on `gamereg open`'s rows, and
   `run_open_event_id` on each run of `gamereg status <game>`. These are the ids
   `amend` and `revoke` take; before them the only route to one was raw SQL over
@@ -203,6 +221,22 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Fixed
 
+- The query guard refused `pragma` but not `pragma_table_info(...)`: `_` is a
+  word character, so the word-boundary scan read straight past the
+  table-valued-function form. The reserved `pragma_` and `sqlite_` namespaces
+  are now refused outright.
+- The Remark42 service no longer receives the whole `.env`. Compose loads an
+  `env_file` wholesale, so the one container reachable from the internet held
+  the model credential, the Telegram bot token, the tunnel token and the IGDB
+  keys, none of which it reads. Every variable it needs is named explicitly.
+- The Cloudflare tunnel token moved from argv, where it was visible in
+  `/proc/<pid>/cmdline`, to the environment.
+- The Quartz site is built in a scratch directory rather than in the vault, so
+  the vault can be mounted read-only for a service that executes third-party
+  plugin code.
+- Values interpolated into the gateway's JSON5 configuration patches are
+  escaped, so a quote in one cannot add configuration keys.
+- `provision --dry-run` no longer contacts the gateway.
 - `reference/query.md` lists the columns of the four views, not only of the
   tables, and warns that three of them are already aggregated: they carry
   `hours` and never `minutes`, and `COUNT(*)` over them counts groups. The

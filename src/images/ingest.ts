@@ -98,7 +98,7 @@ export async function ingestImage(vault: Vault, sourcePath: string, config: Conf
 
 /**
  * Downloads a provider's cover art and runs it through the same pipeline as
- * `--photo` (docs/spec/06-roadmap.md, phase 1: "enrich, cover download via
+ * `--photo` (docs/spec/06-roadmap.md, "enrich, cover download via
  * sharp"). Best-effort: `enrich`'s own contract is that a provider failure
  * never blocks recording (02-cli.md), so a network error or an unparseable
  * response is not thrown — it is `null`, and the caller falls back to storing

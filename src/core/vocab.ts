@@ -62,7 +62,8 @@ export const CURRENT_PHASE = 3
 /**
  * Inside the current phase, and still not built. A phase is delivered in steps,
  * so between two of them a target can be current and absent at once — `quartz`
- * was exactly that between phase 3's stats step and its site step.
+ * was exactly that between the step that landed `stats` and the one that
+ * landed the site.
  *
  * It is written here rather than derived from `targets/registry.ts` because
  * `core/` does not depend on `targets/`; `test/targets.test.ts` asserts the two

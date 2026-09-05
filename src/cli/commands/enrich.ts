@@ -159,7 +159,7 @@ export type EnrichOutcome =
 
 /**
  * `--covers` downloads the provider's cover art through the same pipeline as
- * `--photo` (docs/spec/06-roadmap.md, phase 1) — not just the URL. A user
+ * `--photo` (docs/spec/06-roadmap.md) — not just the URL. A user
  * cover is never spent a network call on, since it would be discarded by the
  * fold regardless (01-model.md "Cover precedence"). A failed download falls
  * back to the bare URL, same as before this existed: `ingestUrl` never

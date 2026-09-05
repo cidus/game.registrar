@@ -44,7 +44,11 @@ type Host = {
   patched: () => string
   /** Pretend the check-in job is already in the gateway's cron store. */
   cronHolds: (name: string) => void
-  run: (mode: string, env?: Record<string, string>) => { status: number; stdout: string; stderr: string }
+  run: (
+    mode: string,
+    env?: Record<string, string>,
+    args?: string[],
+  ) => { status: number; stdout: string; stderr: string }
 }
 
 /**
@@ -112,8 +116,8 @@ function host(): Host {
     calls: () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : []),
     patched: () => (existsSync(patch) ? readFileSync(patch, 'utf8') : ''),
     cronHolds: (name) => writeFileSync(cron, JSON.stringify([{ name }]) + '\n'),
-    run: (mode, env = {}) => {
-      const result = spawnSync('sh', [WRAPPER, mode], {
+    run: (mode, env = {}, args = []) => {
+      const result = spawnSync('sh', [WRAPPER, mode, ...args], {
         encoding: 'utf8',
         env: {
           PATH: `${bin}:${process.env['PATH'] ?? ''}`,
@@ -403,6 +407,42 @@ test('--dry-run touches nothing', () => {
   assert.ok(!existsSync(join(h.vault, 'gamereg.config.json')), 'no vault was initialised')
   assert.ok(!existsSync(join(h.config, 'workspace')), 'no agent files were deployed')
   assert.deepEqual(h.calls(), [], 'the gateway was never invoked')
+})
+
+test('provision --dry-run reaches no gateway either', () => {
+  // `--dry-run` is documented as performing nothing, and `cron list` is a
+  // Gateway *client* call: it opens a connection. The gate was on `cron add`
+  // alone, so the probe ran for real -- which is exactly the call a dry run of
+  // this mode is meant to be safe to make without a gateway existing.
+  const h = host()
+  const r = h.run('provision', {}, ['--dry-run'])
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(h.calls(), [], 'the gateway was never contacted')
+})
+
+test('a value from the environment cannot add keys to the gateway config', () => {
+  // Every interpolation into the JSON5 patches goes through json_escape. The
+  // failure this prevents is not a syntax error somebody notices: `config
+  // patch` merges whatever parses, so an unescaped quote turns a value into
+  // more configuration.
+  const h = host()
+  const r = h.run('gateway', {
+    TELEGRAM_BOT_TOKEN: 'tok", "dmPolicy": "open',
+    OPENCLAW_MODEL: 'anthropic/claude-sonnet-5", "temperature": 2',
+  })
+  assert.equal(r.status, 0, r.stderr)
+
+  const patched = h.patched()
+  // Neither injected key is ever written as a key. `dmPolicy` appears as one
+  // exactly where the template puts it, carrying the template's own value;
+  // `temperature` never appears as one at all.
+  assert.match(patched, /^\s*dmPolicy: "allowlist",$/m)
+  assert.ok(!/^\s*"?dmPolicy"?:\s*"open"/m.test(patched), patched)
+  assert.ok(!/^\s*"?temperature"?:/m.test(patched), patched)
+  // And the value survives escaped rather than being dropped or the boot
+  // aborted, so a legitimate value containing a quote still configures.
+  assert.match(patched, /tok\\", \\"dmPolicy\\": \\"open/)
+  assert.match(patched, /claude-sonnet-5\\", \\"temperature\\": 2/)
 })
 
 test('the real defaults tree is the one the Dockerfile copies', () => {

@@ -1,9 +1,10 @@
 /**
  * The target registry (docs/spec/07-targets.md).
  *
- * Which targets *exist* is a closed vocabulary in `core/vocab.ts`, including the
- * ones that arrive in a later phase — so naming `sqlite` today says "phase 1",
- * not "no such thing". Which targets are *implemented* is this file.
+ * Which targets *exist* is a closed vocabulary in `core/vocab.ts`, including
+ * the ones that have not been built yet — so naming an unbuilt target says
+ * "not yet", not "no such thing". Which targets are *implemented* is this
+ * file.
  */
 import { GameregError } from '../core/errors.ts'
 import { checkTarget, type BuildTarget } from '../core/vocab.ts'

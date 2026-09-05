@@ -107,15 +107,29 @@ turning it into a site is yours to run, by hand or from CI.
 criterion asks for a page a stranger can open, which is hosting — so the phase
 that makes this installable had to come first, and board games moved to *After
 1.0* because it is additive by design and should not hold a release hostage.
-The first piece is here: a [`Dockerfile`](Dockerfile) and a
-[`compose.yml`](compose.yml) that run the CLI and the gateway together from one
-image, seed an empty vault, deploy the skill and persona on every boot, register
-the check-in job against the running gateway and keep the vault enriched, built
-and committed on a timer — sized for a 1 GB machine, with no published port and
-no Docker socket. See [*Running the Registrar in
-containers*](docs/deploy-container.md). It is not published anywhere yet and the
-image has not been built in CI; what is covered by tests is the boot script and
-the maintenance loop.
+The first piece is here and it runs: a [`Dockerfile`](Dockerfile) and a
+[`compose.yml`](compose.yml) that start the CLI and the gateway together from
+one image, seed an empty vault, deploy the skill and persona on every boot,
+install the model credential, register the check-in job against the running
+gateway and keep the vault enriched, built, committed and pushed on a timer —
+sized for a 1 GB machine, with no published port and no Docker socket. Three
+optional profiles ship alongside, all off by default: `site` builds the Quartz
+site here and serves it, `comments` runs [Remark42](https://remark42.com), and
+`tunnel` is how something outside reaches in. `site` can front the comments on
+its own origin under `/remark42`, which a real GitHub sign-in was verified
+through.
+
+This has been deployed for real, on an always-free Google Cloud e2-micro and
+then as the maintainer's own production install: the register answering on
+Telegram, the vault committing and pushing itself, the site rebuilding from that
+repository, and comments served through a tunnel. A clean-room `gamereg build`
+inside the image — different libc, locale and install path — came out
+byte-identical to the committed golden files.
+
+What it is not yet is *published*: there is no image on a registry, no CI
+building one, and no first-run wizard. Installing it still means cloning this
+repository. See [*Running the Registrar in
+containers*](docs/deploy-container.md).
 
 See
 [06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *Current

@@ -143,9 +143,23 @@ services:
       # difference between a slow first install and a slow every install.
       HOME: /cache
     volumes:
-      - ${GAMEREG_VAULT_PATH:-./vault}:/vault
+      # Read-only, and this is the one service here where that is load-bearing.
+      # A Quartz build runs whatever a third-party plugin ships -- `quartz
+      # plugin add` takes a GitHub URL and clones it -- and the vault holds the
+      # append-only event log. site-loop.sh therefore stages the Quartz tree
+      # into /cache and builds there, so nothing this service executes has a
+      # writable path into the register.
+      - ${GAMEREG_VAULT_PATH:-./vault}:/vault:ro
       - ${GAMEREG_SITE_PATH:-./site}:/site
       - ${GAMEREG_SITE_CACHE_PATH:-./cache}:/cache
+    # Reports healthy once the serving config exists, which is what site-serve
+    # waits for below.
+    healthcheck:
+      test: ["CMD", "test", "-f", "/site/Caddyfile"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
     mem_limit: ${SITE_BUILD_MEM_LIMIT:-768m}
 
   site-serve:
@@ -157,7 +171,13 @@ services:
     # than mounted from ./docker -- a path that exists in a checkout and
     # nowhere else.
     command: ["caddy", "run", "--config", "/site/Caddyfile", "--adapter", "caddyfile"]
-    depends_on: [site-build]
+    # Healthy, not merely started: Caddy exits when its config file is absent,
+    # and site-build writes that file. A plain `depends_on` starts them
+    # together and leaves Caddy crash-looping through the first build, which
+    # looks like a broken deployment for as long as an npm install takes.
+    depends_on:
+      site-build:
+        condition: service_healthy
     volumes:
       - ${GAMEREG_SITE_PATH:-./site}:/site:ro
     ports:

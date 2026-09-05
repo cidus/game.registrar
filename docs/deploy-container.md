@@ -259,7 +259,9 @@ only appears on a machine that is not the one that wrote the file:
   once leaves the directory in place and incomplete, `npm install` over it does
   not reliably repair it, and every later build fails on a missing transitive
   dependency while the directory the check looks for sits right there. The
-  guard is a sentinel written *after* a successful install.
+  guard is a sentinel written *after* a successful install, carrying the
+  checksum of the lockfile it was written for -- so vendoring a newer Quartz
+  reinstalls instead of building against the old tree.
 - **Quartz removes and recreates its output directory**, and a bind mount
   point cannot be removed by anyone: `EACCES: permission denied, rmdir`. It
   builds into its own `public/` and the result is copied out.
@@ -274,6 +276,29 @@ only appears on a machine that is not the one that wrote the file:
   or "are you trying to mount a directory onto a file". The script is in the
   image; the config is written by `site-build` into the directory it already
   shares with the server.
+
+### The build never writes to the vault
+
+`site-build` mounts `/vault` read-only, and `docker/site-loop.sh` copies the
+vault's Quartz tree into a scratch directory under the cache mount and builds
+*there*.
+
+The reason is what a Quartz build is. `quartz plugin add` takes a GitHub URL,
+clones it, and the build runs whatever it found; `npm install` runs the
+lifecycle scripts of the whole dependency tree. That is ordinary for a static
+site generator and unremarkable until you notice what the working directory
+would otherwise be: the append-only event log, and the git tree whose dirty
+state is `autobuild.sh`'s entire notion of what to do next.
+
+The copy costs nothing worth counting -- a few megabytes of Markdown, against
+an `npm install` measured at 14 seconds -- and `node_modules`, the cloned
+plugins and Quartz's own `public/` all live in the scratch directory, so they
+survive a restart the way they did when the build ran in place.
+
+One consequence to know: the copy *replaces* rather than overlays. A page whose
+source disappears from the vault -- a game revoked, a run note renamed --
+disappears from the site on the next build, which is the behaviour you want and
+not what an overlay would have given you.
 
 ### Serving a build made somewhere else
 

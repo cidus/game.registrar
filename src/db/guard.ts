@@ -20,6 +20,30 @@ import { GameregError } from '../core/errors.ts'
 const FORBIDDEN_KEYWORDS =
   /\b(insert|update|delete|drop|alter|create|attach|detach|pragma|replace|vacuum|reindex|trigger|begin|commit|rollback|savepoint|release|analyze)\b/i
 
+/**
+ * SQLite exposes some of the same surface as table-valued functions and
+ * internal tables, and `\b` does not catch either: `_` is a word character, so
+ * `pragma_table_info` contains no word boundary after `pragma` and the scan
+ * above reads straight past it. `SELECT * FROM pragma_table_info('games')`
+ * therefore satisfied every check — one statement, starts with SELECT, no
+ * forbidden keyword — and ran.
+ *
+ * Nothing was writable through it (the database is opened read-only, so
+ * `pragma_` cannot mutate and the write-shaped names have no function form),
+ * which is why this was a hole in the boundary rather than an escape from it.
+ * But the boundary is stated without exception in the file header and in the
+ * architecture invariants, and a rule with an undocumented exception is one
+ * somebody eventually leans on. The schema is available through
+ * `query --schema`, which is a supported answer to the same question.
+ *
+ * The whole prefix is refused rather than a list of names, and no paren is
+ * required: `pragma_database_list` takes no arguments and is spelled without
+ * one, and `sqlite_schema`/`sqlite_master` are tables rather than functions.
+ * Refusing the namespace costs nothing, because SQLite reserves both prefixes
+ * for its own use — nothing gamereg emits can ever collide with them.
+ */
+const FORBIDDEN_FUNCTIONS = /(?<![a-z0-9_])(pragma|sqlite)_[a-z0-9_]+/i
+
 const ALLOWED_START = /^(select|with)\b/i
 
 /**
@@ -102,8 +126,11 @@ export function checkReadOnlySelect(sql: string): void {
   if (!ALLOWED_START.test(statement)) {
     throw new GameregError('usage', 'error.query_not_select')
   }
-  if (FORBIDDEN_KEYWORDS.test(statement)) {
-    const match = statement.match(FORBIDDEN_KEYWORDS)
-    throw new GameregError('usage', 'error.query_forbidden', { keyword: match?.[0]?.toLowerCase() ?? '' })
+  const forbidden = statement.match(FORBIDDEN_KEYWORDS) ?? statement.match(FORBIDDEN_FUNCTIONS)
+  if (forbidden) {
+    // The function form is reported by its name alone, without the paren the
+    // pattern had to match to recognise it.
+    const keyword = forbidden[0].replace(/\s*\($/, '').toLowerCase()
+    throw new GameregError('usage', 'error.query_forbidden', { keyword })
   }
 }

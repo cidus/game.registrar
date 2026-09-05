@@ -18,9 +18,14 @@ ARG NODE_VERSION=22-bookworm-slim
 # --- build the tarball -------------------------------------------------------
 #
 # `npm pack` rather than copying `dist/` because it exercises the real
-# packaging path: the `files` allowlist and the `prepare` hook are what a
-# published package will use, and phase 4 owes that publish anyway. A bug in
-# either shows up here rather than after `npm publish`.
+# packaging path: the `files` allowlist is what a published package will use,
+# so a file missing from it shows up here rather than after `npm publish`.
+#
+# `--ignore-scripts` means the `prepare` hook does *not* run, which is why the
+# explicit `npm run build` precedes it. That is deliberate and not a saving:
+# `prepare` also runs on `npm ci` above, where it would build against
+# devDependencies that are not installed yet. What this leaves untested is
+# `prepare` itself, and the publish path it belongs to is not this image's.
 
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /src
@@ -84,6 +89,13 @@ COPY agent/approvals.example.json /opt/gamereg/agent-defaults/exec-approvals.jso
 # silently, and the first `git commit` aborts with "Please tell me who you are".
 # Found on a host whose uid was 1001; it passes on any host whose uid is 1000,
 # which is exactly the kind of coincidence a container is supposed to remove.
+#
+# GAMEREG_SOURCE=chat suits the gateway, the one service here where a `gamereg`
+# call really did come from a conversation. Every unattended caller overrides
+# it: autobuild.sh and checkin.sh each export GAMEREG_SOURCE=cron before running
+# anything, precisely because a cron command job inherits the gateway process's
+# environment and would otherwise record a check-in nobody was asked about as
+# something the user said.
 ENV HOME=/config \
     OPENCLAW_STATE_DIR=/config \
     OPENCLAW_CONFIG_PATH=/config/openclaw.json \
