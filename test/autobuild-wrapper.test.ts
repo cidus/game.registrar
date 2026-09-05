@@ -17,6 +17,15 @@
  * every `gamereg enrich --missing` call here exits 6 (`provider_unavailable`)
  * for real. That is not worked around: exit 6 being non-fatal is exactly the
  * behaviour these tests are meant to prove.
+ *
+ * `autobuild.sh` never configures a git identity itself — in a real
+ * deployment, `docker/entrypoint.sh`'s `configure_git` has already run by the
+ * time `docker/loop.sh` calls it. So `HOME` here points at a scratch
+ * directory carrying its own `.gitconfig`, the same as
+ * `test/entrypoint-wrapper.test.ts` and `test/checkin-wrapper.test.ts` — never
+ * the developer's own `~/.gitconfig`, and never absent one either, which is
+ * what a bare `HOME` override would leave a CI runner with no global git
+ * identity to fall back on.
  */
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -57,9 +66,12 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
   const dir = tempDir('gamereg-autobuild-')
   const vault = join(dir, 'vault')
   const bin = join(dir, 'bin')
+  const home = join(dir, 'home')
   const log = join(dir, 'calls.log')
   mkdirSync(vault, { recursive: true })
   mkdirSync(bin, { recursive: true })
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, '.gitconfig'), '[user]\n\tname = Test\n\temail = test@example.com\n')
 
   const gamereg = join(bin, 'gamereg')
   writeFileSync(gamereg, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(MAIN)} "$@"\n`)
@@ -127,6 +139,7 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
         encoding: 'utf8',
         env: {
           ...process.env,
+          HOME: home,
           GAMEREG_VAULT: vault,
           GAMEREG_BIN: gamereg,
           GIT_BIN: git,

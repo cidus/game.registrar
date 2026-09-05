@@ -50,8 +50,21 @@ jobs:
             --user "$(id -u):$(id -g)" \
             -v "$scratch:/vault" \
             gamereg:ci gamereg build --vault /vault
+          # .gamereg/ is build bookkeeping (the manifest and the build lock) --
+          # gitignored, and test/golden.test.ts excludes it from the golden
+          # comparison for the same reason: it is not a fixture.
+          rm -rf "$scratch/.gamereg"
+          # log.db is compared logically, not byte for byte: SQLite's on-disk
+          # layout is not stable across library versions, so a fixture
+          # committed from one build can differ in bytes from another with no
+          # difference in what the database actually says (CLAUDE.md,
+          # test/helpers.ts's dumpDatabase). Every other artifact is text this
+          # project writes itself and stays byte for byte.
+          node --no-warnings .github/workflows/dump-sqlite.cjs example-vault/data/log.db > /tmp/log.db.golden.sql
+          node --no-warnings .github/workflows/dump-sqlite.cjs "$scratch/data/log.db" > /tmp/log.db.built.sql
+          diff /tmp/log.db.golden.sql /tmp/log.db.built.sql
           # A different runner every time is stronger evidence for
           # non-negotiable 2 (idempotent, byte-identical output) than any one
           # developer's own machine can produce -- this was previously only
           # ever checked by hand, once, on one libc and one install path.
-          diff -rq example-vault "$scratch"
+          diff -rq --exclude=log.db example-vault "$scratch"
