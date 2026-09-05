@@ -34,7 +34,7 @@ Começou com a ideia de ter um chatbot que atualizasse uma planilha pessoal. Evo
 
 Veja [aqui meu site Quartz](https://games.alcid.es).
 
-CLI implementada em Node/Typescript. Chatbot em OpenClaw, Telegram, STT local com whisper-cli. Modelo do chatbot remoto via Anthropic e fallback para OpenRouter (nada impede um LLM local). Site Quartz construído em Cloudflare Pages a partir de repo Github privado. Nada ainda publicado, mas a ideia é ter uma imagem docker com todas as integrações, e a CLI nos distribuidores oficiais. Mais chats - Discord, Mattermost self-hosted - e saídas - Anytype, site Astro - planejadas.
+CLI implementada em Node/Typescript. Chatbot em OpenClaw, Telegram, STT local ou remoto com whisper-cli. Modelo do chatbot remoto via Anthropic e fallback para OpenRouter (nada impede um LLM local). Site Quartz construído localmente ou via Cloudflare Worker a partir de repo Github privado. Todas essas integrações implementadas em imagens e compose docker. Mais chats - Discord, Mattermost self-hosted - e saídas - Anytype, site Astro - planejadas.
 
 Estou usando o projeto para também estudar geração de código por IA. Comecei com Claude, eventualmente devo testar outros modelos.
 
@@ -50,7 +50,7 @@ It started with the idea of having a chatbot update a personal spreadsheet. It e
 
 See [my Quartz site here](https://games.alcid.es).
 
-The CLI is implemented in Node/TypeScript. The chatbot runs on OpenClaw and Telegram, with local STT using whisper-cli. The remote chatbot model uses Anthropic, with OpenRouter as a fallback (nothing prevents using a local LLM). The Quartz site is built on Cloudflare Pages from a private GitHub repository. Nothing has been published yet, but the idea is to provide a Docker image with all integrations and the CLI through official distributors. More chats — Discord and self-hosted Mattermost — and outputs — Anytype and an Astro site — are planned.
+The CLI is implemented in Node/TypeScript. The chatbot runs on OpenClaw and Telegram, with local or remote STT using whisper-cli. The remote chatbot model uses Anthropic, with OpenRouter as a fallback (nothing prevents using a local LLM). The Quartz site is built on Cloudflare Worker from a private GitHub repository. Every integration is implemented as docker images and compose. More chats — Discord and self-hosted Mattermost — and outputs — Anytype and an Astro site — are planned.
 
 I am also using the project to study AI code generation. I started with Claude and may eventually test other models.
 
