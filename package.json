@@ -1,6 +1,6 @@
 {
   "name": "gamereg",
-  "version": "0.3.0-dev",
+  "version": "1.0.0-dev",
   "description": "A register of video game playthroughs, kept as an append-only event log and Markdown notes.",
   "license": "MIT",
   "repository": {

@@ -28,10 +28,50 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   plus Caddy), `comments` (Remark42) and `tunnel` (cloudflared). `site` can
   serve the comments on its own origin under `/remark42`.
 - `docs/deploy-container.md` and `.env.example`.
-- `scripts/gamereg-autobuild.service` / `.timer` for a host install, and a
-  systemd unit for the container stack.
 - `test/entrypoint-wrapper.test.ts`, `test/loop-wrapper.test.ts` and
   `test/phase-citations.test.ts`.
+- GitHub Actions: `test` (typecheck and the suite on Node 22.18 and 24), `image`
+  (builds the container, runs its entrypoint's `--dry-run`, and diffs a
+  clean-room `gamereg build` against the committed goldens) and `live` (the
+  opt-in IGDB suite, weekly, which now fails rather than passing vacuously when
+  the credentials are absent).
+- `test/dump-db.ts` — `dumpDatabase()` as a leaf module importing only
+  `node:sqlite`, so the container workflow and `test/golden.test.ts` compare
+  through one implementation with no `node_modules` on the runner.
+
+### Fixed
+
+- The query guard refused `pragma` but not `pragma_table_info(...)`: `_` is a
+  word character, so the word-boundary scan read straight past the
+  table-valued-function form. The reserved `pragma_` and `sqlite_` namespaces
+  are now refused outright.
+- The Remark42 service no longer receives the whole `.env`. Compose loads an
+  `env_file` wholesale, so the one container reachable from the internet held
+  the model credential, the Telegram bot token, the tunnel token and the IGDB
+  keys, none of which it reads. Every variable it needs is named explicitly.
+- The Cloudflare tunnel token moved from argv, where it was visible in
+  `/proc/<pid>/cmdline`, to the environment.
+- The Quartz site is built in a scratch directory rather than in the vault, so
+  the vault can be mounted read-only for a service that executes third-party
+  plugin code.
+- Values interpolated into the gateway's JSON5 configuration patches are
+  escaped, so a quote in one cannot add configuration keys.
+- `provision --dry-run` no longer contacts the gateway.
+- `AUTH_TELEGRAM=""` is no longer passed to Remark42 as an empty string.
+  Presence is read as enable, so it advertised a sign-in method that then
+  failed against the Telegram API. Boolean flags carry an explicit `false`.
+- Every auth provider `.env.example` advertises is passed through by
+  `compose.yml`. Patreon and Microsoft were offered and never wired, which,
+  after the `env_file` removal, meant filling them in did nothing and said
+  nothing. A test holds the two files to each other.
+
+
+## [0.3.0] - Phase 3 — Check-ins, stats and the Quartz site
+
+### Added
+
+- `scripts/gamereg-autobuild.service` / `.timer`, so a host install can run the
+  maintenance sweep on a systemd timer.
 - `run_open_event_id` and `session_open_event_id` on `gamereg open`'s rows, and
   `run_open_event_id` on each run of `gamereg status <game>`. These are the ids
   `amend` and `revoke` take; before them the only route to one was raw SQL over
@@ -221,22 +261,6 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Fixed
 
-- The query guard refused `pragma` but not `pragma_table_info(...)`: `_` is a
-  word character, so the word-boundary scan read straight past the
-  table-valued-function form. The reserved `pragma_` and `sqlite_` namespaces
-  are now refused outright.
-- The Remark42 service no longer receives the whole `.env`. Compose loads an
-  `env_file` wholesale, so the one container reachable from the internet held
-  the model credential, the Telegram bot token, the tunnel token and the IGDB
-  keys, none of which it reads. Every variable it needs is named explicitly.
-- The Cloudflare tunnel token moved from argv, where it was visible in
-  `/proc/<pid>/cmdline`, to the environment.
-- The Quartz site is built in a scratch directory rather than in the vault, so
-  the vault can be mounted read-only for a service that executes third-party
-  plugin code.
-- Values interpolated into the gateway's JSON5 configuration patches are
-  escaped, so a quote in one cannot add configuration keys.
-- `provision --dry-run` no longer contacts the gateway.
 - `reference/query.md` lists the columns of the four views, not only of the
   tables, and warns that three of them are already aggregated: they carry
   `hours` and never `minutes`, and `COUNT(*)` over them counts groups. The
