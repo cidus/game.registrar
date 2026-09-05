@@ -530,6 +530,29 @@ test('the publicly reachable service never gets the whole .env', () => {
   }
 })
 
+test('every auth provider .env.example advertises actually reaches Remark42', () => {
+  // The cost of dropping remark42's env_file is that a provider now needs a
+  // line in compose.yml as well as a value in .env. Forgetting the compose
+  // half fails in perfect silence -- Remark42 never sees the variable, so the
+  // provider is just absent from the sign-in panel, with nothing in any log.
+  //
+  // Two providers were advertised here and not wired for exactly one commit.
+  // This is what makes that a failing test rather than a discovery.
+  const env = readFileSync(join(ROOT, '.env.example'), 'utf8')
+  const compose = parse(readFileSync(join(ROOT, 'compose.yml'), 'utf8')) as {
+    services: Record<string, { environment?: Record<string, string> }>
+  }
+  const passed = new Set(Object.keys(compose.services['remark42']?.environment ?? {}))
+
+  // Named in a value position or in the prose that offers them; both are a
+  // promise to the reader.
+  const advertised = new Set(env.match(/\bAUTH_[A-Z]+(?:_(?:CID|CSEC))?\b/g) ?? [])
+  assert.ok(advertised.size > 0, 'the file still documents auth providers')
+
+  const missing = [...advertised].filter((name) => !passed.has(name)).sort()
+  assert.deepEqual(missing, [], `advertised in .env.example, never passed through: ${missing.join(', ')}`)
+})
+
 test('no service declares a required variable, because that breaks every other service', () => {
   // Found by running it. Compose interpolates the whole file before it filters
   // by profile, so a single `${VAR:?message}` in an opt-in service makes every
