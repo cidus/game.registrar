@@ -30,14 +30,14 @@ jobs:
   image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The clean-room check below runs test/dump-db.ts on the runner itself,
       # not inside the image, and that needs a Node new enough for two things:
       # `node:sqlite` (22.5+) and running TypeScript through its own type
       # stripping, unflagged (22.18+). The runner's preinstalled Node is
       # whatever the image ships and is not a version this repository chose.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22.18'
 

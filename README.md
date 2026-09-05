@@ -1,6 +1,8 @@
 # The Game Registrar
 
 [![Version](https://img.shields.io/github/package-json/v/cidus/game.registrar)](https://github.com/cidus/game.registrar/releases)
+[![tests](https://github.com/cidus/game.registrar/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/cidus/game.registrar/actions/workflows/test.yml)
+[![image](https://github.com/cidus/game.registrar/actions/workflows/image.yml/badge.svg?branch=main)](https://github.com/cidus/game.registrar/actions/workflows/image.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.18-brightgreen)](package.json)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange)](CHANGELOG.md)
