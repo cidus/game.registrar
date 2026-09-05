@@ -27,7 +27,11 @@ actual inline-button tap, a session closed by a voice note, `finish` with a
 drafted verdict. `agent/README.md`'s *Voice* section and its smoke test
 record the confirmation.
 
-**Phase 3 is built, all five steps, and not yet tagged.** The
+**Phase 3 is built, all five steps, and tagged `v0.3.0`.** The tag sits on
+the last commit before the container work rather than on a commit of its own:
+the boundary was missed, phase 4 started on top of it, and that tree therefore
+still reads `0.3.0-dev`. Recorded rather than rewritten, since the history was
+already pushed. The
 spec pass landed the pieces that were missing or contradictory: `quartz` as an
 ordinary target (no second pass, invariant 8 intact), the check-in state machine
 and who owns each transition, `checkin --expire`, a phase-3 exit criterion, and

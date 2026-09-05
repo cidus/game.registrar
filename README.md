@@ -77,7 +77,7 @@ Part of the fun has been giving the chatbot a personality; I did not want someth
 
 ## Status
 
-**Phases 0–2 done and tagged (`v0.2.0`); phase 3 built, not yet tagged.** The
+**Phases 0–3 are done and tagged (`v0.3.0`); phase 4 is under way.** The
 CLI records, enriches titles and cover art from IGDB, ingests your own photos,
 and regenerates Obsidian notes and a sortable Base, CSV, JSON, an HTML table
 and a SQLite cache — all from one event log. Already keeping this in a
