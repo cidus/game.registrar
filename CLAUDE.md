@@ -1239,18 +1239,24 @@ To tag a finished phase or patch:
    `Added`/`Changed`/`Fixed`/`Removed`, one line per item, no narrative). One
    commit, since both describe the same boundary: this is the commit that
    becomes the release.
-3. `git tag -a v0.X.Y -m "..."` on that commit. **The message is also the
-   release notes** (step 5) — write it as such, not as a label. See `v0.0.0`
-   for the shape. This is the terse index; the tag message stays the detailed
-   version, and `CHANGELOG.md`'s own header explains that split so a reader
-   lands on the right one.
+3. `git tag -a v0.X.Y -m "..."` on that commit. **The tag message is the
+   narrative version** — why the phase happened and what it proved, in prose —
+   and it is *not* what the GitHub release shows. See `v0.2.0` for the shape.
+   `CHANGELOG.md` is the terse index and its own header explains that split so
+   a reader lands on the right one.
 4. Open the next phase's development window: bump `version` again, to
    `0.(X+1).0-dev`, as a separate commit right after the tag. `--version` never
    again claims a release that has not happened.
 5. `git push && git push --tags`, then
-   `gh release create v0.X.Y --title "v0.X.Y — <summary>" --notes-from-tag`.
-   `--notes-from-tag` keeps the description in exactly one place. GitHub marks
-   the most recently *created* release "Latest", so backfill oldest first.
+   `gh release create v0.X.Y --title "v0.X.Y — <summary>" --notes-file <f>`,
+   where `<f>` is **this version's section of `CHANGELOG.md`**, body only —
+   which is what every release from `v0.1.0` on actually carries, byte for
+   byte. Do not use `--notes-from-tag`: it was written here as keeping the
+   description in one place, and it does the opposite, publishing the tag's
+   narrative where every other release shows Added/Changed/Fixed. Found by
+   doing exactly that on `v0.3.0` and having to rewrite the body afterwards.
+   GitHub marks the most recently *created* release "Latest", so backfill
+   oldest first.
 
 Only tag once the phase is actually done. **Never tag or push without being
 asked** — versioning is user-triggered here, never done alongside unrelated work.
