@@ -1,0 +1,57 @@
+name: image
+
+# The image has been built and run in production by hand, and CLAUDE.md names
+# that gap explicitly: "there is still no CI building it, so a Dockerfile
+# change is verified by hand or not at all." This workflow closes it.
+#
+# Building the image only proves it builds. Each step below uses the result
+# for something the image is actually for, so a broken entrypoint, a broken
+# `--dry-run`, or a build that is not byte-identical to its own goldens fails
+# here instead of on a host nobody is watching.
+#
+# The image is never pushed anywhere -- distribution is a roadmap decision,
+# not a CI one.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build the image
+        run: docker build -t gamereg:ci .
+
+      - name: gamereg --version runs
+        run: docker run --rm gamereg:ci gamereg --version
+
+      - name: entrypoint --dry-run performs nothing
+        run: |
+          set -eu
+          scratch="$(mktemp -d)"
+          mkdir -p "$scratch/vault" "$scratch/config"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e TELEGRAM_BOT_TOKEN=ci-token \
+            -e TELEGRAM_ALLOW_FROM=4242 \
+            -v "$scratch/vault:/vault" \
+            -v "$scratch/config:/config" \
+            gamereg:ci gamereg-entrypoint gateway --dry-run
+
+      - name: clean-room build matches the committed goldens
+        run: |
+          set -eu
+          scratch="$(mktemp -d)"
+          cp -r example-vault/. "$scratch/"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -v "$scratch:/vault" \
+            gamereg:ci gamereg build --vault /vault
+          # A different runner every time is stronger evidence for
+          # non-negotiable 2 (idempotent, byte-identical output) than any one
+          # developer's own machine can produce -- this was previously only
+          # ever checked by hand, once, on one libc and one install path.
+          diff -rq example-vault "$scratch"

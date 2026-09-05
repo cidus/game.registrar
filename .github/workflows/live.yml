@@ -1,0 +1,30 @@
+name: live
+
+# Real IGDB calls, so this never runs on a pull request -- and never through
+# `pull_request_target`, which is the shape that hands a fork's code the
+# repository's secrets. A green `npm test` says nothing about matching against
+# a real catalog (CLAUDE.md), so a weekly run turns "the catalog moved under
+# us" into a notification instead of a surprise.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run test:live
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
