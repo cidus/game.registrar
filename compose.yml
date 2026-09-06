@@ -50,6 +50,12 @@ services:
     volumes:
       - ${GAMEREG_VAULT_PATH:-./vault}:/vault
       - ${GAMEREG_CONFIG_PATH:-./config}:/config
+      # The base image has no TZ set, which put the gateway's own sense of
+      # "now" -- what it tells the model in conversation -- on UTC instead of
+      # whatever the host was on. Bind-mounting the host's zone file follows
+      # the host automatically, the way a bare-metal install always did,
+      # rather than hardcoding a zone name that has to be kept in sync with it.
+      - /etc/localtime:/etc/localtime:ro
     # Telegram is long-polled, so nothing needs to reach in: no ports, no
     # firewall rule, no public address. That is worth keeping true.
     # A TCP connect, and nothing heavier, for a reason that took a real
@@ -108,6 +114,9 @@ services:
     volumes:
       - ${GAMEREG_VAULT_PATH:-./vault}:/vault
       - ${GAMEREG_CONFIG_PATH:-./config}:/config
+      # Same reason as gateway's: without this, every commit this loop makes
+      # carries a UTC offset instead of the host's own.
+      - /etc/localtime:/etc/localtime:ro
       # The deploy key for the vault's push, read-only. Never baked into the
       # image and never in the repository.
       - ${GAMEREG_SSH_PATH:-./config/ssh}:/config/ssh:ro
