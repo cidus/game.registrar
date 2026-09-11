@@ -14,6 +14,13 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Changed
 
+- `GATEWAY_MEM_LIMIT` defaults to `1g`, from `480m`. The pinned OpenClaw idles
+  at ~432 MB and restart-loops at the old limit. `.env.example`,
+  `compose.yml` and `docs/deploy-container.md` carry the measurements and the
+  finding that the 1 GB e2-micro is no longer a comfortable target.
+
+### Changed
+
 - OpenClaw pinned to `2026.9.4` (from `2026.7.1-2`) and the image's Node to 24,
   which the new OpenClaw requires (`>=24.16`). gamereg's own floor is unchanged
   at 22.18, and a clean-room build on Node 24 reproduces the committed goldens

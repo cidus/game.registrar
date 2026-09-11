@@ -1088,6 +1088,30 @@ Each of these cost real time to find. The reasoning, not just the rule:
   deployed file addresses the model; the reason a rule exists addresses the
   maintainer and belongs in `agent/README.md` or here.
 
+- **The OpenClaw upgrade to 2026.9.4 cost 157 MB of RSS, and two thirds of it
+  is the Node bump it forces.** Measured idle, same config: 2026.7.1-2 on Node
+  22 is 275 MB, the same OpenClaw on Node 24 is 377 MB, and 2026.9.4 on Node 24
+  is 432 MB. Since 2026.9.4 requires `>=24.16`, pinning OpenClaw alone does not
+  recover it. Nothing turns it down — `plugins.allow` does not reduce the
+  loaded set (30 of 59 stay enabled with three allowed, unlike `tools.allow`),
+  and capping the V8 heap buys ~10 MB before the process stops starting, which
+  says the growth is native baseline rather than heap. `GATEWAY_MEM_LIMIT` is
+  `1g` now and that is a floor: at `480m` the gateway idles at 90% and restarts
+  itself every ~73 seconds under its own memory-pressure check, which reads as
+  a healthy container because every boot passes the health check before dying.
+  **The 1 GB e2-micro is no longer a comfortable target**, and
+  `docs/deploy-container.md` says so.
+  The upgrade was taken anyway, and the reason is the half that is not about
+  memory: `npm audit` reports **11 known advisories against 2026.7.1-2 (7
+  high) and none against 2026.9.4** — SSRF and trust-boundary issues in
+  `fast-uri` and `ip-address`, a DoS in `brace-expansion`, ten moderates in
+  `hono`. All transitive, and reachability here is low (no published gateway
+  port, no web tools under `tools.allow`, one allowlisted sender) — but low is
+  not none, the debt only grows, and this upgrade already cost three
+  migrations. A deployment that genuinely needs 1 GB should pin the old
+  version deliberately, knowing what it is accepting, rather than drift into
+  it.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables

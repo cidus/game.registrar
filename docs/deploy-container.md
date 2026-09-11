@@ -7,15 +7,42 @@ behaves in a way this page does not explain.
 
 ## What it assumes about the machine
 
-Sized for the smallest host anyone actually uses: a GCP always-free
-`e2-micro`. Two of its numbers decide the architecture, and both are easy to
-discover the expensive way.
+The architecture was sized for the smallest host anyone actually uses: a GCP
+always-free `e2-micro`, 1 GB of RAM and 1 GB of egress a month. Both numbers
+still shape every decision below — but **the gateway has outgrown the first
+one**, and that is the honest starting point.
 
-**1 GB of RAM.** The gateway holds 250–400 MB resident. A `gamereg` invocation
-is another 60–150 MB while it runs. That is most of the machine before anything
-else starts, which is why the site profile is off by default: a Quartz build
-peaks at 400–700 MB and will take the gateway with it. **A swap file is not
-advice here.** Without one the OOM killer arrives mid-conversation:
+**RAM: budget 1.5 GB, and read this before assuming 1 GB.** The gateway alone
+now idles at ~432 MB with the pinned OpenClaw (2026.9.4), against ~275 MB on
+the version before it. Measured, same config, nothing in flight:
+
+| | idle RSS |
+|---|---|
+| openclaw 2026.7.1-2 on node 22 | 275 MB |
+| openclaw 2026.7.1-2 on node 24 | 377 MB |
+| openclaw 2026.9.4 on node 24 | 432 MB |
+
+Two thirds of the increase is the Node bump, which 2026.9.4 requires
+(`engines: >=24.16`), so it is not avoidable by pinning OpenClaw alone. Nothing
+turns it down either: `plugins.allow` does not reduce the loaded plugin set,
+and capping the V8 heap buys ~10 MB before the process stops starting.
+
+`GATEWAY_MEM_LIMIT` is therefore `1g`, and that is a floor. At `480m` the
+gateway idles at 90% of its limit and restarts itself every ~73 seconds under
+its own memory-pressure check — a loop that looks like a healthy container,
+because each boot passes the health check before dying.
+
+A `gamereg` invocation is another 60–150 MB while it runs, which is why the
+site profile is off by default: a Quartz build peaks at 400–700 MB and will
+take the gateway with it.
+
+**On an actual 1 GB e2-micro this no longer fits comfortably**, and the swap
+file below stops being a safety net and becomes load-bearing. If that is your
+target, either stay on an older OpenClaw deliberately — accepting its open
+advisories, see the upgrade note in `CLAUDE.md` — or move to a 2 GB instance.
+
+**A swap file is not advice here.** Without one the OOM killer arrives
+mid-conversation:
 
 ```bash
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
@@ -249,7 +276,7 @@ There is no upstream image for this. Quartz's own Dockerfile runs
 It does work, and the numbers are better than the warning above suggests --
 with the agent stopped, `npm install` took 14s and the Quartz build 4s, about
 two minutes from `up` to a served page. What it needs is the room: bring the
-gateway down first, or accept that the whole stack together leaves ~280 MB
+gateway down first, or accept that the whole stack together leaves very little
 free and a load average around 4.
 
 Four things had to be fixed before it worked at all, and each is the sort that
