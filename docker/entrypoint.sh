@@ -385,8 +385,33 @@ configure_model() {
 # exactly the shape wanted here: allowFrom is replaced wholesale, everything
 # else is left alone.
 
+# A saved config written by an older OpenClaw can stop validating after an
+# upgrade: a key it used to write itself is simply no longer recognized, and
+# every `config patch` below then fails. Seen on 2026.7.1-2 -> 2026.9.4, where
+# `meta.lastTouchedAt` -- OpenClaw's own bookkeeping, not ours -- became an
+# unrecognized key and the container would not boot at all.
+#
+# `doctor --fix` is OpenClaw's own sanctioned repair and is what its error
+# message tells you to run. It is attempted only when validation actually
+# fails, it is loud about it, and a config still invalid afterwards is still
+# fatal -- this recovers from a schema migration, it does not paper over a
+# broken config.
+repair_config_if_stale() {
+  [ -f "${OPENCLAW_CONFIG_PATH:-$STATE_DIR/openclaw.json}" ] || return 0
+  "$OPENCLAW" config validate >/dev/null 2>&1 && return 0
+
+  log "saved configuration does not validate against this OpenClaw; running doctor --fix"
+  run "$OPENCLAW" doctor --fix >/dev/null 2>&1 || true
+  [ "$DRY_RUN" = yes ] && return 0
+
+  "$OPENCLAW" config validate >/dev/null 2>&1 \
+    || die "configuration still invalid after doctor --fix; inspect with 'openclaw config validate'"
+  log "configuration repaired"
+}
+
 configure_gateway() {
   run mkdir -p "$STATE_DIR"
+  repair_config_if_stale
 
   if [ ! -f "$STATE_DIR/.gamereg-config-seeded" ]; then
     log "seeding gateway configuration"
@@ -443,9 +468,27 @@ configure_gateway() {
   # placeholder absolute path for a host install, which is meaningless here --
   # in the image `gamereg` is on PATH and the bare-name pattern is the one that
   # ever matched anyway.
-  if [ ! -f "$STATE_DIR/exec-approvals.json" ]; then
+  # Seeded through the CLI, not by copying the file into place. OpenClaw
+  # 2026.9 moved the exec allowlist out of `$STATE_DIR/exec-approvals.json`
+  # and into `state/openclaw.sqlite#exec_approvals_config`, and a legacy file
+  # left sitting there is now fatal at *runtime* rather than at boot: the
+  # gateway starts, and then every message fails with
+  # `ExecApprovalsMigrationRequiredError`. Copying a file assumes a storage
+  # format; `approvals set` asks the installed CLI to write whatever store it
+  # currently has, which is the version-independent way to say the same thing.
+  #
+  # It needs a valid config, which is why repair_config_if_stale runs first.
+  if [ ! -f "$STATE_DIR/.gamereg-approvals-seeded" ]; then
     log "seeding the exec allowlist"
-    run cp "$DEFAULTS/exec-approvals.json" "$STATE_DIR/exec-approvals.json"
+    run "$OPENCLAW" approvals set --file "$DEFAULTS/exec-approvals.json" \
+      || die "openclaw approvals set failed"
+    run touch "$STATE_DIR/.gamereg-approvals-seeded"
+  fi
+
+  # A legacy file from an older image blocks the new store outright.
+  if [ -f "$STATE_DIR/exec-approvals.json" ]; then
+    log "removing the legacy exec-approvals.json (its contents now live in state/)"
+    run rm -f "$STATE_DIR/exec-approvals.json"
   fi
 }
 

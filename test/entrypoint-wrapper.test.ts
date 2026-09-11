@@ -305,16 +305,43 @@ test('the shipped config is seeded once, and the environment overlay applied eve
   assert.match(patched, /dmPolicy: "allowlist"/)
 })
 
-test('the exec allowlist is seeded once and an edited one is kept', () => {
+/**
+ * The allowlist is seeded through `openclaw approvals set`, not by copying a
+ * file into place. OpenClaw 2026.9 moved the store from
+ * `$STATE_DIR/exec-approvals.json` into `state/openclaw.sqlite`, and the
+ * failure mode of the old approach is the nasty kind: the gateway boots fine
+ * and then every message fails with `ExecApprovalsMigrationRequiredError`.
+ * Asking the installed CLI to write its own store is what survives the next
+ * move; a sentinel keeps the seed to first boot so an edited allowlist is not
+ * overwritten.
+ */
+test('the exec allowlist is seeded through the CLI, once', () => {
   const h = host()
   h.run('gateway')
 
-  const approvals = join(h.config, 'exec-approvals.json')
-  assert.ok(existsSync(approvals))
+  const seeds = h.calls().filter((c) => c.includes('approvals set --file'))
+  assert.equal(seeds.length, 1, 'seeded exactly once')
+  assert.ok(existsSync(join(h.config, '.gamereg-approvals-seeded')))
 
-  writeFileSync(approvals, '{"version":1,"mine":true}\n')
   h.run('gateway')
-  assert.match(readFileSync(approvals, 'utf8'), /"mine":true/)
+  assert.equal(
+    h.calls().filter((c) => c.includes('approvals set --file')).length,
+    1,
+    'a second boot does not reseed, so an edited allowlist survives',
+  )
+})
+
+/**
+ * An image upgraded in place inherits the legacy file, and its mere presence
+ * is what the new gateway refuses to start work with.
+ */
+test('a legacy exec-approvals.json left by an older image is removed', () => {
+  const h = host()
+  const legacy = join(h.config, 'exec-approvals.json')
+  writeFileSync(legacy, '{"version":1,"agents":{}}\n')
+
+  h.run('gateway')
+  assert.equal(existsSync(legacy), false, 'the legacy file blocks the new store and has to go')
 })
 
 test('git gets an identity and the vault an ownership exception, or the first commit aborts', () => {

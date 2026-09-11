@@ -182,18 +182,19 @@ whoever draws a character and the agent has no use for it.
 
 ### 6. Restrict what it may run
 
-The policy came from step 3 (`tools.exec.security: "allowlist"`,
-`tools.exec.ask: "off"`). Add the allowlist itself:
+The policy came from step 3 (`tools.exec.mode: "allowlist"`). Add the
+allowlist itself:
 
 ```bash
 openclaw approvals set --file agent/approvals.example.json
 openclaw approvals get          # confirm what is actually in effect
 ```
 
-Without `security: "allowlist"` the default is `"full"` — unrestricted shell,
-allowlist file or not. With `ask: "off"`, anything outside the allowlist is
-refused immediately as a plain tool error the agent recovers from, with nothing
-sent to the user. `amend` and `revoke` are on this allowlist deliberately; see
+Without `mode: "allowlist"` the default is `"full"` — unrestricted shell,
+allowlist file or not. In `allowlist` mode anything outside it is refused
+immediately as a plain tool error the agent recovers from, with nothing sent to
+the user. (`mode` replaced `security` + `ask` in OpenClaw 2026.8; the pair is
+refused when combined, and `openclaw doctor --fix` migrates a saved config.) `amend` and `revoke` are on this allowlist deliberately; see
 *Why amend/revoke are not behind an approval gate* below before copying the
 file as-is.
 
@@ -325,7 +326,7 @@ model misjudges its own conversation. The append-only log means nothing is
 destroyed (a bad amend is one more amend from fixed), but it is no longer
 *impossible* for the agent to run one without a real yes, only *against
 instructions*. To take the harder guarantee instead, exclude `amend`/`revoke`
-from `approvals.example.json`, set `ask: "on-miss"`, configure
+from `approvals.example.json`, set `tools.exec.mode: "ask"`, configure
 `approvals.exec: {enabled: true, mode: "session"}` and
 `channels.telegram.execApprovals` with an explicit `approvers` list — all four,
 or a gated command fails with no way to approve it — and accept the clunkier
@@ -484,6 +485,23 @@ working, because the agent repeats the behaviour you just corrected in a
 session where the correction was never present. `grep` the transcript
 (`~/.openclaw/agents/<agent>/sessions/*.jsonl`) for a phrase unique to the new
 text and count zero. `/reset` in the chat starts a fresh session.
+
+**An OpenClaw upgrade can move a store out from under you, and the second
+failure is worse than the first.** Going 2026.7 to 2026.9: `meta.lastTouchedAt`
+— OpenClaw's own bookkeeping — stopped being a recognized key, so the saved
+config no longer validated and the container's boot-time `config patch` died.
+Then, with that repaired and the gateway running, the exec allowlist turned out
+to have moved from `$STATE_DIR/exec-approvals.json` into
+`state/openclaw.sqlite`, and a legacy file left in place is fatal at *runtime*:
+the gateway starts clean and every message fails with
+`ExecApprovalsMigrationRequiredError`.
+
+The entrypoint handles both now — it runs `doctor --fix` when the saved config
+fails validation, and it seeds the allowlist with `openclaw approvals set`
+rather than copying a file. The general lesson is the second one: **ask the
+installed CLI to write its own store instead of writing the store's file
+yourself**, because a `cp` hardcodes a storage format and the format is not
+yours.
 
 **A vault group added after first boot needs a full session restart.**
 Supplementary group membership resolves at login, and `systemctl --user restart

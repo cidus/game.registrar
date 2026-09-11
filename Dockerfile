@@ -13,7 +13,7 @@
 # the musl path is a second set of binaries to be surprised by. The ~60 MB
 # saved is not worth an image whose image ingestion fails at runtime.
 
-ARG NODE_VERSION=22-bookworm-slim
+ARG NODE_VERSION=24-bookworm-slim
 
 # --- build the tarball -------------------------------------------------------
 #
@@ -44,7 +44,7 @@ FROM node:${NODE_VERSION}
 # gateway version -- the dead `callback` branch on 2026.7.1-2 being the sharpest
 # example -- so "the CLI and the gateway at versions known to work together" is
 # the whole point of shipping an image rather than instructions.
-ARG OPENCLAW_VERSION=2026.7.1-2
+ARG OPENCLAW_VERSION=2026.9.4
 
 # git: the vault is a git repository and scripts/autobuild.sh commits and
 # pushes it. openssh-client: that push needs a deploy key. tini: PID 1 that

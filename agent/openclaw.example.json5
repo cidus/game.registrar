@@ -8,7 +8,7 @@
 // Every key below was verified against a real OpenClaw install, not just
 // against the docs — the docs alone got several things wrong that mattered:
 // `dmPolicy` defaults to "pairing" (anyone who finds the bot can request
-// access), not blocked; `tools.exec.security` defaults to "full"
+// access), not blocked; `tools.exec.mode` defaults to "full"
 // (unrestricted shell), so the allowlist in approvals.example.json does
 // nothing at all until the exec keys below are set alongside it;
 // `approvals.exec` decides where an approval prompt is *routed* but not
@@ -189,8 +189,8 @@
     },
   },
 
-  // Where an approval prompt actually gets delivered when tools.exec.ask
-  // below needs one. Without this block, a command that misses the
+  // Where an approval prompt actually gets delivered when tools.exec.mode
+  // below is one that asks. Without this block, a command that misses the
   // allowlist doesn't wait for you — it fails immediately, with no route to
   // ask. "session" sends the prompt back into whatever chat the command
   // came from, which for a single-owner DM bot is the only sensible choice;
@@ -237,27 +237,34 @@
     // Governs whether the agent may run gamereg at all, and what happens to
     // anything not on the allowlist in approvals.example.json.
     //
-    // security: "allowlist" — only allowlisted patterns run; everything else
-    // is subject to `ask`. Leaving this unset means "full": every command
-    // runs with no gate whatsoever, allowlist file or not.
+    // mode: "allowlist" — only allowlisted patterns run, and anything else
+    // (a chained command that doesn't match the plain `gamereg` pattern, or
+    // a tool other than gamereg entirely) is denied immediately, with no
+    // prompt and no wait. Leaving this unset means "full": every command runs
+    // with no gate whatsoever, allowlist file or not.
     //
-    // ask: "off" — anything that isn't allowlisted (a chained command that
-    // doesn't match the plain `gamereg` pattern, or a tool other than
-    // gamereg entirely) is denied immediately, with no prompt and no wait.
-    // The agent's own boundary is "gamereg, one invocation, nothing else"
-    // (SKILL.md), so a miss here is always a mistake to recover from, never
-    // something a human is expected to approve — `on-miss` used to route
-    // that decision to chat instead, and in practice it only ever produced
-    // an approval nobody asked for, sometimes minutes of it. `amend` and
-    // `revoke` are on the allowlist in approvals.example.json like every
-    // other gamereg command; their confirmation is conversational, in
-    // SKILL.md, not this gate — see README.md for why, and what that trades
-    // away. `approvals.exec` below is dead weight with `ask: "off"` (nothing
-    // ever asks), kept only in case a future change reintroduces a real
-    // approval path.
+    // **This key replaced `security` + `ask` in OpenClaw 2026.8.** The pair
+    // is now refused outright when combined, so a config carrying both stops
+    // the container at its boot-time `config patch`. `mode: "allowlist"` is
+    // the exact equivalent of the old `security: "allowlist"` plus
+    // `ask: "off"`; `openclaw doctor --fix` migrates a saved file, but a
+    // patch *source* like this one has to be edited. Do not move this key
+    // without moving OPENCLAW_VERSION in the Dockerfile in the same commit —
+    // 2026.7.1-2 does not know it and refuses in the other direction.
+    //
+    // Denying immediately is the right behaviour here, not a compromise. The
+    // agent's boundary is "gamereg, one invocation, nothing else"
+    // (workspace/AGENTS.md), so a miss is always a mistake to recover from,
+    // never a legitimate request waiting on a human. The old `ask: "on-miss"`
+    // routed that decision to chat and only ever produced an approval nobody
+    // asked for, sometimes minutes of it. `amend` and `revoke` are on the
+    // allowlist like every other gamereg command; their confirmation is
+    // conversational (reference/corrections.md), not this gate — see
+    // README.md for why and what it trades away. `approvals.exec` below is
+    // dead weight in this mode, kept only in case a future change
+    // reintroduces a real approval path.
     exec: {
-      security: "allowlist",
-      ask: "off",
+      mode: "allowlist",
     },
 
     media: {

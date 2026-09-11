@@ -14,6 +14,25 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Changed
 
+- OpenClaw pinned to `2026.9.4` (from `2026.7.1-2`) and the image's Node to 24,
+  which the new OpenClaw requires (`>=24.16`). gamereg's own floor is unchanged
+  at 22.18, and a clean-room build on Node 24 reproduces the committed goldens
+  byte for byte, SQLite included.
+- `tools.exec.security` + `ask` migrated to `tools.exec.mode: "allowlist"`.
+  OpenClaw 2026.8 refuses the pair when combined, which stopped the container
+  at its boot-time `config patch`.
+- `docker/entrypoint.sh` seeds the exec allowlist with `openclaw approvals set
+  --file` instead of copying `exec-approvals.json` into place. The store moved
+  into `state/openclaw.sqlite` in 2026.9, and a legacy file left behind is
+  fatal at runtime rather than at boot. A legacy file from an older image is
+  removed on the way.
+- `docker/entrypoint.sh` runs `openclaw doctor --fix` when the saved config
+  fails validation against the installed OpenClaw, and still dies if it is
+  invalid afterwards. `meta.lastTouchedAt`, written by OpenClaw itself, became
+  unrecognized across this upgrade and would otherwise have blocked every boot.
+
+### Changed
+
 - `agent/README.md` restructured: 1290 lines to 650. Architecture and the
   prompt layout first, an objective step-by-step setup that points at
   `docs/deploy-container.md` for the deployment actually in use, then decisions

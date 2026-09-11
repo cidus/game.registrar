@@ -1,9 +1,9 @@
 # TOOLS.md — Local Notes
 
-There is one tool: `gamereg`, on `PATH`, allowlisted for exec under
-`~/.openclaw/exec-approvals.json`. The allowlist matches the bare command name,
-so it covers every subcommand — `amend` and `revoke` included, whose
-confirmation is the conversational one in `AGENTS.md`, not an approval prompt.
+There is one tool: `gamereg`, on `PATH`, allowlisted for exec. The allowlist
+matches the bare command name, so it covers every subcommand — `amend` and
+`revoke` included, whose confirmation is the conversational one in `AGENTS.md`,
+not an approval prompt.
 
 The gateway's own tool surface is cut to `exec`, `message` and `read` by
 `tools.allow` (`agent/openclaw.example.json5`). Nothing else is reachable, so
