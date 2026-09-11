@@ -136,14 +136,9 @@ it, and never mention the id.
 "Still going" is already `snoozed` and needs no amend. Neither does silence.
 
 **Then strip the check-in's buttons** (`AGENTS.md`, *Stripping the button once
-it is answered*). This applies to **every** answer, including the ones that
-need no amend: a typed reply, a tap, "still going", a change of subject. The
-question has been answered and a button that stays up is still asking it.
-
-The `messageId` came back from your own send earlier in this conversation, and
-the sentence you need is the one you wrote in that send — both are above you in
-this turn's context. Same rule as everywhere: fire it, do not wait, do not
-mention it.
+it is answered*, which covers this whether or not you are still in this flow).
+It applies to **every** answer, including the ones that need no amend: a typed
+reply, a tap, "still going".
 
 **A second check-in for the same session strips the first.** When the wake's
 row shows `checkins_so_far` above zero, the earlier question is still on
