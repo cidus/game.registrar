@@ -17,6 +17,7 @@ import {
   MODE,
   OUTCOME,
   RATING_MAX,
+  CHECKIN_OUTCOME,
   RATING_MIN,
 } from '../../core/vocab.ts'
 import { GameregError } from '../../core/errors.ts'
@@ -24,15 +25,30 @@ import { translator } from '../../i18n/index.ts'
 import { auditArtifacts } from '../../targets/audit.ts'
 import { createContext } from '../context.ts'
 import { emit, emitFailure } from '../output.ts'
+import type { EventType } from '../../core/events.ts'
 import type { Registrar } from '../register.ts'
 
+/**
+ * Checked against the payload as written, for every event that carries the
+ * field. `only` narrows an entry to one event type, which `outcome` needs:
+ * `session.checkin` spends the same field name on a different closed list
+ * (`CHECKIN_OUTCOME`), so a flat table reports every check-in ever filed as
+ * invalid — eleven of them here before this was noticed, which is eleven
+ * false positives hiding whatever is real.
+ */
 const ENUM_FIELDS = [
-  { field: 'outcome', vocabulary: OUTCOME },
+  { field: 'outcome', vocabulary: CHECKIN_OUTCOME, only: 'session.checkin' },
+  { field: 'outcome', vocabulary: OUTCOME, except: 'session.checkin' },
   { field: 'completion_criteria', vocabulary: COMPLETION_CRITERIA },
   { field: 'difficulty', vocabulary: DIFFICULTY },
   { field: 'form', vocabulary: FORM },
   { field: 'mode', vocabulary: MODE },
-] as const
+] as const satisfies readonly {
+  field: string
+  vocabulary: readonly string[]
+  only?: EventType
+  except?: EventType
+}[]
 
 export function registerDoctor(registrar: Registrar): void {
   registrar.command('doctor', 'help.doctor').action(async (options: unknown, command: Command) => {
@@ -49,7 +65,12 @@ export function registerDoctor(registrar: Registrar): void {
 
     // Vocabulary and range checks, on the payloads as written.
     for (const event of events) {
-      for (const { field, vocabulary } of ENUM_FIELDS) {
+      for (const entry of ENUM_FIELDS) {
+        const { field, vocabulary } = entry
+        const only = 'only' in entry ? entry.only : undefined
+        const except = 'except' in entry ? entry.except : undefined
+        if (only !== undefined && event.type !== only) continue
+        if (except !== undefined && event.type === except) continue
         const value = event.data[field]
         if (typeof value !== 'string') continue
         try {

@@ -50,6 +50,14 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Fixed
 
+- `gamereg doctor` no longer reports every `session.checkin` as invalid. Its
+  enum table was keyed by field name alone, so `outcome` was checked against
+  the run's list (`finished|abandoned`) on check-ins too, which spend the same
+  field on `snoozed|break_started|session_closed|no_reply`. The live vault
+  carried eleven false positives — and they were hiding two real orphans.
+
+### Fixed
+
 - Check-in buttons are stripped once the question is answered. The rule lived
   in `AGENTS.md`'s *Buttons* section and the check-in flow never routed back to
   it, so a check-in answered in plain text kept its buttons live. A second

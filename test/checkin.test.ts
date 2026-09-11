@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -134,6 +134,56 @@ test('a check-in never mutates the session it asks about', () => {
   // One event, and it is the check-in. Nothing closed, nothing paused.
   const last = JSON.parse(logLines(root).at(-1) ?? '{}') as Record<string, unknown>
   assert.equal(last['type'], 'session.checkin')
+})
+
+/**
+ * `doctor` validates enum fields against the payload as written, from a flat
+ * table keyed only by field name. `outcome` appears on two unrelated event
+ * types with two closed lists — `run.close` takes `finished|abandoned`, and
+ * `session.checkin` takes `snoozed|break_started|session_closed|no_reply` —
+ * so the flat table reported every check-in ever filed as invalid.
+ *
+ * That is worse than noise. `reference/corrections.md` tells the agent to run
+ * `doctor` after an undo and treat clean as clean; a `doctor` that can never
+ * be clean is a safety check that has been switched off without anyone
+ * deciding to. On the live vault it was eleven false positives, and they were
+ * hiding two real orphans.
+ */
+test('doctor accepts a check-in outcome, which is not a run outcome', () => {
+  const root = vault()
+  const session = openSession(root)
+
+  const filed = gamereg(root, 'checkin', session, '--trigger', 'duration', '--at', '2026-05-04 00:31')
+  assert.equal(filed.status, 0)
+  assert.equal(result(filed)['outcome'], 'snoozed')
+
+  assert.equal(gamereg(root, 'doctor').status, 0, 'doctor rejected a well-formed check-in')
+
+  // Every outcome the expiry and the answers can write has to pass too.
+  for (const outcome of ['no_reply', 'break_started', 'session_closed']) {
+    const id = (filed.json['events'] as string[])[0]!
+    const amended = gamereg(root, 'amend', id, '--set', `outcome=${outcome}`, '--reason', 'test')
+    assert.equal(amended.status, 0)
+    assert.equal(gamereg(root, 'doctor').status, 0, `doctor rejected outcome=${outcome}`)
+  }
+
+  // And the branch validates rather than skips: a run's outcome word is not a
+  // check-in's, and appending one as written is still caught.
+  appendFileSync(
+    join(root, 'data', 'events.jsonl'),
+    JSON.stringify({
+      id: '01K5A00000000000000000BAD1',
+      ts: '2026-05-04T00:32:00-03:00',
+      type: 'session.checkin',
+      source: 'cron',
+      schema: 1,
+      data: { session_id: session, at: '2026-05-04T00:32:00-03:00', trigger: 'duration', outcome: 'finished' },
+    }) + '\n',
+  )
+  const bad = gamereg(root, 'doctor')
+  assert.equal(bad.status, 1, 'a run outcome on a check-in is still wrong')
+  const reported = (bad.json['problems'] as { value?: string }[]).map((p) => p.value)
+  assert.ok(reported.includes('finished'), `doctor did not name the bad value: ${JSON.stringify(reported)}`)
 })
 
 test('the outcome an answer produces is an amend over the same event', () => {
