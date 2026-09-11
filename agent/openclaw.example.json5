@@ -22,8 +22,8 @@
 //
 // `amend`/`revoke` are *not* excluded from approvals.example.json's
 // allowlist here, on purpose, after finding the platform approval UI
-// unreliable enough in practice (see README.md, "Why amend/revoke moved
-// off the platform gate") that SKILL.md's own conversational confirmation
+// unreliable enough in practice (see README.md, "Why amend/revoke are not
+// behind an approval gate") that SKILL.md's own conversational confirmation
 // became the safer bet. Read that section before assuming this file is the
 // stricter option.
 //
@@ -288,8 +288,8 @@
         // occasionally mis-detecting) on every note. Verified end-to-end on
         // a real install (whisper.cpp built from source,
         // ggml-large-v3-turbo-q5_0.bin, `-t 12`) against a short voice note
-        // transcribed correctly in pt-BR — the longer session-closing smoke
-        // test in README.md's "Voice" section is still open. `ffmpeg` must
+        // transcribed correctly in pt-BR, and the longer session-closing
+        // smoke test since confirmed (README.md, step 7). `ffmpeg` must
         // also be on PATH; OpenClaw uses it to decode the incoming audio
         // before handing it to whisper-cli, and fails with a clear "ffmpeg
         // not found" reason if it's missing.

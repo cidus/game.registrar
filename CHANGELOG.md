@@ -12,6 +12,16 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Changed
+
+- `agent/README.md` restructured: 1290 lines to 650. Architecture and the
+  prompt layout first, an objective step-by-step setup that points at
+  `docs/deploy-container.md` for the deployment actually in use, then decisions
+  and traps as their own sections instead of essays interleaved between the
+  setup steps. The chronology went; the reasons stayed. One contradiction was
+  resolved on the way — the approvals section asserted both that an explicit
+  `approvers` list was required and that `enabled: true` alone sufficed.
+
 ### Fixed
 
 - Check-in buttons are stripped once the question is answered. The rule lived
