@@ -411,7 +411,6 @@ repair_config_if_stale() {
 
 configure_gateway() {
   run mkdir -p "$STATE_DIR"
-  repair_config_if_stale
 
   if [ ! -f "$STATE_DIR/.gamereg-config-seeded" ]; then
     log "seeding gateway configuration"
@@ -449,7 +448,14 @@ configure_gateway() {
   // as suspicious or clobbered config." The shipped example never carried it
   // because it was written to be patched onto a host that had already been
   // through `openclaw onboard`; in a container there is no already.
-  gateway: { mode: "local" },
+  // `.gateway-token` is the authority, restated here on every boot. The
+  // gateway reads its token from the config while every CLI client -- the
+  // provision service, `cron add`, a `docker compose exec` -- reads the file,
+  // so the two silently diverging locks the clients out with
+  // `token_mismatch`. Seen on the 2026.9.4 upgrade: `doctor --fix` invented a
+  // token of its own for a config that had none, and provision could not
+  // connect to the gateway it was meant to configure.
+  gateway: { mode: "local", auth: { mode: "token", token: "%s" } },
   agents: { defaults: { workspace: "%s/workspace" } },
   channels: {
     telegram: {
@@ -459,7 +465,7 @@ configure_gateway() {
       allowFrom: [%s],%s
     },
   },
-}\n' "$(json_escape "$STATE_DIR")" "$(json_escape "$TELEGRAM_BOT_TOKEN")" "$DM_POLICY" "$senders" "$approvals" \
+}\n' "$(json_escape "${OPENCLAW_GATEWAY_TOKEN:-}")" "$(json_escape "$STATE_DIR")" "$(json_escape "$TELEGRAM_BOT_TOKEN")" "$DM_POLICY" "$senders" "$approvals" \
       | "$OPENCLAW" config patch --stdin || die "openclaw config patch --stdin failed"
   fi
 
@@ -558,6 +564,7 @@ done
 case "$MODE" in
   gateway)
     preflight
+    repair_config_if_stale
     configure_git
     seed_vault
     resolve_gateway_token
@@ -570,6 +577,7 @@ case "$MODE" in
     exec "$OPENCLAW" gateway run
     ;;
   provision)
+    repair_config_if_stale
     resolve_gateway_token
     register_cron
     ;;

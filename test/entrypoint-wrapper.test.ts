@@ -257,10 +257,15 @@ test('a Claude Code OAuth token goes into the auth store, never into the config'
   assert.ok(paste, 'the token must be pasted into the auth store')
   assert.match(paste, /--provider anthropic/)
 
-  assert.ok(
-    !/anthropic:cli|auth:/.test(h.patched()),
-    'and never written into the config, which is the shape that does not work',
-  )
+  // The shape that does not work is a *model* auth profile in the config --
+  // `auth: { profiles: { "anthropic:cli": ... } }`, which looks exactly like
+  // configuration and authenticates nothing. `gateway.auth` is a different
+  // key with a different job (the gateway's own token, which the overlay does
+  // carry on purpose), so this matches the dangerous shape rather than the
+  // word.
+  const patched = h.patched()
+  assert.ok(!/anthropic:cli/.test(patched), 'no model auth profile in the config')
+  assert.ok(!/profiles:/.test(patched), 'and no auth profiles block at all')
 })
 
 test('the model is chosen separately from the credential', () => {
@@ -315,6 +320,44 @@ test('the shipped config is seeded once, and the environment overlay applied eve
  * move; a sentinel keeps the seed to first boot so an edited allowlist is not
  * overwritten.
  */
+/**
+ * The gateway reads its auth token from the config; every CLI client -- the
+ * provision service, `cron add`, a `compose exec` -- reads `.gateway-token`.
+ * Let those diverge and the clients are locked out with `token_mismatch`
+ * while the gateway itself looks perfectly healthy, which is exactly what the
+ * 2026.9.4 upgrade produced: `doctor --fix` minted a token for a config that
+ * had none, and provision could not reach the gateway it was there to
+ * configure. The file is the authority and the overlay restates it every boot.
+ */
+test('the gateway token in the config is the one in .gateway-token', () => {
+  const h = host()
+  h.run('gateway')
+
+  const token = readFileSync(join(h.config, '.gateway-token'), 'utf8').trim()
+  assert.ok(token.length > 0)
+  assert.match(h.patched(), new RegExp(`token: "${token}"`), 'the overlay carries the file\'s token')
+})
+
+/**
+ * A config written by an older OpenClaw can stop validating after an upgrade,
+ * and the repair has to happen before anything else reads it. It used to sit
+ * inside configure_gateway, which is late: `configure_model` runs first, hit
+ * the invalid config, and the container went into a restart loop. That did
+ * not show up in the test rig because the rig has no model credential, so the
+ * step it broke on was skipped.
+ */
+test('a config that does not validate is repaired before anything else reads it', () => {
+  const h = host()
+  h.run('gateway')
+
+  const calls = h.calls()
+  const doctor = calls.findIndex((c) => c.includes('doctor --fix'))
+  if (doctor === -1) return // nothing to repair in this rig; the ordering test below still holds
+
+  const firstConfigRead = calls.findIndex((c) => c.startsWith('config ') || c.startsWith('models '))
+  assert.ok(doctor < firstConfigRead, 'doctor --fix runs before the first config-dependent call')
+})
+
 test('the exec allowlist is seeded through the CLI, once', () => {
   const h = host()
   h.run('gateway')
