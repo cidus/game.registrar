@@ -1112,6 +1112,16 @@ Each of these cost real time to find. The reasoning, not just the rule:
   version deliberately, knowing what it is accepting, rather than drift into
   it.
 
+- **A cleanup rule belongs with the turn that ends a question, not the flow
+  that asks it.** "Strip the button once answered" was written into
+  `reference/checkins.md`, which is correct and useless: the user answered a
+  live check-in by asking for the session to be revoked, the router sent the
+  agent to `reference/corrections.md`, and it never opened the check-in file.
+  It stripped its own confirmation button perfectly and left the check-in's
+  buttons up. Anything that has to happen *whatever flow you are in* goes in
+  `workspace/AGENTS.md`, which is in context regardless of routing — the
+  branch files can only carry what is true inside their own flow.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
