@@ -86,6 +86,14 @@ Doing both at once is what makes a check-in turn up twice.
 | stopping now, with impressions | `gamereg end --id game:<game_id> --note "<their words>"` |
 | still going, or nothing at all | nothing |
 
+**A tap that arrives late may name a session that is no longer open.** The
+buttons on an unanswered check-in stay live, and the session may have been
+closed since by other means. Read the row from `gamereg open` before acting on
+a tap that is not from this turn: if that session is not listed, say so in one
+line and run nothing. `close-session:` against a closed session exits 5, and a
+non-zero exit is a failure warning on the user's screen for something that was
+not a failure.
+
 **Both take the target from the row, and passing it is not optional.** The
 `game_id` is in the array the wake handed you. Neither command takes a session
 id — a game has at most one open session, so naming the game names the session —
@@ -126,3 +134,20 @@ they just gave to a question you just asked. Ask for nothing, say nothing about
 it, and never mention the id.
 
 "Still going" is already `snoozed` and needs no amend. Neither does silence.
+
+**Then strip the check-in's buttons** (`AGENTS.md`, *Stripping the button once
+it is answered*). This applies to **every** answer, including the ones that
+need no amend: a typed reply, a tap, "still going", a change of subject. The
+question has been answered and a button that stays up is still asking it.
+
+The `messageId` came back from your own send earlier in this conversation, and
+the sentence you need is the one you wrote in that send — both are above you in
+this turn's context. Same rule as everywhere: fire it, do not wait, do not
+mention it.
+
+**A second check-in for the same session strips the first.** When the wake's
+row shows `checkins_so_far` above zero, the earlier question is still on
+screen with live buttons. Strip it before sending the new one if its
+`messageId` is still in this conversation; if the conversation has moved on far
+enough that it is not, let it go — an unstrippable button is not worth a
+search.

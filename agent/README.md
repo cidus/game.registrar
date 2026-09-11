@@ -511,6 +511,29 @@ showing the right shape. When it is off,
 the gateway injects the opposite, naming the setting to turn on — which is why
 an agent that cannot show buttons has no excuse for pretending it can.
 
+**Splitting the prompt into a card plus branch files can drop a step from a
+flow, and the flow is where it will be missed.** `AGENTS.md` carries "strip the
+button once the question is answered" under *Buttons*; `reference/checkins.md`
+carried the check-in procedure and ended at the `amend` that settles the
+record. Nothing routed from one to the other, so a check-in answered in plain
+text kept its buttons — seen live on message 850, where the agent had the
+`messageId` from its own send, the sentence it had written, and the target, and
+simply was not told to use them.
+
+Worth separating from that, because it is not fixable the same way: **the agent
+does not file `no_reply`.** A sweep does — `gamereg checkin --expire` from
+`checkin.sh`, forty-five minutes later, a cron'd CLI process with no model, no
+conversation and no `messageId` anywhere in it. For it to strip a button, the
+message id *and the original text* would have to be persisted between the
+agent's send and the sweep, and the only durable store the agent can write is
+the event log. `session.checkin`'s payload is closed in `01-model.md`
+(`session_id`, `at`, `trigger`, `outcome`); widening it would put a Telegram
+message id — meaningless outside one bot and one chat — in an append-only log,
+forever, for a cosmetic cleanup. Declined. What covers the practical case
+instead: a repeat check-in strips its predecessor, which is free because the
+model is already awake for the new one, and a late tap on a session that is no
+longer open is answered in words rather than with a command that exits 5.
+
 **The presentation is a fragment, and the model will invent a wrapper for
 it.** Seen live, after the prompt was split into a hot card plus branch files:
 `AGENTS.md` showed the `{"blocks":[...]}` object on its own, correctly, and the

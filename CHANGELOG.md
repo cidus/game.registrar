@@ -12,6 +12,15 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Fixed
+
+- Check-in buttons are stripped once the question is answered. The rule lived
+  in `AGENTS.md`'s *Buttons* section and the check-in flow never routed back to
+  it, so a check-in answered in plain text kept its buttons live. A second
+  check-in for the same session now also strips the first, and a tap naming a
+  session that `gamereg open` no longer lists is answered in words rather than
+  with a command that exits 5.
+
 ### Added
 
 - `Dockerfile` and `compose.yml`: the CLI and the OpenClaw gateway in one image,
