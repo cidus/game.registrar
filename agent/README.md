@@ -388,23 +388,38 @@ openclaw message send --channel telegram --target "telegram:<id>" \
 grep -l "callback_data: probe-a" ~/.openclaw/agents/*/sessions/*.jsonl
 ```
 
-### One delivery path per wake, never two
+### A check-in has no buttons, and therefore one sender
 
-`--deliver` on `openclaw agent` and the agent's own `message` tool are both
-senders. With both live every check-in arrived **twice** — identical text, same
-minute, one copy with buttons and one without. Nothing generated it twice: the
-model narrated alongside its tool call, as models do, and `--deliver` delivered
-the narration.
+The exits are typed: "pausa", "encerrei às 22h", or nothing at all. That is a
+usability call before it is an implementation one — an unanswered check-in
+stays on screen, and an hour later its buttons still look tappable while the
+session they name may be long closed. A tap that cannot work is worse than no
+tap.
 
-`NO_REPLY` does not save you. It is a real sentinel, but it is matched per
-payload against `^NO_REPLY$`, and the turn produced two.
+It also settles the delivery question by removing it. Buttons were the only
+reason the agent used the `message` tool on a check-in, and with two senders
+in play — `--deliver` *and* the tool — every check-in arrived **twice**:
+identical text, same minute, one copy with buttons and one without. Nothing
+generated it twice; the model narrated alongside its tool call, as models do,
+and `--deliver` delivered the narration. (`NO_REPLY` does not save you: it is
+matched per payload against `^NO_REPLY$`, and the turn produced two.)
 
-So `checkin.sh` picks by mode: routing configured means the `message` tool
-sends and `--deliver` is off; no routing means `--deliver` carries the reply
-and the message tool is forbidden. `test/checkin-wrapper.test.ts` asserts both
-directions, because the failure is invisible in the run history and in the
-transcript alike — one send, one `messageId`, exactly what a correct run looks
-like. It is only visible on the phone.
+Now the wake never asks for the message tool, so `--deliver` is the only path
+a check-in has. `GAMEREG_CHECKIN_CHANNEL`/`_TO` still become
+`--reply-channel`/`--reply-to` when set: they no longer pick a mode, they make
+the routing explicit rather than inferred.
+
+**What was tried first, so it is not rebuilt:** keeping the buttons and
+teaching the agent to strip them once the question went stale. Three versions
+— in the check-in reference, then in the always-loaded card, then generalised
+to any flow — and all three failed the same way. Measured rather than
+assumed: adding 1000 characters to the deployed `AGENTS.md` grew the system
+prompt by 991, so the rule was reaching the model and the model was not
+applying it. It reliably strips a button it created in the same turn; it does
+not do bookkeeping on a message from an earlier one while working on something
+else. Moving the send into `checkin.sh` would have worked, at the cost of
+giving a stateless wrapper state and depending on channel-specific edit
+semantics. Dropping the buttons costs nothing and removes the class.
 
 ### Maintenance moved off the agent, onto `scripts/autobuild.sh`
 

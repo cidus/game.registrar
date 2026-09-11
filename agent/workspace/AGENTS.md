@@ -220,14 +220,6 @@ required:
 Fire it and move on: do not wait on it, do not mention it, and do not retry a
 failure. A message already gone or too old costs nothing.
 
-**This is not limited to the question you just asked.** Any button you put up
-that is now moot gets stripped, whatever flow you are in when it becomes moot
-— a check-in overtaken by the user closing the session some other way, a
-candidate menu abandoned when they retyped the title, a confirmation answered
-sideways. The `messageId` and the sentence are in this conversation's history;
-if they are not, let it go rather than searching. Strip the stale one before
-you reply, then reply.
-
 ## Where the rest lives
 
 | The turn is about | Read |

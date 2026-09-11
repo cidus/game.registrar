@@ -236,24 +236,22 @@ test('a vault it was never told about is a misconfiguration, not a guess', () =>
 
 test('a delivery target reaches the wake as routing, never as a chat id in the prose', () => {
   // A turn started by a poll carries no inbound message, so nothing tells the
-  // agent which conversation it is in. Without a target the question still
-  // arrives — it is the agent's own reply, and the runner routes that — but the
-  // message tool cannot be used, which is where buttons live.
+  // agent which conversation it is in — and a guess there does not fail
+  // closed: a bare `telegram` resolves to the public `@telegram` channel. The
+  // target goes on the command line, where the runner uses it and the model
+  // never reads it.
   const routed = host({ to: '8119169239' })
   routed.run()
   assert.match(
     routed.calls()[0] ?? '',
-    /^agent --agent main --message-file \S+ --json --reply-channel telegram --reply-to 8119169239$/,
+    /^agent --agent main --message-file \S+ --json --deliver --reply-channel telegram --reply-to 8119169239$/,
   )
+  assert.doesNotMatch(routed.wake() ?? '', /8119169239/, 'routing, not prose')
 
-  // The id is routing, not something the model should ever read and repeat.
-  const wake = routed.wake() ?? ''
-  assert.doesNotMatch(wake, /8119169239/)
-  assert.match(wake, /do not set\n`target`/)
-
+  // Unset is a supported deployment: `--deliver` routes the reply on its own.
   const plain = host()
   plain.run()
-  assert.match(plain.wake() ?? '', /Ask in plain text, with no buttons/)
+  assert.match(plain.calls()[0] ?? '', /^agent --agent main --message-file \S+ --json --deliver$/)
 })
 
 test('the wake names the language to ask in, since a poll gives nothing to infer it from', () => {
@@ -272,25 +270,33 @@ test('the wake names the language to ask in, since a poll gives nothing to infer
   assert.match(other.wake() ?? '', /configured for en/)
 })
 
-test('exactly one delivery path, because two of them is how a check-in arrives twice', () => {
-  // A model narrating alongside a tool call is ordinary behaviour, and the
-  // narration is usually the sentence it just sent. With `--deliver` on *and*
-  // the message tool routed, both go out: the same check-in arrives twice, once
-  // with buttons and once without. Both of the first two real ones did.
-  //
-  // So the two modes are exclusive, and this is the assertion that keeps them
-  // that way — the bug is invisible from inside a single run.
-  const routed = host({ to: '8119169239' })
-  routed.run()
-  assert.doesNotMatch(routed.calls()[0] ?? '', /--deliver/)
-  assert.match(routed.wake() ?? '', /your own reply text is not\ndelivered/)
+/**
+ * A check-in carries no buttons, and that is the whole of the delivery story.
+ *
+ * It used to have two senders — `--deliver` and the agent's `message` tool —
+ * and every check-in arrived twice, because a model narrating alongside its
+ * tool call is ordinary behaviour and the narration is usually the sentence it
+ * just sent. The wake carried a block of instructions whose only job was to
+ * keep exactly one of them active.
+ *
+ * Buttons were what the message tool was there for, and they were dropped for
+ * a reason that has nothing to do with this: an unanswered check-in keeps its
+ * buttons on screen, and an hour later they still look tappable while the
+ * session they name may be closed. With them gone the second sender has no
+ * purpose, so "exactly one path" stopped being a rule to hold and became a
+ * property — which is what this asserts.
+ */
+test('a check-in has one sender and no buttons, by construction', () => {
+  for (const gateway of [host(), host({ to: '8119169239' })]) {
+    gateway.run()
+    const wake = gateway.wake() ?? ''
 
-  // With no target the message tool cannot reach the conversation, so the
-  // agent's reply is the only thing that can carry the question.
-  const plain = host()
-  plain.run()
-  assert.match(plain.calls()[0] ?? '', /--deliver/)
-  assert.doesNotMatch(plain.wake() ?? '', /message tool and \*\*do not set/)
+    assert.match(gateway.calls()[0] ?? '', /--deliver/, 'the agent reply is the delivery')
+    assert.match(wake, /send nothing with the message tool/)
+    assert.doesNotMatch(wake, /button/i, 'the wake must not ask for buttons')
+    assert.doesNotMatch(wake, /NO_REPLY/, 'nothing to suppress when there is one sender')
+    assert.doesNotMatch(wake, /`target`/, 'no target to set when the message tool is unused')
+  }
 })
 
 test('--at is forwarded to every gamereg call, which is what makes this file honest', () => {

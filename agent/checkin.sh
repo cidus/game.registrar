@@ -65,15 +65,15 @@ OPENCLAW=${OPENCLAW_BIN:-openclaw}
 # its own help is about the delivery channel, not about the session.
 OPENCLAW_AGENT=${OPENCLAW_AGENT:-main}
 
-# Where the question is delivered, and the only reason this script knows a chat
-# id at all. A turn started by a poll carries no inbound message, so the gateway
-# injects no routing into the model's context and the `message` tool has nothing
-# to default to -- which is what buttons are sent through. Passing the target on
-# the command line puts it back, and the agent then names no target itself.
+# Where the question is delivered. A turn started by a poll carries no inbound
+# message, so the gateway injects no routing into the model's context -- and a
+# wrong guess there does not fail closed: a bare `telegram` resolved to
+# `@telegram`, the public channel, and the send was stopped only by the bot not
+# being a member of it. Passing the target on the command line makes the
+# routing explicit instead of inferred.
 #
-# Both unset is a supported deployment: the question still arrives, as the
-# agent's own reply text carried by `--deliver`. What is lost is the buttons, so
-# the exits have to be typed.
+# Both unset is a supported deployment: `--deliver` routes the reply on its own.
+# These only make it deterministic.
 GAMEREG_CHECKIN_CHANNEL=${GAMEREG_CHECKIN_CHANNEL:-}
 GAMEREG_CHECKIN_TO=${GAMEREG_CHECKIN_TO:-}
 
@@ -157,25 +157,11 @@ or memory to work it out.
 BODY
 fi
 
-if [ -n "$GAMEREG_CHECKIN_TO" ]; then
-  cat >> "$wake" <<'BODY'
-Offer the exits as buttons. Send them with the message tool and **do not set
-`target`** -- this turn carries its own delivery routing, and a bare channel
-name does not resolve to this conversation.
-
-That send is the only thing that reaches anyone: your own reply text is not
-delivered on this turn. So the question has to go through the message tool, and
-whatever you write around it is seen by nobody. Reply `NO_REPLY`.
+cat >> "$wake" <<'BODY'
+Ask in plain text and send nothing with the message tool. Your own reply is
+what is delivered, and it is the only thing that reaches anyone.
 
 BODY
-else
-  cat >> "$wake" <<'BODY'
-Ask in plain text, with no buttons, and send nothing with the message tool: this
-poll was given no delivery target, so the message tool cannot reach this
-conversation. Your own reply is delivered on its own.
-
-BODY
-fi
 
 # One node call: appends the rows to the wake body and prints `<session> <trigger>`
 # per row for the loop at the end. Node rather than jq because the host already
@@ -219,24 +205,20 @@ fi
 #    an agent turn, and a one-shot `--message` job refuses to deliver without an
 #    explicit channel and target of its own.
 #
-#    Exactly one delivery path, and which one depends on the routing.
+#    Exactly one sender, and not by instruction: the wake never asks for the
+#    message tool, so `--deliver` carrying the agent's own reply is the only
+#    path a check-in has. That used to be a rule to keep -- with `--deliver`
+#    on *and* the message tool in play, every check-in arrived twice, because
+#    a model narrating alongside its tool call is ordinary behaviour and the
+#    narration is usually the sentence it just sent. Now it is a property.
 #
-# With a target, the agent sends the question itself through the message tool,
-# which is where buttons live -- and `--deliver` must be *off*, because it
-# delivers the model's own reply text as well. A model narrating alongside a
-# tool call is normal behaviour, and that narration is usually the same sentence
-# it just sent: the result is every check-in arriving twice, once with buttons
-# and once without. Observed on the first two real ones.
-#
-# Without a target the message tool cannot reach the conversation, so the
-# agent's reply *is* the delivery and `--deliver` is what carries it.
-set -- --agent "$OPENCLAW_AGENT" --message-file "$wake" --json
-if [ -n "$GAMEREG_CHECKIN_TO" ]; then
-  [ -n "$GAMEREG_CHECKIN_CHANNEL" ] && set -- "$@" --reply-channel "$GAMEREG_CHECKIN_CHANNEL"
-  set -- "$@" --reply-to "$GAMEREG_CHECKIN_TO"
-else
-  set -- "$@" --deliver
-fi
+#    A check-in carries no buttons. Not a limitation: an unanswered question
+#    stays on screen, and an hour later its buttons still look tappable while
+#    the session they name may be long closed. A tap that cannot work is worse
+#    than no tap, and the three exits are short to type.
+set -- --agent "$OPENCLAW_AGENT" --message-file "$wake" --json --deliver
+[ -n "$GAMEREG_CHECKIN_CHANNEL" ] && set -- "$@" --reply-channel "$GAMEREG_CHECKIN_CHANNEL"
+[ -n "$GAMEREG_CHECKIN_TO" ] && set -- "$@" --reply-to "$GAMEREG_CHECKIN_TO"
 
 if ! woken=$("$OPENCLAW" agent "$@" 2>&1); then
   echo "checkin.sh: the wake failed, so nothing was filed: $woken" >&2

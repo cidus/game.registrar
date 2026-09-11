@@ -48,6 +48,13 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   resolved on the way — the approvals section asserted both that an explicit
   `approvers` list was required and that `enabled: true` alone sufficed.
 
+### Changed
+
+- Check-ins carry no buttons. The three exits are typed, which makes the
+  agent's `message` tool unnecessary on that turn and leaves `--deliver` as
+  the only sender — so "exactly one delivery path" stopped being a rule the
+  wake had to enforce and became a property of the design.
+
 ### Fixed
 
 - `gamereg doctor` no longer reports every `session.checkin` as invalid. Its

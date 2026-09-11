@@ -62,37 +62,15 @@ not a problem.
 
 ## The three exits
 
-Give the first two as buttons, in the shape `AGENTS.md` gives, and leave the
-message answerable in plain text as always. `value` names the session:
-`break-start:<session_id>` and `close-session:<session_id>` both fit under 64
-bytes. "Still going" needs no button — saying nothing is already that answer.
-
-**Never set `target` on the message tool here, and do not guess one.** This turn
-was started by a poll rather than by something someone sent, so nothing in your
-context names this conversation — and a bare channel name is not a fallback, it
-is a different chat that will accept the message and show it to strangers. The
-routing came in with the wake; leaving `target` off is what uses it.
-
-**One of the two carries the message, and the wake says which.** When it gives
-you buttons to send, that send is the whole message and your own reply text goes
-nowhere — write `NO_REPLY` and nothing else, because anything else is written to
-no one. When it tells you it has no delivery target, the opposite holds: ask in
-plain text, send nothing with the message tool, and your reply is what arrives.
-Doing both at once is what makes a check-in turn up twice.
+Ask in plain text. **A check-in carries no buttons**, and your own reply is
+what is delivered — send nothing with the message tool on this turn. All three
+exits are typed, and "still going" is still the silence.
 
 | What they answer | What you run |
 |---|---|
 | taking a break | `gamereg break start --id game:<game_id>` |
 | stopping now, with impressions | `gamereg end --id game:<game_id> --note "<their words>"` |
 | still going, or nothing at all | nothing |
-
-**A tap that arrives late may name a session that is no longer open.** The
-buttons on an unanswered check-in stay live, and the session may have been
-closed since by other means. Read the row from `gamereg open` before acting on
-a tap that is not from this turn: if that session is not listed, say so in one
-line and run nothing. `close-session:` against a closed session exits 5, and a
-non-zero exit is a failure warning on the user's screen for something that was
-not a failure.
 
 **Both take the target from the row, and passing it is not optional.** The
 `game_id` is in the array the wake handed you. Neither command takes a session
@@ -134,15 +112,3 @@ they just gave to a question you just asked. Ask for nothing, say nothing about
 it, and never mention the id.
 
 "Still going" is already `snoozed` and needs no amend. Neither does silence.
-
-**Then strip the check-in's buttons** (`AGENTS.md`, *Stripping the button once
-it is answered*, which covers this whether or not you are still in this flow).
-It applies to **every** answer, including the ones that need no amend: a typed
-reply, a tap, "still going".
-
-**A second check-in for the same session strips the first.** When the wake's
-row shows `checkins_so_far` above zero, the earlier question is still on
-screen with live buttons. Strip it before sending the new one if its
-`messageId` is still in this conversation; if the conversation has moved on far
-enough that it is not, let it go — an unstrippable button is not worth a
-search.

@@ -1122,6 +1122,26 @@ Each of these cost real time to find. The reasoning, not just the rule:
   `workspace/AGENTS.md`, which is in context regardless of routing — the
   branch files can only carry what is true inside their own flow.
 
+- **A check-in has no buttons, and the reason is the button's lifetime, not
+  the model's competence.** An unanswered check-in stays on screen; an hour
+  later its buttons still look tappable while the session they name may be
+  closed, and a tap that cannot work is worse than no tap. Three attempts were
+  made first at keeping them and teaching the agent to strip a stale one — in
+  `reference/checkins.md`, then in the always-loaded card, then generalised to
+  any flow — and all three failed identically. The third ruled out the obvious
+  explanation by measurement: adding 1000 characters to the deployed
+  `AGENTS.md` grew the system prompt by 991, so workspace files *are* re-read
+  every turn and the rule was reaching the model. It strips a button it
+  created in the same turn, reliably; it does not do bookkeeping on a message
+  from an earlier turn while working on something else. **A "remember to do X
+  later" rule is the weakest kind of prompt instruction — prefer removing the
+  X.** Moving the send into `checkin.sh` would also have worked, at the cost
+  of giving a stateless wrapper state and depending on per-channel edit
+  semantics (Telegram drops an inline keyboard on a markup-less
+  `editMessageText`; Discord needs an explicit empty `components`). Removing
+  the buttons cost one usability affordance and deleted the whole class:
+  nothing to strip, no state, no channel coupling, and one fewer sender.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
