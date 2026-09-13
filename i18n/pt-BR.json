@@ -222,6 +222,7 @@
     "expire_takes_no_session": "--expirar pergunta ao registro quais conferências venceram. Não aceita sessão, gatilho nem resultado.",
     "amend_needs_set": "Nada a corrigir. Informe ao menos um --definir chave=valor.",
     "cannot_amend_correction": "Correções não podem ser corrigidas. Revogue-a.",
+    "amend_unknown_field": "Um evento {type} não tem {field}. Corrigi-lo não registraria nada. Seus campos são: {fields}.",
     "text_required": "Forneça o parecer com -m, com --text <arquivo>, ou pela entrada padrão.",
     "unexpected": "Falha inesperada: {message}",
     "marker_unpaired": "{file}: o bloco \"{block}\" abre e não fecha.",

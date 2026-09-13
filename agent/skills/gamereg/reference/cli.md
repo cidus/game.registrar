@@ -186,10 +186,19 @@ art back).
 gamereg status <query> --id
 ```
 
-The vault summary, or one game's state. `<query>` is optional. Each run carries
-`run_open_event_id` — the event an `amend` on that run's platform or stated
-hours takes. This is the route for a run with no open session, which `open`
-does not list.
+The vault summary, or one game's state. `<query>` is optional. This is the
+route for a run with no open session, which `open` does not list.
+
+Each run carries **two** event ids, and which one an `amend` takes depends on
+the field. `run_open_event_id` holds what the run was opened with — `platform`,
+`started_on`, the stated `hours`. `run_close_event_id` holds what it was closed
+with — `rating`, `difficulty`, `note`, `outcome`, `completion_criteria`,
+`ended_on` — and is `null` while the run is still open. A run filed by `past`
+or `import` carries its closing fields on the same event, so the two ids are
+equal there.
+
+Patching a field onto the event that does not carry it is refused at exit 2,
+and the message lists that event type's fields.
 
 ### `gamereg open`
 
@@ -207,9 +216,11 @@ Every open session. Each row carries `session_id`, `run_id`, `game`, `game_id`,
 session is open.
 
 **`run_open_event_id` and `session_open_event_id` are the ids `amend` and
-`revoke` take.** Read them from here; never go looking for an event id with
-SQL. The ids beside them — `run_id`, `session_id` — are entity ids and are not
-accepted by either command.
+`revoke` take here.** Read them from here; never go looking for an event id
+with SQL. The ids beside them — `run_id`, `session_id` — are entity ids and are
+not accepted by either command. Every run in this list is open, so a run's
+closing fields have no event yet; `run_close_event_id` appears on `status` once
+the run is closed.
 
 ### `gamereg search`
 

@@ -25,12 +25,19 @@ append-only log gets corrected; they are not how you clean up after yourself.
 
 **The ids they take are event ids, and they are on the row.**
 `run_open_event_id` and `session_open_event_id` from `gamereg open`;
-`run_open_event_id` from `gamereg status <game>`, which is the only route for a
-run with no open session; `last_checkin_id` for a check-in. Entity ids are not
-interchangeable with them and are cruelly easy to confuse: for one real session
-the `session_id` was `01M0JAMZTJQ4W489FNDCREMYB7` and the `session.open` event
-was `01M0JAMZTJQ4W489FNDCREMYB8` — same prefix, different last character.
-Passing the entity id exits 4, which is how this was found.
+`run_open_event_id` and `run_close_event_id` from `gamereg status <game>`,
+which is the only route for a run with no open session; `last_checkin_id` for a
+check-in. Entity ids are not interchangeable with them and are cruelly easy to
+confuse: for one real session the `session_id` was `01M0JAMZTJQ4W489FNDCREMYB7`
+and the `session.open` event was `01M0JAMZTJQ4W489FNDCREMYB8` — same prefix,
+different last character. Passing the entity id exits 4, which is how this was
+found.
+
+**A run has two of these, and the field decides which one.** `platform`,
+`started_on` and the stated `hours` are on the opening event;
+`rating`, `difficulty`, `note`, `outcome` and `completion_criteria` are on the
+closing one. Getting it wrong exits 2 with that event type's field list, so the
+recovery is to read the other id off the same row and repeat the call.
 
 ## A session opened by mistake
 
@@ -142,6 +149,27 @@ January by starting to play today.
 The confirmation applies in full, and here the rule that a value names the
 action is not a nicety: `amend-platform:<id of the event being amended>`, so a
 tap arriving late cannot be read as consent to whatever is pending now.
+
+## A rating or a difficulty arriving after the run closed
+
+> "put it at 7, easy" -> *(said minutes after `finish` already ran)*
+
+`finish` takes `--rating` and `--difficulty`, but it has already run and there
+is no second one. The tool is `amend`, on the run's **`run_close_event_id`** —
+these are closing fields, and the event that carries them is the one that
+closed the run:
+
+```
+gamereg status "Double Dragon" --json
+gamereg amend "<run_close_event_id>" --set rating=7 --set difficulty=easy --reason "stated by the user after the run closed" --json
+```
+
+**Not `run_open_event_id`.** A `run.open` event has no `rating` and no
+`difficulty`; the run reads both from its `run.close`. This is refused at exit
+2 now, but it was accepted for a while and recorded nothing while reporting
+success, so a run silently kept the rating the user thought they had given it.
+If a value you filed earlier is not showing in `status`, this is why, and the
+fix is the same call against the other id.
 
 ## Adding a stated baseline to a run already in progress
 

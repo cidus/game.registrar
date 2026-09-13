@@ -12,6 +12,22 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Fixed
+
+- `gamereg amend` refuses a `--set` key the target event's type does not carry,
+  at exit 2, naming the fields it does carry. Such a key was merged into the
+  payload, read by nobody and reported as a success: `rating` and `difficulty`
+  patched onto a `run.open` (which reads neither) and `minutes` onto a
+  `run.close` (derived state) both reached a live log, one of them after the
+  agent told the user a rating had been recorded.
+
+### Added
+
+- `run_close_event_id` on each run in `gamereg status`, beside
+  `run_open_event_id` — the event an `amend` on a closing field takes. `null`
+  while the run is open; equal to the opening id for a run filed by `past` or
+  `import`, which carries both halves on one event.
+
 ### Changed
 
 - `GATEWAY_MEM_LIMIT` defaults to `1g`, from `480m`. The pinned OpenClaw idles

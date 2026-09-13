@@ -1142,6 +1142,46 @@ Each of these cost real time to find. The reasoning, not just the rule:
   the buttons cost one usability affordance and deleted the whole class:
   nothing to strip, no state, no channel coupling, and one fewer sender.
 
+- **Handing a caller one id where the domain has two is worse than handing it
+  none.** `run_open_event_id` was added so the agent would stop hunting event
+  ids with SQL, and `reference/cli.md` said flatly that it and
+  `session_open_event_id` "are the ids `amend` and `revoke` take". A run has
+  two: `platform`, `started_on` and `hours` are on the opening event, while
+  `rating`, `difficulty`, `note`, `outcome` and `completion_criteria` are on
+  the closing one. So the agent patched `rating` onto a `run.open`, which reads
+  neither field, and told the user it was recorded. The log shows the
+  regression cleanly — the same correction, with the same `reason` text, went
+  to `run.close` correctly in August and to `run.open` twice in September,
+  either side of the commit that added the field. The SQL hunt was expensive
+  and ugly and it searched for *the event that carries the field*, so it found
+  the right one; the convenience replaced a search with a lookup and dropped
+  the predicate. Same shape as `FROM v_sessions`, one level up: withholding the
+  right name guarantees a guessed one, and here the guess exited 0.
+- **`amend` refuses a patch key the target's type does not carry.** This is the
+  half that would have made the above self-correcting, and it was the real
+  defect: the patch is a shallow merge and the fold takes each field from the
+  event that owns it, so a foreign key writes nothing and still reports
+  success, with the patch echoed back in `result` where it reads as
+  confirmation. Two of them are in the live log and a third class was possible
+  — `--set minutes=1985`, derived state the fold computes and never reads back
+  (invariant 7). Refusing costs a second field list (`EVENT_FIELDS` in
+  `core/events.ts`) that can drift from `01-model.md`, which is the trade
+  `doctor`'s `ENUM_FIELDS` already makes; `test/amend.test.ts` parses the
+  spec's payload tables in one direction and `example-vault`'s log in the
+  other, so drift fails in CI. Worth stating plainly because the instinct is
+  the opposite: `amend` is the one escape hatch of an append-only log, so
+  strictness there feels like closing the exit. It is the reverse — a log with
+  no delete is exactly where a write that silently does nothing cannot be
+  taken back, and **the command whose whole job is fixing a mistake is the last
+  one that should accept one quietly**.
+- **`doctor` does not flag the amends that were accepted before this.** Raised
+  and declined: they are inert (the fold already ignores them), the data they
+  failed to write has since been written correctly, and there is no fix a
+  report could suggest — an append-only log cannot drop them, and revoking
+  changes nothing because they never applied. A permanent two-line complaint
+  with no action attached is the false-positive problem the `ENUM_FIELDS` fix
+  had just finished clearing out.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables

@@ -474,6 +474,15 @@ silently does not happen.
 Symptom first: these are indexed by what you will actually see. The story of
 how each was found is in `CLAUDE.md`.
 
+**The agent says it recorded something, and the register does not have it.**
+Check `amend` first. A patch key the target event's type does not carry used to
+be merged, read by nobody and reported as a success — `--set rating=9` on a
+`run.open`, whose rating the fold takes from the `run.close` instead. Refused at
+exit 2 since, naming the fields that type does carry. A run has two correctable
+events, `run_open_event_id` and `run_close_event_id`, both on `gamereg status`,
+and the field decides which one. Anything filed before the refusal is inert: the
+fold already ignored it, so nothing needs undoing.
+
 **The agent behaves like an older version of the code.** `npm link` links
 `dist/`, so a `git pull` changes nothing until `npm run build`. Rebuild, then
 confirm with a command that only exists in the new code.

@@ -163,8 +163,8 @@ and nothing else, because anything you write beside it is a second message.
 {"action":"send",
  "message":"Outer Wilds is filed with no difficulty. Record it as normal?",
  "presentation":{"blocks":[{"type":"buttons","buttons":[
-   {"label":"Yes, normal","value":"amend-difficulty:01K...","style":"primary"},
-   {"label":"Leave it blank","value":"keep-difficulty:01K..."}]}]}}
+   {"label":"Yes, normal","value":"amend-difficulty:<run_close_event_id>","style":"primary"},
+   {"label":"Leave it blank","value":"keep-difficulty:<run_close_event_id>"}]}]}}
 ```
 
 **Never send filler in `message`.** Only `action` is required, so nothing
@@ -225,7 +225,7 @@ failure. A message already gone or too old costs nothing.
 | The turn is about | Read |
 |---|---|
 | a menu of candidates, a photo, a cover, a reaction | `reference/media.md` |
-| undoing something, `amend`, `revoke`, a wrong pick | `reference/corrections.md` |
+| undoing or completing a record after the fact, `amend`, `revoke`, a wrong pick | `reference/corrections.md` |
 | a message that opens `gamereg check-in.` | `reference/checkins.md` |
 | a question about what was played, a total, a year in review | `reference/query.md` |
 | a flag or command you are unsure of | `reference/cli.md` |
@@ -253,11 +253,14 @@ failure. A message already gone or too old costs nothing.
   UUID, a `/approve` command. If a tool result did not hand you a concrete one,
   you do not have one.
 - **The event ids `amend` and `revoke` take are on the row.**
-  `run_open_event_id` and `session_open_event_id` from `gamereg open`,
-  `run_open_event_id` from `gamereg status <game>`, `last_checkin_id` for a
-  check-in. Never go looking for one with SQL. Entity ids (`run_id`,
-  `session_id`) are not accepted by either command and are cruelly easy to
-  confuse with them.
+  `run_open_event_id` and `session_open_event_id` from `gamereg open`;
+  `run_open_event_id` and `run_close_event_id` from `gamereg status <game>`;
+  `last_checkin_id` for a check-in. **A run has two of them and the field
+  decides which**: `platform`, `started_on` and `hours` are on the opening
+  event; `rating`, `difficulty`, `note`, `outcome` and `completion_criteria`
+  are on the closing one. Never go looking for one with SQL. Entity ids
+  (`run_id`, `session_id`) are not accepted by either command and are cruelly
+  easy to confuse with them.
 - Code 6 means the network failed and the local work was still committed. Say
   so; do not retry blindly.
 

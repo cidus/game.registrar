@@ -147,6 +147,7 @@
     "expire_takes_no_session": "--expire asks the log which records have gone stale. It takes no session, trigger or outcome.",
     "amend_needs_set": "Nothing to amend. Pass at least one --set key=value.",
     "cannot_amend_correction": "Corrections cannot themselves be amended. Revoke it instead.",
+    "amend_unknown_field": "A {type} event carries no {field}. Amending it would record nothing. Its fields are: {fields}.",
     "text_required": "Provide the review with -m, with --text <file>, or on stdin.",
     "unexpected": "Unexpected failure: {message}",
     "marker_unpaired": "{file}: the block \"{block}\" opens and never closes.",

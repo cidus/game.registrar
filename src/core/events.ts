@@ -37,6 +37,58 @@ export const EVENT_TYPES = [
 
 export type EventType = (typeof EVENT_TYPES)[number]
 
+/**
+ * The payload keys each event type may carry (docs/spec/01-model.md's per-entity
+ * tables, plus the fields the writers add on top of them: `at`, `attachments`,
+ * `date_precision`).
+ *
+ * This exists for `amend`, which shallow-merges a patch over the target's
+ * payload and until now accepted any key at all. A key the target's type does
+ * not carry is merged, read by nobody, and reported as a success -- the fold
+ * takes each field from the event that owns it, so `rating` written onto a
+ * `run.open` is discarded by `run.close` a few lines later. Two of those went
+ * into the live log before anything noticed, one of them claiming to the user
+ * that a rating had been recorded.
+ *
+ * It is a second list and can therefore drift from the spec, which is the same
+ * trade `doctor`'s `ENUM_FIELDS` already makes; `test/amend.test.ts` parses the
+ * spec's tables and compares, so the drift fails in CI rather than in a vault.
+ */
+export const EVENT_FIELDS = {
+  'game.create': [
+    'game_id', 'slug', 'title', 'sort_title', 'release_year',
+    'genres', 'developer', 'publisher', 'platforms', 'providers', 'aliases',
+  ],
+  'game.alias': ['game_id', 'alias'],
+  'game.rename': ['game_id', 'slug', 'title'],
+  'game.enrich': ['game_id', 'provider', 'fields', 'cover'],
+  'game.cover': ['game_id', 'sha256', 'url', 'source'],
+  'run.open': [
+    'run_id', 'game_id', 'platform', 'form', 'mode',
+    'started_on', 'date_precision', 'replay', 'hours',
+  ],
+  'run.close': [
+    'run_id', 'ended_on', 'date_precision', 'outcome', 'completion_criteria',
+    'rating', 'difficulty', 'note', 'at', 'attachments',
+  ],
+  'run.import': [
+    'run_id', 'game_id', 'platform', 'form', 'mode', 'started_on',
+    'date_precision', 'replay', 'hours', 'ended_on', 'outcome',
+    'completion_criteria', 'rating', 'difficulty', 'note', 'attachments',
+  ],
+  'run.verdict': ['run_id', 'text'],
+  'session.open': ['session_id', 'run_id', 'at', 'attachments'],
+  'session.close': ['session_id', 'at', 'break_minutes', 'note', 'attachments'],
+  'break.open': ['break_id', 'session_id', 'at'],
+  'break.close': ['break_id', 'at'],
+  'session.checkin': ['session_id', 'at', 'trigger', 'outcome'],
+  'attachment.add': ['target', 'attachments'],
+  'event.amend': ['target', 'reason', 'patch'],
+  'event.revoke': ['target', 'reason'],
+  'person.create': ['person_id', 'name', 'aliases'],
+  'play.record': ['play_id', 'game_id', 'at', 'duration_min', 'players', 'note'],
+} as const satisfies Record<EventType, readonly string[]>
+
 export type EventData = Record<string, unknown>
 
 export type EventEnvelope = {

@@ -6,12 +6,14 @@
  */
 import type { Command } from 'commander'
 
+import { EVENT_FIELDS } from '../../core/events.ts'
 import { GameregError } from '../../core/errors.ts'
 import { canonicalPlatform, platformTable } from '../../core/platforms.ts'
 import { createContext } from '../context.ts'
 import { emit } from '../output.ts'
 import type { Registrar } from '../register.ts'
 import type { Cli } from '../context.ts'
+import type { EventType } from '../../core/events.ts'
 import { commit, load, stage } from '../workspace.ts'
 
 type AmendOptions = { reason?: string; set?: string[] }
@@ -47,6 +49,32 @@ function parsePatch(cli: Cli, pairs: readonly string[]): Record<string, unknown>
   return patch
 }
 
+/**
+ * A patch key the target's type does not carry is refused rather than merged.
+ *
+ * The fold takes each field from the event that owns it, so an accepted-but-
+ * foreign key writes nothing and still reports success: `--set rating=9` on a
+ * `run.open` is overwritten by the `run.close` that follows it, and `--set
+ * minutes=1985` names derived state the fold computes and never reads back
+ * (invariant 7). Both reached the live log, and the log is append-only, so
+ * there is no way to take the misleading record out again.
+ *
+ * Refusing at the boundary is the same strictness an unknown config key gets,
+ * and for the same reason: this is the one command whose whole job is to fix a
+ * mistake, so it is the last place that should accept one silently.
+ */
+function checkFields(type: EventType, patch: Record<string, unknown>): void {
+  const allowed: readonly string[] = EVENT_FIELDS[type]
+  for (const key of Object.keys(patch)) {
+    if (allowed.includes(key)) continue
+    throw new GameregError('usage', 'error.amend_unknown_field', {
+      field: key,
+      type,
+      fields: allowed.join(', '),
+    })
+  }
+}
+
 export function registerAmend(registrar: Registrar): void {
   registrar
     .command('amend', 'help.amend')
@@ -68,6 +96,7 @@ export function registerAmend(registrar: Registrar): void {
       if (pairs.length === 0) throw new GameregError('usage', 'error.amend_needs_set')
 
       const patch = parsePatch(cli, pairs)
+      checkFields(target.type, patch)
       stage(cli, workspace, 'event.amend', { target: eventId, reason: options.reason, patch })
       const events = commit(cli, workspace)
 

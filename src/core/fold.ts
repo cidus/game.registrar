@@ -92,11 +92,23 @@ export type RunState = {
   run_id: string
   game_id: string
   /**
-   * The `run.open` (or `run.import`) event that opened it — the target of
-   * every `amend` that corrects a run's own fields, `platform` and the stated
-   * `hours` baseline included. See `SessionState.open_event_id`.
+   * The `run.open` (or `run.import`) event that opened it — the target of an
+   * `amend` on a field that event carries: `platform`, `started_on`, the
+   * stated `hours` baseline. See `SessionState.open_event_id`.
+   *
+   * **It is not the target for everything about a run**, and the earlier
+   * version of this comment saying so cost real data. A run's closing fields
+   * — `rating`, `difficulty`, `note`, `outcome`, `completion_criteria`,
+   * `ended_on` — live on the `run.close` event and are read from it, so a
+   * patch landing here is merged and then overwritten. `close_event_id` below
+   * is the one to use for those.
    */
   open_event_id: string
+  /**
+   * The event carrying this run's closing fields, or `null` while it is open.
+   * A `run.import` carries its own, so it is both `open_event_id` and this.
+   */
+  close_event_id: string | null
   platform: string | null
   /**
    * What the log actually holds, before the build canonicalizes spellings
@@ -467,6 +479,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
           run_id: runId,
           game_id: game.game_id,
           open_event_id: event.id,
+          close_event_id: imported ? event.id : null,
           platform: str(data, 'platform'),
           platform_raw: str(data, 'platform'),
           form: str(data, 'form') as Form | null,
@@ -515,6 +528,7 @@ export function fold(events: readonly EventEnvelope[], context: TimeContext): Va
         run.rating = num(data, 'rating')
         run.difficulty = str(data, 'difficulty') as Difficulty | null
         run.note = str(data, 'note')
+        run.close_event_id = event.id
         run.open = false
         break
       }

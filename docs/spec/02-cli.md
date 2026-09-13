@@ -453,10 +453,18 @@ on read. See [01-model](01-model.md) for why that distinction is not pedantry.
 Vault summary, or one game's state.
 
 Each run in the per-game form carries `run_open_event_id`, the same field
-`open` exposes and for the same reason. `status` is the only route to it for a
-run with no open session — a run filed by `past`, which never had one and can
-sit with `platform: null` indefinitely, is corrected through an `amend` on this
-event and through nothing else.
+`open` exposes and for the same reason, and `run_close_event_id` beside it.
+`status` is the only route to either for a run with no open session — a run
+filed by `past`, which never had one and can sit with `platform: null`
+indefinitely, is corrected through an `amend` on this event and through nothing
+else.
+
+The two are not interchangeable: `platform`, `started_on` and the stated
+`hours` are on the opening event, while `rating`, `difficulty`, `note`,
+`outcome`, `completion_criteria` and `ended_on` are on the closing one, and
+`amend` refuses the pairing that would write nothing. `run_close_event_id` is
+`null` while the run is open; a `run.import` carries both halves, so there the
+two ids are equal rather than one being absent.
 
 ### `gamereg query <sql>`
 
@@ -963,6 +971,19 @@ See [04-derived](04-derived.md) for the artifacts and
 ### `gamereg revoke <event_id> --reason "..."`
 
 Both append. Neither touches the original line.
+
+**A `--set` key the target event's type does not carry is refused (exit 2), and
+the message lists the fields it does carry.** The fold takes each field from the
+event that owns it, so a foreign key is merged into the payload, read by nobody,
+and reported as a success — `--set rating=9` on a `run.open` is discarded by the
+`run.close` that follows it. The field lists are 01-model.md's payload tables.
+Derived state (`minutes`, `hours_source`) is refused for the same reason: it is
+computed, never stored (invariant 7).
+
+The consequence for a caller is that a run has **two** correctable events, and
+which one an `amend` takes depends on the field. `gamereg status` reports both
+as `run_open_event_id` and `run_close_event_id`; the second is `null` until the
+run closes, and equals the first for a run filed by `past` or `import`.
 
 ### `gamereg import <file.csv> --mapping <file.json>`
 
