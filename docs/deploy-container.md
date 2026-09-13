@@ -121,10 +121,25 @@ image upgrade and a first run all take the same path:
    read as something else when they do.
 3. **Vault.** `gamereg init` only when there is no `gamereg.config.json`;
    `git init` only when there is no `.git`. An existing vault is never touched.
-4. **Agent files.** The skill directory is **replaced** every boot — it is
-   code, so pulling a new image redeploys it. The `workspace/*.md` persona
-   files are **seeded once** and never overwritten, because they become yours
-   the moment you edit them.
+4. **Agent files.** Policy per file, not per directory. The skill directory and
+   `AGENTS.md`/`TOOLS.md` are **replaced** every boot — they are code, so
+   pulling a new image redeploys them, and a card you had edited is kept under
+   `backups/` first. `SOUL.md`, `IDENTITY.md`, `REACTIONS.md`, `USER.md` and
+   `HEARTBEAT.md` are **yours**, and the boot records the hash of what it
+   seeded so it can tell an edit from a default that moved: a file you never
+   touched follows the image with no action from you, and one you did edit is
+   kept, with a `NOTICE` naming the shipped copy under
+   `/opt/gamereg/agent-defaults/workspace/` and saying that deleting yours
+   takes the new one on the next boot.
+
+   An install from before this tracking existed has no recorded hash. If the
+   file is byte-identical to what ships it is adopted silently; if it differs
+   there is no way to tell your edit from an older default, so it is kept and
+   the same `NOTICE` explains why it was not updated.
+
+   `USER.md` is where a rule of your own goes ("always answer in English",
+   "never use buttons"). It never overrides the *Safety* section of
+   `AGENTS.md`.
 5. **Model auth and model choice, separately.** A credential comes from
    `CLAUDE_CODE_OAUTH_TOKEN` (a subscription), `OPENCLAW_AUTH_KEY` (an API
    key, through `openclaw onboard`), or `OPENROUTER_API_KEY`. Which model
@@ -171,6 +186,16 @@ All of these were found by running the stack, not by reading documentation, and
 all of them are already handled — they are here because the symptoms do not
 point at the causes.
 
+- **The nightly dream diary is off.** `memory-core` ships with a `dreaming`
+  sweep enabled by default: twice a night it consolidates memory out of the
+  session corpora and has a model write a narrative diary entry into the
+  workspace — which is to say into the system prompt of every turn after it,
+  growing by an entry per phase per night. Two nights came to 3,800 bytes here.
+  The entrypoint disables it and moves any `DREAMS.md` it already wrote out of
+  the workspace, keeping the file. Beyond the size, `tools.allow` is
+  `exec`/`message`/`read`, so the agent has no tool that can query the memory
+  the sweep builds: the run bought an archive nothing could reach. Turn it back
+  on with `plugins.entries.memory-core.config.dreaming.enabled` if you want it.
 - **The gateway generates its own token, and needs one.** OpenClaw detects a
   container, switches its bind from loopback to `0.0.0.0`, and then refuses to
   start unauthenticated — correctly. The entrypoint writes a random token to

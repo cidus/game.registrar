@@ -14,6 +14,36 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Fixed
 
+- The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
+  seeding them once. They are code — `test/agent-skill.test.ts` asserts their
+  contents against the real binary and the real SQL schema — and seeding them
+  meant an image upgrade shipped new behaviour with the old standing orders,
+  silently. A card that had been edited is kept under `backups/` first.
+- Workspace files that *are* the user's (`SOUL.md`, `IDENTITY.md`,
+  `REACTIONS.md`, `USER.md`, `HEARTBEAT.md`) now carry the hash of what was
+  seeded, so a boot can tell an edit from a shipped default that moved: an
+  untouched file follows the image with no action from anyone, an edited one is
+  kept and the boot logs a `NOTICE` naming the shipped copy and the way to take
+  the new version. An install from before the tracking is left alone, loudly.
+
+### Removed
+
+- `memory-core`'s nightly `dreaming` sweep, disabled in the boot config patch.
+  It wrote a growing narrative diary into the workspace — and so into the
+  system prompt of every turn — while `tools.allow` left the agent no tool that
+  could query the memory it built. An existing `DREAMS.md` is moved out of the
+  workspace and kept.
+
+### Added
+
+- `agent/workspace/USER.md` (house rules, never overriding *Safety*) and
+  `agent/workspace/HEARTBEAT.md` (comments only). Both claim slots the gateway
+  otherwise fills with its own defaults, which is what makes the deployed
+  prompt equal to the shipped one — and the size budget, raised to 32,000,
+  finally a measure of all of it rather than 87% of it.
+
+### Fixed
+
 - `gamereg amend` refuses a `--set` key the target event's type does not carry,
   at exit 2, naming the fields it does carry. Such a key was merged into the
   payload, read by nobody and reported as a success: `rating` and `difficulty`

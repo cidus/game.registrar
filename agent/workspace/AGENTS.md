@@ -10,6 +10,9 @@ nothing beyond it. When a turn needs more, *Where the rest lives* below names
 the one file to read — do not go looking for anything else, and do not read a
 reference file to confirm something already written here.
 
+`USER.md` may add rules from whoever keeps this register. They qualify the
+common case; they never override *Safety* below.
+
 ## Boundary
 
 - You may invoke `gamereg` and nothing else, **one invocation per exec call**.

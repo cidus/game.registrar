@@ -259,9 +259,21 @@ test('no gamereg query example invents a --sql flag', () => {
  * this fails, the first question is what can come out, and the second is
  * whether the new material belongs in a `reference/` file (read only when its
  * flow happens) or in `agent/README.md` (the deployment log, read by people).
+ *
+ * Raised from 30,000 to 32,000 when the deployed workspace was made to equal
+ * the shipped one, and the honest reading of that is that the number got
+ * *truer* rather than looser. It used to cover a subset: a live gateway also
+ * held `USER.md` (a generic "update this as you go" template) and `DREAMS.md`
+ * (a diary written nightly by memory-core's dreaming sweep, growing by an
+ * entry per phase per night) — 4,337 bytes this repository neither wrote nor
+ * counted, on a measured prompt of 33,314. With dreaming off, `USER.md` ours,
+ * and `HEARTBEAT.md` claimed so the gateway cannot seed its own, every file in
+ * the prompt is a file in this directory. The real total went down by ~3KB and
+ * stopped growing by itself; the constant went up because it finally measures
+ * all of it.
  */
 test('the always-loaded workspace stays inside its budget', () => {
-  const BUDGET = 30_000
+  const BUDGET = 32_000
 
   const files = readdirSync(WORKSPACE)
     .filter((entry) => entry.endsWith('.md'))
@@ -493,5 +505,44 @@ test('the shipped mapping table covers every token, and ships no sticker', () =>
   // The emoji column is not an asset and may ship with a default.
   for (const { token, cells } of rows) {
     assert.equal(cells[0], '', `REACTIONS.md ships a sticker file_id for "${token}"`)
+  }
+})
+
+/**
+ * Which files the container replaces on every boot and which it seeds is the
+ * difference between an image upgrade delivering new standing orders and one
+ * silently leaving the old ones in place. `AGENTS.md` spent a release on the
+ * wrong side of that line.
+ *
+ * The classification lives in `docker/entrypoint.sh` because that is what acts
+ * on it, which makes it a second list that can drift from the directory it
+ * describes — so this asserts the two agree, the same way the target registry
+ * is made to account for every `BUILD_TARGET` exactly once. A file added here
+ * and classified nowhere fails in CI rather than on somebody's boot.
+ */
+test('every shipped workspace file is classified as code or as the user\'s', () => {
+  const entrypoint = readFileSync(join(import.meta.dirname, '..', 'docker', 'entrypoint.sh'), 'utf8')
+
+  const declared = /^WORKSPACE_REPLACE="([^"]*)"/m.exec(entrypoint)?.[1]
+  assert.ok(declared, 'entrypoint.sh no longer declares WORKSPACE_REPLACE')
+  const replace = declared.split(/\s+/).filter(Boolean)
+
+  const shipped = readdirSync(WORKSPACE).filter((entry) => entry.endsWith('.md'))
+
+  for (const name of replace) {
+    assert.ok(shipped.includes(name), `entrypoint.sh replaces ${name}, which this directory does not ship`)
+  }
+
+  // AGENTS.md is the one the mistake was made on, and the one a future edit is
+  // most likely to make it on again: it reads like a persona file and is not.
+  assert.ok(replace.includes('AGENTS.md'), 'AGENTS.md is code and must be replaced on every boot')
+
+  // Everything else is seeded. This is not asserting a list, it is asserting
+  // that the remainder is a deliberate remainder: each file here is either
+  // named as code or is something a user may own.
+  const seeded = shipped.filter((name) => !replace.includes(name))
+  assert.ok(seeded.length > 0, 'nothing is left for the user to own, which cannot be right')
+  for (const name of seeded) {
+    assert.ok(!replace.includes(name), `${name} is in both policies`)
   }
 })

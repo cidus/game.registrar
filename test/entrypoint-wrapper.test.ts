@@ -22,7 +22,7 @@
  */
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -230,16 +230,157 @@ test('the skill is replaced on every boot, so a new image actually redeploys it'
   )
 })
 
-test('persona files are seeded once and never overwritten, because the user owns them', () => {
+/**
+ * AGENTS.md is code, not persona. It spent a release seeded like a persona
+ * file, so an image upgrade shipped new behaviour with the old standing orders
+ * and nothing said a word.
+ */
+test('the standing orders are replaced on every boot even when they were edited', () => {
+  const h = host()
+  h.run('gateway')
+
+  const card = join(h.config, 'workspace', 'AGENTS.md')
+  assert.equal(readFileSync(card, 'utf8'), 'shipped card\n')
+
+  writeFileSync(card, 'stale card\n')
+  h.run('gateway')
+  assert.equal(readFileSync(card, 'utf8'), 'shipped card\n', 'an upgrade must redeploy the card')
+
+  // Overwriting is not the same as discarding: what was there is kept where a
+  // person can find it, and under a name that is not *.md so it cannot rejoin
+  // the system prompt.
+  const backups = readdirSync(join(h.config, 'backups'))
+  assert.ok(
+    backups.some((name) => name.startsWith('AGENTS.md.replaced-')),
+    `the replaced card was not kept: ${backups.join(', ')}`,
+  )
+  assert.ok(!backups.some((name) => name.endsWith('.md')), 'a backup must not be a workspace file')
+})
+
+test('a seeded file the user never touched follows the shipped version', () => {
   const h = host()
   h.run('gateway')
 
   const soul = join(h.config, 'workspace', 'SOUL.md')
   assert.equal(readFileSync(soul, 'utf8'), 'shipped persona\n')
 
-  writeFileSync(soul, 'my own voice\n')
+  // A new image, same untouched file. Nobody should have to do anything.
+  writeFileSync(join(h.defaults, 'workspace', 'SOUL.md'), 'shipped persona v2\n')
+  const r = h.run('gateway')
+  assert.equal(readFileSync(soul, 'utf8'), 'shipped persona v2\n', 'an untouched file must follow the image')
+  assert.match(r.stderr, /updating SOUL\.md/)
+})
+
+test('a seeded file the user edited is kept, and the boot says how to take the new one', () => {
+  const h = host()
   h.run('gateway')
-  assert.equal(readFileSync(soul, 'utf8'), 'my own voice\n', 'an edited persona survives a restart')
+
+  const soul = join(h.config, 'workspace', 'SOUL.md')
+  writeFileSync(soul, 'my own voice\n')
+
+  // Same image: their edit survives and nothing is said, because nothing
+  // happened worth saying.
+  const quiet = h.run('gateway')
+  assert.equal(readFileSync(soul, 'utf8'), 'my own voice\n')
+  assert.doesNotMatch(quiet.stderr, /NOTICE/, 'an unchanged default must not nag')
+
+  // New image: their edit still survives, and now it is worth saying so.
+  writeFileSync(join(h.defaults, 'workspace', 'SOUL.md'), 'shipped persona v2\n')
+  const loud = h.run('gateway')
+  assert.equal(readFileSync(soul, 'utf8'), 'my own voice\n', 'an edit is never overwritten')
+  assert.match(loud.stderr, /NOTICE: SOUL\.md is yours/)
+  assert.match(loud.stderr, /delete it from the/, 'the notice must name the way out')
+})
+
+/**
+ * The way out the notice promises. Untested, it is the sort of sentence that
+ * is true when written and wrong two releases later.
+ */
+test('deleting a seeded file takes the shipped version and resumes tracking', () => {
+  const h = host()
+  h.run('gateway')
+
+  const soul = join(h.config, 'workspace', 'SOUL.md')
+  writeFileSync(soul, 'my own voice\n')
+  writeFileSync(join(h.defaults, 'workspace', 'SOUL.md'), 'shipped persona v2\n')
+  h.run('gateway')
+
+  rmSync(soul)
+  h.run('gateway')
+  assert.equal(readFileSync(soul, 'utf8'), 'shipped persona v2\n')
+
+  // Tracking resumed, so the next image updates it again with no notice.
+  writeFileSync(join(h.defaults, 'workspace', 'SOUL.md'), 'shipped persona v3\n')
+  const r = h.run('gateway')
+  assert.equal(readFileSync(soul, 'utf8'), 'shipped persona v3\n')
+  assert.doesNotMatch(r.stderr, /NOTICE/)
+})
+
+/**
+ * Installs that predate the hash record. There is no way to tell an edit from
+ * a default that has since moved, and guessing in the permissive direction
+ * deletes somebody's writing.
+ */
+test('an untracked file identical to the shipped default is adopted', () => {
+  const h = host()
+  const workspace = join(h.config, 'workspace')
+  mkdirSync(workspace, { recursive: true })
+  writeFileSync(join(workspace, 'SOUL.md'), 'shipped persona\n')
+
+  const r = h.run('gateway')
+  assert.match(r.stderr, /adopting SOUL\.md/)
+
+  writeFileSync(join(h.defaults, 'workspace', 'SOUL.md'), 'shipped persona v2\n')
+  h.run('gateway')
+  assert.equal(readFileSync(join(workspace, 'SOUL.md'), 'utf8'), 'shipped persona v2\n')
+})
+
+test('an untracked file that differs is kept, loudly, and not adopted', () => {
+  const h = host()
+  const workspace = join(h.config, 'workspace')
+  mkdirSync(workspace, { recursive: true })
+  writeFileSync(join(workspace, 'SOUL.md'), 'from an older image, maybe mine\n')
+
+  const r = h.run('gateway')
+  assert.equal(readFileSync(join(workspace, 'SOUL.md'), 'utf8'), 'from an older image, maybe mine\n')
+  assert.match(r.stderr, /NOTICE: SOUL\.md was not updated/)
+  assert.match(r.stderr, /predates seed tracking/)
+
+  // Not adopted: a later image must not silently overwrite it either.
+  writeFileSync(join(h.defaults, 'workspace', 'SOUL.md'), 'shipped persona v2\n')
+  h.run('gateway')
+  assert.equal(
+    readFileSync(join(workspace, 'SOUL.md'), 'utf8'),
+    'from an older image, maybe mine\n',
+    'an unadopted file stays the user\'s until they act',
+  )
+})
+
+/**
+ * The diary memory-core writes nightly, which lands in the system prompt and
+ * grows there. The sweep is turned off in the config; this is the copy it
+ * already wrote.
+ */
+test('an existing dream diary is moved out of the workspace, not deleted', () => {
+  const h = host()
+  h.run('gateway')
+
+  const diary = join(h.config, 'workspace', 'DREAMS.md')
+  writeFileSync(diary, '# Dream Diary\n\nLast night I dreamt in timestamps.\n')
+
+  h.run('gateway')
+  assert.ok(!existsSync(diary), 'the diary must leave the workspace')
+  assert.match(
+    readFileSync(join(h.config, 'DREAMS.md'), 'utf8'),
+    /dreamt in timestamps/,
+    'the diary is the user\'s prose about their own sessions and is kept',
+  )
+})
+
+test('the boot turns the dreaming sweep off', () => {
+  const h = host()
+  h.run('gateway')
+  assert.match(h.patched(), /"memory-core": \{ config: \{ dreaming: \{ enabled: false \} \} \}/)
 })
 
 test('a Claude Code OAuth token goes into the auth store, never into the config', () => {

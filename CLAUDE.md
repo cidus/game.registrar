@@ -1182,6 +1182,61 @@ Each of these cost real time to find. The reasoning, not just the rule:
   with no action attached is the false-positive problem the `ENUM_FIELDS` fix
   had just finished clearing out.
 
+- **A write policy is a property of the artifact, not of the directory it is
+  in.** `docker/entrypoint.sh` classified the gateway's workspace by folder —
+  `skills/` is code and is replaced every boot, `workspace/*.md` is persona and
+  is seeded once — and its own comment said it was applying "the same split
+  `targets/` already draws between write policies". It was not: in `targets/` a
+  `seed` (`Game Database.base`) sits beside `replace` notes in one tree,
+  because the policy belongs to the file. Borrowing the vocabulary without the
+  granularity put `AGENTS.md` on the wrong side, and `AGENTS.md` is the
+  standing orders — the exec boundary, the exit codes, the verified button
+  payloads, the routing table, the confirmation protocol, every line of it
+  asserted against the real binary and the real SQL schema by
+  `test/agent-skill.test.ts`. **A file whose correctness is enforced by CI is
+  not the user's file.** The cost was a release in which an image upgrade
+  shipped new code with the old procedure and said nothing;
+  `grep -c run_close_event_id /config/workspace/AGENTS.md` answered `0` on a
+  container built from a tree that had it.
+- **The fix for "the user might have customized it" is a recorded hash, not a
+  refusal to ever update.** Seeding once and never overwriting protects an
+  edit by punishing everyone who never made one — they keep the first boot's
+  copy forever, silently. Recording the hash of what was seeded makes the two
+  cases distinguishable: unchanged since seeding means nobody is being
+  overruled, so it follows the image with no action from anyone; changed means
+  it is theirs, so it is kept *and said out loud*, naming the shipped copy and
+  the fact that deleting theirs takes the new one. The branch with no record at
+  all — an install predating the tracking — is the one that has to stay
+  conservative, because writing the current file's hash would mark somebody's
+  edit as factory and the next boot would overwrite it. Worth stating because
+  the first draft of this had that branch silent, which would have rebuilt the
+  original bug one level down: a file not updated, and nothing saying so.
+- **Slimming `AGENTS.md` down is the wrong direction, and it is the direction
+  the question naturally suggests.** Asked why the card is not updated, the
+  intuitive answer is to make it small and customizable and push the rest
+  elsewhere. Elsewhere is `skills/`, which is a `read` paid per session, while
+  `workspace/*.md` is compiled into the system prompt and cached — so that is
+  precisely the inversion the optimization pass undid when it moved the
+  procedure *into* the card. The card stays big and becomes code; what gets its
+  own file is the customization, which is the small part. `USER.md` holds it.
+- **The always-loaded prompt was 13% larger than the thing measuring it.**
+  `test/agent-skill.test.ts`'s budget covers `agent/workspace/*.md` in the
+  repository; a live gateway also held `USER.md` (OpenClaw's generic "update
+  this as you go" template) and `DREAMS.md` — 4,337 bytes against 29,274
+  measured, on a real prompt of 33,314. `DREAMS.md` is the visible half of
+  `memory-core`'s `dreaming` sweep, on by default: two phases a night
+  consolidate memory out of the session corpora and a model writes a narrative
+  diary entry into the workspace, so it grows by an entry per phase per night,
+  inside the cached prompt. It is also flatly contrary to a rule the same
+  prompt states ("no notes, no session history; the register is the memory"),
+  which is the `tools.allow` lesson again — and the clinching argument is that
+  `tools.allow` is `exec`/`message`/`read`, so the agent cannot query the
+  memory the sweep builds at all. A nightly model run bought an unreachable
+  archive and delivered forbidden prose. Off now, with `HEARTBEAT.md` and
+  `USER.md` claimed so the deployed set equals the shipped set and the budget
+  measures the whole prompt. **A budget over a subset is not a budget**, and
+  the subset is invisible from inside the repository.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables

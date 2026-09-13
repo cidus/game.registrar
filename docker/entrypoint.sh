@@ -177,9 +177,24 @@ seed_vault() {
 # --- 4. what the agent reads -------------------------------------------------
 #
 # The same split targets/ already draws between write policies, applied to the
-# gateway's workspace. The skill is code: replaced on every boot, so pulling a
-# new image actually redeploys it. The persona files are the user's the moment
-# they touch them: seeded once and never overwritten.
+# gateway's workspace -- and applied the way targets/ applies it, per artifact
+# rather than per directory. `Game Database.base` is a `seed` living beside
+# `replace` notes in one tree; the policy belongs to the file, not the folder.
+#
+# An earlier version of this drew the line around the directory instead: every
+# `workspace/*.md` was persona, seeded once and never overwritten. AGENTS.md is
+# on the wrong side of that line. It carries the exec boundary, the exit codes,
+# the verified button payloads, the routing table and the confirmation protocol,
+# and its contents are asserted against the real binary and the real SQL schema
+# in CI. A file whose correctness is enforced by a test is not the user's file,
+# and leaving it seeded meant an image upgrade shipped new code with the old
+# standing orders -- silently, which is the part that made it expensive.
+#
+# So: WORKSPACE_REPLACE is code and is copied every boot; everything else is
+# seeded, with the hash of what was seeded recorded so a later boot can tell
+# "the user edited this" from "the shipped default moved". An untouched file
+# then updates itself and nobody has an extra step; an edited one is kept, and
+# says so, with the way to take the new version if that is what was wanted.
 #
 # Real copies, never symlinks. OpenClaw's skill loader realpaths anything under
 # the workspace and refuses a path that resolves outside its root -- tried on a
@@ -188,8 +203,109 @@ seed_vault() {
 # What this cannot fix: a conversation already under way keeps the copy it
 # loaded. After an image upgrade the running session needs `/reset`.
 
+WORKSPACE_REPLACE="AGENTS.md TOOLS.md"
+SEED_STATE="$STATE_DIR/.gamereg-seed"
+
+sha_of() { sha256sum "$1" | cut -d' ' -f1; }
+
+workspace_policy() {
+  for known in $WORKSPACE_REPLACE; do
+    if [ "$known" = "$1" ]; then
+      echo replace
+      return 0
+    fi
+  done
+  echo seed
+}
+
+record_seed() {
+  if [ "$DRY_RUN" = yes ]; then
+    log "would record the seed hash for $2"
+    return 0
+  fi
+  printf '%s\n' "$3" > "$SEED_STATE/$2.sha256"
+}
+
+# Both branches that keep an existing file say so, and say what to do about it.
+# A file silently left behind is the exact failure this whole section exists to
+# remove; reintroducing it one level down, in a shell conditional instead of a
+# directory policy, would be the same bug wearing a different hat.
+keep_notice() {
+  log "NOTICE: $1 $2"
+  log "        Compare with $DEFAULTS/workspace/$1, or delete it from the"
+  log "        workspace to take the shipped version on the next boot."
+}
+
+deploy_replace() {
+  if [ -f "$2" ] && ! cmp -s "$1" "$2"; then
+    run mkdir -p "$STATE_DIR/backups"
+    # Not a *.md name, so a backup never rejoins the system prompt.
+    run cp "$2" "$STATE_DIR/backups/$3.replaced-$(date -u +%Y%m%dT%H%M%SZ)"
+    log "replacing $3 (previous copy kept under backups/)"
+  fi
+  run cp "$1" "$2"
+}
+
+deploy_seed() {
+  shipped=$(sha_of "$1")
+
+  if [ ! -f "$2" ]; then
+    log "seeding $3"
+    run cp "$1" "$2"
+    record_seed "$1" "$3" "$shipped"
+    return 0
+  fi
+
+  current=$(sha_of "$2")
+
+  # No record: seeded by an image from before this tracking existed. If it is
+  # byte-identical to what ships, adopting it is safe and costs nothing. If it
+  # is not, there is no way to tell an edit from a default that has since moved
+  # -- and recording the current hash would mark somebody's edit as factory,
+  # so the next boot would overwrite it. Left alone, loudly.
+  if [ ! -f "$SEED_STATE/$3.sha256" ]; then
+    if [ "$current" = "$shipped" ]; then
+      log "adopting $3 (identical to the shipped default)"
+      record_seed "$1" "$3" "$shipped"
+    else
+      keep_notice "$3" "was not updated: it differs from the shipped default and this
+        install predates seed tracking, so it may carry your own changes."
+    fi
+    return 0
+  fi
+
+  recorded=$(cat "$SEED_STATE/$3.sha256")
+
+  if [ "$current" = "$recorded" ]; then
+    if [ "$shipped" != "$recorded" ]; then
+      log "updating $3 (unmodified since it was seeded)"
+      run cp "$1" "$2"
+      record_seed "$1" "$3" "$shipped"
+    fi
+    return 0
+  fi
+
+  if [ "$shipped" != "$recorded" ]; then
+    keep_notice "$3" "is yours and the shipped version changed in this image.
+        Keeping yours."
+  fi
+}
+
+# memory-core's dreaming sweep writes a narrative diary here, which then sits
+# in the system prompt of every later turn and grows by an entry per phase per
+# night. configure_gateway turns the sweep off; this takes the file it already
+# wrote out of the workspace. Moved, never deleted -- it is model-written prose
+# about the user's own sessions, and the objection is to where it lives.
+retire_dream_diary() {
+  [ -f "$WORKSPACE/DREAMS.md" ] || return 0
+  keep="$STATE_DIR/DREAMS.md"
+  [ -e "$keep" ] && keep="$STATE_DIR/DREAMS.md.$(date -u +%Y%m%dT%H%M%SZ)"
+  log "moving DREAMS.md out of the workspace (dreaming is disabled); kept at $keep"
+  run mv "$WORKSPACE/DREAMS.md" "$keep"
+}
+
 deploy_agent_files() {
-  run mkdir -p "$WORKSPACE/skills"
+  run mkdir -p "$WORKSPACE/skills" "$SEED_STATE"
 
   log "deploying skills (replaced every boot)"
   run rm -rf "$WORKSPACE/skills/gamereg"
@@ -197,13 +313,15 @@ deploy_agent_files() {
 
   for f in "$DEFAULTS"/workspace/*.md; do
     [ -e "$f" ] || continue
-    target="$WORKSPACE/$(basename "$f")"
-    if [ -e "$target" ]; then
-      log "keeping existing $(basename "$f")"
+    name=$(basename "$f")
+    if [ "$(workspace_policy "$name")" = replace ]; then
+      deploy_replace "$f" "$WORKSPACE/$name" "$name"
     else
-      run cp "$f" "$target"
+      deploy_seed "$f" "$WORKSPACE/$name" "$name"
     fi
   done
+
+  retire_dream_diary
 }
 
 # --- 3b. the gateway's own token ---------------------------------------------
@@ -457,6 +575,17 @@ configure_gateway() {
   // connect to the gateway it was meant to configure.
   gateway: { mode: "local", auth: { mode: "token", token: "%s" } },
   agents: { defaults: { workspace: "%s/workspace" } },
+  // The dreaming sweep in memory-core defaults to on. It runs nightly in two
+  // phases, consolidates memory out of the session corpora, and has a model
+  // write a narrative diary entry into the workspace -- which means into the
+  // system prompt of every turn after it, growing by an entry per phase per
+  // night. Off here for two reasons that stand separately. It contradicts a
+  // standing order the agent is given in the same prompt (no notes, no
+  // session history; the register is the memory), and tools.allow is
+  // exec/message/read, so the agent has no tool that can query the memory the
+  // sweep builds: the nightly model run buys an archive nothing can reach and
+  // delivers prose the deployment forbids.
+  plugins: { entries: { "memory-core": { config: { dreaming: { enabled: false } } } } },
   channels: {
     telegram: {
       enabled: true,

@@ -77,7 +77,24 @@ it is allowed; doing so by accumulation is what the budget exists to prevent.
 reseeded by OpenClaw within the hour as a generic page about camera names, SSH
 hosts and TTS voices — which then sits in the system prompt describing
 capabilities this deployment does not have. The slot is occupied either way;
-the only choice is by what.
+the only choice is by what. `USER.md` and `HEARTBEAT.md` ship for the same
+reason, and the budget above is only meaningful because of it: every file in
+the deployed prompt is a file in `agent/workspace/`.
+
+### Who owns which file
+
+| File | Policy | Why |
+|---|---|---|
+| `skills/gamereg/**` | replaced every boot | code |
+| `AGENTS.md`, `TOOLS.md` | replaced every boot | code — asserted against the real binary in CI |
+| `SOUL.md`, `IDENTITY.md`, `REACTIONS.md` | yours | voice, identity, per-install sticker ids |
+| `USER.md` | yours | house rules; never beats *Safety* in `AGENTS.md` |
+| `HEARTBEAT.md` | yours | comments only, which is what keeps it inert |
+
+The container records the hash of each file it seeds, so a later boot can tell
+an edit from a shipped default that moved. Untouched, a file follows the image
+with no action from anyone. Edited, it is kept and the boot logs a `NOTICE`
+naming the shipped copy and saying that deleting yours takes the new one.
 
 ### The tool surface is part of the prompt
 
@@ -176,6 +193,11 @@ the standing orders and the persona.
 cp -R agent/skills/gamereg ~/.openclaw/workspace/skills/
 cp agent/workspace/*.md ~/.openclaw/workspace/
 ```
+
+On a host this is a copy you repeat after every `git pull`, and `AGENTS.md` is
+the one that matters — it is code, and a stale copy means the agent follows
+last release's procedure. The container does it per file with hash tracking
+(*Who owns which file* above); nothing does it for you here.
 
 `PERSONAS.md` is deliberately not among them — it is a design document for
 whoever draws a character and the agent has no use for it.
@@ -473,6 +495,13 @@ silently does not happen.
 
 Symptom first: these are indexed by what you will actually see. The story of
 how each was found is in `CLAUDE.md`.
+
+**The agent follows the old procedure after an image upgrade.** `AGENTS.md`
+used to be seeded like a persona file and was therefore never replaced. It is
+code now and is redeployed on every boot; an image from before that leaves it
+untouched. Check with a phrase unique to the new text, and remember a
+conversation already under way keeps the copy it loaded — `/reset` starts a
+fresh one.
 
 **The agent says it recorded something, and the register does not have it.**
 Check `amend` first. A patch key the target event's type does not carry used to
