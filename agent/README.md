@@ -610,6 +610,126 @@ definitions it was handed; it beats both the docs and the injected prompt.
 
 **`amend` exits 2.** `--reason` is required.
 
+### The container deployment
+
+Everything below was found by running the stack, not by reading documentation,
+and every one is already handled. They are here because the symptoms do not
+point at the causes, and because `docs/deploy-container.md` is a procedure for
+someone installing today rather than a record of how it got that way.
+
+**The agent answers like a stock assistant, with no error anywhere.** The
+seeded config named `~/.openclaw/workspace`, which is right on a host and, in a
+container, resolves *beside* the state directory rather than into it. The
+persona and the skill were simply not found, and nothing logs that. The
+workspace is derived from `OPENCLAW_STATE_DIR` now.
+
+**A model credential that is present is not a model credential that is
+installed.** Copying `CLAUDE_CODE_OAUTH_TOKEN` out of a working host's `.env`
+and writing an `anthropic:cli` profile into the config looks exactly like
+configuration. It authenticates nothing: the credential lives in a per-agent
+SQLite auth store, and the environment variable is merely what an
+already-onboarded host *also* has. The gateway starts clean and fails at the
+first message. `openclaw models auth paste-token --provider anthropic` writes
+that store, takes the token on stdin and needs no running gateway, so the
+entrypoint does it at boot. This cost two deployments and a third machine to
+get right. Model *choice* became its own step for a related reason: it had been
+a side effect of whichever auth branch ran, so an installation with an
+OpenRouter key could not select Anthropic without a hand edit.
+
+**A health check that costs more than its interval is an outage generator.**
+The check was `openclaw gateway health`, a whole Node process: 0.4s on a
+laptop, minutes on a shared 0.25 vCPU under memory pressure — longer than the
+30s interval. The checks piled up, a dozen Node processes pushed the load
+average past 30, and they starved the very boot they were gating. It is a bare
+`bash /dev/tcp` connect now, which spawns nothing and answers the only question
+`provision` asks. Nothing short of a slow machine surfaces this.
+
+**`HOME` is set in the image because a uid of 1001 is not a uid of 1000.** The
+image declares `USER node` and compose overrides it with the host's uid so the
+bind-mounted vault is not owned by a stranger. When that uid is absent from the
+container's `/etc/passwd`, Docker falls back to `HOME=/`, `git config --global`
+fails silently, and the vault's first commit aborts. It passed locally purely
+because the development uid is 1000 — exactly the coincidence a container is
+supposed to remove.
+
+**`${VAR:?}` in an opt-in profile breaks every command for everyone.** Compose
+interpolates the whole file before it filters by profile, so one required
+variable in a service nobody enabled breaks `up` for all of them. Empty
+defaults, and the service reports its own missing configuration at start.
+
+**`openclaw cron add` is a Gateway *client* command.** It cannot be run by the
+entrypoint before the gateway it is about to exec, which is where it looked
+like it belonged. Hence a one-shot `provision` service gated on health — which
+in turn needs `network_mode: "service:gateway"`, because OpenClaw refuses
+plaintext `ws://` to a non-loopback address.
+
+**A freshly seeded vault has to be committed.** `autobuild.sh` reads "the tree
+is dirty" as its whole state and never stages `gamereg.config.json`, so an
+uncommitted seed means every tick forever runs an enrichment that reaches the
+network and a build with nothing to do. On a host a person commits those
+without thinking; nobody is here to.
+
+**The nightly dream diary was buying an archive nothing could reach.**
+`memory-core` ships a `dreaming` sweep enabled by default: twice a night it
+consolidates memory and has a model write a narrative entry into the workspace
+— which is the system prompt of every later turn, growing by an entry per
+sweep. Two nights came to 3,800 bytes. And `tools.allow` is
+`exec`/`message`/`read`, so the agent has no tool that could query what it
+built. Disabled at boot, with any existing `DREAMS.md` moved out of the
+workspace rather than deleted.
+
+**The site profile needed four fixes before it worked at all**, each of the
+kind that only appears on a machine that is not the one that wrote the file. A
+partial `node_modules` is not self-healing and `npm install` over it does not
+repair it, so the guard became a sentinel written *after* a successful install,
+carrying the lockfile's checksum. Quartz removes and recreates its output
+directory, which a bind mount point forbids (`EACCES: rmdir`), so it builds
+into its own `public/` and the result is copied out. A named volume is
+root-owned while every service runs as the host's uid — the symptom was npm
+failing to write its log directory, which names neither ownership nor volumes —
+so both the output and the npm cache became bind mounts. And **nothing may be
+mounted from the compose project directory**: the loop script and the Caddy
+config were, which works in a checkout and nowhere else, and on a machine
+holding only `compose.yml` and `.env` Docker creates a directory at the missing
+path and the container dies on "Permission denied".
+
+**There is no upstream image for a Quartz build.** Quartz's own Dockerfile
+runs `npx quartz build --serve`, a development server with no `EXPOSE` and no
+production story, and `ghcr.io/jackyzha0/quartz:hugo` is the abandoned v3 line.
+Hence `docker/site-loop.sh` on a plain Node image — the same image the rest of
+the stack already uses, so the profile costs no second base layer.
+
+**`env_file` is a grant of the whole file.** `remark42` carried
+`env_file: [.env]`, added so the `AUTH_*` variables would reach it — which they
+did, along with the model credential, the Telegram bot token, the tunnel token
+and the IGDB keys, none of which Remark42 reads. Confirmed by `docker inspect`
+on the running container, not inferred. The service facing strangers gets its
+variables named one by one. The fix then introduced its own bug, which is the
+second half of the lesson: `AUTH_TELEGRAM: ""` is not equivalent to omitting
+it, because Remark42 reads a variable's *presence* as enable. Boolean flags
+carry an explicit `false`.
+
+**Migrating off a host install bites twice.** `systemctl --user stop` leaves a
+unit *enabled*, so the next reboot starts the old gateway alongside the
+container — two consumers of one bot token, and a register that answers
+sometimes rather than one that fails. And if `GAMEREG_SSH_PATH` points at a
+path that does not exist, Docker creates an empty root-owned directory there
+and the first push fails with `Host key verification failed`, naming neither
+the key nor the mount.
+
+**The OpenClaw upgrade to 2026.9.4 cost 157 MB of RSS**, two thirds of it the
+Node bump it forces. Measured idle, same config: 2026.7.1-2 on Node 22 is
+275 MB, the same OpenClaw on Node 24 is 377 MB, and 2026.9.4 on Node 24 is
+432 MB. Since it requires `>=24.16`, pinning OpenClaw alone does not recover
+it, and nothing turns it down — `plugins.allow` does not reduce the loaded set,
+and capping the V8 heap buys ~10 MB before the process stops starting. The
+upgrade was taken anyway for the half that is not about memory: `npm audit`
+reports 11 known advisories against 2026.7.1-2 (7 high) and none against
+2026.9.4. Reachability here is low — no published port, no web tools under
+`tools.allow` — but low is not none. **A deployment that genuinely needs 1 GB
+should pin the old version deliberately**, knowing what it is accepting, rather
+than drift into it.
+
 ## Smoke test
 
 From your phone, no terminal, in whatever language you actually use. The bot's

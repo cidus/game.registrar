@@ -1,422 +1,236 @@
 # Running the Registrar in containers
 
-One compose file, three services, two optional profiles. This is the path for a
-machine you do not want to hand-configure — `agent/README.md` remains the
-record of what each step *means*, and is worth reading when something here
-behaves in a way this page does not explain.
+One compose file, three services, three optional profiles. Nothing here needs a
+clone: `compose.yml` and a `.env` are the whole installation.
 
-## What it assumes about the machine
+This page is the procedure. It does not explain why each decision was taken —
+`agent/README.md` is the deployment log and carries the incidents behind these
+rules, and is the right page when something behaves in a way this one does not
+cover.
 
-The architecture was sized for the smallest host anyone actually uses: a GCP
-always-free `e2-micro`, 1 GB of RAM and 1 GB of egress a month. Both numbers
-still shape every decision below — but **the gateway has outgrown the first
-one**, and that is the honest starting point.
+## What the machine needs
 
-**RAM: budget 1.5 GB, and read this before assuming 1 GB.** The gateway alone
-now idles at ~432 MB with the pinned OpenClaw (2026.9.4), against ~275 MB on
-the version before it. Measured, same config, nothing in flight:
-
-| | idle RSS |
+| | |
 |---|---|
-| openclaw 2026.7.1-2 on node 22 | 275 MB |
-| openclaw 2026.7.1-2 on node 24 | 377 MB |
-| openclaw 2026.9.4 on node 24 | 432 MB |
+| RAM | **1.5 GB**, plus swap. 1 GB works only with care — see below |
+| Disk | ~2 GB for the image, plus the vault |
+| CPU | anything; sustained work on a burstable instance throttles |
+| Network | outbound only. No port is published and no firewall rule is needed |
+| Arch | `linux/amd64` or `linux/arm64` |
 
-Two thirds of the increase is the Node bump, which 2026.9.4 requires
-(`engines: >=24.16`), so it is not avoidable by pinning OpenClaw alone. Nothing
-turns it down either: `plugins.allow` does not reduce the loaded plugin set,
-and capping the V8 heap buys ~10 MB before the process stops starting.
+The gateway idles at ~432 MB and a `gamereg` invocation adds 60–150 MB while it
+runs. `GATEWAY_MEM_LIMIT` defaults to `1g` and that is a floor, not a target: at
+`480m` the gateway restarts itself every ~73 seconds under its own
+memory-pressure check, which looks like a healthy container because each boot
+passes the health check before dying.
 
-`GATEWAY_MEM_LIMIT` is therefore `1g`, and that is a floor. At `480m` the
-gateway idles at 90% of its limit and restarts itself every ~73 seconds under
-its own memory-pressure check — a loop that looks like a healthy container,
-because each boot passes the health check before dying.
-
-A `gamereg` invocation is another 60–150 MB while it runs, which is why the
-site profile is off by default: a Quartz build peaks at 400–700 MB and will
-take the gateway with it.
-
-**On an actual 1 GB e2-micro this no longer fits comfortably**, and the swap
-file below stops being a safety net and becomes load-bearing. If that is your
-target, either stay on an older OpenClaw deliberately — accepting its open
-advisories, see the upgrade note in `CLAUDE.md` — or move to a 2 GB instance.
-
-**A swap file is not advice here.** Without one the OOM killer arrives
+**Swap is required, not advisory.** Without it the OOM killer arrives
 mid-conversation:
 
 ```bash
-sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
 ```
 
 Add it to `/etc/fstab` so it survives a reboot.
 
-**1 GB of egress a month.** A vault with a hundred covers is ~20 MB per full
-crawl, and bots crawl. Serving the site from this machine is the wrong call
-independently of the memory, which is why the default topology builds and
-serves it somewhere else — see *The site* below.
+On a 1 GB instance the swap file stops being a safety net and becomes
+load-bearing. Prefer 2 GB. Two consequences of the small end worth knowing:
+local Whisper does not fit (the model alone is ~550 MB), so voice transcription
+uses the hosted entry already in the shipped config; and serving the site from
+the same machine is the wrong call — see *The site*.
 
-**0.25 vCPU of baseline, bursting to 2.** Sustained work throttles hard once
-the burst credit is gone. `npm install` and a site build are exactly the shape
-that drains it.
-
-Two consequences worth stating plainly: **local Whisper is not an option on
-this machine** (the model alone is ~550 MB), so voice transcription uses the
-hosted entry already active in `agent/openclaw.example.json5`; and Telegram is
-long-polled, so **no port is published and no firewall rule is needed.**
-
-## First run
-
-Nothing here needs a clone. Two files, one of which you write:
+## Install
 
 ```bash
 curl -O https://raw.githubusercontent.com/cidus/game.registrar/main/compose.yml
 curl -o .env https://raw.githubusercontent.com/cidus/game.registrar/main/.env.example
-# fill in TELEGRAM_BOT_TOKEN and TELEGRAM_ALLOW_FROM, then:
+
+# fill in TELEGRAM_BOT_TOKEN, then:
 echo "PUID=$(id -u)" >> .env && echo "PGID=$(id -g)" >> .env
 mkdir -p vault config/ssh
 docker compose up -d
 ```
 
-**Use a second bot for the first run if a deployment already exists.** Telegram
-long-polling does not share: two gateways holding the same token fight over
-every update, each getting some fraction of the messages, and the symptom is a
-Registrar that answers intermittently rather than one that fails. Either stop
-the old gateway first, or ask @BotFather for a throwaway bot.
+`docker compose up -d` blocks on the gateway's health condition, and on a small
+instance the first boot takes minutes — every `openclaw` call in the entrypoint
+is a Node start. Poll `docker compose ps` rather than assuming it hung.
 
-**You do not need to look up your chat id.** Leave `TELEGRAM_ALLOW_FROM`
-empty, start the stack, and message the bot. It answers:
+**You do not need to look up your chat id.** Leave `TELEGRAM_ALLOW_FROM` empty
+and message the bot: it replies with your own numeric id, a one-time code and
+the command that approves it. That is the only way to learn the id — no Telegram
+client displays it and the Bot API will not resolve a username. Fill the
+variable in instead if you already know it; the two are alternatives, not steps,
+because an allowlist ignores the pairing store.
 
-```
-OpenClaw: access not configured.
-Your Telegram user id: 8119169239
-Pairing code: BJTQK882
-Ask the bot owner to approve with:
-openclaw pairing approve telegram BJTQK882
-```
+**Use a second bot if a deployment already exists.** Telegram long-polling does
+not share: two gateways on one token fight over every update, and the symptom is
+a Registrar that answers *sometimes*. Stop the old one, or ask @BotFather for a
+throwaway.
 
-That is worth knowing because there is no other way to get it: no Telegram
-client displays your own numeric id, and the Bot API will not resolve a
-`@username` to one — a bot only ever learns an id from someone who has already
-written to it.
+The model is the one thing that will not announce itself as missing. Without a
+credential the gateway starts, Telegram connects, and nothing ever answers. Set
+one of `CLAUDE_CODE_OAUTH_TOKEN` (a Claude subscription — mint it with
+`claude setup-token`), `OPENCLAW_AUTH_KEY` with `OPENCLAW_AUTH_CHOICE`, or
+`OPENROUTER_API_KEY`.
 
-From there, either path finishes the job:
+## Which image
 
-- **Closed door.** Put the id in `TELEGRAM_ALLOW_FROM` and restart. `dmPolicy`
-  becomes `allowlist` and only that id is ever answered.
-- **One command.** `docker compose exec gateway openclaw pairing approve
-  telegram <code>`, which also configures the command owner. Leaves the stack
-  in `pairing`, where a stranger can queue a request but cannot get in.
-
-They are two paths, not two steps: under `allowlist` the pairing store is
-ignored, so pairing first and tightening after would lock you out.
-
-## Which image, and pinning one
-
-`compose.yml` pulls `ghcr.io/cidus/gamereg`, built and published by CI from
-every push to `main` for `linux/amd64` and `linux/arm64` — the second on a
-native runner, so a Raspberry Pi or an ARM cloud instance is a first-class
-target rather than an emulated afterthought.
-
-There are two kinds of tag and no `:latest`:
+`compose.yml` pulls `ghcr.io/cidus/gamereg`, built by CI from every push to
+`main` for `linux/amd64` and `linux/arm64`, both on native runners.
 
 | tag | moves | for |
 |---|---|---|
 | `edge` | yes, with `main` | a preview installation, the default |
 | `sha-<commit>` | never | pinning, and rolling back from a bad `edge` |
 
-`:latest` is absent on purpose: it is the tag that reads as "safe to depend on"
-to someone who was never told this is a preview, and that claim belongs to a
+There is no `:latest`. It is the tag that reads as "safe to depend on" to
+someone who was never told this is a preview, and that claim belongs to a
 version number this has not published yet.
 
-Pin without editing `compose.yml`:
+### Updating, pinning, rolling back
 
 ```bash
-echo "GAMEREG_IMAGE_TAG=sha-7ab6b0e" >> .env
+docker compose pull && docker compose up -d      # take the current edge
+```
+
+A running stack keeps the image it started with, and `:edge` moves — `up -d`
+alone will not fetch a newer one.
+
+```bash
+echo "GAMEREG_IMAGE_TAG=sha-7ab6b0e" >> .env     # pin, or roll back
 docker compose up -d
 ```
 
-Building from a checkout instead — which is what a change to the image needs,
-since `compose.yml` alone will only ever pull:
+**After an image upgrade, send `/reset` in the chat.** A conversation already
+under way keeps the copy of the skill it loaded at session start; restarting the
+container does not change that, and the symptom is a Registrar behaving like the
+previous version with no error anywhere.
+
+Working from a checkout, build instead of pulling:
 
 ```bash
 docker compose -f compose.yml -f compose.build.yml build
 docker compose -f compose.yml -f compose.build.yml up -d
 ```
 
-That override exists because a `build:` key in `compose.yml` would make a git
-clone a prerequisite for running the stack at all. It used to be there, and the
-file was hand-edited on its way to the production host to remove it — which
-meant the artifact a stranger would receive was never the artifact anyone ran.
-
 ## What happens on every boot
 
-The `gateway` service's entrypoint is idempotent by design, so a restart, an
-image upgrade and a first run all take the same path:
+The entrypoint is idempotent, so a first run, a restart and an image upgrade all
+take the same path.
 
-1. **Preflight.** Refuses on a missing token, a missing allowlist, an
-   `@username` where a numeric id belongs, or a vault it cannot write. Warns
-   on missing IGDB credentials, because a provider being unavailable is exit 6
-   and the local work still commits.
+1. **Preflight.** Refuses on a missing token, an `@username` where a numeric id
+   belongs, or a vault it cannot write. Warns on missing IGDB credentials —
+   an unavailable provider is exit 6 and the local work still commits.
 2. **Git.** `safe.directory` for the bind-mounted vault, and a commit identity.
-   Both are failures that only surface at the first maintenance tick, and both
-   read as something else when they do.
-3. **Vault.** `gamereg init` only when there is no `gamereg.config.json`;
-   `git init` only when there is no `.git`. An existing vault is never touched.
-4. **Agent files.** Policy per file, not per directory. The skill directory and
-   `AGENTS.md`/`TOOLS.md` are **replaced** every boot — they are code, so
-   pulling a new image redeploys them, and a card you had edited is kept under
-   `backups/` first. `SOUL.md`, `IDENTITY.md`, `REACTIONS.md`, `USER.md` and
-   `HEARTBEAT.md` are **yours**, and the boot records the hash of what it
-   seeded so it can tell an edit from a default that moved: a file you never
-   touched follows the image with no action from you, and one you did edit is
-   kept, with a `NOTICE` naming the shipped copy under
-   `/opt/gamereg/agent-defaults/workspace/` and saying that deleting yours
-   takes the new one on the next boot.
+3. **Vault.** `gamereg init` only when there is no `gamereg.config.json`, `git
+   init` only when there is no `.git`. An existing vault is never touched. A new
+   one is committed at creation, because `autobuild.sh` treats "is the tree
+   dirty" as its entire state and never stages config files itself.
+4. **Agent files.** Policy per file. The skill directory and `AGENTS.md` /
+   `TOOLS.md` are **replaced** every boot — they are code, and a new image
+   redeploys them; an edited card is kept under `backups/` first. `SOUL.md`,
+   `IDENTITY.md`, `REACTIONS.md`, `USER.md` and `HEARTBEAT.md` are **yours**.
+   The boot records the hash of what it seeded, so a file you never touched
+   follows the image while one you edited is kept, with a `NOTICE` naming the
+   shipped copy under `/opt/gamereg/agent-defaults/workspace/`.
 
-   An install from before this tracking existed has no recorded hash. If the
-   file is byte-identical to what ships it is adopted silently; if it differs
-   there is no way to tell your edit from an older default, so it is kept and
-   the same `NOTICE` explains why it was not updated.
+   `USER.md` is where a rule of your own goes ("always answer in English"). It
+   never overrides the *Safety* section of `AGENTS.md`.
+5. **Model auth, then model choice.** Two separate steps: which credential
+   exists, and which model answers (`OPENCLAW_MODEL`,
+   `OPENCLAW_MODEL_FALLBACK`). A Claude subscription is installed into the
+   per-agent auth store, not the environment — see the trap below.
+6. **Gateway config.** The shipped example is seeded once; bot token, allowlist
+   and approvers are patched from the environment every boot, so editing `.env`
+   and restarting moves them.
 
-   `USER.md` is where a rule of your own goes ("always answer in English",
-   "never use buttons"). It never overrides the *Safety* section of
-   `AGENTS.md`.
-5. **Model auth and model choice, separately.** A credential comes from
-   `CLAUDE_CODE_OAUTH_TOKEN` (a subscription), `OPENCLAW_AUTH_KEY` (an API
-   key, through `openclaw onboard`), or `OPENROUTER_API_KEY`. Which model
-   answers is `OPENCLAW_MODEL` and `OPENCLAW_MODEL_FALLBACK`, patched every
-   boot — they used to be one step, so the model was a side effect of whichever
-   credential happened to be present. Nothing refuses to boot without either — the gateway starts, the channel
-   connects, and the agent never answers, which looks like a prompt problem and
-   is not. It runs before the agent files are deployed, because onboard would
-   otherwise seed OpenClaw's own default workspace files and step 4 does not
-   replace a file that already exists.
+The gateway generates its own access token on first boot and reuses it: in a
+container OpenClaw binds to `0.0.0.0` rather than loopback and then correctly
+refuses to start unauthenticated. It lands in `/config/.gateway-token`. Set
+`OPENCLAW_GATEWAY_TOKEN` yourself if you would rather manage it.
 
-   **A Claude Code subscription works, through the auth store and never
-   through the environment.** The distinction is the whole trap. Copying
-   `CLAUDE_CODE_OAUTH_TOKEN` out of a working host's `.env` and writing an
-   `anthropic:cli` profile into the config is what an already-onboarded host
-   *looks* like, and it authenticates nothing — the gateway starts clean and
-   fails at the first message with `No API key found for provider "anthropic"`,
-   naming the per-agent store it looked in. `openclaw models auth paste-token`
-   writes that store, reads the token from stdin, and needs no running gateway,
-   so the entrypoint does it during boot. The profile lands on the `/config`
-   volume and survives restarts and image upgrades.
+The gateway then starts, and once healthy the one-shot `provision` service
+registers the hourly check-in job — it cannot run earlier, because
+`openclaw cron add` is a gateway *client* command.
 
-   Mint the token with `claude setup-token` on a machine where you are signed
-   in. Verified from a wiped auth store: a real turn came back from
-   `claude-sonnet-5` with `authMode=auth-profile` and no fallback.
-6. **Gateway config.** The shipped example is seeded once; the values that
-   belong to this installation — bot token, allowlist, approvers — are patched
-   from the environment on every boot, so changing `.env` and restarting moves
-   them.
-
-Then the gateway starts, and once it reports healthy the one-shot `provision`
-service registers the hourly check-in job. That job cannot be registered
-earlier: `openclaw cron add` is a gateway *client* command and needs a gateway
-to talk to.
-
-> **After an image upgrade, send `/reset` in the chat.** A conversation already
-> under way keeps the copy of the skill it loaded at session start. Restarting
-> the container does not change that, and the symptom is a Registrar behaving
-> like the previous version with no error anywhere.
-
-## Things the first real run turned up
-
-All of these were found by running the stack, not by reading documentation, and
-all of them are already handled — they are here because the symptoms do not
-point at the causes.
-
-- **The nightly dream diary is off.** `memory-core` ships with a `dreaming`
-  sweep enabled by default: twice a night it consolidates memory out of the
-  session corpora and has a model write a narrative diary entry into the
-  workspace — which is to say into the system prompt of every turn after it,
-  growing by an entry per phase per night. Two nights came to 3,800 bytes here.
-  The entrypoint disables it and moves any `DREAMS.md` it already wrote out of
-  the workspace, keeping the file. Beyond the size, `tools.allow` is
-  `exec`/`message`/`read`, so the agent has no tool that can query the memory
-  the sweep builds: the run bought an archive nothing could reach. Turn it back
-  on with `plugins.entries.memory-core.config.dreaming.enabled` if you want it.
-- **The gateway generates its own token, and needs one.** OpenClaw detects a
-  container, switches its bind from loopback to `0.0.0.0`, and then refuses to
-  start unauthenticated — correctly. The entrypoint writes a random token to
-  `/config/.gateway-token` on first boot and reuses it. Set
-  `OPENCLAW_GATEWAY_TOKEN` yourself if you would rather manage it.
-- **`provision` shares the gateway's network stack.** OpenClaw refuses
-  plaintext `ws://` to any non-loopback address, so reaching the gateway as
-  `ws://gateway:18789` across the compose network is rejected outright. Sharing
-  one loopback is cheaper than terminating TLS between two local containers.
-- **`docker compose up` does not rebuild.** After editing anything in the image,
-  `docker compose build` first — otherwise the stack silently runs the previous
-  one, which is a confusing half-hour.
-- **A new vault is committed at creation.** `autobuild.sh` treats "is the tree
-  dirty" as its entire state and only ever stages build output, never
-  `gamereg.config.json` or `.gitignore`. Left uncommitted, those two keep the
-  tree dirty forever, and every tick runs an enrichment that reaches the
-  network and a build with nothing to do. On a host a person commits them
-  without thinking; nobody is here to.
-
-- **The health check is a TCP connect, not `openclaw gateway health`.** The
-  latter is a whole Node process — 0.4s on a laptop, minutes on a shared
-  0.25 vCPU under memory pressure, which is longer than the check interval. The
-  checks piled up, a dozen Node processes took the load average past 30, and
-  they starved the boot they were waiting on. If you raise anything here, raise
-  `GATEWAY_START_PERIOD`, not the frequency.
-- **Boot takes minutes on an e2-micro**, and that is normal: each `openclaw`
-  invocation in the entrypoint is a Node start. `docker compose up -d` blocks
-  waiting on the health condition, so run it detached and poll
-  `docker compose ps` rather than assuming it hung.
-- **`HOME` is set in the image on purpose.** Compose overrides the image's user
-  with the host's uid; when that uid is not in the container's `/etc/passwd`,
-  Docker falls back to `HOME=/`, `git config --global` fails silently, and the
-  vault's first commit aborts. It works on any host whose uid is 1000 and fails
-  on every other, which is the sort of coincidence a container should remove
-  rather than inherit.
-
-### Migrating a host install
-
-Two things bite when the containers replace a working host setup, and neither
-announces itself.
-
-**Disable the old units, do not merely stop them.** A `systemctl --user stop`
-leaves `openclaw-gateway.service` enabled, so the next reboot starts it
-alongside the container — two consumers of one bot token, which Telegram does
-not allow. The symptom is a register that answers *sometimes*, not one that
-fails. `systemctl --user disable openclaw-gateway.service gamereg-autobuild.timer`.
-
-**The deploy key has to exist before the first push.** If `GAMEREG_SSH_PATH`
-points at a path that does not exist, Docker creates an empty root-owned
-directory there and the push fails with `Host key verification failed`, which
-names neither the key nor the mount. Populate it first — the key, and a
-`known_hosts` from `ssh-keyscan`.
+The nightly `memory-core` dreaming sweep is disabled here. It writes a narrative
+diary into the workspace, which is the system prompt of every later turn, and
+`tools.allow` gives the agent no tool that could read what it builds. Re-enable
+with `plugins.entries.memory-core.config.dreaming.enabled`.
 
 ## Pushing the vault
 
-`scripts/autobuild.sh` commits and pushes on every tick that finds a dirty
-tree. Without a remote it commits and stops, which is a supported setup.
+`scripts/autobuild.sh` commits and pushes on every tick that finds a dirty tree.
+Without a remote it commits and stops, which is a supported setup.
 
-With one, put a deploy key at `config/ssh/id_ed25519` and its `known_hosts`
-beside it — the entrypoint wires `GIT_SSH_COMMAND` when it finds the key.
-Generate `known_hosts` ahead of time, or the first push blocks forever on a
+With one, put a deploy key at `config/ssh/id_ed25519` and a `known_hosts` beside
+it; the entrypoint wires `GIT_SSH_COMMAND` when it finds the key. **Generate `known_hosts` before the first push**, or it blocks forever on a
 fingerprint prompt nobody can answer:
 
 ```bash
 ssh-keyscan github.com > config/ssh/known_hosts
 ```
 
+The directory has to exist and hold the key before the stack starts. Pointed at
+a missing path, Docker creates an empty root-owned directory and the push fails
+with `Host key verification failed`, which names neither the key nor the mount.
+
 ## The site
 
-The default topology does not build the site here. The vault is already a git
-repository that the maintenance loop pushes, so the cheapest correct answer is
-to build it from that repository — a GitHub Action, or Cloudflare building on
-push — which costs this machine no memory and no egress.
-`scripts/vendor-quartz.sh` seeds a `wrangler.jsonc` for exactly that.
+**The default topology does not build the site here**, and on a small instance
+that is the right answer: a Quartz build peaks at 400–700 MB and will take the
+gateway with it, and a vault with a hundred covers is ~20 MB per full crawl
+against 1 GB of monthly egress on the free tiers. The vault is already a git
+repository the maintenance loop pushes, so build it from there — a GitHub
+Action, or Cloudflare building on push. `scripts/vendor-quartz.sh` seeds a
+`wrangler.jsonc` for exactly that.
 
-The `site` profile exists for installations that do not want an external
-account, and for proving the shape works. It is not a good idea on 1 GB:
+The `site` profile exists for an installation that wants no external account:
 
 ```bash
 scripts/vendor-quartz.sh --clone --tag v5.0.0   # once, on the host
 docker compose --profile site up -d
 ```
 
-`gamereg build quartz` writes Quartz's *input*; the framework itself is
-vendored separately by `scripts/vendor-quartz.sh`, which clones a third-party
-repository and is therefore a deliberate step rather than something a boot does
-on your behalf. The build container refuses to start without it rather than
-half-working.
+`gamereg build quartz` writes Quartz's *input*; the framework is vendored
+separately, because that clones a third-party repository and is a decision
+rather than something a boot does on your behalf. The build container refuses to
+start without it rather than half-working.
 
-It watches the vault's git HEAD, not the filesystem. `gamereg build` rewrites
-derived artifacts wholesale on every run, so mtimes move constantly and say
-nothing about whether anything changed; a commit means the maintenance loop
-found a real difference. A failed build leaves the previous site in place — a
-stale page beats a blank one — and does not advance the stamp, so the next tick
-retries.
+Measured with the gateway stopped: `npm install` 14s, the Quartz build 4s, about
+two minutes from `up` to a served page. Running both at once leaves very little
+free.
 
-There is no upstream image for this. Quartz's own Dockerfile runs
-`npx quartz build --serve`, a development server with no `EXPOSE`, and
-`ghcr.io/jackyzha0/quartz:hugo` is the abandoned v3 line.
+Three things to know about how it behaves:
 
-### Running it on the machine after all
+- **It watches the vault's git HEAD, not the filesystem.** `gamereg build`
+  rewrites derived artifacts wholesale, so mtimes say nothing; a commit means
+  the maintenance loop found a real difference.
+- **A failed build keeps the previous site** and does not advance the stamp, so
+  the next tick retries. A stale page beats a blank one.
+- **The build never writes to the vault.** `/vault` is mounted read-only and the
+  Quartz tree is copied to a scratch directory first. `quartz plugin add` clones
+  a repository and runs what it finds, and `npm install` runs the lifecycle
+  scripts of a whole dependency tree — ordinary for a static site generator, and
+  not something to point at an append-only event log. The copy replaces rather
+  than overlays, so a page whose source disappears from the vault disappears
+  from the site.
 
-It does work, and the numbers are better than the warning above suggests --
-with the agent stopped, `npm install` took 14s and the Quartz build 4s, about
-two minutes from `up` to a served page. What it needs is the room: bring the
-gateway down first, or accept that the whole stack together leaves very little
-free and a load average around 4.
-
-Four things had to be fixed before it worked at all, and each is the sort that
-only appears on a machine that is not the one that wrote the file:
-
-- **A partial `node_modules` is not self-healing.** An install interrupted
-  once leaves the directory in place and incomplete, `npm install` over it does
-  not reliably repair it, and every later build fails on a missing transitive
-  dependency while the directory the check looks for sits right there. The
-  guard is a sentinel written *after* a successful install, carrying the
-  checksum of the lockfile it was written for -- so vendoring a newer Quartz
-  reinstalls instead of building against the old tree.
-- **Quartz removes and recreates its output directory**, and a bind mount
-  point cannot be removed by anyone: `EACCES: permission denied, rmdir`. It
-  builds into its own `public/` and the result is copied out.
-- **A named volume is owned by root**, and every service here runs as the
-  host's uid so the vault is not left owned by a stranger. The symptom is npm
-  failing to create its log directory, which names neither ownership nor
-  volumes. Everything is a bind mount now.
-- **Nothing is mounted from the compose project directory.** The loop script
-  and the serving config used to be, which works in a checkout and nowhere
-  else -- on a machine holding only `compose.yml` and `.env`, Docker creates a
-  directory at the missing path and the container dies on "Permission denied"
-  or "are you trying to mount a directory onto a file". The script is in the
-  image; the config is written by `site-build` into the directory it already
-  shares with the server.
-
-### The build never writes to the vault
-
-`site-build` mounts `/vault` read-only, and `docker/site-loop.sh` copies the
-vault's Quartz tree into a scratch directory under the cache mount and builds
-*there*.
-
-The reason is what a Quartz build is. `quartz plugin add` takes a GitHub URL,
-clones it, and the build runs whatever it found; `npm install` runs the
-lifecycle scripts of the whole dependency tree. That is ordinary for a static
-site generator and unremarkable until you notice what the working directory
-would otherwise be: the append-only event log, and the git tree whose dirty
-state is `autobuild.sh`'s entire notion of what to do next.
-
-The copy costs nothing worth counting -- a few megabytes of Markdown, against
-an `npm install` measured at 14 seconds -- and `node_modules`, the cloned
-plugins and Quartz's own `public/` all live in the scratch directory, so they
-survive a restart the way they did when the build ran in place.
-
-One consequence to know: the copy *replaces* rather than overlays. A page whose
-source disappears from the vault -- a game revoked, a run note renamed --
-disappears from the site on the next build, which is the behaviour you want and
-not what an overlay would have given you.
-
-### Serving a build made somewhere else
-
-On a 1 GB machine this is the shape that works: build the site where there is
-memory, ship the static output, serve it with something that costs nothing.
-Proven end to end on the e2-micro — Quartz's own `npm install` and build never
-ran there at all, and the served result is byte-for-byte what the build
-produced.
-
-To look at it without opening a port, forward it over the connection you
-already have:
+To look at the result without publishing a port, forward it:
 
 ```bash
 ssh -L 8080:127.0.0.1:8080 <host>
 ```
 
-`SITE_BIND` defaults to `127.0.0.1` for the same reason: publishing on
-`0.0.0.0` should be a decision, not a default.
+`SITE_BIND` defaults to `127.0.0.1` because publishing on `0.0.0.0` should be a
+decision, not a default.
 
 ## Comments
 
 [Remark42](https://remark42.com) is a Go binary with an embedded BoltDB — no
-database service, ~30 MB resident — which is affordable here in a way a site
-build is not. It always runs *here*, because it is stateful. What changes is
-how a browser reaches it, and that is a separate profile:
+database service, ~30 MB resident. It always runs *here*, because it is
+stateful; what changes is how a browser reaches it.
 
 | what you want | profiles | tunnel points at | `REMARK_URL` |
 |---|---|---|---|
@@ -425,77 +239,58 @@ how a browser reaches it, and that is a separate profile:
 | everything published from here | `site` `comments` `tunnel` | `site-serve:8080` | `https://example.com/remark42` |
 
 What the tunnel points at is configured in Cloudflare's dashboard, not in
-compose; both services sit on the same network, so either is reachable as a
-target.
+compose. The third row is worth noticing: pointing it at `site-serve` publishes
+the site *and* the comments through one hostname, and since `site-serve` already
+proxies `/remark42` they share an origin — no CORS, no second hostname.
 
-The third row is worth noticing. Pointing the tunnel at `site-serve` publishes
-the site *and* the comments through one hostname, and since `site-serve`
-already proxies `/remark42`, they share an origin — no CORS, no second
-hostname, and the site never leaves this machine to be built.
-
-**`REMARK_URL` takes one value.** It builds the OAuth callbacks and the links
-in feeds, so it names whichever address a browser will really use. No
-configuration makes a tunnel hostname and a localhost address both work.
+**`REMARK_URL` takes one value.** It builds the OAuth callbacks and the links in
+feeds, so it names whichever address a browser will really use. No configuration
+makes a tunnel hostname and a localhost address both work.
 
 **Both here.** Set `SITE_COMMENTS_UPSTREAM=remark42:8080` and Caddy serves the
-comments under the site's own origin at `/remark42/`, so there is one published
-port and no CORS allowlist to keep in step. `REMARK_URL` must then carry the
-same path: `http://127.0.0.1:8080/remark42`.
+comments under the site's own origin at `/remark42/`. `REMARK_URL` must carry
+the same path.
 
-**Reachable from outside.** `--profile tunnel` adds cloudflared, which carries
-it with no published port, no static address and no certificate to renew — worth
-having on a machine whose gateway runs a language model with a shell. Set
-`CLOUDFLARE_TUNNEL_TOKEN` from the dashboard and point `REMARK_URL` at the
-tunnel's hostname.
+**Reachable from outside.** `--profile tunnel` adds cloudflared: no published
+port, no static address, no certificate to renew. Set
+`CLOUDFLARE_TUNNEL_TOKEN` and point `REMARK_URL` at the tunnel's hostname.
 
-`REMARK_SECRET` signs the JWTs. Generate it with `openssl rand -hex 32` and
-treat it as a secret — it lives in `.env`, which is gitignored.
-
-`ALLOWED_HOSTS` names the origins allowed to embed the threads. Empty, Remark42
-accepts any — which is why the widget works before you have thought about it —
-so set it to the *site's* address. With the site on Pages and the comments
-behind a tunnel that is a different hostname from `REMARK_URL`, and getting
-them the wrong way round locks out the only page that should work.
+`REMARK_SECRET` signs the JWTs — `openssl rand -hex 32`, and treat it as a
+secret. `ALLOWED_HOSTS` names the origins allowed to embed the threads; left
+empty Remark42 accepts any, so set it to the *site's* address, which with the
+site built off-box is a different hostname from `REMARK_URL`.
 
 ### Who may comment
 
-Auth providers are set in `.env` **and named in `compose.yml`** — both, and the
-second half is the security-relevant one. Remark42 is the only service here a
-stranger can reach, so it gets no `env_file`: Compose would load the whole file
-into it, handing a public comment engine the model credential, the Telegram bot
-token, the tunnel token and the IGDB keys, none of which it reads. Every
-variable it does need is listed explicitly instead.
+Auth providers are set in `.env` **and named in `compose.yml`** — both. Remark42
+is the only service here a stranger can reach, so it deliberately has no
+`env_file`: Compose loads the whole file, which would hand a public comment
+engine the model credential, the bot token, the tunnel token and the IGDB keys.
+Every variable it needs is listed explicitly, which is why that list is long.
 
-The cost is one line in `compose.yml` per provider. That is the right trade for
-the service facing the internet, and it is why the list there is long.
-
-Two shapes to respect when adding one. Variables generic enough to collide in a
-shared file are renamed (`REMARK_SECRET` to `SECRET`, `REMARK_TELEGRAM_TOKEN`
-to `TELEGRAM_TOKEN`). And **boolean flags take an explicit `false`, never an
-empty string** — Remark42 reads a variable's *presence* as enable, so
-`AUTH_TELEGRAM=""` advertises a sign-in method that then fails against the
-Telegram API with an empty token.
+Two shapes to respect when adding a provider. Names generic enough to collide in
+a shared file are renamed (`REMARK_SECRET` → `SECRET`). And **boolean flags take
+an explicit `false`, never an empty string** — Remark42 reads a variable's
+*presence* as enable, so `AUTH_TELEGRAM=""` advertises a sign-in method that then
+fails against the API.
 
 Anonymous (`AUTH_ANON=true`) needs nothing. OAuth providers follow one shape,
 `AUTH_GITHUB_CID` / `AUTH_GITHUB_CSEC` and so on, with the callback at
-`<REMARK_URL>/auth/<provider>/callback`.
+`<REMARK_URL>/auth/<provider>/callback`. A provider not already named in
+`compose.yml` needs a line there too, or setting it does nothing and says
+nothing.
 
-**Telegram is the cheapest of them** — no OAuth app, no callback URL, so none
-of the subpath question applies. The commenter messages a bot and is signed in.
-
-> **It has to be its own bot, not the Registrar's.** Both would need to read the
-> same bot's messages, and Telegram permits exactly one consumer: two pollers
-> steal each other's updates, and setting a webhook makes `getUpdates` return
-> 409 for anyone else listening. Either way the register stops answering, and
-> the symptom is a bot that replies *sometimes* rather than one that fails.
-> Ask @BotFather for a second bot and set `REMARK_TELEGRAM_TOKEN`.
+**Telegram is the cheapest** — no OAuth app, no callback. But **it has to be its
+own bot, not the Registrar's**: Telegram permits one consumer per token, so
+sharing one makes the register answer *sometimes*. Ask @BotFather for a second
+bot and set `REMARK_TELEGRAM_TOKEN`.
 
 ### Telling Quartz about it
 
 The plugin is declared in the vault's own `quartz/quartz.config.yaml`. gamereg
 seeds that file once and never rewrites it, so this is a one-time hand edit —
-and it travels with the vault, which means a site built off-box picks up the
-same configuration.
+and it travels with the vault, so a site built off-box picks up the same
+configuration.
 
 ```yaml
 plugins:
@@ -511,17 +306,43 @@ plugins:
 
 Two things that cost time otherwise. `source:` does **not** accept a bare npm
 package name, even with the package installed — it takes a local path,
-`github:owner/repo`, a full URL, or an object. And **`host` here must equal
+`github:owner/repo`, a full URL, or an object. And **`host` must equal
 `REMARK_URL`**: a mismatch loads the widget from one address while Remark42
 believes it lives at another, and nothing errors.
 
-OAuth works through the proxy — a real GitHub sign-in completed under the
-`/remark42` prefix on v1.16.4, comment posted while logged in. Remark42's
-tracker carries a subpath defect where those links lose the prefix
-([umputun/remark42#961](https://github.com/umputun/remark42/issues/961)) and it
-did not reproduce. If a sign-in link ever does come back without `/remark42`,
-that is the bug: give Remark42 its own published port and leave
-`SITE_COMMENTS_UPSTREAM` empty.
+## Troubleshooting
+
+**The agent answers like a generic assistant.** The persona and skill were not
+found. Check `docker compose logs gateway` for the workspace path.
+
+**It replies with `No API key found for provider "anthropic"`.** A Claude
+subscription lives in the per-agent auth store, not the environment. Setting
+`CLAUDE_CODE_OAUTH_TOKEN` and writing an `anthropic:cli` config profile is what
+an already-onboarded host *looks* like and authenticates nothing. The entrypoint
+installs it with `openclaw models auth paste-token` at boot; if this appears,
+the token is missing or expired.
+
+**The bot answers intermittently.** Two consumers of one token. Look for an old
+host install: `systemctl --user disable openclaw-gateway.service` — stopping a
+unit leaves it enabled, and the next reboot starts it alongside the container.
+
+**The container is healthy but restarts every minute or so.** Memory. Each boot
+passes the health check before dying. Raise `GATEWAY_MEM_LIMIT`, and add swap.
+
+**The gateway never becomes healthy on a slow machine.** Raise
+`GATEWAY_START_PERIOD`, never the check frequency.
+
+**The stack runs the previous version after an upgrade.** `docker compose pull`
+first — `up -d` alone keeps the image it has. Then `/reset` the conversation.
+
+**The first push fails with `Host key verification failed`.** The SSH directory
+was missing when the stack started, so Docker created an empty one. Populate it
+and recreate the service.
+
+**The site build fails on a missing dependency, repeatedly.** An interrupted
+`npm install` leaves `node_modules` incomplete and reinstalling over it does not
+repair it. The sentinel that guards this carries the lockfile's checksum;
+delete `node_modules` in the vault's Quartz tree to force a clean install.
 
 ## What is deliberately not here
 
