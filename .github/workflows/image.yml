@@ -9,8 +9,11 @@ name: image
 # `--dry-run`, or a build that is not byte-identical to its own goldens fails
 # here instead of on a host nobody is watching.
 #
-# The image is never pushed anywhere -- distribution is a roadmap decision,
-# not a CI one.
+# Since the container work proved out, the image is also published -- but only
+# from `main`, only after the verification below passes, and only as `:edge`.
+# There is no `:latest` and no version tag yet: publishing is a one-way door
+# (06-roadmap.md), and `:latest` is the tag that reads as "safe to depend on"
+# to someone who has not been told otherwise. That claim belongs to 1.0.0.
 
 on:
   push:
@@ -26,8 +29,14 @@ concurrency:
   group: image-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  IMAGE: ghcr.io/cidus/gamereg
+
 jobs:
-  image:
+  # Unchanged, and still the gate: nothing below runs unless this passes. An
+  # image that fails its own clean-room golden check must not reach a registry
+  # where something could pull it.
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -92,3 +101,124 @@ jobs:
           # developer's own machine can produce -- this was previously only
           # ever checked by hand, once, on one libc and one install path.
           diff -rq --exclude=log.db --exclude=.gamereg example-vault "$scratch"
+
+  # Two native runners rather than one with QEMU. Measured before this was
+  # written: a native arm64 build of this image takes 46s on `ubuntu-24.04-arm`
+  # (4 vCPU, 15 GiB), against a 65s amd64 job that does strictly more, and
+  # `sharp` -- the only native dependency, and the one that would have broken --
+  # loads and encodes WebP there. Emulation would have cost multiples of that
+  # for the same result.
+  #
+  # Each runner pushes an image *by digest* with no tag; the manifest job below
+  # joins them under one name. That is the only arrangement in which two
+  # machines can build one multi-arch image without either overwriting the
+  # other's tag.
+  build:
+    needs: verify
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          # No tag here on purpose -- see the note above.
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # Provenance attestations add `unknown/unknown` entries to the
+          # manifest list, which the digest-and-merge shape below would carry
+          # into the final index as phantom platforms. Turned off rather than
+          # worked around; worth revisiting when a real version tag exists and
+          # supply-chain metadata starts to matter to a consumer.
+          provenance: false
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+
+      # The digest is the only thing the manifest job needs, and it cannot be
+      # passed between jobs any other way.
+      - name: hand the digest to the manifest job
+        run: |
+          set -eu
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ strategy.job-index }}
+          path: /tmp/digests/*
+          retention-days: 1
+          if-no-files-found: error
+
+  # One name over both architectures. `docker buildx imagetools create` writes
+  # an index pointing at the two digests, so a puller on either machine gets
+  # the right one without knowing this happened.
+  publish:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: /tmp/digests
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `:edge` moves with main and is the only moving tag. `:sha-<commit>` is
+      # immutable and exists so a deployment can pin one, and so a bad `:edge`
+      # has something to roll back *to* -- a mutable-only tag provides nothing.
+      # Neither is a stability claim.
+      - name: create the manifest
+        working-directory: /tmp/digests
+        run: |
+          set -eu
+          docker buildx imagetools create \
+            --tag "${IMAGE}:edge" \
+            --tag "${IMAGE}:sha-$(echo "${{ github.sha }}" | cut -c1-7)" \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: both architectures are actually in there
+        run: |
+          set -eu
+          platforms="$(docker buildx imagetools inspect "${IMAGE}:edge" --raw \
+            | jq -r '.manifests[]
+                     | select(.platform.architecture != "unknown")
+                     | "\(.platform.os)/\(.platform.architecture)"' \
+            | sort | paste -sd' ')"
+          echo "published: $platforms"
+          test "$platforms" = "linux/amd64 linux/arm64"
