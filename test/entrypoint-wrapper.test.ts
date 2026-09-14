@@ -237,10 +237,18 @@ test('the skill is replaced on every boot, so a new image actually redeploys it'
  */
 test('the standing orders are replaced on every boot even when they were edited', () => {
   const h = host()
-  h.run('gateway')
+  const first = h.run('gateway')
 
   const card = join(h.config, 'workspace', 'AGENTS.md')
   assert.equal(readFileSync(card, 'utf8'), 'shipped card\n')
+
+  // A first boot has to say the card was deployed. Without it the two most
+  // important files are the only ones a clean boot is silent about, and "did
+  // my new AGENTS.md land?" has no line to read.
+  assert.match(first.stderr, /deploying AGENTS\.md/)
+
+  // And then stays quiet while nothing changes.
+  assert.doesNotMatch(h.run('gateway').stderr, /AGENTS\.md/)
 
   writeFileSync(card, 'stale card\n')
   h.run('gateway')
@@ -289,7 +297,18 @@ test('a seeded file the user edited is kept, and the boot says how to take the n
   const loud = h.run('gateway')
   assert.equal(readFileSync(soul, 'utf8'), 'my own voice\n', 'an edit is never overwritten')
   assert.match(loud.stderr, /NOTICE: SOUL\.md is yours/)
-  assert.match(loud.stderr, /delete it from the/, 'the notice must name the way out')
+  assert.match(loud.stderr, /delete it from the workspace/, 'the notice must name the way out')
+
+  // Every line of a notice carries the log prefix, asserted on the *last* line
+  // specifically. The first version embedded a newline in one `log` call, so
+  // the continuation came out unprefixed and vanished from
+  // `docker logs | grep entrypoint`, which is how a boot is actually read.
+  //
+  // Matching `^entrypoint: ` against lines containing "NOTICE" does not catch
+  // that -- the orphaned line does not contain the word -- which is the same
+  // filter swallowing the same line one layer up. So the anchor is the text
+  // that was being lost.
+  assert.match(loud.stderr, /^entrypoint: .*Keeping yours\./m, 'the last notice line lost its prefix')
 })
 
 /**
@@ -344,7 +363,7 @@ test('an untracked file that differs is kept, loudly, and not adopted', () => {
   const r = h.run('gateway')
   assert.equal(readFileSync(join(workspace, 'SOUL.md'), 'utf8'), 'from an older image, maybe mine\n')
   assert.match(r.stderr, /NOTICE: SOUL\.md was not updated/)
-  assert.match(r.stderr, /predates seed tracking/)
+  assert.match(r.stderr, /^entrypoint: .*predates seed tracking/m, 'the reason must survive a filtered log')
 
   // Not adopted: a later image must not silently overwrite it either.
   writeFileSync(join(h.defaults, 'workspace', 'SOUL.md'), 'shipped persona v2\n')

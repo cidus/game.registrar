@@ -230,14 +230,26 @@ record_seed() {
 # A file silently left behind is the exact failure this whole section exists to
 # remove; reintroducing it one level down, in a shell conditional instead of a
 # directory policy, would be the same bug wearing a different hat.
+#
+# One `log` per line, never a newline inside one. The first draft embedded it,
+# and the continuation came out without the `entrypoint:` prefix -- so the
+# sentence explaining *why* the file was kept vanished from `docker logs |
+# grep entrypoint`, which is how anyone actually reads a boot. A warning that
+# disappears under a filter is most of the way back to no warning at all.
 keep_notice() {
   log "NOTICE: $1 $2"
-  log "        Compare with $DEFAULTS/workspace/$1, or delete it from the"
-  log "        workspace to take the shipped version on the next boot."
+  log "NOTICE: $1 Compare with $DEFAULTS/workspace/$1, or delete it from the workspace"
+  log "NOTICE: $1 to take the shipped version on the next boot."
 }
 
+# Silent when the file is already what ships, which is the steady state. The
+# other two cases are events and say so -- a first boot that logged nothing
+# about the card left "did my new AGENTS.md land?" with no line to read, which
+# is the question this whole section exists to answer.
 deploy_replace() {
-  if [ -f "$2" ] && ! cmp -s "$1" "$2"; then
+  if [ ! -f "$2" ]; then
+    log "deploying $3 (replaced every boot)"
+  elif ! cmp -s "$1" "$2"; then
     run mkdir -p "$STATE_DIR/backups"
     # Not a *.md name, so a backup never rejoins the system prompt.
     run cp "$2" "$STATE_DIR/backups/$3.replaced-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -268,8 +280,7 @@ deploy_seed() {
       log "adopting $3 (identical to the shipped default)"
       record_seed "$1" "$3" "$shipped"
     else
-      keep_notice "$3" "was not updated: it differs from the shipped default and this
-        install predates seed tracking, so it may carry your own changes."
+      keep_notice "$3" "was not updated: it differs from the shipped default and this install predates seed tracking, so it may carry your own changes."
     fi
     return 0
   fi
@@ -286,8 +297,7 @@ deploy_seed() {
   fi
 
   if [ "$shipped" != "$recorded" ]; then
-    keep_notice "$3" "is yours and the shipped version changed in this image.
-        Keeping yours."
+    keep_notice "$3" "is yours and the shipped version changed in this image. Keeping yours."
   fi
 }
 
