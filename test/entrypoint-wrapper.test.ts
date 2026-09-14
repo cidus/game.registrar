@@ -736,6 +736,43 @@ test('a bare `compose up` starts the register and nothing that would exhaust a 1
   assert.deepEqual(byProfile('tunnel'), ['tunnel'])
 })
 
+test('the image is published only from main, and never as latest', () => {
+  // Three properties, each of which fails silently if dropped.
+  //
+  // A pull request from a branch *in this repository* carries a GITHUB_TOKEN
+  // that can write packages -- unlike one from a fork -- so the event guard is
+  // what stands between an unreviewed branch and the registry.
+  //
+  // `verify` is the gate: it runs the entrypoint and diffs a clean-room build
+  // against the goldens. An image that fails that must not become pullable.
+  //
+  // And there is no `:latest` until 1.0.0. Publishing is a one-way door
+  // (06-roadmap.md) and `:latest` is what reads as "safe to depend on" to
+  // someone who was never told it is a preview.
+  const workflow = parse(readFileSync(join(ROOT, '.github', 'workflows', 'image.yml'), 'utf8')) as {
+    jobs: Record<string, { needs?: string | string[]; if?: string }>
+  }
+  // Comments stripped first: the header explains at length that there is no
+  // `:latest`, and a scan over the prose finds the very word it forbids.
+  const raw = readFileSync(join(ROOT, '.github', 'workflows', 'image.yml'), 'utf8')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('#'))
+    .join('\n')
+
+  for (const name of ['build', 'publish']) {
+    const job = workflow.jobs[name]
+    assert.ok(job, `image.yml has a ${name} job`)
+    assert.match(String(job.if), /github\.event_name == 'push'/, `${name} must not run on a pull request`)
+  }
+
+  const needs = (j?: { needs?: string | string[] }) => [j?.needs ?? []].flat()
+  assert.deepEqual(needs(workflow.jobs['build']), ['verify'], 'build must wait for the verification job')
+  assert.deepEqual(needs(workflow.jobs['publish']), ['build'], 'publish must wait for both architectures')
+
+  assert.doesNotMatch(raw, /:latest/, 'no :latest tag before 1.0.0')
+  assert.match(raw, /--tag "\$\{IMAGE\}:edge"/, 'edge is the moving tag')
+})
+
 test('the publicly reachable service never gets the whole .env', () => {
   // Compose loads an env_file wholesale, not the keys a service renames. With
   // one on remark42 -- the only thing here a stranger can reach -- the running
