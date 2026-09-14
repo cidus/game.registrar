@@ -33,10 +33,19 @@ x-gamereg:
   generated_by: hand
 
 x-image: &image
-  image: gamereg:local
-  build:
-    context: .
-    dockerfile: Dockerfile
+  # A published image, not a build context. This file has to work on a machine
+  # holding nothing but itself and a `.env` -- that is phase 4's exit criterion,
+  # and a `build:` here makes cloning the repository a prerequisite for running
+  # anything. Development builds from `compose.build.yml`, which overrides this.
+  #
+  # `:edge` moves with `main` and is what a preview installation wants. Pin a
+  # `:sha-<commit>` instead to stop a restart from changing what runs -- the tag
+  # is a variable precisely so pinning never means editing this file:
+  #
+  #   GAMEREG_IMAGE_TAG=sha-7ab6b0e
+  #
+  # There is no `:latest` until 1.0.0.
+  image: ghcr.io/cidus/gamereg:${GAMEREG_IMAGE_TAG:-edge}
   env_file: [.env]
   user: "${PUID:-1000}:${PGID:-1000}"
   restart: unless-stopped

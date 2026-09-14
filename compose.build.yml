@@ -1,0 +1,29 @@
+# Development: build the image from this checkout instead of pulling it.
+#
+#   docker compose -f compose.yml -f compose.build.yml build
+#   docker compose -f compose.yml -f compose.build.yml up -d
+#
+# It lives in its own file rather than as a `build:` key in compose.yml because
+# that key would make a git clone a prerequisite for running the stack, and an
+# installation is supposed to need only compose.yml and a .env. Keeping the two
+# apart is also what makes the committed compose.yml the same file that is
+# tested in production -- it used to be hand-edited on the way there, which
+# meant the artifact a stranger received was never the artifact anyone ran.
+#
+# The tag is whatever GAMEREG_IMAGE_TAG says, so a local build replaces exactly
+# the image the stack would otherwise pull.
+
+x-build: &build
+  build:
+    context: .
+    dockerfile: Dockerfile
+
+services:
+  gateway:
+    <<: *build
+  maintenance:
+    <<: *build
+  provision:
+    <<: *build
+  site-build:
+    <<: *build

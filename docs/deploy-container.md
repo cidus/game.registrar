@@ -66,8 +66,11 @@ long-polled, so **no port is published and no firewall rule is needed.**
 
 ## First run
 
+Nothing here needs a clone. Two files, one of which you write:
+
 ```bash
-cp .env.example .env
+curl -O https://raw.githubusercontent.com/cidus/game.registrar/main/compose.yml
+curl -o .env https://raw.githubusercontent.com/cidus/game.registrar/main/.env.example
 # fill in TELEGRAM_BOT_TOKEN and TELEGRAM_ALLOW_FROM, then:
 echo "PUID=$(id -u)" >> .env && echo "PGID=$(id -g)" >> .env
 mkdir -p vault config/ssh
@@ -106,6 +109,44 @@ From there, either path finishes the job:
 
 They are two paths, not two steps: under `allowlist` the pairing store is
 ignored, so pairing first and tightening after would lock you out.
+
+## Which image, and pinning one
+
+`compose.yml` pulls `ghcr.io/cidus/gamereg`, built and published by CI from
+every push to `main` for `linux/amd64` and `linux/arm64` — the second on a
+native runner, so a Raspberry Pi or an ARM cloud instance is a first-class
+target rather than an emulated afterthought.
+
+There are two kinds of tag and no `:latest`:
+
+| tag | moves | for |
+|---|---|---|
+| `edge` | yes, with `main` | a preview installation, the default |
+| `sha-<commit>` | never | pinning, and rolling back from a bad `edge` |
+
+`:latest` is absent on purpose: it is the tag that reads as "safe to depend on"
+to someone who was never told this is a preview, and that claim belongs to a
+version number this has not published yet.
+
+Pin without editing `compose.yml`:
+
+```bash
+echo "GAMEREG_IMAGE_TAG=sha-7ab6b0e" >> .env
+docker compose up -d
+```
+
+Building from a checkout instead — which is what a change to the image needs,
+since `compose.yml` alone will only ever pull:
+
+```bash
+docker compose -f compose.yml -f compose.build.yml build
+docker compose -f compose.yml -f compose.build.yml up -d
+```
+
+That override exists because a `build:` key in `compose.yml` would make a git
+clone a prerequisite for running the stack at all. It used to be there, and the
+file was hand-edited on its way to the production host to remove it — which
+meant the artifact a stranger would receive was never the artifact anyone ran.
 
 ## What happens on every boot
 

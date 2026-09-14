@@ -736,6 +736,33 @@ test('a bare `compose up` starts the register and nothing that would exhaust a 1
   assert.deepEqual(byProfile('tunnel'), ['tunnel'])
 })
 
+test('compose.yml runs from a published image, with no build context', () => {
+  // The exit criterion for this phase is someone installing without cloning
+  // anything. A `build:` key in compose.yml makes a checkout a prerequisite,
+  // and it silently did: the committed file was hand-edited on its way to the
+  // production host to strip that key, so the artifact a stranger would get
+  // was never the artifact anyone actually ran. Development builds through
+  // compose.build.yml instead.
+  const raw = readFileSync(join(ROOT, 'compose.yml'), 'utf8')
+  const compose = parse(raw) as { services: Record<string, { build?: unknown }> }
+
+  for (const [name, service] of Object.entries(compose.services)) {
+    assert.equal(service.build, undefined, `${name} must not carry a build context`)
+  }
+  assert.match(raw, /image: ghcr\.io\/cidus\/gamereg:\$\{GAMEREG_IMAGE_TAG:-edge\}/)
+
+  // And the override exists and covers every service built from this image, so
+  // a developer is never silently running a stale published one.
+  const override = parse(readFileSync(join(ROOT, 'compose.build.yml'), 'utf8')) as {
+    services: Record<string, { build?: { context?: string } }>
+  }
+  const fromImage = Object.entries(compose.services)
+    .filter(([, s]) => JSON.stringify(s).includes('GAMEREG_IMAGE_TAG'))
+    .map(([n]) => n)
+    .sort()
+  assert.deepEqual(Object.keys(override.services).sort(), fromImage)
+})
+
 test('the image is published only from main, and never as latest', () => {
   // Three properties, each of which fails silently if dropped.
   //
