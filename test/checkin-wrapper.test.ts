@@ -225,6 +225,33 @@ test('--dry-run shows the whole cycle and performs none of it', () => {
   assert.deepEqual(checkins(gateway.vault), [])
 })
 
+/**
+ * `--dry-run` is documented as filing nothing at all, but the expiry sweep
+ * (step 1) used to run for real before the script ever looked at DRY_RUN —
+ * `gamereg checkin --expire` appends an `event.amend` for every stale
+ * `snoozed` record, so a dry run silently wrote to the append-only log.
+ */
+test('--dry-run does not expire stale check-ins either', () => {
+  const gateway = host()
+  const filed = gateway.run()
+  assert.equal(filed.status, 0, filed.stderr)
+  assert.equal(checkins(gateway.vault).length, 1)
+
+  const logPath = join(gateway.vault, 'data', 'events.jsonl')
+  const before = readFileSync(logPath, 'utf8').trim().split('\n')
+
+  // 45 minutes (the default reply_window) past the check-in filed above, so a
+  // real sweep would find it stale and amend it.
+  const later = gateway.run('--dry-run', '--at', '2026-05-04 00:00')
+  assert.equal(later.status, 0, later.stderr)
+
+  const after = readFileSync(logPath, 'utf8').trim().split('\n')
+  assert.deepEqual(after, before, 'a dry run must not append the expiry amend')
+
+  const amends = after.map((line) => JSON.parse(line) as Record<string, unknown>).filter((e) => e['type'] === 'event.amend')
+  assert.deepEqual(amends, [])
+})
+
 test('a vault it was never told about is a misconfiguration, not a guess', () => {
   const result = spawnSync('sh', [WRAPPER], {
     encoding: 'utf8',
