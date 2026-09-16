@@ -6,6 +6,16 @@ node_modules
 dist
 *.tgz
 
+# The builder stage does `COPY . .` over the whole context; the runtime stage
+# only ever copies the npm pack tarball out of it, so `.env` never reaches the
+# final image either way. It does land in a local builder layer and the build
+# cache for anyone building from a checkout with a filled `.env`
+# (compose.build.yml), which is what this keeps out. `.env.example` carries no
+# secret and is documentation, so it is re-included after the exclusion below.
+.env
+.env.*
+!.env.example
+
 # Documentation and fixtures. `example-vault/` is deliberately kept: the
 # clean-room golden check runs `gamereg build` over its event log inside the
 # image, which is the one test a container can run and a host cannot.
