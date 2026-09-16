@@ -15,59 +15,66 @@ file.
 
 ### Added
 
+**Command line**
+
 - `run_close_event_id` on each run in `gamereg status`, beside
   `run_open_event_id`: the event to `amend` for a closing field. `null` while
   the run is open; the opening id for a run filed as a single `run.import`
   (`import`, or `past --ended`).
+
+**Container deployment**
+
 - `Dockerfile` and `compose.yml`: the CLI and the OpenClaw gateway in one image,
-  at pinned versions. Three core services: the gateway, the maintenance loop,
-  and a one-shot `provision` that registers the check-in cron job against the
-  running gateway.
+  at pinned versions. Three core services: the gateway, the maintenance loop
+  (`docker/loop.sh` running `scripts/autobuild.sh`: enrich, build, commit and
+  push whenever the vault's tree is dirty), and a one-shot `provision` that
+  registers the check-in cron job against the running gateway.
 - The image is published to `ghcr.io/cidus/gamereg` for `linux/amd64` and
   `linux/arm64` on every push to `main`, tagged `:edge` (moves with `main`) and
-  `:sha-<commit>` (the short commit hash, never moved). No `:latest` or version
-  tag is published.
+  `:sha-<commit>` (never moves). No `:latest` or version tag is published.
 - `compose.yml` runs the published image, so installing needs only
-  `compose.yml` and `.env`. `GAMEREG_IMAGE_TAG` selects the tag, and
-  `compose.build.yml` builds the image from a checkout instead.
-- `docker/entrypoint.sh`, which seeds an empty vault and commits it, configures
-  git, installs the model credential into the per-agent auth store, deploys the
+  `compose.yml` and `.env` (`.env.example` documents every variable).
+  `GAMEREG_IMAGE_TAG` selects the tag; `compose.build.yml` builds from a
+  checkout instead.
+- `docker/entrypoint.sh` seeds an empty vault and commits it, configures git,
+  installs the model credential into the per-agent auth store, deploys the
   skill and persona, and patches the gateway configuration from the environment
   on every boot. `--dry-run` performs nothing.
-- `OPENCLAW_MODEL` and `OPENCLAW_MODEL_FALLBACK` set the gateway's primary and
-  fallback models on every boot.
+- Model selection from the environment: `OPENCLAW_MODEL` for the primary,
+  `OPENCLAW_MODEL_FALLBACK` for a comma-separated fallback chain tried in order,
+  and `OPENCLAW_PROVIDER_MAX_RETRIES` (default `0`) for how often the same model
+  is retried before the chain.
 - With `TELEGRAM_ALLOW_FROM` empty, the gateway starts in Telegram pairing mode:
   the bot replies to a first message with the sender's numeric id and a code to
   approve.
-- `docker/loop.sh` and `scripts/autobuild.sh` as a container service: enrich,
-  build, commit and push whenever the vault's tree is dirty.
 - The `gateway` and `maintenance` services mount the host's `/etc/localtime`,
   so both keep the host's time zone.
 - Optional compose profiles, all off by default: `site` (a Quartz build loop
   plus Caddy), `comments` (Remark42) and `tunnel` (cloudflared). `site` can
   serve the comments on its own origin under `/remark42`.
-- A container deployment guide,
-  [docs/guides/deploy-container.md](docs/guides/deploy-container.md), and
-  `.env.example`.
+
+**Agent**
+
 - `agent/workspace/USER.md` (house rules, which never override *Safety*) and
   `agent/workspace/HEARTBEAT.md` (comments only), so the gateway does not fill
   those slots with its own defaults.
+
+**CI and tests**
+
 - GitHub Actions: `test` (typecheck and the suite on Node 22.18 and 24), `image`
   (builds the container, runs its entrypoint's `--dry-run`, diffs a clean-room
   `gamereg build` against the committed goldens and, on `main`, publishes) and
   `live` (the opt-in IGDB suite, weekly, failing when the credentials are
   missing).
-- `test/entrypoint-wrapper.test.ts`, `test/loop-wrapper.test.ts`,
-  `test/phase-citations.test.ts`, `test/docs-links.test.ts` (every relative
-  link and every `#anchor` in the documentation resolves) and
-  `test/docs-structure.test.ts` (decision records are numbered once, dated and
-  indexed; no page under `docs/` is unreachable from the map).
+- `test/entrypoint-wrapper.test.ts`, `test/loop-wrapper.test.ts` and
+  `test/phase-citations.test.ts`.
+- `test/docs-links.test.ts` (every relative link and `#anchor` in the
+  documentation resolves) and `test/docs-structure.test.ts` (decision records
+  are numbered once, dated and indexed; no page under `docs/` is unreachable
+  from the map).
 - `test/dump-db.ts`: `dumpDatabase()` as a leaf module importing only
   `node:sqlite`, shared by `test/golden.test.ts` and the image workflow, which
   has no `node_modules`.
-- `OPENCLAW_MODEL_FALLBACK` takes a comma-separated chain, tried in order, and
-  `OPENCLAW_PROVIDER_MAX_RETRIES` (default `0`) sets how often the gateway
-  retries the same model before handing over to it.
 
 ### Changed
 
@@ -80,34 +87,55 @@ file.
   at about 432 MB and restart-loops at the old limit.
 - `tools.exec.security` plus `ask` became `tools.exec.mode: "allowlist"`, since
   OpenClaw 2026.8 refuses the pair.
-- `docker/entrypoint.sh` seeds the exec allowlist with `openclaw approvals set
-  --file` instead of copying `exec-approvals.json`, and removes a legacy file
-  left by an older image.
-- `docker/entrypoint.sh` runs `openclaw doctor --fix`, before anything else
-  reads the config, when the saved config fails validation against the
-  installed OpenClaw, and still stops if it is invalid afterwards.
+- The container seeds the exec allowlist with `openclaw approvals set --file`
+  instead of copying `exec-approvals.json`, and removes a legacy file left by an
+  older image.
+- The container runs `openclaw doctor --fix` before anything else reads the
+  config, when the saved config fails validation against the installed
+  OpenClaw, and still stops if it is invalid afterwards.
+- A configuration value of the wrong type exits 2 naming the key, for every
+  key, instead of being ignored for some. `timezone` is checked against the
+  IANA database and `images.max_edge`/`images.quality` against what the image
+  pipeline accepts, at load and at `init`.
 - Documentation reorganized into a tutorial, how-to guides, reference,
-  explanation, architecture decision records and development docs, mapped in
-  [docs/README.md](docs/README.md).
+  explanation, 100 architecture decision records and development docs, mapped
+  in [docs/README.md](docs/README.md). `CLAUDE.md` is a short briefing again,
+  and `agent/README.md` a directory README.
 
 ### Removed
 
-- `memory-core`'s nightly `dreaming` sweep, disabled in the boot config patch.
-  An existing `DREAMS.md` is moved out of the workspace and kept.
 - `checkin.persona_prompt`, which was validated but read by nothing. The persona
   lives in the gateway workspace; a vault that still sets the key exits 2 at
   load, naming it as unknown.
+- `memory-core`'s nightly `dreaming` sweep, disabled in the boot config patch.
+  An existing `DREAMS.md` is moved out of the workspace and kept.
 
 ### Fixed
+
+**Command line**
 
 - `gamereg amend` refuses, at exit 2, a `--set` key that the target event's type
   does not carry, and names the fields it does carry. Such a key used to be
   accepted, ignored and reported as a success.
 - `gamereg doctor` no longer reports every `session.checkin` as invalid: a
   check-in's `outcome` is checked against the check-in outcomes, not the run's.
+- `gamereg init --day-cutoff` with a malformed value printed the raw key
+  `error.bad_cutoff` instead of a message.
+- `query`, `import`, `attach` and `cover` have pt-BR command names
+  (`consultar`, `importar`, `anexar`, `capa`).
 - `scripts/vendor-quartz.sh` seeds `wrangler.jsonc` with the vault directory's
   name as the Worker name, without an invented `-site` suffix, and flags the
   name as a guess to check.
+
+**Agent and check-ins**
+
+- A rate-limited model hands over to the fallback chain instead of waiting on
+  the provider's `Retry-After`, which outlived the turn every time.
+- `agent/checkin.sh --dry-run` no longer appends `event.amend`s through the
+  reply-window sweep.
+
+**Container deployment**
+
 - The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
   seeding them once; a previous copy that differed is kept under `backups/`.
 - The other workspace files (`SOUL.md`, `IDENTITY.md`, `REACTIONS.md`,
@@ -115,6 +143,10 @@ file.
   file follows the image; an edited one, or one from an install that predates
   the tracking and differs from the shipped copy, is kept with a `NOTICE` in
   the boot log.
+- A new `CLAUDE_CODE_OAUTH_TOKEN` in `.env` is installed on the next boot; the
+  boot compares a hash of the token instead of running once.
+- An existing vault that has a config but no `.git` becomes a repository, so
+  the maintenance loop can run against it.
 - The token in `/config/.gateway-token` is restated in the gateway
   configuration on every boot, so a config repair cannot lock CLI clients out
   with `token_mismatch`.
@@ -123,42 +155,26 @@ file.
   Telegram sign-in; boolean flags default to an explicit `false`.
 - `compose.yml` passes Remark42 the Patreon and Microsoft sign-in variables that
   `.env.example` offers, and a test keeps the two files in agreement.
-- `gamereg init --day-cutoff` with a malformed value printed the raw key
-  `error.bad_cutoff` instead of a message.
-- `query`, `import`, `attach` and `cover` have pt-BR command names
-  (`consultar`, `importar`, `anexar`, `capa`).
-- A configuration value of the wrong type exits 2 naming the key, for every
-  key, instead of being ignored for some. `timezone` is checked against the
-  IANA database and `images.max_edge`/`images.quality` against what the image
-  pipeline accepts, at load and at `init`.
-- `agent/checkin.sh --dry-run` no longer appends `event.amend`s through the
-  reply-window sweep.
-- The container turns an existing vault that has a config but no `.git` into a
-  repository, so the maintenance loop can run against it.
-- A new `CLAUDE_CODE_OAUTH_TOKEN` in `.env` is installed on the next boot; the
-  boot compares a hash of the token instead of running once.
-- A rate-limited model now hands over to the fallback chain instead of waiting
-  on the provider's `Retry-After`, which outlived the turn every time.
 
 ### Security
 
-- The query guard refuses the reserved `pragma_` and `sqlite_` namespaces, so
-  `pragma_table_info(...)` no longer gets past its `pragma` check.
 - Remark42, the one service reachable from the internet, no longer receives the
   whole `.env` (model credential, Telegram bot token, tunnel token, IGDB keys);
   `compose.yml` names each variable it reads.
+- `images.keep_original` writes its copy through the same EXIF and GPS strip
+  as the normalized image, restoring invariant 12.
+- The query guard refuses the reserved `pragma_` and `sqlite_` namespaces, so
+  `pragma_table_info(...)` no longer gets past its `pragma` check.
 - The Cloudflare tunnel token is passed in the environment instead of argv,
   where `/proc/<pid>/cmdline` exposed it.
 - The `site` profile builds Quartz in a scratch directory, so the vault is
   mounted read-only in the service that runs third-party plugin code.
 - Values interpolated into the gateway's JSON5 configuration patches are
   escaped, so a quote in one cannot add configuration keys.
-- Upgrading OpenClaw to `2026.9.4` clears the 11 `npm audit` advisories, 7 of
-  them high, that `2026.7.1-2` carried at the time.
-- `images.keep_original` writes its copy through the same EXIF and GPS strip
-  as the normalized image, restoring invariant 12.
 - `.dockerignore` excludes `.env` and its variants, so a filled `.env` no
   longer reaches a local builder layer or the build cache.
+- Upgrading OpenClaw to `2026.9.4` clears the 11 `npm audit` advisories, 7 of
+  them high, that `2026.7.1-2` carried at the time.
 
 ## [0.3.0] - Phase 3 — Check-ins, stats and the Quartz site
 

@@ -104,20 +104,15 @@ exists locally, `search` stops asking a provider about it.
 
 ## Configuration
 
-### Every write exits 1 with `Could not read "Invalid DateTime" as a time`, but `status` works
+### A command exits 2 with `"<key>" does not accept "<value>"`
 
-**Cause.** `timezone` in `gamereg.config.json` is not a valid IANA zone name.
-It is not validated when it is written.
+**Cause.** A setting in `gamereg.config.json` has the wrong type, a malformed
+value, or a value out of range. Every key is checked when the file loads,
+including `timezone` against the IANA database and `images.max_edge` /
+`images.quality` against what the image pipeline accepts.
 
-**Fix.** Correct the zone (`America/Sao_Paulo`, not `GMT-3`).
-
-### `--photo` exits 2 with `could not be read as an image`, for an image that opens fine
-
-**Cause.** `images.max_edge` or `images.quality` is out of range, and the
-encoder fails rather than the file.
-
-**Fix.** `max_edge` a positive number of pixels, `quality` between 1 and 100.
-See [Configuration](../reference/configuration.md).
+**Fix.** Correct the named key — `America/Sao_Paulo`, not `GMT-3`; a quality
+from 1 to 100. See [Configuration](../reference/configuration.md#validation).
 
 ### `<file> is not valid JSON` for a file that is valid JSON
 
@@ -164,14 +159,38 @@ refuses a skill path that escapes its root, logging
 environment. Setting `CLAUDE_CODE_OAUTH_TOKEN` looks like configuration and
 authenticates nothing
 ([ADR 0081](../decisions/0081-credentials-in-the-auth-store.md)). The
-entrypoint installs it at boot, but only once.
+entrypoint installs it at boot, and re-installs it whenever the token in `.env`
+changes.
 
-**Fix.** Put a fresh token in `.env`, delete the marker and restart:
+**Fix.** Mint a fresh token with `claude setup-token`, put it in `.env` and
+restart the gateway:
 
 ```bash
-docker compose exec gateway rm /config/.gamereg-auth-seeded
-docker compose restart gateway
+docker compose up -d gateway
 ```
+
+### The agent goes quiet when a model's usage limit is hit, then says the turn "stopped making progress"
+
+**Cause.** The gateway retries the same model before it will try the fallback
+chain, and on a rate limit it waits for the provider's `Retry-After` — which
+can be hours, far longer than a turn lives. With no fallback reachable, the
+turn is abandoned.
+
+**Fix.** Make a refusal hand over instead of waiting, and give it somewhere to
+go:
+
+- Leave `OPENCLAW_PROVIDER_MAX_RETRIES` at its default, `0`. Confirm the
+  entrypoint wrote it with `docker compose exec gateway cat
+  /config/agents/main/agent/settings.json`.
+- Set `OPENCLAW_MODEL_FALLBACK` to one or more models, comma separated, whose
+  credentials are present.
+- `docker compose exec gateway openclaw models status` shows whether each
+  provider's credential is actually usable (`effective`), which rules out the
+  credential before you look at retries.
+
+During an incident the log line to look for is `transient same-model retry`
+with a `delayMs=`. Background:
+[ADR 0100](../decisions/0100-refused-model-hands-over-to-the-fallback-chain.md).
 
 ### The bot answers only sometimes
 
@@ -294,8 +313,6 @@ the gateway process.
 
 **Fix.** Preview with `--dry-run --at`, and test an actual answer only against
 the real vault, on a session you are willing to have a break filed against.
-Note that a dry run still runs the reply-window sweep, which can amend stale
-check-ins.
 
 ## Container
 
@@ -349,15 +366,6 @@ strict, so it fails immediately instead of prompting.
 
 **Fix.** Populate the directory (`ssh-keyscan github.com > config/ssh/known_hosts`),
 fixing ownership if needed, and recreate the service.
-
-### The vault never becomes a git repository
-
-**Cause.** The boot creates a repository only for a vault it seeds itself. A
-vault that already has `gamereg.config.json` but no `.git` is left alone, and
-the maintenance loop then has no state to work from.
-
-**Fix.** `git -C vault init && git -C vault add -A && git -C vault commit -m
-"chore(vault): initial commit"`.
 
 ### The nightly dream diary comes back after you re-enable it
 

@@ -104,8 +104,7 @@ the default.
     "quiet_hours": [
       "02:00",
       "09:00"
-    ],
-    "persona_prompt": null
+    ]
   },
   "images": {
     "max_edge": 2000,
@@ -288,7 +287,6 @@ malformed one exits 2, naming the key. See
 | `checkin.max_per_session` | integer | `3` | `0` or greater | File only |
 | `checkin.reply_window` | string | `"45m"` | A [duration](#durations). `null` exits 2. | File only |
 | `checkin.quiet_hours` | array of strings | `["02:00", "09:00"]` | `[]`, or exactly two [times of day](#times-of-day) `[from, to]` | File only |
-| `checkin.persona_prompt` | string or `null` | `null` | Any string, or `null` | File only |
 
 - `gamereg due` returns at most one trigger per open session. When several
   have fired, `day_cutoff` wins, then `duration`, then `clock`. Background:
@@ -362,13 +360,6 @@ malformed one exits 2, naming the key. See
   [ADR 0033](../decisions/0033-quiet-hours-evaluated-now.md).
 - A list with one entry, or more than two, exits 2.
 
-### `checkin.persona_prompt`
-
-- The value must be a string or `null`, but nothing reads it: no command uses
-  it and the check-in wrapper does not pass it to the agent. The agent's voice
-  comes from its workspace files. See
-  [agent-design.md](../explanation/agent-design.md).
-
 ## `images`
 
 These keys control how photos and covers are stored and published. See
@@ -376,7 +367,7 @@ These keys control how photos and covers are stored and published. See
 
 | Key | Type | Default | Accepted values | Set by |
 |---|---|---|---|---|
-| `images.max_edge` | number | `2000` | A whole number of pixels, greater than 0 | File only |
+| `images.max_edge` | number | `2000` | A whole number of pixels, from 1 to 20000 | File only |
 | `images.quality` | number | `82` | A whole number from 1 to 100 | File only |
 | `images.keep_original` | boolean | `false` | `true`, `false` | File only |
 | `images.publish` | boolean | `false` | `true`, `false` | File only |
@@ -391,28 +382,23 @@ These keys control how photos and covers are stored and published. See
 - An image is identified by the hash of its encoded bytes, so changing either
   key gives images ingested afterwards a different hash. Stored images are not
   re-encoded.
-- The range is not checked when the file loads. With an out-of-range number
-  (`0`, a negative, a fraction, or a quality above 100), `--photo` exits 2 with
-  `<file> could not be read as an image.`, and `enrich --covers` stores only
-  the cover's URL.
+- Both are checked when the file loads: a value outside the range, a fraction or
+  a non-number exits 2 naming the key, before any image is touched.
 
 ### `images.keep_original`
 
-- `true`: ingestion also writes the input file's bytes, unchanged, to
-  `assets/<sha[0:2]>/<sha>.original.<format>`. `<sha>` is the hash of the
-  normalized WebP and `<format>` is the detected input format (`jpeg`, `png`,
-  and so on). The copy is written once, and no event refers to it.
+- `true`: ingestion also writes a second copy to
+  `assets/<sha[0:2]>/<sha>.original.<format>`, at the source's resolution and in
+  its format (`jpeg`, `png`, and so on) rather than resized and re-encoded to
+  WebP. `<sha>` is the hash of the normalized WebP. The copy is written once,
+  and no event refers to it.
+- The copy goes through the same strip as the normalized image: it is
+  re-encoded with its orientation applied and no metadata carried through, so
+  EXIF and GPS are gone from it too (invariant 12).
 - Every build that runs `obsidian` links these files into `obsidian/assets/`.
   Every build that runs `quartz` with `images.publish: true` links them into
-  `quartz/content/assets/`.
-
-> [!WARNING]
-> A kept original keeps all of its metadata, including EXIF and GPS location.
-> `true` therefore breaks invariant 12 in
-> [00-architecture](../spec/00-architecture.md#invariants), which says EXIF is
-> always stripped on ingest, and with `images.publish: true` the originals are
-> copied into the published site tree. See
-> [security.md](../explanation/security.md).
+  `quartz/content/assets/`, so a published site serves the full-resolution
+  copies as well.
 
 ### `images.publish`
 
@@ -434,33 +420,23 @@ See [04-derived: Publication](../spec/04-derived.md#publication) and
 
 ## Validation
 
+Every setting is checked when the file loads, so a mistake is reported by the
+next command rather than hours later by the one that happens to use it.
+
 | Condition | Result |
 |---|---|
 | The file is not valid JSON, or its top level is not an object | Exit 2: `<file> is not valid JSON.` |
-| An unknown key at any level | Exit 2: `<file>: "<key>" is not a setting gamereg knows. Valid at that level: ...` |
-| `day_cutoff` or a `checkin.*` key has the wrong type or a malformed value | Exit 2: `<file>: "<key>" does not accept "<value>".` |
-| `defaults.form`, `defaults.mode` or a `build.targets` entry is a string outside its vocabulary | Exit 2, listing the valid values |
-| A `platforms` entry is neither a string nor an object, has no `name`, or has a non-array `aliases`; or a `build.targets` entry is not a string | Exit 2: `<file> is not valid JSON.`, although the JSON is valid |
-| A key from the list below has the wrong JSON type | Ignored without an error; the default applies |
-| `timezone` is not a real zone | Loads. Commands that write an event exit 1: `Could not read "Invalid DateTime" as a time.` |
-| `images.max_edge` or `images.quality` is out of range | Loads. Fails at ingestion; see [`images.max_edge` and `images.quality`](#imagesmax_edge-and-imagesquality). |
-| `build.csv.dir` points outside the vault | Loads. The build exits 1. |
-| `locale` matches no bundle | Loads. The next language source is used. |
+| An unknown key at any level, including a removed one such as `checkin.persona_prompt` | Exit 2: `<file>: "<key>" is not a setting gamereg knows. Valid at that level: ...` |
+| A known key with the wrong type, a malformed value or a value out of range | Exit 2: `<file>: "<key>" does not accept "<value>".` |
+| `timezone` is a string but not a zone in the IANA database | Exit 2, the same message |
+| `defaults.form`, `defaults.mode` or a `build.targets` entry is outside its vocabulary | Exit 2, listing the valid values |
+| A `platforms` entry is neither a string nor an object, has no `name`, or has a non-array `aliases` | Exit 2: `<file> is not valid JSON.`, although the JSON is valid |
+| `build.csv.dir` points outside the vault | Loads. The build exits 1 |
+| `locale` matches no bundle | Loads. The next language source is used |
 
-A wrong JSON type is ignored, with no error, for:
-
-- `locale` and `timezone`, when not a string
-- `defaults.platform`, `defaults.form` and `defaults.mode`, when not a string
-- `platforms` and `build.targets`, when not an array
-- `build.csv.dir`, when not a string
-- `images.max_edge` and `images.quality`, when not a number
-- `images.keep_original` and `images.publish`, when not a boolean
-- the blocks `defaults`, `build`, `build.csv`, `checkin` and `images`, when not
-  an object
-
-`null` is valid only where the type column lists it. For a key in the list
-above, `null` is ignored like any other wrong type. For `day_cutoff` and the
-`checkin.*` keys that do not list it, `null` exits 2.
+A whole block that is not an object — `"defaults": "x"`, `"images": null` — is
+ignored and its defaults apply. `null` is otherwise accepted only where the type
+column lists it.
 
 ## Formats
 

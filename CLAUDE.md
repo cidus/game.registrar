@@ -13,7 +13,7 @@ and does nothing but invoke the CLI.
 |---|---|
 | write any code | [docs/spec/00-architecture.md](docs/spec/00-architecture.md), then [01-model.md](docs/spec/01-model.md) |
 | touch the build | [07-targets.md](docs/spec/07-targets.md) — the build is a registry of targets, not a single emitter |
-| change something that looks arbitrary | [docs/decisions/README.md](docs/decisions/README.md) — 99 decision records. Most exist because the obvious alternative was tried and cost something |
+| change something that looks arbitrary | [docs/decisions/README.md](docs/decisions/README.md) — 100 decision records. Most exist because the obvious alternative was tried and cost something |
 | write documentation | [docs/development/documentation.md](docs/development/documentation.md) |
 | write tests | [docs/development/testing.md](docs/development/testing.md) |
 | touch the agent | [docs/explanation/agent-design.md](docs/explanation/agent-design.md) and [agent/README.md](agent/README.md) |

@@ -34,9 +34,8 @@ worth reporting:
   container that does not need it, or in a process's command line. A path where
   one ends up somewhere else is worth a private report.
 - **EXIF and location data.** GPS and the rest of EXIF are stripped on image
-  ingest, unconditionally (invariant 12). A photo where that stripping doesn't
-  happen is a privacy bug. (Known and documented: `images.keep_original` writes
-  the untouched original beside the normalized file.)
+  ingest, unconditionally (invariant 12). A photo — or a kept original — where that
+  stripping doesn't happen is a privacy bug.
 - **The `query` SQL allowlist** (`src/db/`) is a security boundary, not a
   convenience filter: it is meant to refuse anything outside a narrow read-only
   surface. A query that gets through it and shouldn't is worth a private

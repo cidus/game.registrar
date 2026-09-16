@@ -224,16 +224,14 @@ appears on a published site only when `images.publish` is `true`.
 |---|---|---|
 | `images.max_edge` | `2000` | The longest side, in pixels, of a stored image. |
 | `images.quality` | `82` | The WebP quality of a stored image. |
-| `images.keep_original` | `false` | Also keep the untouched input file next to the WebP. |
+| `images.keep_original` | `false` | Also keep a full-resolution copy in the source format, stripped of metadata like the WebP. |
 | `images.publish` | `false` | Copy photos and covers into the `quartz` site output. |
 
 Changing `max_edge` or `quality` affects only images ingested afterwards. See
 the [configuration reference](../reference/configuration.md#images).
 
-> [!WARNING]
-> `images.keep_original: true` keeps each original file with all of its
-> metadata, including GPS location
-> ([details](../reference/configuration.md#imageskeep_original)).
+Every copy a photo produces is stripped of EXIF and GPS on ingest, the kept
+original included ([details](../reference/configuration.md#imageskeep_original)).
 
 ## See also
 

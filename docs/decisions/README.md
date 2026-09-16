@@ -152,6 +152,7 @@ Links to specs, code and other records.
 | [0097](0097-agents-md-is-code.md) | AGENTS.md stays large and code-owned; customization goes in USER.md | Agent prompt | Accepted | 2026-09-13 |
 | [0098](0098-dreaming-disabled.md) | memory-core dreaming is disabled | Agent prompt | Accepted | 2026-09-13 |
 | [0099](0099-image-tags-edge-and-sha-only.md) | The image is published as :edge and :sha tags only, with no :latest before 1.0.0 | Versioning and releases | Accepted | 2026-09-13 |
+| [0100](0100-refused-model-hands-over-to-the-fallback-chain.md) | A model that refuses hands over to the fallback chain instead of being retried | Container deployment | Accepted | 2026-09-16 |
 
 ## By area
 
@@ -284,6 +285,7 @@ Links to specs, code and other records.
 - [0092](0092-openclaw-pinned-with-1g-floor.md) OpenClaw is pinned to 2026.9.4 on Node 24, with a 1g memory floor
 - [0095](0095-workspace-policy-per-file.md) The container decides each workspace file's policy per file
 - [0096](0096-seeded-files-tracked-by-hash.md) Seeded workspace files are tracked by hash
+- [0100](0100-refused-model-hands-over-to-the-fallback-chain.md) A model that refuses hands over to the fallback chain instead of being retried
 
 ### Security
 

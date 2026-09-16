@@ -28,15 +28,9 @@ a language model with a shell and, optionally, services a stranger can reach.
   read-only statement and refuses the rest, including the reserved `pragma_`
   and `sqlite_` namespaces, which a word-boundary check had let through
   ([ADR 0090](../decisions/0090-query-guard-refuses-reserved-namespaces.md)).
-- **EXIF is stripped on ingest**, GPS included, and it is not configurable off
-  (invariant 12).
-
-> [!WARNING]
-> One exception exists today: with `images.keep_original` turned on, the
-> untouched input file is written beside the normalized one, metadata included,
-> and that copy is hardlinked into the Obsidian vault and, with
-> `images.publish`, into the site's content. Leave it off unless you have
-> checked what your photos carry.
+- **EXIF is stripped on ingest**, GPS included, from every copy a photo
+  produces — the full-resolution `images.keep_original` copy too — and it is not
+  configurable off (invariant 12).
 
 ## The agent
 
@@ -86,6 +80,9 @@ Assume the chat channel is reachable by others.
 - **The gateway authenticates its own clients.** In a container it binds
   `0.0.0.0` and refuses to start without a token; the entrypoint generates one
   into `/config/.gateway-token` with mode 600.
+- **No secret is baked into the image.** Secrets come from `.env` or read-only
+  mounts, and `.dockerignore` keeps a filled `.env` out of a local build's
+  layers and cache.
 
 ## Where the secrets are
 

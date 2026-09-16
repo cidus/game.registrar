@@ -237,12 +237,11 @@ never degrades the local copy.
 > git commit -m "chore(vault): unpublish assets"
 > ```
 
-> [!WARNING]
-> With `images.keep_original` also on, the untouched originals are mirrored too,
-> EXIF included. Only the normalized WebP is stripped. Keep
-> `images.keep_original` off on a vault you publish — see
-> [configuration reference](../reference/configuration.md) and
-> [security](../explanation/security.md).
+> [!NOTE]
+> With `images.keep_original` also on, the full-resolution copies are mirrored
+> too. They are stripped of metadata like the WebP, but they are larger and show
+> more of the photo — see the
+> [configuration reference](../reference/configuration.md#imageskeep_original).
 
 ## Upgrade Quartz
 

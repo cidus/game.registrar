@@ -148,8 +148,7 @@ GAMEREG_VAULT=/path/to/your/register ~/.openclaw/checkin.sh --dry-run --at "2026
 ```
 
 `--at` pretends it is another time, which is how the morning chase is
-exercised. Note that a dry run still runs the reply-window sweep, so it can
-amend check-ins that were already stale.
+exercised. A dry run files nothing.
 
 Then register it as an hourly **command** job — the binary with no model
 attached, which is what makes an empty poll free:

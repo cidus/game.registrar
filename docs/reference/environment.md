@@ -55,13 +55,14 @@ Set in `.env`, read while the container boots. Which step reads what is in
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | none | Required in gateway mode; patched into the channel configuration every boot. **Secret.** |
 | `TELEGRAM_ALLOW_FROM` | empty | Empty starts the gateway in pairing mode. A value must be all digits: an `@username` exits 2. |
-| `CLAUDE_CODE_OAUTH_TOKEN` | empty | A Claude subscription token, installed into the gateway's auth store. **Secret.** |
+| `CLAUDE_CODE_OAUTH_TOKEN` | empty | A Claude subscription token, installed into the gateway's auth store and installed again whenever it changes. **Secret.** |
 | `OPENCLAW_AUTH_KEY` | empty | An API key, installed through `openclaw onboard`. **Secret.** |
 | `OPENCLAW_AUTH_CHOICE` | `apiKey` | Which key kind `onboard` is told about; also infers the model when none is set. |
 | `OPENCLAW_AUTH_EXPIRES_IN` | `365d` | Expiry passed with a pasted subscription token. |
 | `OPENROUTER_API_KEY` | empty | Read by the gateway itself; also what the shipped hosted voice transcription uses. **Secret.** |
 | `OPENCLAW_MODEL` | inferred from whichever credential exists | Patched as the agent's primary model on every boot. |
-| `OPENCLAW_MODEL_FALLBACK` | empty | Exactly one fallback model; a comma-separated list is not split. |
+| `OPENCLAW_MODEL_FALLBACK` | empty | Fallback models, comma separated, tried in order when the primary refuses. |
+| `OPENCLAW_PROVIDER_MAX_RETRIES` | `0` | How often the gateway retries the same model before the fallback chain. Written into the agent's `settings.json`; raise it only with no fallback configured ([ADR 0100](../decisions/0100-refused-model-hands-over-to-the-fallback-chain.md)). |
 | `OPENCLAW_GATEWAY_TOKEN` | generated into `/config/.gateway-token` | The gateway's access token. The file is the authority and is restated into the configuration every boot. **Secret.** |
 | `OPENCLAW_GATEWAY_URL` | unset | When set, CLI clients in the container are pointed at it. |
 | `GAMEREG_GIT_NAME` | `gamereg` | Commit identity for the vault, written every boot. |

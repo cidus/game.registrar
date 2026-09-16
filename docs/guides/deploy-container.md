@@ -50,6 +50,7 @@ key defined twice is confusing to read even where the parser tolerates it.
 | `TELEGRAM_BOT_TOKEN` | the token BotFather gave you |
 | `TELEGRAM_ALLOW_FROM` | leave **empty** unless you already know your numeric chat id — step 5 explains |
 | one model credential | `CLAUDE_CODE_OAUTH_TOKEN`, or `OPENCLAW_AUTH_KEY` with `OPENCLAW_AUTH_CHOICE`, or `OPENROUTER_API_KEY` |
+| `OPENCLAW_MODEL_FALLBACK` | optional: one or more models, comma separated, to hand over to when the primary hits a usage limit |
 | `PUID`, `PGID` | the output of `id -u` and `id -g`, so the vault is owned by you |
 | `GAMEREG_TIMEZONE`, `GAMEREG_LOCALE`, `GAMEREG_DAY_CUTOFF`, `GAMEREG_TARGETS` | your own values. They are applied only when the vault is first created |
 | `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | optional; without them `enrich` is skipped and everything else still works |

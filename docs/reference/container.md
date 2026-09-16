@@ -45,7 +45,9 @@ files. Why there is no `:latest`:
 [ADR 0099](../decisions/0099-image-tags-edge-and-sha-only.md).
 
 [`compose.build.yml`](../../compose.build.yml) replaces the published image
-with a local build, for work from a checkout.
+with a local build, for work from a checkout. The builder stage copies the
+checkout in, so `.dockerignore` excludes `.env` and its variants: a filled
+`.env` never reaches a builder layer or the build cache.
 
 ## Services
 
@@ -127,21 +129,26 @@ performs the checks and stops before starting the gateway.
 3. **Git identity.** `safe.directory` for the bind-mounted vault, plus
    `GAMEREG_GIT_NAME` and `GAMEREG_GIT_EMAIL`.
 4. **Seed the vault.** Only when there is no `gamereg.config.json`: `gamereg
-   init` with the `GAMEREG_*` seeding values, then `git init` and a first
-   commit. An existing vault is never touched — including a vault that has a
-   config but no `.git`, which stays outside git
-   ([ADR 0075](../decisions/0075-seeded-vault-is-committed.md) explains why a
-   new one is committed).
+   init` with the `GAMEREG_*` seeding values. Independently, a vault with no
+   `.git` becomes a repository with a first commit — including one mounted with
+   a config already in place. An existing vault's contents are never touched
+   ([ADR 0075](../decisions/0075-seeded-vault-is-committed.md) explains why the
+   first commit matters).
 5. **Gateway token.** Uses `OPENCLAW_GATEWAY_TOKEN` when set, otherwise
    generates one into `/config/.gateway-token` and reuses it. In a container
    the gateway binds `0.0.0.0` and refuses to start unauthenticated.
 6. **Model credential.** Installs one of `CLAUDE_CODE_OAUTH_TOKEN`,
    `OPENCLAW_AUTH_KEY` or `OPENROUTER_API_KEY` into the gateway's own auth
-   store. It runs once and records `/config/.gamereg-auth-seeded`: replacing an
-   expired token means deleting that file
+   store. The boot records a hash of the token it installed (never the token
+   itself) and installs again whenever that hash changes, so a fresh token in
+   `.env` takes effect on the next restart
    ([ADR 0081](../decisions/0081-credentials-in-the-auth-store.md)).
-7. **Model choice.** `OPENCLAW_MODEL` and `OPENCLAW_MODEL_FALLBACK`, separate
-   from which credential exists.
+7. **Model choice.** `OPENCLAW_MODEL` and `OPENCLAW_MODEL_FALLBACK` (a
+   comma-separated chain), separate from which credential exists. The boot also
+   writes `retry.provider.maxRetries` into the agent's `settings.json` from
+   `OPENCLAW_PROVIDER_MAX_RETRIES` (default `0`), so a model that refuses hands
+   over to the chain instead of being waited on
+   ([ADR 0100](../decisions/0100-refused-model-hands-over-to-the-fallback-chain.md)).
 8. **Agent files.** See the table below.
 9. **Gateway configuration.** Seeds the shipped example once (recorded by
    `/config/.gamereg-config-seeded`), then applies an overlay on every boot:
