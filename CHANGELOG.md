@@ -14,6 +14,12 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Fixed
 
+- `images.keep_original` wrote the raw input bytes to disk, EXIF and GPS
+  intact, breaking invariant 12 for every kept original — which then reached
+  `obsidian/assets` and, with `images.publish`, `quartz/content/assets` through
+  the ordinary hardlink mirror. It now goes through the same strip as the
+  normalized copy: re-encoded with orientation baked in and no metadata
+  carried through, same resolution and format as the source.
 - The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
   seeding them once. They are code — `test/agent-skill.test.ts` asserts their
   contents against the real binary and the real SQL schema — and seeding them
