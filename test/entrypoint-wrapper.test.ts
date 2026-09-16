@@ -197,6 +197,32 @@ test('an empty vault is initialised, and a git repository created around it', ()
   assert.equal(config.day_cutoff, '05:00')
 })
 
+/**
+ * `seed_vault()` used to guard both `gamereg init` and `git init` with the
+ * same condition -- "no gamereg.config.json" -- so a vault mounted with a
+ * config already in place (restored from a backup, copied in by hand, or one
+ * predating the container) returned before ever becoming a git repository.
+ * `scripts/autobuild.sh` treats "is the working tree dirty" as its entire
+ * state, so a vault with no `.git` can never be picked up by it at all.
+ */
+test('a mounted vault that already has a config but no .git still becomes one', () => {
+  const h = host()
+  writeFileSync(
+    join(h.vault, 'gamereg.config.json'),
+    JSON.stringify({ locale: 'en', timezone: 'UTC', day_cutoff: '05:00' }),
+  )
+
+  const r = h.run('gateway', { GAMEREG_TIMEZONE: 'America/Sao_Paulo' })
+  assert.equal(r.status, 0, r.stderr)
+
+  assert.ok(existsSync(join(h.vault, '.git')), 'the vault must become a git repository')
+
+  // The vault's own contents are never touched -- only "does .git exist" was
+  // the missing check, not "is the vault already initialised".
+  const config = JSON.parse(readFileSync(join(h.vault, 'gamereg.config.json'), 'utf8'))
+  assert.equal(config.timezone, 'UTC', 'an existing config must not be reinitialised from the environment')
+})
+
 test('an existing vault is left exactly as it was', () => {
   const h = host()
   h.run('gateway')
@@ -426,6 +452,41 @@ test('a Claude Code OAuth token goes into the auth store, never into the config'
   const patched = h.patched()
   assert.ok(!/anthropic:cli/.test(patched), 'no model auth profile in the config')
   assert.ok(!/profiles:/.test(patched), 'and no auth profiles block at all')
+})
+
+/**
+ * `configure_model_auth` used to return the instant `.gamereg-auth-seeded`
+ * existed, with no regard for what it was seeded from. Replacing an expired
+ * `CLAUDE_CODE_OAUTH_TOKEN` in `.env` and restarting therefore did nothing --
+ * the store kept whatever the first token had written, silently, until
+ * something finally tried to use the model and failed.
+ */
+test('a changed CLAUDE_CODE_OAUTH_TOKEN is re-pasted into the auth store', () => {
+  const h = host()
+
+  const first = h.run('gateway', { CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-first' })
+  assert.equal(first.status, 0, first.stderr)
+  assert.equal(h.calls().filter((c) => c.includes('paste-token')).length, 1)
+
+  // The token that was pasted never lands in the sentinel, in any form a
+  // grep would find.
+  const seeded = readFileSync(join(h.config, '.gamereg-auth-seeded'), 'utf8')
+  assert.ok(!seeded.includes('sk-ant-oat-first'), 'the sentinel must not carry the token itself')
+
+  // Same token, second boot: still exactly one paste, same as before this fix.
+  const again = h.run('gateway', { CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-first' })
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(h.calls().filter((c) => c.includes('paste-token')).length, 1, 'an unchanged token is not re-pasted')
+
+  // A new token in .env, restart: the old behaviour silently kept the expired
+  // one. It must be pasted again.
+  const rotated = h.run('gateway', { CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-second' })
+  assert.equal(rotated.status, 0, rotated.stderr)
+  assert.equal(
+    h.calls().filter((c) => c.includes('paste-token')).length,
+    2,
+    'a changed token must be re-pasted into the auth store',
+  )
 })
 
 test('the model is chosen separately from the credential', () => {
@@ -707,6 +768,30 @@ test('the real defaults tree is the one the Dockerfile copies', () => {
     !/^\s*-\s*\/var\/run\/docker\.sock/m.test(compose),
     'no service mounts the Docker socket: the gateway runs a model with shell access',
   )
+})
+
+/**
+ * The builder stage does `COPY . .` over the whole build context (Dockerfile
+ * line ~36); the runtime stage only ever copies the npm pack tarball out of
+ * it, so a secret in `.env` never reaches the final image. It does land in a
+ * local builder layer and the build cache, though, for anyone who builds from
+ * a checkout with a filled `.env` -- which `compose.build.yml` invites.
+ */
+test('.env never enters the build context, .env.example still does', () => {
+  const ignore = readFileSync(join(ROOT, '.dockerignore'), 'utf8')
+  const lines = ignore.split('\n').map((line) => line.trim())
+
+  assert.ok(lines.includes('.env'), '.dockerignore must exclude .env')
+  assert.ok(lines.includes('.env.*'), '.dockerignore must exclude every .env.* variant (.env.local, etc.)')
+  assert.ok(
+    lines.includes('!.env.example'),
+    '.env.example is documentation, not a secret, and must be re-included after the .env.* exclusion',
+  )
+
+  // Order matters for a negation to take effect: docker (like git) applies
+  // patterns top to bottom, so the re-inclusion has to come after the
+  // exclusion it is undoing.
+  assert.ok(lines.indexOf('!.env.example') > lines.indexOf('.env.*'))
 })
 
 test('a bare `compose up` starts the register and nothing that would exhaust a 1 GB machine', () => {

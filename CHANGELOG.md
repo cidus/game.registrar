@@ -14,6 +14,23 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ### Fixed
 
+- `agent/checkin.sh --dry-run` no longer runs `gamereg checkin --expire` for
+  real before checking `DRY_RUN`. The expiry sweep appends an `event.amend` for
+  every stale `snoozed` check-in, so a dry run was writing to the append-only
+  log despite being documented as filing nothing. The sweep now forwards
+  `--dry-run` to `gamereg checkin --expire` itself.
+- `docker/entrypoint.sh`'s `seed_vault()` only ran `git init` inside the branch
+  guarded by "no `gamereg.config.json`". A vault mounted with a config already
+  in place but no `.git` returned before ever becoming a repository, so
+  `scripts/autobuild.sh` — which treats a dirty working tree as its entire
+  state — could never run against it. The two checks are now independent; an
+  existing vault's contents are still never touched.
+- `docker/entrypoint.sh`'s `configure_model_auth()` returned immediately once
+  `.gamereg-auth-seeded` existed, so replacing an expired
+  `CLAUDE_CODE_OAUTH_TOKEN` in `.env` and restarting silently kept the old one
+  in the auth store. The sentinel now holds a hash of the token last pasted
+  (never the token itself) and the boot re-runs
+  `openclaw models auth paste-token` when the hash changes.
 - The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
   seeding them once. They are code — `test/agent-skill.test.ts` asserts their
   contents against the real binary and the real SQL schema — and seeding them
@@ -25,6 +42,15 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   untouched file follows the image with no action from anyone, an edited one is
   kept and the boot logs a `NOTICE` naming the shipped copy and the way to take
   the new version. An install from before the tracking is left alone, loudly.
+
+### Security
+
+- `.dockerignore` now excludes `.env` and every `.env.*` variant except
+  `.env.example`. The builder stage's `COPY . .` was pulling a filled `.env`
+  into a local builder layer and the build cache for anyone building from a
+  checkout (`compose.build.yml`) — the runtime stage never copies it in, so no
+  secret reached a published image, but it did reach the machine's own Docker
+  build cache.
 
 ### Removed
 

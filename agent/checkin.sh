@@ -99,7 +99,17 @@ export GAMEREG_SOURCE GAMEREG_NON_INTERACTIVE
 # 1. Sweep the questions nobody answered. A failure here is reported and not
 #    fatal: recording silence matters less than asking the next question, and
 #    whatever broke it will break `due` a line later anyway.
-if ! swept=$(gamereg_run checkin --expire --json 2>&1); then
+#
+#    `--dry-run` forwards to this call too -- `gamereg checkin --expire`
+#    appends an `event.amend` for every stale record it finds, and "prints
+#    what would be sent and files nothing" is a promise about the whole
+#    cycle, not only about the wake and the snooze filed after it.
+if [ "$DRY_RUN" = yes ]; then
+  expire_flag=--dry-run
+else
+  expire_flag=
+fi
+if ! swept=$(gamereg_run checkin --expire $expire_flag --json 2>&1); then
   echo "checkin.sh: gamereg checkin --expire failed: $swept" >&2
 fi
 

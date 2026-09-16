@@ -138,29 +138,37 @@ configure_git() {
 # --- 3. the vault ------------------------------------------------------------
 #
 # `gamereg init` writes exactly three files and refuses an existing vault
-# without --yes, so the guard is the config file's presence rather than a
-# sentinel of our own. A vault that already exists is never touched.
+# without --yes, so that guard is the config file's presence rather than a
+# sentinel of our own. A vault that already has one is never touched by it.
+#
+# Whether the vault is a *git* repository is a separate question from whether
+# it is initialised, and used to share the same guard -- a vault mounted with
+# a config already in place (restored from a backup, copied in by hand, or one
+# that predates the container) returned before `git init` ever ran, and
+# scripts/autobuild.sh -- which treats "is the working tree dirty" as its
+# entire state -- can never pick up a vault with no `.git` at all. So the two
+# checks run independently; only the *contents* guard stays tied to the
+# config file's presence.
 
 seed_vault() {
   if [ -f "$VAULT/gamereg.config.json" ]; then
     log "vault already initialised, leaving it alone"
-    return 0
+  else
+    log "empty vault, initialising"
+    set -- init --vault "$VAULT" --json
+    [ -n "${GAMEREG_TIMEZONE:-}" ] && set -- "$@" --timezone "$GAMEREG_TIMEZONE"
+    [ -n "${GAMEREG_DAY_CUTOFF:-}" ] && set -- "$@" --day-cutoff "$GAMEREG_DAY_CUTOFF"
+    [ -n "${GAMEREG_TARGETS:-}" ] && set -- "$@" --targets "$GAMEREG_TARGETS"
+    [ -n "${GAMEREG_PLATFORMS:-}" ] && set -- "$@" --platforms "$GAMEREG_PLATFORMS"
+    [ -n "${GAMEREG_LOCALE:-}" ] && set -- "$@" --locale "$GAMEREG_LOCALE"
+    run "$GAMEREG" "$@" >/dev/null || die "gamereg init failed"
   fi
-
-  log "empty vault, initialising"
-  set -- init --vault "$VAULT" --json
-  [ -n "${GAMEREG_TIMEZONE:-}" ] && set -- "$@" --timezone "$GAMEREG_TIMEZONE"
-  [ -n "${GAMEREG_DAY_CUTOFF:-}" ] && set -- "$@" --day-cutoff "$GAMEREG_DAY_CUTOFF"
-  [ -n "${GAMEREG_TARGETS:-}" ] && set -- "$@" --targets "$GAMEREG_TARGETS"
-  [ -n "${GAMEREG_PLATFORMS:-}" ] && set -- "$@" --platforms "$GAMEREG_PLATFORMS"
-  [ -n "${GAMEREG_LOCALE:-}" ] && set -- "$@" --locale "$GAMEREG_LOCALE"
-  run "$GAMEREG" "$@" >/dev/null || die "gamereg init failed"
 
   if [ ! -d "$VAULT/.git" ]; then
     log "vault is not a git repository, creating one"
     run "$GIT" -C "$VAULT" init -q
 
-    # And commit what init just wrote, which matters more than it looks.
+    # And commit whatever the vault holds, which matters more than it looks.
     # scripts/autobuild.sh uses "is the working tree dirty" as its entire
     # state, and it only ever stages build output and the event log -- never
     # gamereg.config.json or .gitignore, which are not artifacts. Left
@@ -384,13 +392,18 @@ resolve_gateway_token() {
 # step above will not replace, so a default AGENTS.md written here would win
 # permanently.
 #
-# Run once, guarded by the credential store's own presence. Re-running onboard
-# against a configured install is not a no-op.
+# Run once, guarded by the credential store's own presence -- except the
+# token branch below, which is guarded by *what* was seeded rather than
+# merely *that* something was: the sentinel holds a hash of the token last
+# pasted (never the token itself, which is a secret and has no business in a
+# file `docker logs`-adjacent tooling might dump), so replacing an expired
+# CLAUDE_CODE_OAUTH_TOKEN in .env and restarting actually repastes it. The
+# onboard branch below still returns unconditionally once seeded -- re-running
+# onboard against a configured install is not a no-op, and there is no token
+# to hash there in the first place.
 
 configure_model_auth() {
-  if [ -f "$STATE_DIR/.gamereg-auth-seeded" ]; then
-    return 0
-  fi
+  auth_state="$STATE_DIR/.gamereg-auth-seeded"
 
   # A Claude Code OAuth token authenticates Anthropic here, but only through
   # the auth store -- never through the environment.
@@ -410,6 +423,12 @@ configure_model_auth() {
   #
   # Mint one with `claude setup-token` on a machine where you are signed in.
   if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    token_hash=$(printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" | sha256sum | cut -d' ' -f1)
+
+    if [ -f "$auth_state" ] && [ "$(cat "$auth_state")" = "$token_hash" ]; then
+      return 0
+    fi
+
     log "claiming the Anthropic subscription from CLAUDE_CODE_OAUTH_TOKEN"
     if [ "$DRY_RUN" = yes ]; then
       log "would paste the token into the auth store"
@@ -418,8 +437,12 @@ configure_model_auth() {
         | "$OPENCLAW" models auth paste-token --provider anthropic \
             --expires-in "${OPENCLAW_AUTH_EXPIRES_IN:-365d}" >/dev/null \
         || die "could not store the Anthropic token"
+      printf '%s\n' "$token_hash" > "$auth_state"
     fi
-    run touch "$STATE_DIR/.gamereg-auth-seeded"
+    return 0
+  fi
+
+  if [ -f "$auth_state" ]; then
     return 0
   fi
 
@@ -451,7 +474,7 @@ configure_model_auth() {
       "$key_flag" "$OPENCLAW_AUTH_KEY" \
       || die "openclaw onboard failed -- run it by hand with 'docker compose exec gateway openclaw onboard'"
 
-  run touch "$STATE_DIR/.gamereg-auth-seeded"
+  run touch "$auth_state"
 }
 
 # --- 4c. which model ---------------------------------------------------------
