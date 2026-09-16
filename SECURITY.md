@@ -13,34 +13,49 @@ acted on.
 
 ## Supported versions
 
-Only the latest tagged release is supported. There is no `1.0` yet (see
-`docs/spec/06-roadmap.md`), so there's no long-term-support line to
-backport a fix to — a fix lands on `main` and ships in the next tag.
+Fixes land on `main`. Two things follow from it:
 
-## Scope and what matters here
+- The container image `ghcr.io/cidus/gamereg:edge`, rebuilt from `main` on
+  every push, which is what a container installation actually runs.
+- The next tagged release. Only the latest tag is supported; there is no
+  long-term-support line to backport to.
 
-`gamereg` is a local CLI over a local, append-only event log. The concrete
-things worth reporting:
+## Scope
 
-- **Secret handling.** `gamereg.secrets.json` (provider API credentials) is
-  never logged, never written into `data/events.jsonl`, and `enrich` is the
-  only command that performs network I/O (non-negotiable #5).
-  If you find a path where a secret ends up somewhere else, that's a bug
-  worth a private report.
-- **EXIF/location data.** GPS and the rest of EXIF are stripped on image
-  ingest, unconditionally (non-negotiable #12). A photo where that stripping
-  doesn't happen is a privacy bug, not just a correctness one.
-- **The `query` SQL allowlist** (`db/`) is a security boundary, not a
-  convenience filter — it's meant to refuse anything outside a narrow
-  read-only surface. A query that gets through it and shouldn't is worth a
-  private report.
-- **The agent layer** (`agent/`) runs commands via an exec allowlist on
-  whatever gateway hosts it. Its threat model is documented in
-  `agent/README.md`, including a known, accepted tradeoff (`amend`/`revoke`
-  run without a platform approval gate — see that file's *Why amend/revoke
-  moved off the platform gate* section). Reports about exec-allowlist
-  bypasses or prompt-injection paths that reach a `gamereg` write are
-  welcome regardless.
+The full picture is in
+[docs/explanation/security.md](docs/explanation/security.md), which describes
+what each component can reach and where the secrets live. The concrete things
+worth reporting:
 
-Standard web vulnerability classes (XSS, SQLi against a hosted service,
-auth bypass) don't apply — there's no server and no hosted instance.
+- **Secret handling.** Provider credentials (`gamereg.secrets.json` or
+  `IGDB_*`), the model credential, the Telegram bot token, the gateway's access
+  token, the vault's deploy key, the Remark42 signing secret and the tunnel
+  token. None of them belongs in the event log, in a derived artifact, in a
+  container that does not need it, or in a process's command line. A path where
+  one ends up somewhere else is worth a private report.
+- **EXIF and location data.** GPS and the rest of EXIF are stripped on image
+  ingest, unconditionally (invariant 12). A photo where that stripping doesn't
+  happen is a privacy bug. (Known and documented: `images.keep_original` writes
+  the untouched original beside the normalized file.)
+- **The `query` SQL allowlist** (`src/db/`) is a security boundary, not a
+  convenience filter: it is meant to refuse anything outside a narrow read-only
+  surface. A query that gets through it and shouldn't is worth a private
+  report.
+- **The agent layer** (`agent/`) runs commands through an exec allowlist on
+  whatever gateway hosts it, with a restricted tool surface. Reports about
+  allowlist bypasses, or prompt-injection paths that reach a `gamereg` write or
+  read a secret, are welcome. One tradeoff is documented and accepted:
+  `amend`/`revoke` are confirmed conversationally rather than by a platform
+  approval gate
+  ([ADR 0008](docs/decisions/0008-amend-revoke-confirmed-in-conversation.md)).
+- **The container stack.** The default profile set publishes no port, mounts no
+  Docker socket, and hands the internet-facing service only the variables named
+  for it. The optional profiles change that: Remark42 accepts comments from
+  strangers, Caddy serves the site and may proxy the comments, and the tunnel
+  exposes whichever of them it points at. Issues in how this repository
+  configures them are in scope; vulnerabilities in the upstream images belong
+  with their projects.
+
+The CLI on its own is a local program over local files: it has no server and no
+accounts, so classic web vulnerability classes apply only to the optional
+services above.

@@ -1,16 +1,24 @@
 # Getting started
 
-Three parts, and only the first two are required: install the CLI, create a
-register, and — if you want to talk to it instead of typing — set up the chat
-agent.
+This tutorial starts from an empty directory and ends with a register holding
+two recorded games, plus the Obsidian notes generated from them. You will
+install the `gamereg` CLI from source, create a register, record a play
+session, build the notes and then look around. After the install, nothing here
+needs a network connection or an account.
 
-The CLI is not published to a package registry yet, so it installs from a
-clone. That is the only reason step 1 looks the way it does; everything after
-it is what using the tool actually feels like.
+You need:
+
+- Node.js 22.18 or newer (`node --version`) and git.
+- A terminal. Obsidian is optional; you can use it to read the notes at the end.
+
+> [!NOTE]
+> If you would rather run the CLI, the chat agent and vault maintenance from
+> the published container image, with no clone, follow
+> [Deploy with containers](guides/deploy-container.md) instead.
 
 ## 1. Install the CLI
 
-You need **Node 22.18 or newer** and git. Check with `node --version`.
+The CLI is not published to npm, so install it from a clone:
 
 ```bash
 git clone https://github.com/cidus/game.registrar.git
@@ -19,360 +27,326 @@ npm install
 npm link
 ```
 
-`npm install` compiles the TypeScript on its own (there is a `prepare` script),
-so there is no separate build step. `npm link` puts `gamereg` on your PATH by
-symlinking this clone — pulling new commits and running `npm install` again is
-enough to update; you do not re-link.
+`npm install` also compiles the TypeScript through the package's `prepare`
+script, so there is no separate build step. `npm link` puts `gamereg` on your
+`PATH` by linking to this clone. To update later, run `git pull` and then
+`npm install` in the clone. You do not need to link again.
 
-Verify:
+Check that it works:
 
 ```bash
 gamereg --version
 ```
 
-If `npm link` fails on permissions, npm is trying to write to a global prefix
-you do not own. Point it somewhere in your home directory instead:
+It prints the version from `package.json`. A `-dev` suffix means you are
+running an unreleased development version.
+
+### If `npm link` fails with `EACCES`
+
+npm is trying to write to a global prefix you do not own. Point it at a
+directory in your home, add that directory to `PATH`, and link again. Also add
+the `export` line to your shell profile.
 
 ```bash
 npm config set prefix ~/.npm-global
-export PATH="$HOME/.npm-global/bin:$PATH"   # add this to your shell profile
+export PATH="$HOME/.npm-global/bin:$PATH"
 npm link
 ```
 
-Prefer not to touch your PATH at all? Skip `npm link` and call
-`node /path/to/game.registrar/dist/src/cli/main.js` directly. Every example
-below works the same way.
+To leave `PATH` alone, skip `npm link` and run
+`node /path/to/game.registrar/dist/src/cli/main.js` wherever this tutorial says
+`gamereg`.
 
-## 2. Create your register
+## 2. Create a register
 
-A register is a plain directory. It holds an append-only event log, a config
-file, and whatever artifacts you asked the build to generate. Nothing is
-hidden in a database somewhere else, and there is no import/export step —
-the files *are* the register.
+A register is a directory. It holds the append-only event log, a config file
+and the files that `gamereg build` generates from the log. Create one outside
+the clone:
 
 ```bash
-mkdir ~/games && cd ~/games
+mkdir ~/games
+cd ~/games
 git init
 gamereg init --timezone America/Sao_Paulo
+```
+
+Use your own IANA time zone name. At a terminal, `init` then asks for each
+setting you did not pass as a flag. Press Enter to keep the default. When it
+finishes you should see:
+
+```text
+Vault opened at /home/you/games. Targets: obsidian.
 ```
 
 `init` writes three files:
 
 | File | What it is |
 |---|---|
-| `gamereg.config.json` | Your settings. Every key is optional. |
-| `gamereg.secrets.json` | Empty credential slots, for metadata lookups later. |
-| `.gitignore` | One line, ignoring the secrets file. |
+| `gamereg.config.json` | Your settings, with every key at its default. You can edit it at any time. |
+| `gamereg.secrets.json` | Empty credential fields, for metadata lookups later. |
+| `.gitignore` | One line that keeps the secrets file out of git. |
 
-**Put the register in git.** Git is the sync story — there is no server, no
-account, no cloud. Commit after a session, or once a week; the log only ever
-grows, so merges are about as easy as they get.
+The event log, `data/events.jsonl`, appears when you record your first event.
 
-Useful flags at init time, all optional and all changeable later by editing
-the config:
+These `init` flags are worth knowing now. Each one sets a key in
+`gamereg.config.json`, and the
+[configuration reference](reference/configuration.md) describes them all.
+
+| Flag | What it sets |
+|---|---|
+| `--timezone <zone>` | The time zone that days are counted in. |
+| `--day-cutoff <HH:MM>` | When one day ends and the next begins, `05:00` by default. A session counts toward the day it **started** on, so a session started at 02:00 belongs to the previous day. |
+| `--platforms <list>` | The platforms you own, comma separated. `gamereg` uses them to infer or offer a run's platform. They never restrict what you can record. |
+| `--targets <list>` | What `gamereg build` generates. The default is `obsidian`. See [Build outputs](guides/build-outputs.md). |
+
+Put the register under version control now. Git is how you back up a register
+and move it between machines. There is no server and no account.
 
 ```bash
-gamereg init \
-  --timezone America/Sao_Paulo \
-  --day-cutoff 05:00 \
-  --platforms "PC,Nintendo Switch,PlayStation 5" \
-  --targets obsidian,csv,sqlite
+git add -A
+git commit -m "Create the register"
 ```
 
-- `--timezone` — IANA name. Timestamps carry offsets regardless; this is what
-  "today" means for grouping.
-- `--day-cutoff` — when the logical day flips. `05:00` means a session that
-  ends at 02:00 still counts as the previous day, which is usually what you
-  meant.
-- `--platforms` — the ones you own, comma separated. Used to offer sensible
-  choices, never to restrict what you can record.
-- `--targets` — which formats to generate. Defaults to `obsidian` alone. See
-  [07-targets](spec/07-targets.md).
+## 3. Record a session
 
-### Record something
+This step records an evening that has just happened: a session that started
+three hours ago and included a twenty-minute break.
+
+Open the session:
 
 ```bash
-gamereg start "hollow knight" --platform "Nintendo Switch"
-gamereg break start
-gamereg break end
+gamereg start "Hollow Knight" --platform "Nintendo Switch" --no-metadata --at -3h
+```
+
+```text
+A new entry was opened for "Hollow Knight". No catalogue was consulted.
+Filed: Hollow Knight (Nintendo Switch) — run opened, session opened at 18:14.
+```
+
+The register is empty, so nothing on record matches the title, and
+`--no-metadata` tells `gamereg` to open a new entry for it. Without the flag,
+a terminal shows a menu with the choice `None of these — open a new entry`,
+and a script gets exit code 4. `start` opened two things. A **run** is one
+playthrough of a game. A **session** is one sitting inside that run.
+
+Record the break, then close the session:
+
+```bash
+gamereg break start --at -2h
+gamereg break end --at -100m
 gamereg end --break 20m --note "Stuck on Watcher Knights. Hard, but fair."
 ```
 
-Durations are computed from the events, never estimated. Breaks are deducted.
-If you forgot to start on time, `--at` takes `20:14`, `"2026-08-12 20:14"`,
-full ISO, or `-90m` and `-2h` relative to now.
+```text
+Break opened at 19:14. Hollow Knight remains filed as in progress.
+Break closed at 19:34. Duration: 20m.
+Session closed at 21:14. Net duration: 2h20. Game total: 2h20.
+Breaks deducted: 40m.
+```
 
-When you finish a game:
+The duration is computed from the timestamps: three hours, minus the
+twenty-minute break you logged, minus the extra twenty minutes given with
+`--break`. Because only one session is open, `end` needs no title. Your clock
+times will differ from the ones shown, but the durations will not.
+
+Every recording command accepts `--at`, so you can record things after they
+happen:
+
+| Form | Example | Meaning |
+|---|---|---|
+| Relative | `--at -90m`, `--at -2h` | That long before now. |
+| Clock time | `--at 20:14` | Today at 20:14, or yesterday if 20:14 has not come yet today. |
+| Date and time | `--at "2026-08-12 20:14"` | That time, in the register's time zone. |
+| ISO 8601 | `--at 2026-08-12T20:14:00-03:00` | Exactly that instant. |
+
+Close the run now that you have finished the game:
 
 ```bash
-gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_ending
-gamereg verdict "hollow knight" -m "Started as a curiosity and became the best..."
+gamereg finish "Hollow Knight" --rating 9 --difficulty hard --criteria true_ending
 ```
 
-Already played it years ago, before any of this existed?
+```text
+Approved: Hollow Knight. 2h20 across 1 sessions.
+Rating: 9.
+```
+
+`finish` closes the run, and any session still open on it. A rating is a whole
+number from 0 to 11, or `none`. `--difficulty` and `--criteria` take fixed
+tokens. An unknown token exits with code 2 and lists the valid ones.
+
+File your review of the playthrough:
 
 ```bash
-gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
+gamereg verdict "Hollow Knight" -m "Started as a curiosity and became the best game I played this year."
 ```
 
-### Coming from a spreadsheet
-
-`gamereg past` is fine for a handful of games typed by hand. If you're
-arriving with years of history already tracked in a spreadsheet,
-`gamereg import` files one `past`-shaped run per row instead.
-
-Say `games.csv` looks like this:
-
-```csv
-Title,Finished,Started,Hours,Rating,Review
-Chrono Trigger,2011-07,,30,10,Still the best time-travel plot in the medium.
-Hollow Knight,2026-08-12,2026-05-03,42.3,9,
-Celeste,2026,,,,
+```text
+Verdict filed for Hollow Knight. It appears in the note at the next build.
 ```
 
-A mapping file says which of your columns is which gamereg field — see the
-[full field table](spec/02-cli.md#gamereg-import-filecsv---mapping-filejson)
-for everything beyond what's used here:
+You can file a verdict whenever you are ready to write it. Filing again
+replaces the earlier one.
 
-```json
-{
-  "title": "Title",
-  "ended": "Finished",
-  "started": "Started",
-  "hours": "Hours",
-  "rating": "Rating",
-  "verdict": "Review"
-}
-```
-
-`hours` needs a plain decimal point (`42.3`), not a comma — reformat the
-column first if your spreadsheet exported one.
-
-Check what it would do before doing it:
+Record a game you finished before you had a register:
 
 ```bash
-gamereg import games.csv --mapping mapping.json --dry-run
+gamereg past "Chrono Trigger" --ended 2011-07 --rating 10 --hours 30 --no-metadata
 ```
 
-`--dry-run` resolves every row and reports the result without writing
-anything. Read it — specifically, read which titles it matched to existing
-games and which it's about to create. **This is the step not to skip:** an
-unmatched title becomes a brand-new local game the instant a real import runs,
-and once a title exists locally, `gamereg search` stops asking a provider
-about it at all. A batch of badly resolved rows becomes that many phantom
-games that go on answering silently forever; undoing one is `gamereg revoke`,
-event by event. A `--dry-run` pass costs nothing and catches this before it
-happens.
-
-Happy with what `--dry-run` reported:
-
-```bash
-gamereg import games.csv --mapping mapping.json
+```text
+Filed retroactively: Chrono Trigger, ended 2011-07.
+Stated duration: 30.0 h — recorded as stated, not measured.
 ```
 
-```json
-{ "ok": true, "result": { "imported": [
-  { "row": 2, "game_id": "...", "run_id": "...", "title": "Chrono Trigger" },
-  { "row": 3, "game_id": "...", "run_id": "...", "title": "Hollow Knight" },
-  { "row": 4, "game_id": "...", "run_id": "...", "title": "Celeste" } ],
-  "failed": [] } }
-```
+`past` records a run that is already over. The date can be a year (`2011`), a
+month (`2011-07`) or a day (`2011-07-14`), and the run keeps that precision.
+Hours given this way are marked as stated rather than measured. To bring in
+many games at once, [import a spreadsheet](guides/import-spreadsheet.md).
 
-A row that fails — an out-of-range rating, an unparseable `hours` cell —
-doesn't stop the rest; it's reported by CSV line number in `result.failed[]`
-and everything else still gets written. Run `gamereg enrich --all` afterward
-to fetch metadata and cover art for whatever got created — import itself
-never touches the network (non-negotiable 5).
+Every command so far appended lines to `data/events.jsonl`, one JSON object per
+event. Nothing ever rewrites that file, so do not edit it by hand. To correct
+something, see [Fix mistakes](guides/fix-mistakes.md).
 
-**One more thing worth knowing going in:** an imported run has no sessions —
-there was nothing to time. `gamereg stats`'s heatmap and year-in-review read
-sessions to know which days you played, so years you just imported will show
-up empty there even though you played every day of them. That's not a bug;
-the hours are recorded as *stated*, not *measured*, and the register doesn't
-invent days nobody logged at the time.
-
-### Generate the artifacts
+## 4. Generate the notes
 
 ```bash
 gamereg build
 ```
 
-This regenerates everything your `targets` declares, from the log, every time.
-It is idempotent — running it twice produces byte-identical output — and it
-never touches text you wrote by hand outside the generated markers.
-
-For an `obsidian,csv,sqlite` register you get:
-
-```
-data/events.jsonl        the log — the only thing that matters
-data/log.db              a SQLite cache, for queries
-data/*.csv               spreadsheet-shaped exports
-obsidian/games/*.md      one note per game
-obsidian/runs/*.md       one note per playthrough
-obsidian/Game List.md    the consolidated table
-obsidian/Game Database.base
+```text
+The register is in order: obsidian, 6 files written.
 ```
 
-Add `stats` to `targets` and the build also writes `obsidian/Stats.md` and one
-`obsidian/reviews/<year>.md` per year you played, each with a calendar heatmap.
-Those two notes are spliced like a game note, so anything you write around the
-generated tables — the paragraph that says what the year was actually like —
-survives every later build.
+The default `obsidian` target wrote:
 
-Add `quartz` and the build writes the register a second time, as input for
-[Quartz](https://quartz.jzhao.xyz): `quartz/content/` — one page per game, one
-per playthrough, the consolidated table as the front page, the same Stats
-page and year-in-review notes `stats` writes into the vault, and the same
-`Game Database.base` the vault gets, for the `@quartz-community/bases-page`
-plugin the seeded config already enables — plus a seeded
-`quartz/quartz.config.yaml` that is yours the moment you touch it. **gamereg
-never runs Quartz.** It emits the input and stops; building the site is yours
-to run, by hand or from CI, and nothing about the rest of the register depends
-on Quartz being installed. Your own photos and cover art reach the site only if
-you set `images.publish` to `true` — off by default, and the pages say plainly
-where a picture was withheld.
+```text
+obsidian/
+  Game List.md                     one row per run
+  Game Database.base               an Obsidian Bases view of the runs
+  games/chrono-trigger.md          one note per game
+  games/hollow-knight.md
+  runs/2011-07-chrono-trigger.md   one note per run, named by its start date
+  runs/YYYY-MM-DD-hollow-knight.md
+.gamereg/manifest.json             the list of files the build owns
+```
 
-**Open `obsidian/` as your Obsidian vault, not the register root.** That folder
-holds only what the build writes; your log, credentials and build bookkeeping
-stay one level up, out of Obsidian's way.
+Run `gamereg build` again and it reports `0 files written`. The build
+regenerates everything from the log and writes only the files whose content
+changed.
 
-Other commands worth knowing early:
+In Obsidian, choose **Open folder as vault** and pick `~/games/obsidian`, not
+`~/games`. That folder holds the notes. The log, the secrets file and the
+build's bookkeeping stay one level up, outside Obsidian's index.
+
+Where your own writing is safe:
+
+- **Game notes (`games/*.md`) and `Game List.md`** keep anything you write
+  outside the `<!-- gamereg:begin … -->` and `<!-- gamereg:end … -->` markers.
+  The `## Notes` section at the end of each game note is there for you.
+- **Run notes (`runs/*.md`)** are rewritten whole on every build, so anything
+  you type into them is lost. Put session notes in `gamereg end --note` and
+  your review in `gamereg verdict`. `gamereg doctor` warns you when a run note
+  holds text that the next build would remove.
+- **`Game Database.base`** is written once and then left alone, so your changes
+  to its views are kept.
+
+Commit the result:
 
 ```bash
-gamereg status              # summary, or one game's state
-gamereg open                # what is open right now
-gamereg search "zelda"      # look something up, recording nothing
-gamereg doctor              # validate the log, report anything irregular
+git add -A
+git commit -m "Record Hollow Knight and Chrono Trigger"
 ```
 
-## 3. Optional: metadata and cover art
+## 5. Look around
 
-`gamereg enrich` fills in developer, publisher, release year, genres,
-platforms and cover art from [IGDB](https://www.igdb.com/).
-
-**No command that records anything ever touches the network.** `start`, `end`,
-`finish`, `past` and the rest are offline by construction, so a provider being
-slow or down can never block you from logging a session, or slow it down. Only
-`enrich` and `search` reach a provider at all — and `search` records nothing
-by definition, so the guarantee holds either way.
-
-Get a client id and secret from [IGDB's API docs](https://api-docs.igdb.com/),
-then either put them in the secrets file:
-
-```json
-{
-  "igdb": {
-    "client_id": "…",
-    "client_secret": "…"
-  }
-}
-```
-
-…or set `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` in your environment, which
-takes precedence per field. The secrets file is gitignored by `init`; keep it
-that way.
+Summarize the register:
 
 ```bash
-gamereg enrich "hollow knight" --covers   # one game
-gamereg enrich --all --covers             # everything, never prompts
+gamereg status
 ```
 
-Skipping this entirely is fine. A register with no metadata still records
-hours, notes, ratings and verdicts — which is the point of it.
+```text
+2 games on record, 2 runs, 32.3 hours.
+```
 
-## 4. Optional: the chat agent
+Show one game:
 
-The CLI works on its own, forever, with no AI involved. The agent is a layer
-on top that turns "starting hollow knight" into `gamereg start "hollow
-knight"` — in whatever language you happen to say it. It cannot write to your
-files, compute a duration, or invent an identifier; every number it reports
-comes from the database, because it has to ask the CLI like anyone else.
+```bash
+gamereg status "Hollow Knight"
+```
 
-It can also speak first, if you set up the optional hourly poll described in
-`agent/README.md`: a session left open too long, or still open the morning
-after, gets one question. The CLI decides when that happens, not the model, and
-a poll with nothing to ask says nothing at all.
+```text
+Hollow Knight — finished, 2.3 hours across 1 runs.
+Run 1: YYYY-MM-DD to YYYY-MM-DD, 2h20, 1 sessions.
+```
 
-### What you need
+List the sessions still open. This is how you find one you forgot to close:
 
-**A gateway** — something that receives your messages, runs a model, and can
-shell out. [OpenClaw](https://openclaw.ai) is the reference deployment
-(self-hosted, multi-channel, handles voice notes and images), but nothing in
-the design depends on it. Any gateway that can execute a command works.
+```bash
+gamereg open
+```
 
-**A model.** This project is deliberately provider-agnostic — the contract is
-the CLI's JSON output, not any vendor's API. What the model actually needs:
+```text
+No session is open.
+```
 
-- **Tool/function calling**, to run commands at all.
-- **Decent instruction-following.** It writes SQL against a documented schema
-  and constructs CLI invocations; a model that improvises will produce
-  invocations that fail loudly rather than data that is quietly wrong, but
-  it will annoy you.
-- **Image input**, only if you want to send screenshots and photos.
+Look a title up without recording anything:
 
-Anything meeting that bar is fine — hosted (Anthropic, OpenAI, Google,
-DeepSeek, OpenRouter, and others) or local (Ollama, LM Studio) if your
-hardware can run a model with reliable tool calling. Pick during your
-gateway's setup; for OpenClaw that is `openclaw onboard`, which asks.
+```bash
+gamereg search "hollow" --local-only
+```
 
-**A machine that stays on**, if you want to message it while away from your
-desk. A mini PC, an old laptop, a VPS — the agent is not demanding.
+```text
+1 entries match "hollow":
+Hollow Knight — on record, finished
+```
 
-### Setting it up
+With `--local-only`, `search` looks only at your register. Without it, a title
+with no local match is looked up at IGDB once you have configured credentials
+([Metadata and covers](guides/metadata-and-covers.md)).
 
-The gamereg side of the deployment — the skill that teaches the agent this
-CLI, the Registrar's persona, the channel configuration, and the security
-boundaries — lives in **[`agent/`](../agent/)**, and
-**[`agent/README.md`](../agent/README.md)** is the step-by-step guide.
+Validate the log and the generated files:
 
-Read it before wiring anything up. It is not a generic tutorial: every config
-key in it was found wrong by upstream documentation at least once and
-corrected against a real install, and it says which — including a permissions
-trap that costs an afternoon to diagnose from scratch.
+```bash
+gamereg doctor
+```
 
-If you would rather not do any of that by hand, **[*Running the Registrar in
-containers*](deploy-container.md)** is the same deployment as a `compose.yml`:
-one image holding the CLI and the gateway, a boot that seeds the vault, installs
-the model credential and deploys the skill on every start, and a loop that keeps
-the register enriched, built, committed and pushed. Optional profiles add a
-local site, comments and a tunnel.
+```text
+The register is in order. 10 events, 2 games, 2 runs.
+```
 
-That is the shorter path and the one to take. It has been run in production —
-on a 1 GB always-free cloud instance and as the maintainer's own install — but
-there is no published image yet, so you still clone this repository and build.
-Read `agent/README.md` anyway when something behaves in a way the runbook does
-not explain: that file is where the reasons live.
+`doctor` reports problems and exits with code 1 when it finds any. It never
+changes anything.
 
-The short version of what you will do there: install the CLI on the
-always-on host, create a bot for your chat channel, restrict who may talk to
-it, tell the gateway where your register lives, copy the skill and the
-workspace files in, and constrain what the agent is allowed to execute — both
-which commands it may run and which of the gateway's own tools it can see at
-all. The second one matters more than it sounds: a tool the agent can see is a
-tool it will eventually reach for, whatever the prompt says.
+When a command's output goes to a pipe, or when you pass `--json`, it prints a
+JSON envelope instead of these sentences. Scripts and the chat agent read that
+envelope. See the [output contract](spec/02-cli.md#output-contract).
 
-### Voice
+The clone's `example-vault/` directory is a complete register with fictional
+data and every build target enabled. Copy it somewhere else before you run
+commands against it.
 
-Voice notes are transcribed by the gateway *before* the CLI sees anything —
-`gamereg` never touches audio. Transcription can be local (Whisper on the
-host) or hosted; the tradeoff is privacy and cost against setup effort and
-accuracy on your language.
+## Next steps
 
-Transcribed game titles are unreliable no matter which you pick. That is what
-`gamereg alias` is for: correct a mangled title once, and the register
-recognizes it from then on.
-
-## Where to go next
-
-| If you want to… | Read |
+| To | Read |
 |---|---|
-| Understand the data model | [01-model](spec/01-model.md) |
-| See every command and flag | [02-cli](spec/02-cli.md) |
-| Know why it is built this way | [00-architecture](spec/00-architecture.md) |
-| Change what the build generates | [07-targets](spec/07-targets.md) |
-| Deploy the chat agent | [`agent/README.md`](../agent/README.md) |
+| Bring years of history in from a spreadsheet | [Import a spreadsheet](guides/import-spreadsheet.md) |
+| Fetch developers, genres and cover art, and attach your own photos | [Metadata and covers](guides/metadata-and-covers.md) |
+| Generate CSV, SQLite, a web page, stats or site input, and query the register | [Build outputs](guides/build-outputs.md) |
+| Correct or withdraw something you recorded | [Fix mistakes](guides/fix-mistakes.md) |
+| Record by chatting or by voice instead of typing | [Chat agent](guides/chat-agent.md) |
+| Run the register, the agent and maintenance in containers | [Deploy with containers](guides/deploy-container.md) |
+| Install the agent on a machine without containers | [Deploy on a host](guides/deploy-host.md) |
+| Publish the register as a website | [Publish a site](guides/publish-site.md) |
+| Find the cause of an error | [Troubleshooting](guides/troubleshooting.md) |
 
-`example-vault/` in the repository is a complete working register with
-fictional data — the fixtures the test suite builds against. Poke at it if you
-want to see what a populated register looks like before committing to your
-own.
+For reference:
+
+| Topic | Page |
+|---|---|
+| Every command, flag and exit code | [02-cli](spec/02-cli.md) |
+| Every configuration key | [Configuration](reference/configuration.md) |
+| Environment variables | [Environment](reference/environment.md) |
+| Games, runs, sessions and events | [01-model](spec/01-model.md) |
+| How the log, the build and the agent fit together | [How it works](explanation/how-it-works.md) |
+| Everything else | [Documentation map](README.md) |

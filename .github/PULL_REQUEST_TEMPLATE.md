@@ -2,17 +2,23 @@
 
 **Checklist**
 
-- [ ] `npm test` passes (397+ tests, no network)
+- [ ] `npm run typecheck` and `npm test` pass (no network needed)
 - [ ] `npm run test:live` run, if this touches `normalize()`,
-      `findDetail`/`enrichGame`, or `providers/igdb.ts`
-- [ ] New/changed behavior has a test — golden file update for anything under
-      `render/` or `targets/`
-- [ ] `CHANGELOG.md`'s `[Unreleased]` section has an entry, if this is
+      `findDetail`/`enrichGame`, or `providers/igdb.ts`'s `search`/`fetch`
+- [ ] New or changed behavior has a test, and output changes under
+      `src/render/` or `src/targets/` update the golden files in
+      `example-vault/` (see `docs/development/testing.md`)
+- [ ] The spec for any changed behavior is updated, and `README.md`'s *Status*
+      and `docs/getting-started.md` are still true (see
+      `docs/development/documentation.md`)
+- [ ] `CHANGELOG.md` has a one-line entry under `[Unreleased]`, if this is
       user-visible
-- [ ] No hardcoded English added to `src/` outside the documented exceptions
-      (`core/platforms.ts`) — see `CLAUDE.md`'s *Language* section
-- [ ] Doesn't touch `package.json`'s `version` or create a git tag (that's
-      maintainer-triggered, see `CLAUDE.md`'s *Versioning* section)
+- [ ] No hardcoded English added to `src/` outside `src/core/platforms.ts`
+- [ ] Doesn't break an invariant in `docs/spec/00-architecture.md` or go
+      against a record in `docs/decisions/`, or proposes superseding it and
+      says why above
+- [ ] Doesn't change `version` in `package.json` or create a git tag (see
+      `docs/development/releasing.md`)
 
 **Related issue**
 
