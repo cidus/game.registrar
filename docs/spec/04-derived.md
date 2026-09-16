@@ -461,7 +461,11 @@ Deterministic, so re-ingesting the same photo is a no-op.
 A 4 MB phone photo lands at roughly 250–400 KB. That is what makes committing
 images directly to git viable for a log meant to last decades — no LFS, no
 external bucket, no broken links in five years. `images.keep_original: true`
-stores the untouched file alongside for anyone who wants it, off by default.
+stores a second copy alongside the normalized one, at the source resolution
+and in the source format rather than resized and re-encoded to WebP, off by
+default. It is not the raw input bytes: it goes through the same EXIF strip
+as the normalized copy (see below), because invariant 12 applies to every
+copy of a photo this pipeline writes, not only the one named `assets/<sha[0:2]>/<sha>.webp`.
 
 ### EXIF is read, then stripped
 
@@ -474,7 +478,9 @@ sent the next morning would otherwise backdate the event.
 
 **GPS must not survive.** Phone photos carry coordinates. This repository may be
 published as a website. Stripping all EXIF on ingest is the default and is not
-configurable to `false` for location tags specifically.
+configurable to `false` for location tags specifically — including on the
+`images.keep_original` copy, which exists to preserve resolution and format,
+never to carry metadata back in through a second path.
 
 ### Publication
 

@@ -58,7 +58,11 @@ export type Config = {
     max_edge: number
     /** WebP quality, 1–100. */
     quality: number
-    /** Store the untouched original alongside the normalized copy. Off by default. */
+    /**
+     * Store the original resolution and format alongside the normalized
+     * copy, still EXIF-stripped (invariant 12 is unconditional — see
+     * `images/ingest.ts`). Off by default.
+     */
     keep_original: boolean
     /**
      * Copy attachments (covers included) into the generated site. One switch,

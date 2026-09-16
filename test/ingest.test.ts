@@ -100,6 +100,42 @@ test('a photo with no EXIF has a null captured_at, not an error', async () => {
   assert.equal(result.captured_at, null)
 })
 
+test('keep_original writes a second copy, and EXIF including GPS does not survive into it either', async () => {
+  const root = tempDir('gamereg-ingest-')
+  const vault = vaultAt(root)
+  const src = join(root, 'in.jpg')
+  writeFileSync(
+    src,
+    await photo({
+      exif: {
+        IFD2: { DateTimeOriginal: '2026:08:12 20:14:03' },
+        IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '10/1 0/1 0/1', GPSLongitudeRef: 'W', GPSLongitude: '20/1 0/1 0/1' },
+      },
+    }),
+  )
+
+  const config = { ...DEFAULT_CONFIG, images: { ...DEFAULT_CONFIG.images, keep_original: true } }
+  const result = await ingestImage(vault, src, config)
+
+  const originalPath = join(root, 'assets', result.sha256.slice(0, 2), `${result.sha256}.original.jpeg`)
+  assert.equal(existsSync(originalPath), true)
+
+  const meta = await sharp(readFileSync(originalPath)).metadata()
+  assert.equal(meta.exif, undefined)
+  assert.equal(meta.format, 'jpeg')
+})
+
+test('keep_original off by default: no .original file is written', async () => {
+  const root = tempDir('gamereg-ingest-')
+  const vault = vaultAt(root)
+  const src = join(root, 'in.jpg')
+  writeFileSync(src, await photo())
+
+  const result = await ingestImage(vault, src)
+  const originalPath = join(root, 'assets', result.sha256.slice(0, 2), `${result.sha256}.original.jpeg`)
+  assert.equal(existsSync(originalPath), false)
+})
+
 test('a nonexistent source file is a usage error, not a crash', async () => {
   const root = tempDir('gamereg-ingest-')
   const vault = vaultAt(root)

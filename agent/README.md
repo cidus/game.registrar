@@ -496,6 +496,16 @@ silently does not happen.
 Symptom first: these are indexed by what you will actually see. The story of
 how each was found is in `CLAUDE.md`.
 
+**The agent goes quiet when the Anthropic limit is hit, and answers
+"this turn was interrupted because it stopped making progress" minutes later.**
+It is waiting, not broken. OpenClaw 2026.9.4 retries the same model before
+considering the fallback chain and sleeps for the provider's `Retry-After`,
+which Anthropic sets to however long the limit has left — far past the turn's
+own life. `OPENCLAW_PROVIDER_MAX_RETRIES=0` (the default the entrypoint writes)
+makes a refusal hand over to the chain instead. Confirm with
+`cat /config/agents/<id>/agent/settings.json`; the log line to look for during
+an incident is `transient same-model retry ... delayMs=`.
+
 **The agent follows the old procedure after an image upgrade.** `AGENTS.md`
 used to be seeded like a persona file and was therefore never replaced. It is
 code now and is redeployed on every boot; an image from before that leaves it

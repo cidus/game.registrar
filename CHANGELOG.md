@@ -50,6 +50,28 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   both `loadConfig` and `gamereg init --timezone` — a well-typed but invalid
   zone used to write straight into `gamereg.config.json` unchecked and only
   fail the next time something tried to project an instant into it.
+- `images.keep_original` wrote the raw input bytes to disk, EXIF and GPS
+  intact, breaking invariant 12 for every kept original — which then reached
+  `obsidian/assets` and, with `images.publish`, `quartz/content/assets` through
+  the ordinary hardlink mirror. It now goes through the same strip as the
+  normalized copy: re-encoded with orientation baked in and no metadata
+  carried through, same resolution and format as the source.
+- The model fallback chain is actually reached when a rate limit hits. OpenClaw
+  2026.9.4 retries the same model first and, on a 429, sleeps for the
+  provider's `Retry-After` — 41 to 260 minutes from Anthropic across five
+  logged incidents, against a turn abandoned after about six. The entrypoint
+  writes `retry.provider.maxRetries: 0` into the agent's `settings.json`
+  (`OPENCLAW_PROVIDER_MAX_RETRIES` to change it), so a refusal hands over
+  instead of waiting.
+
+### Added
+
+- `OPENCLAW_MODEL_FALLBACK` takes a comma-separated chain, tried in order.
+  With the same-model retry off, depth in the chain is what depth in retries
+  used to be — and it costs no waiting on the model that just refused.
+
+### Fixed
+
 - The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
   seeding them once. They are code — `test/agent-skill.test.ts` asserts their
   contents against the real binary and the real SQL schema — and seeding them
