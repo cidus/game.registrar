@@ -26,6 +26,21 @@
  * the developer's own `~/.gitconfig`, and never absent one either, which is
  * what a bare `HOME` override would leave a CI runner with no global git
  * identity to fall back on.
+ *
+ * `HOME` alone is not the whole story, though: `GIT_CONFIG_GLOBAL` points at
+ * that same scratch `.gitconfig` explicitly, and `GIT_CONFIG_SYSTEM` is
+ * `/dev/null` — both on every real `git` invocation this file makes,
+ * including the ones that only set up or inspect the fixture. Found live: on
+ * a machine with `commit.gpgsign = true` in the developer's own global
+ * config, `git commit` failed with "gpg failed to sign the data" even though
+ * `HOME` was already scoped, because a newer git also consults
+ * `$XDG_CONFIG_HOME/git/config` for the "global" tier, and that variable
+ * carries the developer's real, unscoped value straight through the `HOME`
+ * override. Pointing `GIT_CONFIG_GLOBAL` at the scratch file directly is what
+ * a real deployment gets for free from a container's empty filesystem — no
+ * `XDG_CONFIG_HOME`, no `/etc/gitconfig` carrying a machine-wide policy — so
+ * this reproduces that clean room deterministically instead of hoping `HOME`
+ * happens to be sufficient on whatever machine the suite runs on next.
  */
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -53,6 +68,8 @@ type Host = {
   createGame: (title: string) => void
   /** Same, with a cover photo attached — the path that mirrors into `obsidian/assets`. */
   createGameWithPhoto: (title: string) => Promise<void>
+  /** The env a test body's own direct `git` calls should use — see the file header. */
+  gitEnv: NodeJS.ProcessEnv
 }
 
 /**
@@ -71,7 +88,11 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
   mkdirSync(vault, { recursive: true })
   mkdirSync(bin, { recursive: true })
   mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, '.gitconfig'), '[user]\n\tname = Test\n\temail = test@example.com\n')
+  const gitconfig = join(home, '.gitconfig')
+  writeFileSync(gitconfig, '[user]\n\tname = Test\n\temail = test@example.com\n')
+  // See the file header: scopes every real `git` call below to this fixture's
+  // own config, immune to whatever the developer's machine has set globally.
+  const gitEnv = { ...process.env, HOME: home, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_SYSTEM: '/dev/null' }
 
   const gamereg = join(bin, 'gamereg')
   writeFileSync(gamereg, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(MAIN)} "$@"\n`)
@@ -93,11 +114,11 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
   )
   chmodSync(git, 0o755)
 
-  execFileSync(REAL_GIT, ['init', '-q'], { cwd: vault })
+  execFileSync(REAL_GIT, ['init', '-q'], { cwd: vault, env: gitEnv })
   execFileSync(
     REAL_GIT,
     ['-c', 'user.email=test@example.com', '-c', 'user.name=Test', 'commit', '-q', '--allow-empty', '-m', 'init'],
-    { cwd: vault },
+    { cwd: vault, env: gitEnv },
   )
 
   return {
@@ -110,7 +131,10 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
       }
     },
     commitCount: () =>
-      Number.parseInt(execFileSync(REAL_GIT, ['rev-list', '--count', 'HEAD'], { cwd: vault, encoding: 'utf8' }), 10),
+      Number.parseInt(
+        execFileSync(REAL_GIT, ['rev-list', '--count', 'HEAD'], { cwd: vault, encoding: 'utf8', env: gitEnv }),
+        10,
+      ),
     createGame: (title: string) => {
       const result = spawnSync(
         process.execPath,
@@ -138,8 +162,7 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
       const result = spawnSync('sh', [WRAPPER, ...args], {
         encoding: 'utf8',
         env: {
-          ...process.env,
-          HOME: home,
+          ...gitEnv,
           GAMEREG_VAULT: vault,
           GAMEREG_BIN: gamereg,
           GIT_BIN: git,
@@ -149,6 +172,7 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
       })
       return { status: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
     },
+    gitEnv,
   }
 }
 
@@ -201,7 +225,11 @@ test('a new game with no IGDB credentials still gets committed: exit 6 is not a 
   assert.doesNotMatch(run.stderr, /failed/)
   assert.equal(gateway.commitCount(), before + 1)
 
-  const message = execFileSync(REAL_GIT, ['log', '-1', '--format=%s'], { cwd: gateway.vault, encoding: 'utf8' })
+  const message = execFileSync(REAL_GIT, ['log', '-1', '--format=%s'], {
+    cwd: gateway.vault,
+    encoding: 'utf8',
+    env: gateway.gitEnv,
+  })
   assert.match(message, /chore\(vault\)/)
 
   // The tree is clean again, so a second tick short-circuits before it ever
@@ -246,6 +274,7 @@ test('derived files already correct on disk but never committed still get staged
   const committed = execFileSync(REAL_GIT, ['show', '--stat', '--format=', 'HEAD'], {
     cwd: gateway.vault,
     encoding: 'utf8',
+    env: gateway.gitEnv,
   })
   assert.match(committed, /obsidian\/Game List\.md/)
 
@@ -278,6 +307,7 @@ test('a mirrored cover photo under obsidian/assets gets staged, not just the ori
   const committed = execFileSync(REAL_GIT, ['show', '--name-only', '--format=', 'HEAD'], {
     cwd: gateway.vault,
     encoding: 'utf8',
+    env: gateway.gitEnv,
   })
     .trim()
     .split('\n')
@@ -332,8 +362,11 @@ test('a push is attempted only once a remote exists, and never before', () => {
     false,
   )
 
-  execFileSync(REAL_GIT, ['init', '--bare', '-q', join(gateway.vault, '..', 'remote.git')])
-  execFileSync(REAL_GIT, ['remote', 'add', 'origin', join(gateway.vault, '..', 'remote.git')], { cwd: gateway.vault })
+  execFileSync(REAL_GIT, ['init', '--bare', '-q', join(gateway.vault, '..', 'remote.git')], { env: gateway.gitEnv })
+  execFileSync(REAL_GIT, ['remote', 'add', 'origin', join(gateway.vault, '..', 'remote.git')], {
+    cwd: gateway.vault,
+    env: gateway.gitEnv,
+  })
 
   gateway.createGame('celeste')
   const withRemote = gateway.run()
