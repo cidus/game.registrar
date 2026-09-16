@@ -1237,6 +1237,46 @@ Each of these cost real time to find. The reasoning, not just the rule:
   measures the whole prompt. **A budget over a subset is not a budget**, and
   the subset is invisible from inside the repository.
 
+- **A retry and a fallback are not the same kind of patience, and 2026.9.4
+  spends the wrong one.** OpenClaw retries the *same* model before it will
+  consider the fallback chain, and on a 429 it sleeps for the provider's
+  `Retry-After`. Anthropic answers a subscription limit with however long the
+  limit has left — 41 to 260 minutes across five logged incidents — while the
+  turn is abandoned after about six. So OpenRouter was configured,
+  credentialed and never once asked; every rate limit surfaced to the user as
+  "this turn was interrupted because it stopped making progress", which names
+  neither the limit nor the model. The fix is `retry.provider.maxRetries: 0`
+  in the agent's `settings.json`, written by the entrypoint.
+  Two upstream details make it a bug rather than a preference, and both are
+  worth knowing before anyone reopens this. The delay is
+  `Math.max(jittered, retryAfterMs)` where only the jitter is capped, so the
+  header walks straight past the 30s ceiling; and the 90s total-retry budget
+  is disabled *precisely* for `rate_limit`, by passing `elapsedMs` as
+  undefined — the one case the ceiling existed for. A subsystem whose own
+  constants say 90 seconds slept for 74 minutes. The escape hatch upstream
+  does have, a "long window" classifier, reads the error *text* for
+  `daily|weekly|monthly|usage limit|subscription|quota`, and Anthropic's
+  message is generic, so it never fires: the header knew, the classifier only
+  reads prose.
+- **There is no per-provider retry setting, and the shape of the fix is to add
+  depth to the chain instead.** `settings.retry.provider` names the layer, not
+  the vendor, and `getProviderRetrySettings()` takes no provider argument — so
+  turning the budget off turns it off for OpenRouter too, which loses a short
+  same-model retry that a 529 genuinely wants. `OPENCLAW_MODEL_FALLBACK` is
+  comma-separated for that reason: another entry in the chain does what a
+  retry did, without waiting on the model that just refused. Worth stating
+  because the instinct is to keep hunting for the per-provider knob; it is not
+  there, and depth is the substitute.
+- **The first suspicion was the auth store, and it was wrong.** The obvious
+  reading was the trap already recorded twice here — a credential present in
+  the environment is not a credential installed — since the store holds only
+  `anthropic:manual` and the entrypoint asserts in a comment that "OpenRouter
+  needs only OPENROUTER_API_KEY in the environment". `openclaw models status`
+  settles it: `openrouter` reports `effective: {kind: "env"}`, so the
+  environment genuinely is an auth path for that provider and the comment was
+  right. Recorded because the wrong diagnosis was the plausible one, and
+  because the command that answers it in one line is worth knowing.
+
 Add the next one here rather than in a commit message nobody will search for.
 
 ## Non-negotiables
