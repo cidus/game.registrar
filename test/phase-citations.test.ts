@@ -9,15 +9,16 @@
  *
  * The rule is narrower than "never say a number", because the first draft of it
  * was violated by the commit that introduced it. A *narrative* document —
- * CLAUDE.md, CHANGELOG.md, agent/README.md, a tag message — is telling the
+ * CLAUDE.md, CHANGELOG.md, a decision record, a tag message — is telling the
  * story of when something happened, and "shipped in phase 3" stays true through
  * a renumbering because it is a claim about history. A comment in `fold.ts`
  * saying a field is for phase 4 is a forward reference, and forward references
- * rot. So: no phase number in code, and none in a spec other than the roadmap
- * that owns them.
+ * rot. So: no phase number in code, none in a spec other than the roadmap that
+ * owns them, and none in the pages that tell a reader how things are today —
+ * the tutorial, the guides, the reference, the explanations.
  */
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
@@ -55,6 +56,16 @@ test('no spec but the roadmap cites a phase by number', () => {
   const specs = walk(join(ROOT, 'docs', 'spec'), ['.md']).filter((f) => !f.endsWith('06-roadmap.md'))
   const hits = citations(specs)
   assert.deepEqual(hits, [], `a spec describes the system, not the plan\n${hits.join('\n')}`)
+})
+
+test('no page describing the present cites a phase by number', () => {
+  const dirs = ['guides', 'reference', 'explanation', 'development'].map((dir) => join(ROOT, 'docs', dir))
+  const pages = [
+    ...dirs.filter((dir) => existsSync(dir)).flatMap((dir) => walk(dir, ['.md'])),
+    ...['README.md', 'getting-started.md'].map((page) => join(ROOT, 'docs', page)).filter((page) => existsSync(page)),
+  ]
+  const hits = citations(pages)
+  assert.deepEqual(hits, [], `say what the work is and link the roadmap\n${hits.join('\n')}`)
 })
 
 test('the roadmap does cite them, since it is the document that owns them', () => {
