@@ -6,7 +6,7 @@
 
 ## Context
 
-Four gateway start failures with misleading messages: no gateway.mode in config; the container bind switching to 0.0.0.0 and demanding auth; `gateway health` exiting 1 without a token, which would have left provision waiting forever; `openclaw onboard` being the only owner of the model credential. Two Compose issues: ${VAR:?} in an opt-in profile breaks every command; provision needs network_mode service:gateway because plaintext ws:// to a non-loopback address is refused. Seventh: a freshly seeded vault must be committed or autobuild enriches over the network every tick forever.
+Four gateway start failures with misleading messages: no gateway.mode in config; the container bind switching to 0.0.0.0 and demanding auth; `gateway health` exiting 1 without a token, which would have left provision waiting forever; `openclaw onboard` being the only owner of the model credential. Two Compose issues: ${VAR:?} in an opt-in profile breaks every command; provision needs network_mode service: gateway because plaintext ws:// to a non-loopback address is refused. Seventh: a freshly seeded vault must be committed or autobuild enriches over the network every tick forever.
 
 ## Decision
 

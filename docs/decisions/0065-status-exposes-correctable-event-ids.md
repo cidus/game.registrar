@@ -20,7 +20,7 @@ Expose run_close_event_id (on status) alongside run_open_event_id, and document 
 
 Superseded in part by the 'Handing a caller one id where the domain has two' item. Exposing only run_open_event_id led the agent to patch closing fields onto run.open, so run_close_event_id was added to status. The body's 'open_event_id' framing is incomplete: a run now has two ids.
 
-Paired with the amend refusal (next item), which makes the mistake fail loudly. A run filed by past/import carries both on one event, so the ids are equal. open shows only run_open_event_id, because an open run has no close event.
+Paired with the amend refusal (next item), which makes the mistake fail loudly. A run filed by past/import carries both on one event, so the ids are equal.
 
 ## Related
 

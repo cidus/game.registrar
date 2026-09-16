@@ -10,7 +10,7 @@ Several triggers are fired at once far more often than a per-trigger reading sug
 
 ## Decision
 
-At most one row per session per tick. Priority: day_cutoff (chases data nobody has) > duration (knows how long the session ran) > clock (only knows the time). The backoff ladder is measured from the last check-in of any trigger, since a chase is still a message that just arrived. The ceiling (max_per_session) counts only duration and clock, because day_cutoff has its own budget.
+At most one row per session per tick. Priority: day_cutoff (chases data nobody has) > duration (knows how long the session ran) > clock (only knows the time). The backoff ladder is measured from the last check-in of any trigger, since a chase is still a message that just arrived.
 
 ## Consequences
 

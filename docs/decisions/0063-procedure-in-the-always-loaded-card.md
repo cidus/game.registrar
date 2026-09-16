@@ -8,13 +8,13 @@
 
 OpenClaw compiles workspace/*.md into the system prompt once and caches it; a skill body is a `read` tool call paid for mid-turn, per session. So SOUL.md (persona) was resident every turn while SKILL.md (the actual procedure) was bought again each session at ~14k tokens, sometimes twice in one conversation. The archive showed SKILL.md read 38 times.
 
-Trajectory logs showed four things. 39 tools with 53,768 chars of schemas against a 45,615-char system prompt, for an agent that uses 3. sessions_history and memory_search called despite prose forbidding them. SKILL.md read 38 times at ~14k tokens, because a skill is an on-demand read while workspace/*.md is cached in the system prompt. 87 of 361 exec calls were query, 34 of those FROM events and 11 --schema, i.e. hunting event ids.
+Trajectory logs showed four things. 39 tools with 53,768 chars of schemas against a 45,615-char system prompt, for an agent that uses 3. sessions_history and memory_search called despite prose forbidding them. 87 of 361 exec calls were query, 34 of those FROM events and 11 --schema, i.e. hunting event ids.
 
 ## Decision
 
 Move rather than shorten first: the common path goes into workspace/AGENTS.md (always in context), rare flows into skills/gamereg/reference/*.md, loaded only when that flow happens. SKILL.md becomes a router pointing back to the card. Do not merge them back into one big SKILL.md; the split is the mechanism.
 
-Restrict tools with tools.allow. Put the always-needed procedure in the cached workspace card (AGENTS.md) and the rare flows in on-demand reference/*.md. Expose event ids from CLI commands so no SQL hunting is needed.
+Restrict tools with tools.allow. Expose event ids from CLI commands so no SQL hunting is needed.
 
 ## Consequences
 

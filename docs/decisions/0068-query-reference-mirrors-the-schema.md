@@ -20,7 +20,7 @@ When closing a gap like this, close it across the whole reference. The test now 
 
 If query.md keeps growing, the arithmetic flips and --schema wins again. Reopen if wrong names keep reaching chat; the error-envelope change is then the first thing to build. The test mechanism described ('parses SCHEMA_SQL') was replaced by asking SQLite (see 'Fixing half a reference').
 
-Views are listed with columns too; any schema change fails CI until query.md matches. The earlier item's 'parses SCHEMA_SQL' mechanism is superseded.
+Views are listed with columns too; any schema change fails CI until query.md matches.
 
 ## Related
 

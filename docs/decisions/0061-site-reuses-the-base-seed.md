@@ -8,7 +8,7 @@
 
 The expectation was that tags, which the seed matches with file.hasTag('gamereg'), would need a fifth Flavour boolean the way assets gates cover. Reading render/run.ts runFrontmatter showed set('tags', ['gamereg', 'gamereg/run']) is unconditional in both flavours, as is everything else the.base reads (status, platform, genres, hours...). Only cover is flavour-gated, correctly, through flavour.assets, the same gate as the note header embed. Checked against a real Quartz 5.0.0: @quartz-community/bases-page, already enabled in the seeded config, renders the.base as a themed, sortable table chained from the config palette.
 
-Checked against a real Quartz 5.0.0 checkout: @quartz-community/bases-page, already enabled in the seeded config, renders the.base as a themed sortable table. Every property and filter the seed uses is flavour-independent, so render/ needed no change.
+Every property and filter the seed uses is flavour-independent, so render/ needed no change.
 
 ## Decision
 

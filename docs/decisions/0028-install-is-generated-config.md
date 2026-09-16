@@ -14,7 +14,7 @@ The shape of distribution was settled early so the earlier phases would not pain
 
 ## Consequences
 
-'Phase 4, deliberately last' and 'Nothing here is built' are now partly stale. Phase 4 is the current phase (package.json:3 '1.0.0-dev'). The container image is built and published to ghcr as:edge (.github/workflows/image.yml:116-224, commit 8649b80 on 2026-09-13). compose.yml exists but is hand-written ('generated_by: hand', compose.yml:33; 'hand-written now and generated later',:3). Still unbuilt: the generator, `targets --json` (no targets command in src/cli/commands/), the second setup skill (the only requires.bins is SKILL.md:4 for gamereg), and a published npm package (install is still `npm link`, README.md:143, docs/getting-started.md:19).
+'Phase 4, deliberately last' and 'Nothing here is built' are now partly stale. Phase 4 is the current phase (package.json:3 '1.0.0-dev'). The container image is built and published to ghcr as: edge (.github/workflows/image.yml:116-224, commit 8649b80 on 2026-09-13). compose.yml exists but is hand-written ('generated_by: hand', compose.yml:33; 'hand-written now and generated later',:3). Still unbuilt: the generator, `targets --json` (no targets command in src/cli/commands/), the second setup skill (the only requires.bins is SKILL.md:4 for gamereg), and a published npm package (install is still `npm link`, README.md:143, docs/getting-started.md:19).
 
 ## Related
 

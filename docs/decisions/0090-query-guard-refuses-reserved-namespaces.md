@@ -10,7 +10,7 @@ Four latent findings. The guard's pragma_ gap. site-build mounting the vault wri
 
 ## Decision
 
-Refuse the pragma_ and sqlite_ namespaces. Stage the Quartz build in a scratch dir with /vault:ro. json_escape every interpolated value. Dry-run performs no network read. Embedded rule: an undocumented exception to a stated boundary is one somebody leans on.
+Refuse the pragma_ and sqlite_ namespaces. Stage the Quartz build in a scratch dir with /vault: ro. json_escape every interpolated value. Dry-run performs no network read. Embedded rule: an undocumented exception to a stated boundary is one somebody leans on.
 
 ## Consequences
 
