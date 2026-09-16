@@ -500,6 +500,16 @@ test('a nested subcommand --help localizes its whole ancestor chain', () => {
   assert.match(text, /Usage: gamereg intervalo iniciar \[options\] \[consulta\]/)
 })
 
+test('pt-BR names query, import, attach and cover, matching docs/spec/02-cli.md', () => {
+  // These four had no pt-BR translation at all: `query`, `import`, `attach`,
+  // `cover` fell through to the English name under --locale pt-BR, while
+  // 02-cli.md's own mapping table claimed `query` -> `consultar`.
+  assert.match(help('query', '--locale', 'pt-BR'), /Usage: gamereg consultar\b/)
+  assert.match(help('import', '--locale', 'pt-BR'), /Usage: gamereg importar\b/)
+  assert.match(help('attach', '--locale', 'pt-BR'), /Usage: gamereg anexar\b/)
+  assert.match(help('cover', '--locale', 'pt-BR'), /Usage: gamereg capa\b/)
+})
+
 /**
  * The envelope's `source` is how a gateway says an event came from chat rather
  * than from a terminal (docs/spec/01-model.md). It is the one field that

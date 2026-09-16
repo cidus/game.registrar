@@ -132,3 +132,25 @@ test('the vocabulary command never writes an event', () => {
   const payload = run('vocab', '--locale', 'en')
   assert.deepEqual(payload['events'], [])
 })
+
+test('docs/spec/02-cli.md\'s pt-BR command mapping table matches i18n/pt-BR.json exactly', () => {
+  // The table used to be a hand-kept subset -- missing `query`, `import`,
+  // `attach` and `cover` entirely, and never grown to match new commands
+  // added to the bundle since. Parsing both sides and comparing catches that
+  // drift instead of letting the two silently disagree.
+  const spec = readFileSync(join(import.meta.dirname, '..', 'docs', 'spec', '02-cli.md'), 'utf8')
+  const section = spec.split('## Command name mapping (pt-BR)')[1]
+  assert.ok(section, 'the mapping section is missing from 02-cli.md')
+
+  const fromDocs: Record<string, string> = {}
+  for (const line of section!.split('\n')) {
+    const match = /^\|\s*`(\w+)`\s*\|\s*`(\w+)`\s*\|$/.exec(line.trim())
+    if (match) fromDocs[match[1]!] = match[2]!
+  }
+  assert.ok(Object.keys(fromDocs).length > 0, 'no rows parsed out of the mapping table')
+
+  const bundle = JSON.parse(readFileSync(join(I18N, 'pt-BR.json'), 'utf8')) as {
+    cli: { commands: Record<string, string> }
+  }
+  assert.deepEqual(fromDocs, bundle.cli.commands)
+})

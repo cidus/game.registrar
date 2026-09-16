@@ -92,7 +92,6 @@ test('a config using every documented key loads clean', () => {
       max_per_session: 3,
       reply_window: '45m',
       quiet_hours: ['02:00', '09:00'],
-      persona_prompt: 'Dry, faintly Victorian. Never scolds. One or two sentences.',
     },
     images: { max_edge: 2000, quality: 82, keep_original: false, publish: false },
   })
@@ -116,10 +115,17 @@ test('null is a setting in the check-in block, not an omission', () => {
   // trigger off, and `chase_at: null` asks at the cutoff instead of in the
   // morning. Reading either as "unset" would restore the default and keep
   // asking — silently, which is the version nobody notices.
-  const config = loadConfig(vaultWith({ checkin: { after: null, chase_at: null, persona_prompt: null } }))
+  const config = loadConfig(vaultWith({ checkin: { after: null, chase_at: null } }))
   assert.equal(config.checkin.after, null)
   assert.equal(config.checkin.chase_at, null)
-  assert.equal(config.checkin.persona_prompt, null)
+})
+
+test('checkin.persona_prompt is not a recognized key — it was read by nothing', () => {
+  // It used to be parsed and validated with no reader anywhere in src/, agent/,
+  // docker/ or scripts/ — a setting that looked configured and did nothing.
+  // Removed rather than wired in (see CLAUDE.md's Decisions).
+  const error = refusal({ checkin: { persona_prompt: 'Dry, faintly Victorian.' } })
+  assert.equal(error.params['key'], 'checkin.persona_prompt')
 })
 
 test('a malformed check-in value is refused by its own path', () => {
@@ -149,6 +155,63 @@ test('day_cutoff is checked where it is written, not where it is used', () => {
 
 test('an unknown key inside the check-in block is refused like any other', () => {
   assert.equal(refusal({ checkin: { snooze: '2h' } }).params['key'], 'checkin.snooze')
+})
+
+/**
+ * Everywhere else a wrong-typed value already exits 2 (`checkEnum`,
+ * `checkTarget`, the whole `checkin` block). These keys used to be read with a
+ * bare `typeof` guard and silently ignored otherwise — `{"images": {"quality":
+ * "high"}}` loaded clean and kept the default, and `{"quality": 0}` loaded as
+ * written and only failed later, mid-ingest, with a message naming the photo
+ * rather than the config.
+ */
+test('a wrong type at the top level is a usage error, not a silent default', () => {
+  assert.equal(refusal({ locale: 5 }).params['key'], 'locale')
+  assert.equal(refusal({ timezone: 5 }).params['key'], 'timezone')
+  assert.equal(refusal({ defaults: { platform: 5 } }).params['key'], 'defaults.platform')
+  assert.equal(refusal({ platforms: 'PS5' }).params['key'], 'platforms')
+  assert.equal(refusal({ build: { targets: 'obsidian' } }).params['key'], 'build.targets')
+  assert.equal(refusal({ build: { csv: { dir: 5 } } }).params['key'], 'build.csv.dir')
+
+  const error = refusal({ locale: 5 })
+  assert.equal(error.code, 2)
+  assert.equal(error.key, 'error.bad_config_value')
+})
+
+test('an invalid IANA timezone is refused at load, not the first time it is used', () => {
+  const error = refusal({ timezone: 'Mars/Colony' })
+  assert.equal(error.key, 'error.bad_config_value')
+  assert.equal(error.params['key'], 'timezone')
+})
+
+test('a valid IANA timezone still loads', () => {
+  const config = loadConfig(vaultWith({ timezone: 'America/Sao_Paulo' }))
+  assert.equal(config.timezone, 'America/Sao_Paulo')
+})
+
+test('images.* values are typed and range-checked at load', () => {
+  assert.equal(refusal({ images: { max_edge: '2000' } }).params['key'], 'images.max_edge')
+  assert.equal(refusal({ images: { max_edge: 0 } }).params['key'], 'images.max_edge')
+  assert.equal(refusal({ images: { max_edge: -5 } }).params['key'], 'images.max_edge')
+  assert.equal(refusal({ images: { max_edge: 1.5 } }).params['key'], 'images.max_edge')
+  // The bug this closes: quality 0 used to load clean and only fail inside
+  // sharp's webp encoder, mid-ingest, with a message naming the photo.
+  assert.equal(refusal({ images: { quality: 0 } }).params['key'], 'images.quality')
+  assert.equal(refusal({ images: { quality: 101 } }).params['key'], 'images.quality')
+  assert.equal(refusal({ images: { quality: 'high' } }).params['key'], 'images.quality')
+  assert.equal(refusal({ images: { keep_original: 'yes' } }).params['key'], 'images.keep_original')
+  assert.equal(refusal({ images: { publish: 1 } }).params['key'], 'images.publish')
+})
+
+test('valid images.* values still load, at the edges of the accepted range', () => {
+  const config = loadConfig(vaultWith({ images: { max_edge: 1, quality: 1, keep_original: true, publish: true } }))
+  assert.equal(config.images.max_edge, 1)
+  assert.equal(config.images.quality, 1)
+  assert.equal(config.images.keep_original, true)
+  assert.equal(config.images.publish, true)
+
+  const upper = loadConfig(vaultWith({ images: { quality: 100 } }))
+  assert.equal(upper.images.quality, 100)
 })
 
 test('what the writer writes, the stricter reader still accepts', () => {

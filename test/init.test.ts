@@ -89,10 +89,23 @@ test('flags override the built-ins', () => {
   assert.deepEqual(build['csv'], { dir: 'exports' })
 })
 
-test('an invalid day_cutoff exits 2', () => {
+test('an invalid day_cutoff exits 2 with a real message, not a raw i18n key', () => {
   const run = gamereg(emptyRoot(), 'init', '--day-cutoff', '25:99')
   assert.equal(run.status, 2)
   assert.equal(run.json['error'], 'usage')
+  const message = String(run.json['message'])
+  assert.notEqual(message, 'error.bad_cutoff')
+  assert.match(message, /25:99/)
+})
+
+test('an invalid IANA --timezone is refused at init, not the first time it is read back', () => {
+  // It used to write straight to gamereg.config.json unchecked and only fail
+  // on the next command that loaded the config, far from where it was typed.
+  const root = emptyRoot()
+  const run = gamereg(root, 'init', '--timezone', 'Mars/Colony')
+  assert.equal(run.status, 2)
+  assert.equal(run.json['error'], 'usage')
+  assert.equal(existsSync(join(root, 'gamereg.config.json')), false)
 })
 
 test('an invalid enum in --form exits 2 and lists the valid tokens', () => {

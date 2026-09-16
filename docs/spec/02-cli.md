@@ -574,6 +574,19 @@ promise: a setting the register does not understand is one the user believes is
 in force, and silence there is worse than a refusal — `07-targets.md` advertised
 a `build.obsidian` block for four phases that nothing ever read.
 
+**A key gamereg does know still exits 2 if its value is the wrong shape.**
+`locale`, `timezone`, `defaults.platform`, `platforms`, `build.targets`,
+`build.csv.dir` and every `images.*` field are all checked at load, the same
+way `checkin`'s own values always were — a wrong type is `error.bad_config_value`
+naming the key and the file, not a value quietly kept at its default.
+`timezone` is checked further, against the IANA database, since a well-typed
+but bogus zone (`"Mars/Colony"`) used to load clean and only fail the first
+time something tried to project an instant into it. `images.max_edge` and
+`images.quality` are range-checked against what the image pipeline itself
+accepts, for the same reason: `{"quality": 0}` used to load clean and fail
+later, mid-ingest, with a message naming the photo rather than the setting.
+`init --timezone` is checked the same way, before the file is ever written.
+
 Every field is optional and falls back, in order, to: the flag, an interactive
 prompt, then the built-in default (`DEFAULT_CONFIG`) — the same
 flag-then-prompt-then-default shape `runDefaults` already uses for `start`.
@@ -1098,12 +1111,24 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `open` | `abertas` |
 | `due` | `pendencias` |
 | `checkin` | `conferir` |
-| `init` | `inicializar` |
+| `status` | `situacao` |
 | `build` | `construir` |
-| `query` | `consultar` |
+| `doctor` | `auditoria` |
+| `alias` | `apelido` |
 | `amend` | `corrigir` |
-| `vocab` | `vocabulario` |
+| `revoke` | `revogar` |
 | `enrich` | `enriquecer` |
+| `verdict` | `parecer` |
+| `init` | `inicializar` |
+| `platform` | `plataforma` |
+| `add` | `adicionar` |
+| `remove` | `remover` |
+| `list` | `listar` |
+| `vocab` | `vocabulario` |
+| `query` | `consultar` |
+| `import` | `importar` |
+| `attach` | `anexar` |
+| `cover` | `capa` |
 
 Flags are localized the same way (`--rating` / `--nota`). Both spellings always
 work regardless of locale — locale sets the *output* language, not the accepted

@@ -506,7 +506,10 @@ session is still open. See [02-cli](02-cli.md).
 #### Personality
 
 The register comes from a per-installation pre-prompt, so the Registrar can be
-dry, theatrical, or barely there:
+dry, theatrical, or barely there — but that pre-prompt lives on the gateway
+side, in the agent's own `workspace/SOUL.md`, not in `gamereg.config.json`.
+`checkin`'s own keys are the clock-and-counter half of the feature (docs/spec
+carries no persona field, and gamereg never reads or renders prose):
 
 ```json
 {
@@ -518,8 +521,7 @@ dry, theatrical, or barely there:
     "backoff": ["2h", "3h", "5h"],
     "max_per_session": 3,
     "reply_window": "45m",
-    "quiet_hours": ["02:00", "09:00"],
-    "persona_prompt": "Dry, faintly Victorian. Never scolds. One or two sentences."
+    "quiet_hours": ["02:00", "09:00"]
   }
 }
 ```
