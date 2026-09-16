@@ -15,7 +15,8 @@ Do not couple them in the implementation.
 
 Both default from the environment. Both can be overridden. **Neither requires a
 flag in the common case** — a human in a terminal gets menus, an agent behind a
-pipe gets JSON and never blocks, and neither has to ask.
+pipe gets JSON and never blocks, and neither has to ask. This is invariant 13
+([00-architecture](00-architecture.md#invariants)).
 
 ### Interactivity resolution
 
@@ -24,8 +25,8 @@ Prompting is allowed only when *all* of these hold:
 1. `process.stdin.isTTY` **and** `process.stdout.isTTY`
 2. `--non-interactive` was not passed
 3. `--json` was not passed (JSON output plus a prompt is incoherent)
-4. `GAMEREG_NON_INTERACTIVE` is unset
-5. `CI` is unset
+4. `GAMEREG_NON_INTERACTIVE` is unset, empty or `0`
+5. `CI` is unset, empty or `0`
 
 Otherwise the command is non-interactive and returns per the output contract.
 
@@ -56,22 +57,33 @@ Failure:
 `ok` is always present. Machine callers branch on `code`, never on `message` —
 messages are localized and may change.
 
+`events` carries the ids of the events this invocation appended, in order;
+it is `[]` for a command that appends none. Under `--dry-run` the same ids are
+reported alongside `"dry_run": true`, and nothing is written. A failure envelope
+carries whatever `details` the error attached: `candidates[]` for code 3,
+`result` for a partial failure (`build`, `enrich`, `import`), `problems[]` for
+`doctor`.
+
 ## Exit codes
 
 | Code | Name | Meaning |
 |---|---|---|
 | 0 | ok | |
 | 1 | error | Unexpected failure |
-| 2 | usage | Bad arguments, unknown enum value |
+| 2 | usage | Bad arguments, unknown enum value, unknown config key |
 | 3 | ambiguous | Multiple candidates; `candidates[]` is populated |
-| 4 | not_found | No candidate at all |
-| 5 | conflict | State conflict (session already open, no session to close, a build already running) |
+| 4 | not_found | No candidate at all; an unknown id or reference |
+| 5 | conflict | State conflict (session already open, nothing open to close, a build already running) |
 | 6 | provider_unavailable | Network or provider failure; local work was still committed |
 | 7 | needs_confirmation | Destructive; re-run with `--yes` |
 
-Code 3 is the backbone of the agent flow. See [03-resolution](03-resolution.md).
+Code 3 is the backbone of the agent flow. See [03-resolution](03-resolution.md)
+and [ADR 0004](../decisions/0004-provider-ambiguity-is-returned.md).
 
 ## Global flags
+
+Declared on the program *and* on every command, so they may precede or follow
+the verb.
 
 | Flag | Effect |
 |---|---|
@@ -80,16 +92,26 @@ Code 3 is the backbone of the agent flow. See [03-resolution](03-resolution.md).
 | `--yes` | Pre-answer confirmations (exit code 7). Not related to prompting. |
 | `--vault <path>` | Override vault root (default: `$GAMEREG_VAULT` or cwd) |
 | `--locale <tag>` | Override locale |
-| `--dry-run` | Compute and print the events that would be appended; write nothing |
+| `--dry-run` | Compute everything, write nothing. Prose prints the events that would be appended; JSON reports their ids plus `dry_run: true` |
 | `--at <time>` | Override the semantic timestamp (see below) |
-| `-q, --quiet` | Suppress prose; exit code only |
+| `-q, --quiet` | Suppress prose. JSON output and exit codes are unaffected |
+| `-V, --version` | Print the version and exit 0 |
+| `-h, --help` | Print help for the program or the command and exit 0 |
 
 ### Time parsing for `--at`
 
-Accepts, in this order: full ISO 8601; `YYYY-MM-DD HH:MM`; `HH:MM` (today, or
-yesterday if that would place it in the future beyond `day_cutoff`); `-90m`,
-`-2h` (relative to now). Ambiguity resolves toward the past — you file things
-after they happen, never before.
+Four accepted forms, tried in this order. Ambiguity resolves toward the past —
+you file things after they happen, never before.
+
+| Form | Example | Reading |
+|---|---|---|
+| Relative | `-90m`, `-90min`, `-2h`, `-1.5h` | that much before now; a decimal amount is allowed |
+| Clock | `20:14` | that time today, or **yesterday when it is later than now** |
+| Local date and time | `2026-08-12 20:14`, `2026-08-12T20:14` | in `config.timezone`, or the local zone when unset |
+| Full ISO 8601 | `2026-08-12T20:14:00-03:00` | as written, offset included |
+
+The clock form compares against *now*, not against `day_cutoff`: `23:52` typed
+at 01:00 means last night. Anything else is a usage error (code 2).
 
 ### Environment
 
@@ -99,12 +121,14 @@ after they happen, never before.
 | `GAMEREG_NON_INTERACTIVE` | Never prompt. What a gateway sets once, per above |
 | `GAMEREG_SOURCE` | The envelope's `source` on every event this invocation appends: `cli` (default), `chat`, `cron`, `import` |
 | `GAMEREG_LOCALE` | Output language, when neither `--locale` nor `config.locale` is set |
+| `LC_ALL`, `LANG` | Consulted after `GAMEREG_LOCALE`; an unknown tag degrades to its base language, then to `en` |
+| `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Provider credentials — see *Provider credentials* |
 
 `GAMEREG_SOURCE` is validated against the vocabulary, and an unknown value is a
 usage error (code 2) rather than a value that gets written. It is the one part
-of the event envelope supplied from outside, and the log is append-only: a typo
-here would be recorded permanently on every event of that invocation, and no
-later command could take it back.
+of the event envelope supplied from outside, and the log is append-only
+(invariant 1): a typo here would be recorded permanently on every event of that
+invocation, and no later command could take it back.
 
 ## Recording commands
 
@@ -114,10 +138,13 @@ later command could take it back.
 gamereg start "hollow knight" [--id igdb:7346] [--platform switch]
                               [--form digital] [--mode solo] [--replay]
                               [--past-hours 30] [--at 20:14] [--no-metadata]
+                              [--photo p.jpg] [--caption "..."] [--kind box]
+                              [--as-cover]
 ```
 
 Behaviour:
-1. Resolve `<query>` to a game (see 03).
+1. Resolve `<query>` to a game (see [03-resolution](03-resolution.md)).
+   `--id <ref>` answers the resolution outright and files the query as an alias.
 2. If no open run exists for it, append `run.open`. If one exists, reuse it.
    `--replay` forces a new run even when an open one already exists — the one
    case where you deliberately want two runs of the same game open at once
@@ -131,8 +158,8 @@ already have 30h on it in Steam"). Only meaningful when step 2 actually opens a 
 run; combining it with a query that reuses an already-open run is a usage
 error (code 2) — there is no new `run.open` for it to land on, and the
 correct tool for adding a stated number to a run already in progress is
-`gamereg amend`. See 01-model.md's *Duration* for how a stated baseline and
-measured sessions add up on the same run, and `past`'s section below for the
+`gamereg amend`. See [01-model](01-model.md#duration) for how a stated baseline
+and measured sessions add up on the same run, and `past`'s section below for the
 sibling command that does the same thing without opening a session.
 
 Conflict (code 5) if a session is already open for that run. If a session is open
@@ -144,13 +171,18 @@ entry per session still open elsewhere, with `session_id`, `run_id`, `game_id`,
 That field exists because the prose alone cannot serve a caller that never sees
 prose. Opening a session while another is open usually means the person switched
 games rather than started playing two, so an agent needs both the fact and the
-ids to offer closing the other one (05-agent.md). It stays an offer: `start`
-never closes anything, and someone genuinely playing two games in an evening is
-not doing anything the register objects to.
+ids to offer closing the other one ([05-agent](05-agent.md)). It stays an offer:
+`start` never closes anything, and someone genuinely playing two games in an
+evening is not doing anything the register objects to.
 
 Metadata enrichment does **not** happen here. `run.open` writes only what is
 known locally; `gamereg enrich` runs afterwards, possibly from cron. A start
-command must never fail because IGDB is down.
+command must never fail because a provider is down (invariant 5).
+
+`--no-metadata` creates a local-only entry from the raw string when nothing
+matches. Without it, and with nothing to match, a non-interactive `start` exits
+4 and the message names the flag; a human is offered the same thing as a
+one-item menu.
 
 **Platform is not required to start.** Resolution order is `--platform` → the
 game's last run → `config.defaults.platform` → a single-member catalog
@@ -162,49 +194,87 @@ That is deliberate: starting to play is the one moment where a question is
 pure friction, and it is also the moment when the answer is least informed —
 the game may not have been enriched yet, so there is no catalog to narrow
 anything with. `end`, `finish` and `drop` ask instead, and by then there
-usually is one. See *Platform, when a run closes* below.
+usually is one. See *Platform, when a run closes* below and
+[ADR 0023](../decisions/0023-late-platform-fill-on-close-only.md).
 
 `--platform` is never validated against a list. It is canonicalized
-(*Platform vocabulary*) and recorded as given.
+(*Platform vocabulary*) and recorded as given, and a platform given here joins
+`config.platforms`.
 
 ### `gamereg end [<query>]` — close a session
 
 ```
-gamereg end [--at 23:52] [--break 40m] [--note "..."] [--photo path.jpg]
+gamereg end [--id game:01K...] [--at 23:52] [--break 40m] [--note "..."]
             [--platform switch]
+            [--photo p.jpg] [--caption "..."] [--kind screenshot] [--as-cover]
 ```
 
 `<query>` is optional and usually omitted: with exactly one open session, it is
-implied. With several open, omitting it returns code 3 listing the open sessions.
+implied. `--id <ref>` names the game instead of the query.
 
-`--break` accepts `40m`, `1h20`, `90`. Additive with logged breaks.
+| Situation | Result |
+|---|---|
+| Exactly one session open | closes it |
+| No session open | code 5 (`error.no_open_session`) |
+| Several open, nothing named | code 3, `candidates[]` — **game** candidates (`ref: game:<id>`), one per open session |
+| Several open, interactive | the same candidates as a menu |
+| A game named that has no open session | code 5 (`error.no_open_session_for`) |
+
+`--break` accepts `40m`, `1h20`, `90`. Additive with logged breaks. A closing
+time before the opening one, or breaks longer than the session, is a usage error
+(code 2).
 
 ### `gamereg break start|end`
 
-Opens or closes a break inside the current open session. Code 5 if no session is
-open, or if a break is already open.
+```
+gamereg break start [<query>] [--id <ref>] [--at 21:10]
+gamereg break end   [<query>] [--id <ref>] [--at 21:40]
+```
+
+Opens or closes a break inside an open session. The session is named the same
+way `end` names it: implied when exactly one is open, otherwise `[query]` or
+`--id`, otherwise code 3.
+
+Code 5 when no session is open (`error.no_open_session`), when a break is already
+open (`error.break_already_open`), or, for `break end`, when no break is open
+(`error.no_open_break`).
 
 ### `gamereg finish <query>` — close a run
 
 ```
-gamereg finish "hollow knight" --rating 9 --difficulty hard
-                               --criteria true_ending [--at ...] [--note "..."]
+gamereg finish "hollow knight" [--id <ref>] [--rating 9] [--difficulty hard]
+                               [--criteria true_ending] [--at ...] [--note "..."]
                                [--platform switch]
+                               [--photo p.jpg] [--caption "..."] [--kind photo]
+                               [--as-cover]
 ```
 
-If a session is still open, close it first at `--at` (or now), then append
-`run.close` with `outcome: finished`.
+Every flag is optional. If a session is still open, close it first at `--at` (or
+now), then append `run.close` with `outcome: finished`. No open run for that game
+is a conflict (code 5, `error.no_open_run`).
 
-`--rating` accepts 0–11 or `none`. `--criteria` and `--difficulty` validate
-against the vocabulary; an invalid token exits 2 and lists valid ones.
+`--criteria` defaults to `credits`. `--rating` accepts an integer 0–11, or
+`none` / `null` / `-` for "refusing to rate is data"; anything else exits 2.
+`--criteria` and `--difficulty` validate against the vocabulary; an invalid token
+exits 2 and lists valid ones.
 
 This command does **not** write the consolidated verdict. That arrives separately,
 whenever the words do, via `gamereg verdict`.
 
 ### `gamereg drop <query>` — abandon a run
 
-Same as `finish` but `outcome: abandoned`, `--criteria` defaults to `abandoned`,
-`--rating` optional, `--reason` free text.
+```
+gamereg drop "the witness" [--id <ref>] [--rating 5] [--difficulty brutal]
+                           [--criteria abandoned] [--reason "..."]
+                           [--platform switch]
+                           [--photo p.jpg] [--caption "..."] [--kind photo]
+                           [--as-cover]
+```
+
+Same as `finish`, with `outcome: abandoned` and `--criteria` defaulting to
+`abandoned`. It takes `--reason` where `finish` takes `--note`, and **the reason
+is written into the `run.close` payload's `note` field** — there is no separate
+field for it, so it is read back, rendered and corrected as `note`.
 
 ### Platform, when a run closes
 
@@ -233,28 +303,35 @@ when the run's platform is still `null`**:
 The fill is an **`event.amend`** targeting the event that created the run —
 `run.open`, or `run.import` for a historical entry — with
 `patch: { "platform": "..." }`. No new event type, no schema change, and the
-amend's `reason` names which command settled it. It is also the correction
-path when a `platform_source: "intersection"` resolution turns out wrong.
+amend's `reason` names which command settled it (`session.close` or
+`run.close`). It is also the correction path when a
+`platform_source: "intersection"` resolution turns out wrong.
 
 This is entirely offline. `game.platforms` comes from the folded state,
 whatever a previous `enrich` left there; a run closed for a game that was
 never enriched simply keeps `null`, and nothing reaches the network to avoid
-that. Non-negotiable 4 holds without exception, and `enrich` never writes to
-`run.*` — the two commands stay on their own sides of the line.
+that. Invariant 5 holds without exception, and `enrich` never writes to
+`run.*` — the two commands stay on their own sides of the line
+([ADR 0023](../decisions/0023-late-platform-fill-on-close-only.md)).
 
 ### `gamereg past <query>` — file a game run started in the past
 
 ```
 gamereg past "chrono trigger" --ended 2011-07 --rating 10
-             [--started ...] [--hours 30] [--criteria credits] [--note "..."]
-             [--platform snes]
+             [--id <ref>] [--started ...] [--hours 30] [--criteria credits]
+             [--difficulty hard] [--outcome finished] [--note "..."]
+             [--platform snes] [--form physical] [--mode solo] [--no-metadata]
+             [--photo p.jpg] [--caption "..."] [--kind box] [--as-cover]
 
 gamereg past "opus magnum" --hours 30 [--started 2026] [--platform steam]
 ```
 
-**With `--ended`** (as always): emits `run.import`, a closed run whose hours
-are stated. Date precision is inferred from the shape of the argument: `2011`
-→ year, `2011-07` → month, `2011-07-14` → day.
+**With `--ended`**: emits `run.import`, a closed run whose hours are stated.
+Date precision is inferred from the shape of the argument: `2011` → year,
+`2011-07` → month, `2011-07-14` → day. `--outcome` defaults to `finished`, and
+`--criteria` defaults to `credits` for a finished run and `abandoned` for an
+abandoned one. `--started` defaults to `--ended`; when both are given, the run
+records the coarser of the two precisions.
 
 **Without `--ended`**: emits `run.open` instead — the same event `start`
 appends, carrying `--hours` as a stated baseline, but with no `session.open`
@@ -272,17 +349,30 @@ already open — `past` never reuses one, the way `start` does; the game
 already has an open run to add a session to (`start`) or a baseline to
 correct (`amend`).
 
-`--started`, omitted here, defaults to the current year rather than to
-`--ended` (there being no `--ended` to default to) or to today — "I don't
-remember when I started" is the common case this command exists for, and a guessed
-exact day would be a lie the way `run.import`'s date-precision rule already
-refuses to tell. Give `--started` and it is used exactly as typed, at
-whatever precision its shape implies.
+`--started`, omitted in this form, defaults to the current year rather than to
+today — "I don't remember when I started" is the common case this command exists
+for, and a guessed exact day would be a lie the way `run.import`'s
+date-precision rule already refuses to tell. Give `--started` and it is used
+exactly as typed, at whatever precision its shape implies.
 
-`past` files a run that is already closed, frequently several in a row, so it
-does **not** prompt for a platform the way `end`/`finish`/`drop` do — true for
-both forms above. `--platform` is how you say it; omitted, it stays `null`
-and can be amended later. The value is canonicalized like everywhere else.
+> The open-run form carries less than the closed one: `--note` is not written
+> onto the `run.open`, and `--photo` files are ingested (and reported in
+> `result.attachments`) without being attached to the run. Only `--as-cover`
+> reaches the log from those flags. The closed form records both.
+
+`past` files runs in bulk, frequently several in a row, so it does **not**
+prompt for a platform the way `end`/`finish`/`drop` do — true for both forms.
+The platform comes from `--platform` → the game's last run →
+`config.defaults.platform`, and the open-run form adds the catalog intersection
+after those, since it shares `start`'s defaults. Only when every one of those is
+empty does the run keep `platform: null`, to be amended later. The value is
+canonicalized like everywhere else. Unlike `start` and the closing commands,
+`past` reports no `platform_source` and never adds what it was given to
+`config.platforms`.
+
+Resolution is offline and creates what it does not find, so a query that matches
+nothing non-interactively exits 4 naming `--no-metadata`; with the flag, the
+title becomes a new local entry.
 
 ### `gamereg verdict <query>` — file the consolidated review
 
@@ -291,20 +381,23 @@ gamereg verdict "hollow knight" -m "Started as a curiosity and turned into..."
 gamereg verdict "hollow knight" --text review.md
 gamereg verdict "hollow knight" --text -          # stdin
 gamereg verdict "hollow knight" --run 01K...      # a specific playthrough
+gamereg verdict "hollow knight" --id game:01K...  # name the game by reference
 ```
 
 Appends `run.verdict`, which the build renders into the `verdict` block of the
 game note. Prose enters as content, never as structured fields — no number in
-the register is ever derived from it.
+the register is ever derived from it. This command takes no attachment flags.
 
 The text comes from `-m/--message`, from `--text <file>`, or from stdin (`--text -`,
 or no flag at all when stdin is a pipe). Typing it yourself and piping it in from
-somewhere else are the same operation as far as this command is concerned.
+somewhere else are the same operation as far as this command is concerned. Empty
+text, or none of the three, is a usage error (code 2); a named `--text` file that
+does not exist exits 4.
 
 `--run` names the playthrough. Omitted, it targets the most recently ended run,
 falling back to the open one when nothing has ended yet — so a verdict written
 right after `finish` lands where it is meant to, even if a replay is already
-under way.
+under way. An unknown `--run` exits 4; a game with no run at all exits 5.
 
 Filing again replaces the previous verdict in the fold. The earlier text stays in
 the log, as everything does.
@@ -317,51 +410,65 @@ the log, as everything does.
 gamereg search "zelda" [--platform switch] [--provider igdb] [--local-only]
 ```
 
-Never writes. Returns candidates in the same shape used by code 3. This is what
-the agent calls when it wants to look something up without recording anything.
+Never writes. Returns candidates in the same shape used by code 3, and always
+exits 0 — an empty result is an answer, not an error. This is what the agent
+calls when it wants to look something up without recording anything.
 
 A local match answers on its own; only an empty local result falls through to
-provider search — resolution step 6 (03-resolution.md), which lives here and in
-no write command. `--provider` narrows that fallback to a single catalog and
-rejects an unknown name as a usage error, exactly as on `enrich`; with no
-`--provider`, every configured provider is tried in order. `--local-only` skips
+provider search — resolution step 6 ([03-resolution](03-resolution.md)), which
+lives here and in no write command. With no `--provider`, every *known* provider
+is tried in the order the registry lists them, and the first to return anything
+wins; one with no credentials is skipped silently rather than reported as a
+failure. `--provider` narrows that fallback to a single catalog and rejects an
+unknown name as a usage error, exactly as on `enrich`. `--local-only` skips
 step 6 altogether, which also makes `--provider` moot.
+
+`--platform` does two things against a provider: it is passed into the query as
+every spelling the table knows for it
+([ADR 0021](../decisions/0021-platform-hint-narrows-provider-query.md)), and it
+then filters the results. Surviving provider candidates are **re-ordered** by how
+many of their platforms this vault owns (`config.platforms`) — a preference, never
+a filter, and a no-op for a vault that has configured none. Local candidates are
+not re-ordered.
 
 ### `gamereg open` — list open sessions
 
-The row carries `last_checkin_id`, the `session.checkin` event most recently
-filed against that session, or `null`. It is there for one caller: the agent,
-answering a check-in. The wrapper files the record *after* enqueueing the wake,
-so the id cannot travel with the question — this is the way back to it. A
-closed session is not listed, so an answer that closes one reads the id first.
+Never writes. One row per open session, carrying the session's own facts
+(`opened_at`, `open_for_minutes`, `net_minutes`, `on_break`,
+`break_started_at`, `checkins_so_far`) and three ids that exist for a caller with
+no terminal:
 
-It also carries `run_open_event_id` and `session_open_event_id`: the `run.open`
-and `session.open` events themselves, which is what `amend` and `revoke` take.
-These exist for the same reason `last_checkin_id` does — a caller with no
-terminal needs a route to an event id — and they close the last gap where there
-was none. Before them, the only way to the `run.open` of a run was a `query`
-against the `events` table with `json_extract`, which in practice cost a
-`query --schema`, a guessed column name and a retry on every correction.
+| Field | What it names | Null when |
+|---|---|---|
+| `session_open_event_id` | the `session.open` event | never, for a listed session |
+| `run_open_event_id` | the `run.open` event of this session's run | the run folded without its opening event, which `doctor` reports as an orphan |
+| `last_checkin_id` | the `session.checkin` most recently filed against this session | no check-in has been filed |
 
-The entity ids beside them are *not* interchangeable with them and are cruelly
-easy to confuse: for one real session the `session_id` was
-`01M0JAMZTJQ4W489FNDCREMYB7` and its `session.open` was
-`01M0JAMZTJQ4W489FNDCREMYB8`. `run_open_event_id` is `null` only if the run
-folded without its opening event, which `doctor` already reports as an orphan.
+**Entity ids and event ids are not interchangeable.** `session_id` and `run_id`
+identify things; `amend` and `revoke` take the event ids above and nothing else.
+The two are adjacent ULIDs minted in the same millisecond and look alike. See
+[ADR 0065](../decisions/0065-status-exposes-correctable-event-ids.md).
+
+`last_checkin_id` is here because the wrapper files a check-in *after* enqueueing
+the wake, so the id cannot travel with the question itself. A closed session is
+not listed, so an answer that closes one has to read the id first
+([ADR 0043](../decisions/0043-agent-reads-last-checkin-id.md)).
 
 ### `gamereg due [--at <time>]`
 
 Evaluates every check-in trigger against currently open sessions and returns only
 those that are **due now**: past their threshold, outside their backoff window,
 and inside their delivery window. This is the entire contract with cron: run it
-on a schedule, act on what comes back, say nothing when the list is empty.
+on a schedule, act on what comes back, say nothing when the list is empty
+([ADR 0034](../decisions/0034-poll-is-a-cron-command.md)).
 
 Delivery windows are what let cron stay dumb. A `day_cutoff` trigger fires at
-05:00 but is only *returned* from `chase_at` onward (default 09:00); a `duration`
-trigger inside `quiet_hours` is held until the window ends. The CLI does this
-arithmetic so every caller behaves identically — see [05-agent](05-agent.md).
+`day_cutoff` but is only *returned* from `chase_at` onward (default 09:00); a
+`duration` trigger inside `quiet_hours` is held until the window ends. The CLI
+does this arithmetic so every caller behaves identically — see
+[05-agent](05-agent.md#check-ins).
 
-`--at` evaluates as if it were another time, for testing.
+`--at` (the global flag) evaluates as if it were another time, for testing.
 
 ```json
 { "ok": true, "result": { "due": [
@@ -376,7 +483,7 @@ arithmetic so every caller behaves identically — see [05-agent](05-agent.md).
     "on_break": false,
     "break_started_at": null,
     "trigger": "duration",
-    "threshold": "5h",
+    "threshold": "4h",
     "checkins_so_far": 1,
     "last_checkin_at": "2026-08-12T23:14:00-03:00",
     "last_checkin_id": "01K..."
@@ -390,8 +497,9 @@ ids — a check-in question never amends a run or a session, only the
 every wake payload for a caller that has no use for them. `last_checkin_at` and
 `last_checkin_id` name the same record, and it is the *previous* question — the
 one this evaluation was measured against, never the one about to be asked.
-`threshold` is the setting that fired, as configured: `4h` for `duration`, the
-hour itself for `clock` and for `day_cutoff`.
+`threshold` is the setting that fired, as configured: `checkin.after` (default
+`4h`) for `duration`, the hour itself for `clock` and for `day_cutoff`. Rows are
+ordered oldest session first.
 
 `trigger` is what the agent uses to choose its register — see
 [05-agent](05-agent.md). Never hardcode the phrasing here; the CLI reports facts.
@@ -400,15 +508,20 @@ hour itself for `clock` and for `day_cutoff`.
 two questions about one session is the same nagging by a longer route.
 `day_cutoff` wins, being the only one chasing data it does not have; `duration`
 outranks `clock`, knowing how long the session has actually run where `clock`
-only knows what time it is. Several *sessions* still yield several rows, and the
-agent sends one message covering them (05-agent, *One message, not N*).
+only knows what time it is
+([ADR 0032](../decisions/0032-one-due-row-per-session.md)). Several *sessions*
+still yield several rows, and the agent sends one message covering them
+([05-agent](05-agent.md#check-ins)).
 
 Backoff and thresholds are read from config; the CLI applies them, so every
 caller behaves identically and cron needs no memory of its own. The ladder is
 measured from the last check-in of any trigger and indexed by how many have been
 asked; the ceiling counts only `duration` and `clock`, since `day_cutoff` has its
 own budget. A `day_cutoff` chase is asked once per delivery slot, which is what
-bounds a trigger exempt from both.
+bounds a trigger exempt from both
+([ADR 0002](../decisions/0002-chase-has-its-own-slot.md)). Quiet hours are
+evaluated against the moment of evaluation, not the moment a trigger fired
+([ADR 0033](../decisions/0033-quiet-hours-evaluated-now.md)).
 
 ### `gamereg checkin <session_id> --trigger <t> [--outcome <o>]`
 
@@ -418,53 +531,59 @@ after the wake carrying the question has been enqueued. `--outcome` defaults to
 The outcome is amended later — `gamereg amend <checkin_id> --set outcome=…` — by
 the agent when the user answers, or by `--expire` below when nobody does.
 
-Where that id comes from depends on who is asking. The wrapper has it in this
-command's own `result.checkin_id`. The agent does not, and cannot: the wake goes
-out before this command runs, so at the moment the question reaches a
+Both the argument and `--trigger` are declared optional, because `--expire` shares
+this command, and both are then required in this form: omitting either is a usage
+error (code 2). A session id no event mentions exits 4. An unknown `--trigger` or
+`--outcome` exits 2 listing the valid tokens.
+
+Where the check-in's own id comes from depends on who is asking. The wrapper has
+it in this command's `result.checkin_id`. The agent does not, and cannot: the
+wake goes out before this command runs, so at the moment the question reaches a
 conversation the record does not exist yet. It reads `last_checkin_id` off
-`gamereg open` instead, which is why that field is on the row.
+`gamereg open` instead
+([ADR 0043](../decisions/0043-agent-reads-last-checkin-id.md)).
 
 A check-in never mutates the session, and a session that closed between the wake
 and this call is recorded rather than refused: the question *was* asked, and
 losing that fact leaves the session eligible again on the next tick.
 
-The order is load-bearing. Enqueue the wake first, file the check-in second.
-Filing first would put a session inside a backoff window having never actually
-been asked, and that is the one direction this feature must not fail in. Filing
-second preserves the intended failure mode — **forgetting to record a check-in
-makes the assistant repeat itself, never go silent** — and a repeat costs one
-extra message where a false silence costs a closing time nobody will remember.
+**The order is load-bearing: enqueue the wake first, file the check-in second.**
+Filing first would put a session inside a backoff window having never been asked.
+Filing second preserves the intended failure mode — forgetting to record a
+check-in makes the assistant repeat itself, never go silent. See
+[ADR 0031](../decisions/0031-wrapper-files-checkin-after-wake.md).
 
-Why the wrapper rather than the agent: the anti-nagging rules are a clock and a
-counter, and invariant 7 keeps that kind of arithmetic out of a language model.
-The agent's only job in a check-in is choosing the words.
+The wrapper owns this rather than the agent because the anti-nagging rules are a
+clock and a counter, which invariant 7 keeps out of a language model. The agent's
+only job in a check-in is choosing the words.
 
 ### `gamereg checkin --expire`
 
-Sweeps every check-in still `snoozed` past `checkin.reply_window` and amends it
-to `no_reply`. Takes no session argument — it asks the log which records have
-gone stale. Runs on the same schedule as `due`, from the same wrapper.
+Sweeps every check-in still `snoozed` past `checkin.reply_window` — in any
+session, open or closed — and amends each to `no_reply`. Takes no session,
+trigger or outcome; passing one is a usage error (code 2). Runs on the same
+schedule as `due`, from the same wrapper.
 
 Silence is an answer, and this is what records it as one instead of inferring it
 on read. See [01-model](01-model.md) for why that distinction is not pedantry.
 
 ### `gamereg status [<query>]`
 
-Vault summary, or one game's state.
+Vault summary, or one game's state. Never writes. `--id <ref>` names the game
+instead of the query; with neither, the summary form reports counts, total
+minutes and what is currently being played.
 
-Each run in the per-game form carries `run_open_event_id`, the same field
-`open` exposes and for the same reason, and `run_close_event_id` beside it.
-`status` is the only route to either for a run with no open session — a run
-filed by `past`, which never had one and can sit with `platform: null`
-indefinitely, is corrected through an `amend` on this event and through nothing
-else.
+Each run in the per-game form carries `run_open_event_id` and
+`run_close_event_id` — the same kind of field `open` exposes, and for the same
+reason. `status` is the only route to either for a run with no open session.
 
 The two are not interchangeable: `platform`, `started_on` and the stated
 `hours` are on the opening event, while `rating`, `difficulty`, `note`,
 `outcome`, `completion_criteria` and `ended_on` are on the closing one, and
 `amend` refuses the pairing that would write nothing. `run_close_event_id` is
-`null` while the run is open; a `run.import` carries both halves, so there the
-two ids are equal rather than one being absent.
+`null` while the run is open, which includes a run filed by `past` without
+`--ended`. A `run.import` — `past --ended`, or a row from `import` — carries both
+halves in one event, so there the two ids are equal rather than one being absent.
 
 ### `gamereg query <sql>`
 
@@ -473,9 +592,30 @@ gamereg query "SELECT title, hours FROM v_finished ORDER BY rating DESC"
 gamereg query --schema
 ```
 
-Runs read-only SQL against `data/log.db`. Rejects anything that is not a single
-`SELECT`. This is how question-answering works — the agent writes SQL, the
-database does the arithmetic, and no number is ever hallucinated.
+Runs read-only SQL against `data/log.db`. This is how question-answering works —
+the agent writes SQL, the database does the arithmetic, and no number is ever
+hallucinated. The database is a cache (invariant 10) and this command only reads
+it.
+
+`data/log.db` exists only once `sqlite` is in `build.targets` and a build has
+run. The default is `["obsidian"]`, so on a vault that never declared it this
+command exits 2 saying so.
+
+The guard ([`src/db/guard.ts`](../../src/db/guard.ts)) is a security boundary, not
+a parser, and is tested by what it refuses:
+
+- exactly **one** statement, so everything after the first semicolon is refused;
+- starting with `SELECT` **or** `WITH` — `WITH x AS (...) SELECT ...` is ordinary
+  SQL and is accepted, which is why the keyword scan below runs over the whole
+  statement rather than the first token;
+- no mutating or transaction-control keyword anywhere in it;
+- no name in the reserved `pragma_` or `sqlite_` namespaces, table-valued
+  functions included
+  ([ADR 0090](../decisions/0090-query-guard-refuses-reserved-namespaces.md));
+- string literals, quoted identifiers and comments are neutralized before any of
+  the above, so a keyword inside a string cannot confuse them.
+
+A refusal is a usage error (code 2), and so is SQL the database itself rejects.
 
 **`--schema`** reports the tables and views with their columns, and runs no
 statement — passing both is a usage error (code 2). It answers the question a
@@ -492,52 +632,77 @@ gamereg vocab
 gamereg vocab --locale pt-BR --json
 ```
 
-Reports the register's own vocabulary in the active locale: the words for
-outcomes, statuses, completion criteria, difficulties, forms and modes, plus
-the terms for the register's own acts (*filed*, *approved*, *archived*,
-*pending clarification*, *certified copy*). Reads no log, writes no event, and
-works outside a vault.
+Reports the register's own vocabulary in the active locale, in eight groups:
+`register` (the register's own acts — *filed*, *approved*, *archived*, *pending
+clarification*, *certified copy*), `entity` (game, run, session, break, verdict),
+`outcome`, `status`, `completion_criteria`, `difficulty`, `form` and `mode`.
+Reads no log, writes no event, and works outside a vault.
 
-It exists for the agent (05-agent.md, *Language*). JSON output is neutral by
-contract — the Registrar's voice lives in prose, which an agent behind a pipe
+It exists for the agent ([05-agent](05-agent.md#language)). JSON output is neutral
+by contract — the Registrar's voice lives in prose, which an agent behind a pipe
 never receives — so every word the user reads in a chat is one the model chose.
 A result carrying `"difficulty": "hard"` or `"criteria": "true_ending"` leaves
 the model to translate a token it has no table for, and the register's own acts
 are worse still: nothing in a JSON result names them at all.
 
-**It reports `vocab` and nothing else — words, never sentences.** That boundary
-is the whole reason this is safe to hand to a model. A sentence template carries
-`{title}` and `{time}`; a model given one can fill it in and produce something
-indistinguishable from output the CLI actually emitted, which is precisely the
-fabrication the JSON contract exists to prevent. A word cannot be filled in.
-`test/vocab.test.ts` asserts the block stays free of placeholders, that every
-locale covers the same terms, and that no other block of the bundle travels with
-it.
+**It reports `vocab` and nothing else — words, never sentences.** A sentence
+template can be filled in and passed off as CLI output; a word cannot. That
+boundary is what makes this safe to hand to a model, and it is enforced by test
+rather than by convention: no placeholder in the block, every locale covering the
+same terms, every enum token carrying one, and no other block of the bundle
+travelling with it. See
+[ADR 0019](../decisions/0019-agent-gets-words-not-sentences.md).
 
 ## Attachments
 
-`--photo <path>` is accepted by every recording command and is **repeatable**:
+`--photo <path>` is **repeatable**, and `--caption` captions the `--photo`
+immediately before it — pairing follows the order they were typed in, not the
+order commander accumulated them:
 
 ```
-gamereg end --photo ending.jpg --photo stats.jpg --caption "credits rolled"
+gamereg end --photo ending.jpg --caption "credits rolled" --photo stats.jpg
 gamereg start "chrono trigger" --photo box.jpg --kind box --as-cover
 ```
 
 | Flag | Effect |
 |---|---|
-| `--photo <path>` | Attach a file. Repeatable. |
-| `--caption <text>` | Caption for the preceding `--photo`. Repeatable, positional. |
-| `--kind <k>` | `screenshot` \| `photo` \| `box` \| `media` \| `other` |
+| `--photo <path>` | Attach a file. Repeatable. A path that does not exist, or is not an image, exits 2 |
+| `--caption <text>` | Caption for the preceding `--photo`. Repeatable, positional |
+| `--kind <k>` | `screenshot` \| `photo` \| `box` \| `media` \| `other` (default). One value for every photo of the invocation |
 | `--as-cover` | Also promote the first photo to the game's cover, `source: user` |
+
+Which commands take which:
+
+| Command | `--photo` | `--caption` | `--kind` | `--as-cover` |
+|---|---|---|---|---|
+| `start`, `end`, `finish`, `drop`, `past` | yes | yes | yes | yes |
+| `attach` | yes | yes | yes | no |
+| `cover` | yes | no | yes | no |
+| `break start`, `break end`, `verdict` | no | no | no | no |
 
 `--as-cover` on `start` is the answer to "I own the cartridge, use my photo, not
 the database's". It writes both an attachment and a `game.cover` event, and
-`enrich` will not override it afterwards.
+`enrich` will not override it afterwards (invariant 11,
+[ADR 0024](../decisions/0024-user-covers-are-never-replaced.md)). Passing it with
+no `--photo` in the same command is a usage error (code 2).
+
+GPS and the rest of EXIF are stripped on ingest, and are not configurable back on
+(invariant 12). A photo's own capture time is reported as a suggestion when
+`--at` did not already answer the question; it never sets the timestamp by itself.
+What `--kind` means beyond storage is
+[ADR 0026](../decisions/0026-photo-kind-drives-cover-and-form.md).
 
 ### `gamereg attach <target> --photo <path>`
 
-Retroactive attachment. `<target>` is an event id, or a game query — in which
-case it attaches to the game rather than to a moment.
+```
+gamereg attach 01K... --photo ending.jpg --caption "..." --kind screenshot
+gamereg attach "chrono trigger" --photo box.jpg --kind box
+```
+
+Retroactive attachment. `<target>` is an event id already on record, or — when no
+event has that id — a game query, in which case it attaches to the game rather
+than to a moment. The query resolves against existing entries only; nothing
+matching exits 4. At least one `--photo` is required (code 2).
 
 ### `gamereg cover <query>`
 
@@ -545,85 +710,29 @@ case it attaches to the game rather than to a moment.
 gamereg cover "chrono trigger" --photo box.jpg          # from a file
 gamereg cover "chrono trigger" --from e3b0c442...       # promote an attachment
 gamereg cover "chrono trigger" --reset                  # back to provider art
+gamereg cover "chrono trigger" --id game:01K... --reset
 ```
 
-`--reset` appends a `game.cover` with `source: provider`; it does not delete
-anything. The user photo remains an attachment on the timeline.
+Exactly one of `--photo`, `--from` or `--reset` — none of them, or more than one,
+is a usage error (code 2). `--from` takes the sha256 of an attachment already on
+this game's timeline; any other hash exits 4.
 
-## Maintenance commands
-
-### `gamereg init`
-
-```
-gamereg init [--locale en] [--timezone America/Sao_Paulo] [--day-cutoff 05:00]
-             [--platform switch] [--form digital] [--mode solo]
-             [--targets obsidian,csv] [--csv-dir data] [--platforms switch,pc]
-```
-
-Writes `gamereg.config.json` at the vault root (`--vault`, or the working
-directory). Nothing else — every other path in `docs/spec/00-architecture.md`'s
-directory listing is created lazily, by whichever command or target first
-writes into it. `--locale` is the one field with no dedicated flag: it reuses
-the global `--locale`, which already picks the invocation's own output
-language, and writes that same value into `config.locale`.
-
-**Every key in that file is optional, and every key in it must be one gamereg
-knows.** An unknown key exits 2, naming it by its full path and listing what is
-valid at that level, exactly as an unknown enum value does. The two are the same
-promise: a setting the register does not understand is one the user believes is
-in force, and silence there is worse than a refusal — `07-targets.md` advertised
-a `build.obsidian` block for four phases that nothing ever read.
-
-**A key gamereg does know still exits 2 if its value is the wrong shape.**
-`locale`, `timezone`, `defaults.platform`, `platforms`, `build.targets`,
-`build.csv.dir` and every `images.*` field are all checked at load, the same
-way `checkin`'s own values always were — a wrong type is `error.bad_config_value`
-naming the key and the file, not a value quietly kept at its default.
-`timezone` is checked further, against the IANA database, since a well-typed
-but bogus zone (`"Mars/Colony"`) used to load clean and only fail the first
-time something tried to project an instant into it. `images.max_edge` and
-`images.quality` are range-checked against what the image pipeline itself
-accepts, for the same reason: `{"quality": 0}` used to load clean and fail
-later, mid-ingest, with a message naming the photo rather than the setting.
-`init --timezone` is checked the same way, before the file is ever written.
-
-Every field is optional and falls back, in order, to: the flag, an interactive
-prompt, then the built-in default (`DEFAULT_CONFIG`) — the same
-flag-then-prompt-then-default shape `runDefaults` already uses for `start`.
-Interactivity follows the normal resolution (02-cli.md, "Two independent
-axes"): a human at a terminal is asked for whatever a flag did not answer; a
-machine gets the built-ins and is never blocked.
-
-A vault that already has a config file is left alone: `init` exits 7
-(`needs_confirmation`) and does not touch the file. `--yes` overwrites it —
-and when it does, the existing values seed the prompts instead of the
-built-ins, so re-running `init` interactively behaves like editing the config
-rather than resetting it.
-
-`--targets` validates like `build.targets` elsewhere: an unknown name exits 2
-listing the valid ones, and a later-phase target exits 2 saying so.
-
-This command never touches `data/events.jsonl` and never appends an event —
-there is no state to fold yet, only a vault to declare.
-
-`init` also seeds `gamereg.secrets.json` (empty credential fields, one per
-known provider) if absent, and appends its filename to `.gitignore` at the
-vault root, creating `.gitignore` if the vault has none. Both are idempotent:
-re-running `init` never overwrites an existing `gamereg.secrets.json` and never
-duplicates the `.gitignore` line. See *Provider credentials* below.
+`--photo` ingests the file, files an `attachment.add` against the game and a
+`game.cover` with `source: user`. `--reset` appends a `game.cover` with
+`source: provider`; it deletes nothing, and the user photo remains an attachment
+on the timeline. Only `--reset` undoes a user cover — enrichment never does
+(invariant 11).
 
 ## Platform vocabulary
 
-**Not implemented yet** — specified here so the shape is settled before
-someone builds it.
-
-`platform` stays free text everywhere it already is. `01-model.md`
+`platform` stays free text everywhere it already is. [01-model](01-model.md)
 deliberately never lists it as a controlled vocabulary, and
-`03-resolution.md`'s "the platform hint filters, it does not resolve" is
-unaffected. **Nothing below rejects a value.** What it does is *canonicalize*
+[03-resolution](03-resolution.md#the-platform-hint-filters-it-does-not-resolve)
+is unaffected. **Nothing here rejects a value.** What it does is *canonicalize*
 one spelling onto another, and *order* what gets offered — so that a register
 kept for years does not end up holding `SNES`, `Super Nintendo` and
-`supernes` as three different platforms, which is how the data gets poor.
+`supernes` as three different platforms, which is how the data gets poor
+([ADR 0005](../decisions/0005-platform-list-is-not-a-validator.md)).
 
 ### Names and synonyms
 
@@ -640,24 +749,25 @@ A bare string is shorthand for `{ "name": "...", "aliases": [] }`; both forms
 are legal in the same array, and `platform add` writes whichever the entry
 needs. Comparison is by `normalize()` — the same function `game.alias` uses —
 while the stored text keeps the casing that was typed. Compare normalized,
-keep the literal: the principle is already in the codebase, this is one more
-user of it.
+keep the literal.
 
-`gamereg.config.json` gains `platforms`, default `[]`, alongside the existing
+`gamereg.config.json` carries `platforms`, default `[]`, alongside
 `defaults.platform`. It is vault **configuration**, not event-sourced state:
-nothing that writes to it appends an event, the same way `init` itself "never
-touches `data/events.jsonl`".
+nothing that writes to it appends an event, the same way `init` itself never
+touches `data/events.jsonl`.
 
 A **built-in table** ships with the CLI: the common platforms and their
 synonyms, *including the spellings the providers use* — "Nintendo Switch",
 "PC (Microsoft Windows)", "Super Nintendo Entertainment System". Those
 provider spellings are what let the catalog intersection below work by string
 comparison, with no table of provider platform ids to keep in sync. They are
-also what a provider is *asked* with: 03-resolution.md's step 6 narrows a
-catalog search by every spelling of the hinted platform, so a missing provider
-spelling is not merely a missed intersection — IGDB writes it
+also what a provider is *asked* with: resolution step 6 narrows a catalog
+search by every spelling of the hinted platform, so a missing provider spelling
+is not merely a missed intersection — IGDB writes it
 "Sega Mega Drive/Genesis" and "Sega Master System/Mark III", and neither half
-of a slash matches on its own. The table:
+of a slash matches on its own
+([ADR 0021](../decisions/0021-platform-hint-narrows-provider-query.md)). The
+table:
 
 - seeds `init`'s suggestions, and supplies the synonyms for a name added
   without any;
@@ -665,51 +775,51 @@ of a slash matches on its own. The table:
   and joins `config.platforms` on first use;
 - is **data, not interface text**. Platform names are proper nouns —
   "Nintendo 64" is not translated into anything. It lives with the rest of
-  the vocabulary under `core/`, not in `i18n/`; only the prompt labels and
+  the vocabulary under `src/core/`, not in `i18n/`; only the prompt labels and
   the "Other" choice come from `i18n/`. This is the one place the
-  no-hardcoded-English rule does not apply, and it is worth stating so
-  nobody dutifully "fixes" it later.
+  no-hardcoded-English rule does not apply
+  ([ADR 0010](../decisions/0010-platform-names-are-data.md)).
 
 One entry is curated the other way round, and it is a judgement rather than a
 spelling: **`Steam Deck` is filed as a synonym of `PC`.** No catalog carries the
-Deck as a platform of its own — IGDB has no such platform at all — so an entry
-of its own could be named and never looked anything up on. Because
-canonicalization runs on read as well as on input, this reaches the register and
-not only the search: a run recorded on the Deck reads as `PC` in the notes, the
-table and the SQLite cache, retroactively. A vault that wants the distinction
-back declares `Steam Deck` in `config.platforms`, where the user's own entry
-wins as always.
+Deck as a platform of its own, so an entry of its own could be named and never
+look anything up. Because canonicalization runs on read as well as on input, this
+reaches the register and not only the search: a run recorded on the Deck reads as
+`PC` in the notes, the table and the SQLite cache, retroactively. A vault that
+wants the distinction back declares `Steam Deck` in `config.platforms`, where the
+user's own entry wins as always
+([ADR 0022](../decisions/0022-steam-deck-is-pc.md)).
 
 ### Canonicalization happens at two boundaries
 
-One pure function — call it `canonicalPlatform(input, table)` — applied in
-two places:
+One pure function over an input and the table, applied in two places:
 
-1. **On input.** A `--platform` flag, a menu choice, an agent's argument.
-   `SNES` becomes `Super Nintendo` before it becomes an event payload. New
-   data is clean at rest.
-2. **On read.** `render/`, the targets, the `sqlite` build — the same
-   function over what the log already holds.
+1. **On input.** A `--platform` flag, a menu choice, an agent's argument, an
+   `amend --set platform=…` patch. `SNES` becomes `Super Nintendo` before it
+   becomes an event payload. New data is clean at rest.
+2. **On read.** Once per build, over a copy of the folded state, before any
+   target plans anything. Not in `render/`, and not in the targets themselves —
+   a single pass is what keeps every target agreeing with every other.
 
 Lookup order inside it: `config.platforms` first, the built-in table second,
 verbatim last. **The user's own entry always wins.** Someone who prefers
 `Genesis` over `Mega Drive` says so once, in their config, and the built-in
 table stops having an opinion about that platform. Someone who types a
-platform neither knows gets it recorded exactly as typed, and it becomes a
-`config.platforms` entry of its own.
+platform neither knows gets it recorded exactly as typed.
 
 The second boundary is not redundant with the first; it is the retroactive fix.
 Adding `Megadrive` as a synonym today makes forty runs recorded in 2019
 display as one platform, with no `event.amend` and without a single line of
-the log being rewritten. Non-negotiable 1 stays intact and the log stays
+the log being rewritten. Invariant 1 stays intact and the log stays
 honest about what was actually typed. Canonical input is a fixed point of the
-function, so applying it twice costs nothing.
+function, so applying it twice costs nothing
+([ADR 0011](../decisions/0011-canonicalize-platforms-on-input-and-read.md)).
 
 Two consequences to respect:
 
 - **`fold` stays pure over events** and does not read the table. Read-time
-  canonicalization belongs to `render/` and the targets, which already
-  receive the config — non-negotiable 8 is satisfied, not bent.
+  canonicalization belongs to the build's planning step, which already receives
+  the config — invariant 8 is satisfied, not bent.
 - **The `sqlite` target stores both**: `platform` (canonical) and
   `platform_raw` (as recorded). `query` reads the canonical column; the raw
   one exists so a bad canonicalization is always visible and never
@@ -727,11 +837,13 @@ and **nothing is ever filtered out** — the grouping *is* the mechanism:
 | 3 | the rest of `config.platforms` | an emulator, an FPGA board, a fan port, a handheld the catalog never lists |
 | 4 | `Other` | free text |
 
-**Only a platform the user *typed* joins `config.platforms`** — under "Other",
-or via `--platform` on any command that takes it. A platform picked out of
-group 2 is frequently someone else's console, and filing it as one of yours
-would quietly degrade every intersection after it. Group 1 and group 3 picks
-are already on the list by definition.
+**Only a platform the user *typed* joins `config.platforms`** — under "Other" at
+a closing prompt, or via `--platform` on `start`, `end`, `finish` or `drop`. A
+platform picked out of group 2 is frequently someone else's console, and filing
+it as one of yours would quietly degrade every intersection after it. Group 1 and
+group 3 picks are already on the list by definition. `past --platform`,
+`import`'s `platform` column and `amend --set platform=…` are canonicalized like
+everything else but never add to the list.
 
 Within each group, order by how many runs already use that platform. The
 count comes from the folded state, so it needs no new config field and no
@@ -758,8 +870,8 @@ to confirm the obvious.
 
 It is still an inference from ownership — the cousin's Switch is real — so it
 is stated rather than performed silently. The prose says which platform was
-chosen and why, and every command that settles a platform reports
-`platform_source` in its JSON result:
+chosen and why, and every command that settles a platform on a run it is
+opening or closing reports `platform_source` in its JSON result:
 
 | Value | Meaning |
 |---|---|
@@ -783,7 +895,7 @@ gamereg platform list
 
 Subcommands, same shape as `gamereg break start|end`. They rewrite
 `gamereg.config.json` directly, like `init`, and touch nothing else — no
-event, ever.
+event, ever. Under `--dry-run` they report the result and write nothing.
 
 `add` takes the canonical name as the first positional and any number of
 synonyms after it; given none, and only for a name that is not on the list
@@ -815,24 +927,15 @@ canonicalization-on-read makes the history follow along without an amend.
 `gamereg init --platforms switch,pc,...` seeds it non-interactively, comma
 separated like `--targets`; each name is canonicalized and picks up the
 built-in table's synonyms. Interactively (no flag, human at a terminal): a
-loop of `checkbox()` — already the pattern `askTargets()` in `init.ts` uses —
-offering the built-in table's platforms plus a trailing "Other" choice.
-Picking "Other" prompts `input()` for a name, adds it to the working set
-already selected, and re-shows the checkbox so another can be added.
-Repeatable with no new UI primitive: `@inquirer/prompts` (already a
-dependency) handles this as sequential calls, same as every other prompt in
-`init.ts`. It ends when the user submits without picking "Other" again.
+repeated checkbox over the built-in table's platforms plus the names already
+chosen, with a trailing "Other" choice. Picking "Other" prompts for a name, adds
+it to the working set already selected, and re-shows the list so another can be
+added. It ends when the user submits without picking "Other" again.
 
 Seeding is a convenience, not a prerequisite. An empty `platforms` means
 group 1 is always empty, so nothing auto-resolves and every close asks — the
 list then grows from what gets typed, which is the same place it would have
 come from anyway.
-
-Needs pt-BR command-name/flag mapping in `i18n/pt-BR.json`'s tables, the same
-place `break` → `intervalo` lives. Exact wording is an implementation detail,
-not specified here.
-
-### `gamereg alias <query> --add <alias>`
 
 ## Provider credentials
 
@@ -851,84 +954,180 @@ The file exists so a vault stays runnable without exporting shell variables;
 the environment variable exists so a credential never has to touch disk if the
 caller (a cron host, a container) is already set up that way. Neither is
 required — a provider with no credential from either source is simply
-unavailable, and `enrich` exits 6 naming which one.
+unavailable. `enrich` exits 6 naming which one is missing; `search` skips that
+provider silently, because a vault with no credentials must still search locally.
 
 Like `gamereg.config.json`, `gamereg.secrets.json` is read, never written by
 anything but `init`. No command persists a credential it was handed on the
 command line; there is no `--client-secret` flag for exactly that reason.
 
+## Maintenance commands
+
+### `gamereg init`
+
+```
+gamereg init [--locale en] [--timezone America/Sao_Paulo] [--day-cutoff 05:00]
+             [--platform switch] [--form digital] [--mode solo]
+             [--targets obsidian,csv] [--csv-dir data] [--platforms switch,pc]
+```
+
+Writes three files at the vault root (`--vault`, or the working directory):
+
+| File | Policy |
+|---|---|
+| `gamereg.config.json` | written every time this command completes |
+| `gamereg.secrets.json` | seeded empty, one field per known provider, **only if absent** |
+| `.gitignore` | created, or appended with `gamereg.secrets.json` if that line is not already there |
+
+Nothing else — every other path in
+[00-architecture](00-architecture.md)'s directory listing is created lazily, by
+whichever command or target first writes into it. The last two are idempotent:
+re-running `init` never overwrites an existing `gamereg.secrets.json` and never
+duplicates the `.gitignore` line. See *Provider credentials* above.
+
+`--locale` is the one field with no dedicated flag: it reuses the global
+`--locale`, which already picks the invocation's own output language, and writes
+that same value into `config.locale`.
+
+**Every key in `gamereg.config.json` is optional, and every key in it must be one
+gamereg knows.** An unknown key exits 2, naming it by its full path and listing
+what is valid at that level, exactly as an unknown enum value does. The two are
+the same promise: a setting the register does not understand is one the user
+believes is in force, and silence there is worse than a refusal. See
+[ADR 0015](../decisions/0015-unknown-config-keys-exit-2.md).
+
+**A key gamereg does know still exits 2 if its value is the wrong shape.**
+`locale`, `timezone`, `defaults.platform`, `platforms`, `build.targets`,
+`build.csv.dir` and every `images.*` field are checked at load, the same way
+`checkin`'s own values are: a wrong type is `error.bad_config_value` naming the
+key and the file, never a value quietly kept at its default. `timezone` is
+checked against the IANA database, and `images.max_edge` and `images.quality`
+against what the image pipeline accepts, so a bad setting fails at load rather
+than later, mid-ingest, with a message naming a photo. `init --timezone` is
+checked the same way before the file is written.
+
+Each field is resolved as: the flag, then an interactive prompt seeded with the
+current value, then that current value left as it stands. "The current value" is
+the parsed config file when one exists, and the built-in defaults
+(`DEFAULT_CONFIG`) when none does. Interactivity follows the normal resolution
+(*Two independent axes* above): a human at a terminal is asked for whatever a
+flag did not answer; a machine gets the current value and is never blocked, which
+is invariant 14.
+
+A vault that already has a config file is left alone: `init` exits 7
+(`needs_confirmation`) and does not touch the file. `--yes` overwrites it —
+and because the existing values are what seed the prompts, re-running `init`
+interactively behaves like editing the config rather than resetting it.
+
+`--targets` validates like `build.targets` elsewhere: an unknown name exits 2
+listing the valid ones, and so does a target this version cannot yet build.
+`--day-cutoff` must look like `05:00`. `--form` and `--mode` validate against the
+vocabulary.
+
+This command never touches `data/events.jsonl` and never appends an event —
+there is no state to fold yet, only a vault to declare.
+
+### `gamereg alias <query> --add <alias>`
+
+```
+gamereg alias "chrono trigger" --add "ct"
+gamereg alias --id game:01K... --add "crono"
+```
+
+Appends a `game.alias`, so the query is answered directly from then on
+([03-resolution](03-resolution.md#every-resolution-teaches)). `--add` is
+required; the value is normalized before it is stored, so casing and punctuation
+do not matter and cannot be preserved. `<query>` (or `--id`) must resolve to a
+game already on record — this command never creates one, and nothing matching
+exits 4.
+
+Aliases are per-game and never global. Adding an alias that already points at
+another game moves it, by appending, as always. Undoing one is `revoke` on the
+`game.alias` event.
+
 ### `gamereg enrich [<query>] [--provider igdb] [--match <ref>] [--all] [--missing] [--covers]`
 
-Network step, isolated. Appends `game.enrich` and fetches provider cover art.
-Safe to run from cron. Failure here never blocks recording.
+The network step, isolated — the only command that reaches the network
+(invariant 5). Appends one `game.enrich` per game it resolves. Safe to run from
+cron. Failure here never blocks recording: whatever succeeded is committed, and
+only the exit code (6) and the JSON envelope say something did not.
 
-`<query>` does two jobs, not one. It first resolves to a local game the
-normal offline way (steps 1–5, 03-resolution.md) — a differently-spelled
-query still finds the right record, since normalization treats "Pacman" and
-"Pac-Man" as equal for that comparison. But the literal string is then also
-what gets sent to the provider's search, in place of the game's currently
-stored title. This is the retry path when a first `enrich` came back with the
-wrong candidates: the stored title ("Pacman", say, from a `start` command
-typed as-is) may search poorly against a provider's own relevance, even
-though it normalizes identically to the right answer. Re-invoking with
-`gamereg enrich "Pac-Man"` sends the better string, and a confident match
-corrects the stored title and files the old spelling as an alias — the
-existing `game.enrich` title-replacement mechanism (01-model.md), not a new
-one. Nothing renames the game just because a differently-spelled `<query>`
-was given; only a successful match does that. Omitted `<query>` (the
-`--all`/cron path) searches with each game's currently stored title,
-unchanged.
+`--id <ref>` names the local game by reference instead of by query, exactly as it
+does elsewhere. **There is no `--force`.**
 
-When a provider search returns more than one plausible title match for a
-single named game, this is ambiguity, not failure: exit 3 with
-`candidates[]`, same shape as any other resolution ambiguity
-(03-resolution.md). A human at a terminal gets the usual menu; a script or
-agent re-invokes with `--match <provider>:<id>` to fetch that exact
-candidate directly, skipping search. `--all` never prompts or exits 3 for
-this — an ambiguous provider match during a bulk run is left as-is, same as
-no match at all, so a cron enrich never blocks on a question nobody is
-there to answer.
+**Cover art is fetched only with `--covers`.** Without it no cover is downloaded
+and none is recorded, whatever the provider returned. With it, the art goes
+through the same ingest pipeline `--photo` uses; a failed download falls back to
+recording the bare URL rather than failing the enrich.
 
-When title matching alone leaves more than one candidate, the platform
-already recorded on this game's runs narrows it further, and resolves it
-outright when exactly one candidate matches — a stronger signal than the
-platform hint local resolution uses only as a filter (03-resolution.md).
-Both sides of that comparison go through `canonicalPlatform()` (*Platform
-vocabulary*), which is what lets a run recorded as `switch` match a catalog
-entry that calls itself "Nintendo Switch". Runs with no platform recorded
-contribute nothing to the narrowing and are skipped, not treated as a
-mismatch.
+**How a provider record is found**, in order:
+
+1. If the game already carries an id for that provider — from a previous enrich,
+   or from `start --id <provider ref>` — it is **fetched by id**. No lookup, and
+   `<query>` changes nothing.
+2. Otherwise the provider is asked for **exact title matches**, not a relevance
+   search, and the results are filtered to those whose normalized title equals the
+   search term's. A relevance-ranked search can bury an old, low-engagement
+   release arbitrarily deep; exact matching is complete.
+3. Exactly one match is fetched and applied.
+4. Several matches are narrowed by the platforms **already recorded on this
+   game's runs** — not `game.platforms`, which a previous enrich may have
+   overwritten. Exactly one survivor resolves it outright; several leave it
+   ambiguous with the platform-matching candidates first; none at all falls back
+   to the unfiltered set, since the provider may simply not carry that release.
+
+The search term is `<query>` as typed when one is given, and each game's stored
+title otherwise. Edition suffixes are **not** stripped for this comparison, unlike
+local resolution: a catalog lists an edition as its own entry with its own id
+([ADR 0012](../decisions/0012-no-edition-stripping-for-providers.md)).
+
+Ambiguity is a return value, not a guess: exit 3 with `candidates[]`, the same
+shape as any other resolution ambiguity
+([03-resolution](03-resolution.md), [ADR 0004](../decisions/0004-provider-ambiguity-is-returned.md)).
+A human at a terminal gets the usual menu; a script or agent re-invokes with
+`--match <provider>:<id>` to fetch that exact candidate directly, skipping the
+lookup. A bulk run never prompts and never exits 3 for this — an ambiguous match
+is left as-is, same as no match at all — so a cron enrich never blocks on a
+question nobody is there to answer.
+
+Mutually exclusive combinations, each a usage error (code 2):
+
+| Combination | Why |
+|---|---|
+| `--match` + `--all` | `--match` names one record; `--all` names every game |
+| `--missing` + `--all` | two bulk selectors |
+| `--missing` + `--match` | same |
+| `--missing` + `<query>` | `--missing` names its own targets |
+
+An unknown `--provider`, or an unknown provider inside `--match`, exits 2 listing
+the known ones. A `--match` reference the provider does not have exits 4.
 
 **`enrich` reads run platforms; it never writes one.** A run left with
 `platform: null` is filled by `end`, `finish` or `drop` — offline, from
 whatever this command already stored on the game. The network command owns
 `game.*` and the recording commands own `run.*`, and that line does not move
-just because the two happen to talk about platforms.
+just because the two happen to talk about platforms
+([ADR 0023](../decisions/0023-late-platform-fill-on-close-only.md)).
 
-**Never overwrites a cover with `source: user`.** `--covers --force` still
-respects that; only `gamereg cover --reset` gives provider art back.
+**Never overwrites a cover with `source: user`** (invariant 11). Only
+`gamereg cover --reset` gives provider art back.
 
 **`--missing` selects every game never actually enriched for `--provider`**
 (default `igdb`) — reading folded state, no network involved in the selection
-itself. It is a bulk selector, a sibling of `--all`, and inherits the same
-`bulk` mode: mutually exclusive with `--all`, `--match` and `<query>` (usage
-error, exit 2), and an ambiguous provider match during a `--missing` run
-collapses to `skipped` rather than exit 3 — the same reasoning that makes
-`--all` safe to run unattended applies here, which is what actually makes the
-"Safe to run from cron" line above true for an incremental run: without
+itself. It is a bulk selector, a sibling of `--all`, and it is what makes the
+"safe to run from cron" line above true for an incremental run: without
 `--missing`, a cron `enrich --all` re-fetches the whole catalog on every tick,
 one network round trip per game already on record.
 
 **"Missing" is keyed on whether an enrich actually completed, not on whether
 a provider id is on record.** `start --id <provider ref>` resolving a `search`
 hit with no local match yet creates the game from that bare reference alone
-(`02-cli.md`'s `start`, invariant 5: no write command touches the network) —
-`game.providers` is set, but no metadata was ever fetched. `--missing` still
-selects that game: it tracks whether a `game.enrich` event has landed for
-this provider, which `game.providers` alone does not tell it. This is what
-makes the reference recorded at creation time actually get used later, the
-way it was meant to — `findDetail` sees the known id and fetches it directly,
-no search needed.
+(invariant 5: no write command touches the network) — `game.providers` is set,
+but no metadata was ever fetched. `--missing` still selects that game: it tracks
+whether a `game.enrich` event has landed for this provider, which
+`game.providers` alone does not tell it. This is what makes the reference
+recorded at creation time actually get used later — the known id is fetched
+directly, no lookup needed.
 
 **With `--covers`, `--missing` also selects a game that has metadata but no
 cover on record.** A game enriched before `--covers` existed, or simply never
@@ -938,9 +1137,16 @@ touching games that already have a cover (`source: user` or a provider's own,
 either way). Without `--covers`, cover state plays no part in selection — only
 the metadata condition above does.
 
+```json
+{ "ok": false, "code": 6, "error": "provider_unavailable",
+  "result": { "enriched": [{ "game_id": "...", "title": "...", "provider": "igdb" }],
+              "skipped": [{ "game_id": "...", "title": "..." }],
+              "failed": [{ "game_id": "...", "title": "...", "message": "..." }] } }
+```
+
 ### `gamereg build [target...] [--force] [--list]`
 
-Regenerates every derived artifact. Idempotent.
+Regenerates every derived artifact. Idempotent (invariant 2).
 
 ```
 gamereg build                    # every target in build.targets
@@ -949,17 +1155,26 @@ gamereg build obsidian csv       # a subset
 gamereg build --list             # what this vault declares, and what it wrote
 ```
 
-**The argument narrows a build; it never defines what the vault contains.** Which
-targets exist is `build.targets` in `gamereg.config.json`, defaulting to
-`["obsidian"]`. An unknown target exits 2 and lists the valid ones; a target from
-a later phase exits 2 saying so.
+**The argument narrows a build; it never defines what the vault contains**
+(invariant 4). Which targets exist is `build.targets` in `gamereg.config.json`,
+defaulting to `["obsidian"]`. Exit 2 for an unknown target name, for a target
+this version cannot yet build
+([ADR 0046](../decisions/0046-unbuilt-targets-list.md)), and for a valid target
+this vault has not declared — the argument may only narrow what is already there.
 
 `--force` rewrites every derived file whether it changed or not, and is the only
-path that overwrites a seeded `.base`.
+path that overwrites a file written under the `seed` policy — the seeded
+`Game Database.base` in each tree, and `quartz/quartz.config.yaml`. See
+[07-targets](07-targets.md#write-policies).
+
+`--list` neither plans nor writes: it reports the declared targets and what the
+manifest records each of them as owning.
 
 A target that fails does not stop the others: the build finishes, reports what
 failed, and exits 1 having written everything that worked — the same principle as
 code 6, where local work is committed even though the network step was not.
+Deletion stays a manifest whitelist (invariant 9,
+[ADR 0030](../decisions/0030-deletion-is-one-manifest-whitelist.md)).
 
 **Two `build` processes never write the same vault at once.** Planning is
 read-only and needs no lock; the write phase takes one, backed by a lockfile
@@ -983,26 +1198,45 @@ See [04-derived](04-derived.md) for the artifacts and
 ### `gamereg amend <event_id> --reason "..." [--set k=v ...]`
 ### `gamereg revoke <event_id> --reason "..."`
 
-Both append. Neither touches the original line.
+Both append. Neither touches the original line (invariant 1). `--reason` is
+required on both. An id no event carries exits 4.
+
+`--set` is repeatable and at least one is required (code 2). A value is parsed as
+JSON when it parses and kept as a string otherwise, so `--set rating=9` writes a
+number and `--set note=hello` writes a string. A `platform` value is
+canonicalized on the way in, like every other platform input.
 
 **A `--set` key the target event's type does not carry is refused (exit 2), and
 the message lists the fields it does carry.** The fold takes each field from the
-event that owns it, so a foreign key is merged into the payload, read by nobody,
-and reported as a success — `--set rating=9` on a `run.open` is discarded by the
-`run.close` that follows it. The field lists are 01-model.md's payload tables.
-Derived state (`minutes`, `hours_source`) is refused for the same reason: it is
-computed, never stored (invariant 7).
+event that owns it, so a foreign key would be merged into the payload, read by
+nobody, and reported as a success — `--set rating=9` on a `run.open` is discarded
+by the `run.close` that follows it. Derived state (`minutes`, `hours_source`) is
+refused for the same reason: it is computed, never stored (invariant 7). See
+[ADR 0094](../decisions/0094-amend-refuses-foreign-keys.md).
+
+The enforced list is [`EVENT_FIELDS`](../../src/core/events.ts), which is
+[01-model](01-model.md#event-types)'s payload tables plus the three keys the
+writers add on top of them — `at`, `attachments` and `date_precision`.
+
+`amend` refuses to target an `event.amend` or an `event.revoke`: a correction is
+corrected by revoking it, not by correcting the correction. `revoke` has no such
+restriction — it is the way back out of anything, including an amend.
 
 The consequence for a caller is that a run has **two** correctable events, and
 which one an `amend` takes depends on the field. `gamereg status` reports both
 as `run_open_event_id` and `run_close_event_id`; the second is `null` until the
-run closes, and equals the first for a run filed by `past` or `import`.
+run closes, and equals the first for a run filed by `past --ended` or by
+`import`. See [ADR 0065](../decisions/0065-status-exposes-correctable-event-ids.md).
+
+Neither command is behind a platform approval gate; confirmation is
+conversational ([ADR 0008](../decisions/0008-amend-revoke-confirmed-in-conversation.md)).
 
 ### `gamereg import <file.csv> --mapping <file.json>`
 
 Bulk historical import, for people arriving from a spreadsheet. Emits one
-`run.import` per row (plus one `run.verdict` for a row that maps `verdict`).
-`--dry-run` is strongly recommended and documented as such — see the warnings
+`run.import` per row (plus one `run.verdict` for a row that maps `verdict` —
+[ADR 0057](../decisions/0057-imported-verdict-is-its-own-event.md)).
+`--mapping` is required. `--dry-run` is strongly recommended — see the warnings
 below on what an import gets wrong permanently if it isn't checked first.
 
 ```
@@ -1011,7 +1245,10 @@ gamereg import games.csv --mapping mapping.json [--dry-run]
 
 **The mapping file** is a flat JSON object: gamereg field name → the CSV's own
 column header for that field. A field absent from the mapping, or mapped to an
-empty string, is simply not imported.
+empty string, is simply not imported. A mapping that is not a JSON object, or
+that has no column for a required field, exits 2 before any row is read. There is
+no shipped example mapping; a worked one lives in the import guide
+([ADR 0056](../decisions/0056-import-mapping-example-in-the-guide.md)).
 
 ```json
 {
@@ -1026,7 +1263,7 @@ empty string, is simply not imported.
 
 | Field | Required | Accepts |
 |---|---|---|
-| `title` | yes | Free text — the query `resolveGame` matches or creates from, same as `past`'s argument. |
+| `title` | yes | Free text — the query resolution matches or creates from, same as `past`'s argument. |
 | `ended` | yes | `2011`, `2011-07` or `2011-07-14` — precision is inferred from the shape, same as `past --ended`. |
 | `started` | no | Same shape rule as `ended`. Defaults to `ended` when omitted. |
 | `hours` | no | A decimal number, e.g. `42.3`. **Decimal point only** — see below. |
@@ -1034,30 +1271,34 @@ empty string, is simply not imported.
 | `difficulty` | no | One of the vocabulary's difficulty tokens. |
 | `criteria` | no | One of the vocabulary's completion-criteria tokens. |
 | `outcome` | no | One of the vocabulary's outcome tokens. |
-| `platform` | no | Free text, canonicalized against `config.platforms` like everywhere else. |
+| `platform` | no | Free text, canonicalized like everywhere else. **A mapped column, not a flag** — `import` has no `--platform`. |
 | `form` | no | One of the vocabulary's form tokens. |
 | `mode` | no | One of the vocabulary's mode tokens. |
 | `note` | no | Free text — what the run itself says. |
 | `verdict` | no | Free text — the considered opinion, filed as a separate `run.verdict` event against the same run. |
 
+An empty cell is the same as an unmapped field. Every row needs a non-empty
+`title` and `ended`; a row missing either fails as a row, not as an import.
+
 Valid tokens for `difficulty`, `criteria`, `outcome`, `form` and `mode` are not
 repeated here — they are the register's own vocabulary and drift the moment
-they are copied. Ask `gamereg vocab --json` (see D9 — *Capability is
-introspectable, never a list the caller keeps* — in
-[00-architecture](00-architecture.md), and *Language* in `CLAUDE.md`).
+they are copied. Ask `gamereg vocab --json` (see
+[D9](00-architecture.md#d9--capability-is-introspectable-never-a-list-the-caller-keeps)
+and [05-agent](05-agent.md#language)).
 
 **Number format is not negotiable.** `hours` accepts a plain decimal point —
 `12.5`, not `12,5`. `1,500` is ambiguous between a thousands separator and a
 comma decimal, and the log has to be readable in ten years regardless of which
 locale exported the spreadsheet; a comma-decimal cell fails that one row with
-"must be a positive number, not NaN" rather than being guessed at. Reformat the
-column before importing, not after.
+"must be a positive number" rather than being guessed at. Reformat the column
+before importing, not after.
 
-**Resolution is entirely offline**, same as `past`: no provider is reached
-(non-negotiable 5), an unmatched title becomes a new local entry
-(`allowCreate`, same as `past`'s `query`), and `--platform` is free text
-canonicalized the same way. Run `gamereg enrich --all` afterwards to fetch
-metadata and covers for whatever the import created.
+**Resolution is entirely offline** (invariant 5): no provider is reached, and an
+unmatched title becomes a new local entry — `import` always resolves as if
+`--no-metadata` had been passed, since a bulk import has nobody to ask. That is
+the one way it differs from `past`, which refuses instead unless the flag is
+given. Run `gamereg enrich --missing --covers` afterwards to fetch metadata and
+art for whatever the import created.
 
 **A row that fails does not stop the import.** Each row is resolved and
 staged independently; a bad row is reported by its 1-indexed line number
@@ -1067,7 +1308,7 @@ command exits 0 only when every row succeeded, 1 when some failed (with
 row is processed — an unreadable file, or a mapping missing a required field.
 
 ```json
-{ "ok": false, "code": 1, "error": "error",
+{ "ok": false, "code": 1, "error": "import_row_failed",
   "result": { "imported": [{ "row": 2, "game_id": "...", "run_id": "...", "title": "..." }],
               "failed": [{ "row": 12, "message": "..." }] } }
 ```
@@ -1084,20 +1325,54 @@ before running for real:**
   titles it resolved to, and only then import for real.
 - **Imported years show up empty in the heatmap and the year in review.** A
   `run.import` has no sessions, and a session is what carries a logical day —
-  see `CLAUDE.md`'s note on measured vs. stated hours. `gamereg stats` will
-  show gaps for years that were, in reality, entirely played. That is not a
-  bug: those hours are stated (`hours_source: stated`), never measured, and
-  the register never invents the days they happened on.
+  see [04-derived](04-derived.md#heatmap-and-year-in-review) and
+  [ADR 0048](../decisions/0048-year-hours-are-measured.md). The Stats page will
+  show gaps for years that were, in reality, entirely played. That is not a bug:
+  those hours are stated (`hours_source: stated`), never measured, and the
+  register never invents the days they happened on.
 
 ### `gamereg doctor`
 
-Validates the log: unknown enums, sessions closing before they open, runs closed
-twice, orphan references, breaks outside sessions, slug collisions. Reports; does
-not fix. Exit 1 if anything is wrong.
+Validates the log and the derived tree. Reports; does not fix. Exit 1 if
+anything is wrong, and the problems go to stderr in prose mode and to
+`details.problems[]` under `--json`.
+
+Read of the log, tolerantly — a malformed line is reported rather than thrown, so
+one pass describes every problem:
+
+- a line that is not JSON, or not a JSON object;
+- a line missing `id`, `ts` or `type`, carrying an unknown event type, or with no
+  `data` object;
+- a timestamp that cannot be read.
+
+Over the folded state:
+
+- a game, run or session created or opened more than once;
+- a run or a session closed more than once;
+- a session that closes before it opens, or a duration that works out negative;
+- a break outside an open session, or a second break opened while one is open;
+- an event that points at something that does not exist (an orphan reference);
+- an event missing a field its type requires;
+- a slug shared by more than one game.
+
+Over the payloads as written:
+
+- an unknown token in `outcome`, `completion_criteria`, `difficulty`, `form` or
+  `mode` — `session.checkin` is checked against the check-in outcomes rather than
+  the run outcomes, since the two vocabularies share the field name;
+- a `rating` that is not an integer from 0 to 11.
+
+Over the derived artifacts:
+
+- a marker block in a note that this version does not write;
+- prose in a run note outside the markers, which the next build would lose;
+- a file that looks generated but no target owns;
+- two targets planning the same path, and a target that cannot plan at all.
 
 ## Command name mapping (pt-BR)
 
-Shipped in `i18n/pt-BR.json`, illustrative:
+Shipped in `i18n/pt-BR.json`. Both spellings always work regardless of locale —
+locale sets the *output* language, not the accepted input.
 
 | English | pt-BR |
 |---|---|
@@ -1130,6 +1405,37 @@ Shipped in `i18n/pt-BR.json`, illustrative:
 | `attach` | `anexar` |
 | `cover` | `capa` |
 
-Flags are localized the same way (`--rating` / `--nota`). Both spellings always
-work regardless of locale — locale sets the *output* language, not the accepted
-input.
+Flags are localized the same way:
+
+| English | pt-BR | | English | pt-BR |
+|---|---|---|---|---|
+| `--at` | `--em` | | `--reason` | `--motivo` |
+| `--timezone` | `--fuso` | | `--no-metadata` | `--sem-metadados` |
+| `--day-cutoff` | `--corte-do-dia` | | `--dry-run` | `--simular` |
+| `--targets` | `--alvos` | | `--yes` | `--sim` |
+| `--csv-dir` | `--pasta-csv` | | `--vault` | `--acervo` |
+| `--note` | `--anotacao` | | `--locale` | `--idioma` |
+| `--rating` | `--nota` | | `--quiet` | `--silencioso` |
+| `--difficulty` | `--dificuldade` | | `--non-interactive` | `--nao-interativo` |
+| `--criteria` | `--criterio` | | `--local-only` | `--somente-local` |
+| `--platform` | `--plataforma` | | `--add` | `--adicionar` |
+| `--platforms` | `--plataformas` | | `--set` | `--definir` |
+| `--form` | `--formato` | | `--force` | `--forcar` |
+| `--mode` | `--modo` | | `--all` | `--tudo` |
+| `--break` | `--pausa` | | `--missing` | `--faltando` |
+| `--hours` | `--horas` | | `--match` | `--correspondencia` |
+| `--started` | `--inicio` | | `--provider` | `--provedor` |
+| `--ended` | `--fim` | | `--covers` | `--capas` |
+| `--replay` | `--rejogo` | | `--message` | `--mensagem` |
+| `--text` | `--texto` | | `--run` | `--jogatina` |
+| `--id` | `--referencia` | | `--outcome` | `--resultado` |
+| `--trigger` | `--gatilho` | | `--expire` | `--expirar` |
+
+**These flags have no pt-BR spelling yet** and are typed in English in every
+locale: `--json`, `--past-hours`, `--photo`, `--caption`, `--kind`,
+`--as-cover`, `--list`, `--schema`, `--mapping`, `--from`, `--reset`, and the
+short forms `-V`, `-h`, `-q`, `-m`.
+
+Argument placeholders are localized in help output only: `query` → `consulta`,
+`term` → `termo`, `event_id` → `id_evento`, `session_id` → `id_sessao`,
+`platform_name` → `nome_da_plataforma`, `platform_synonyms` → `sinonimos`.

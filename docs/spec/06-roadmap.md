@@ -58,7 +58,9 @@ terminal once.
 
 - `due` + `checkin` + cron, with all three triggers and the backoff ladder
 - Reaction tokens and per-installation sticker mapping
-- Quartz site, GitHub Action on push
+- Quartz site. Shipped as the `quartz` target plus a documented recipe
+  (`scripts/vendor-quartz.sh`); no GitHub Action was written, and building the
+  site is still the user's own step
 - Calendar heatmap, year-in-review generation
 
 The two halves of the name are one phase because they fail the same way alone: a
@@ -72,9 +74,9 @@ provider or any external service: the tempting ones are either deferred already
 
 **Exit criterion:** a session left open overnight is chased the next morning,
 answered in chat, and the corrected record appears on a published page that
-someone who does not own the vault can read. One sentence, and it exercises all
-four bullets — the backoff ladder, the delivery slot, the site, and the fact that
-a correction propagates.
+someone who does not own the vault can read. One sentence, and it exercises the
+check-in machinery (the ladder and the delivery slot), the site, and the fact
+that a correction propagates.
 
 That page may be published by hand: `scripts/vendor-quartz.sh` is a recipe that
 has been run against a real Quartz checkout and a real deploy, and following it
@@ -87,21 +89,27 @@ depend on the next one existing, only on a person willing to follow steps.
 **Goal:** the tool installs, configures itself and runs on a machine its author
 has never touched.
 
+**Delivered so far:**
+
+- A container image carrying the CLI, the gateway, the skill and the persona at
+  versions known to work together, built and verified by CI and published to
+  `ghcr.io/cidus/gamereg` as `:edge` and `:sha-<commit>`. `compose.yml` runs
+  from it, so an installation needs no clone.
+- A home for the two things a host supplies by hand: the check-in cron job,
+  registered by a one-shot `provision` service once the gateway is healthy, and
+  the maintenance timer, which is a loop service in the stack.
+- The git identity and push credential the vault's own automation needs.
+
+**Still open:**
+
 - Published package; the install path in `docs/getting-started.md` reduced to one
   command
-- A container image carrying the CLI, the gateway, the skill and the persona at
-  versions known to work together
 - A generator that emits the declarative configuration — compose file and
   environment — and never becomes part of the runtime
 - `targets --json`, and whatever else the generator would otherwise hardcode; see
   D9 in [00-architecture](00-architecture.md)
 - First-run configuration as a conversation: a second skill with its own binary,
   which leaves the PATH and the exec allowlist once setup is done
-- A home for the two things a host currently supplies and a container does not:
-  the check-in cron job, whose store `openclaw cron add` reaches only through
-  the CLI, and the maintenance timer, which is a systemd unit today
-- The git identity and push credential the vault's own automation needs, which
-  a single-user host has by accident and an installed instance does not
 
 Last for a reason that is not effort. Publishing is a one-way door — a tag can be
 unpublished, a vault on someone else's disk cannot. While config keys,
@@ -140,39 +148,21 @@ category of game would misprice the release.
 - Automatic playtime detection from Steam or consoles
 - Mobile app
 - Sync — git is the sync
+- **Franchise and series grouping.** Deferred past phase 1 so real usage could
+  show whether it is wanted before the model or the provider mapping committed
+  to it. Several phases later nothing has asked for it, so it stays here.
 
 ## Decided
 
-1. **Cover and screenshot licensing for the public site.** Not needed. This
-   vault is for personal use; the site is a maybe-someday extra, not the point
-   of the tool. `images.publish` and `images.publish_covers` collapse into one
-   switch, `images.publish` (default `false`) — see [04-derived](04-derived.md).
-2. **Multi-platform runs.** `platform` stays on the run. It was never moved to
-   the session and phase 0 gave no reason to.
-3. **Franchise / series grouping.** Deferred past Phase 1. Real usage will show
-   whether it's actually wanted before the model or the provider mapping is
-   committed to.
-4. **Timezone changes while travelling.** Nothing to build; the transparent
-   behaviour was already there. `logical_day` is derived on every fold, and
-   `config.timezone` picks which of two coherent readings applies: unset — what
-   `init` writes — groups a session by the local day where it was recorded,
-   using the offset already in the log, and a zone projects everything into that
-   zone. Both are stable under travel and neither asks anything of the user; the
-   machine's clock moving is a non-event either way. What does rewrite the past
-   is editing `config.timezone`, which re-projects every instant at once. See
-   [01-model](01-model.md)'s *Logical day*. A per-invocation override was
-   considered and rejected: the register would group by which device filed an
-   event, and detecting a phone's zone through the chat gateway cannot help,
-   because the CLI runs on the always-on host that stayed home.
-5. **A backlog view.** No. The register holds what you played, per the non-goal
-   in [00-architecture](00-architecture.md) — it does not know what you own and
-   does not track unplayed games. A game with no runs stays outside the model;
-   there is no second base and no `game.add` without a run.
-6. **Retroactive session start.** Designed during Phase 2, per this item's own
-   note above. Two natural phrasings, both `--at` underneath, no new CLI
-   surface needed: a session with both ends known ("forgot to log it, I played
-   from 8 to 11 last night") opens and closes in two calls, read before write —
-   if the open fails, the close is never sent, so a partial state is never
-   left behind; a session still ongoing ("I've been playing since around 8") is
-   one `start --at` call. See `agent/skills/gamereg/SKILL.md`'s *A session that
-   was never recorded* for the implementation.
+Questions this roadmap used to carry, now settled. Each has a decision record
+with the reasoning and the costs accepted:
+
+| Question | Decision |
+|---|---|
+| Cover and screenshot licensing for a public site | One `images.publish` switch, off by default — [0055](../decisions/0055-one-publish-switch-rendered.md) |
+| Multi-platform runs | Platform stays on the run — [0006](../decisions/0006-platform-lives-on-the-run.md) |
+| Timezone changes while travelling | Nothing to build: the logical day is derived on every fold — [0025](../decisions/0025-no-timezone-detection.md) |
+| A backlog view | No. The register holds what was played — [0007](../decisions/0007-no-backlog.md) |
+| Retroactive session start | `--at` on the commands that already exist — [0009](../decisions/0009-unrecorded-session-uses-at.md) |
+
+Franchise and series grouping is in *Explicitly deferred* above.
