@@ -504,12 +504,22 @@ configure_model() {
     fi
   fi
 
-  fallbacks="${OPENCLAW_MODEL_FALLBACK:-}"
-  if [ -n "$fallbacks" ]; then
-    fallbacks="\"$(json_escape "$fallbacks")\""
-  fi
+  # Comma-separated, because the chain is the only depth left once the
+  # same-model retry is off (see configure_provider_retry). A 429 now fails
+  # over instead of sleeping, so a second fallback is what a retry used to be
+  # -- except it takes a different path rather than waiting on the one that
+  # just refused.
+  fallbacks=""
+  old_ifs=$IFS
+  IFS=,
+  for entry in ${OPENCLAW_MODEL_FALLBACK:-}; do
+    entry=$(printf '%s' "$entry" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    [ -n "$entry" ] || continue
+    fallbacks="${fallbacks:+$fallbacks, }\"$(json_escape "$entry")\""
+  done
+  IFS=$old_ifs
 
-  log "model: $primary${OPENCLAW_MODEL_FALLBACK:+ (fallback ${OPENCLAW_MODEL_FALLBACK})}"
+  log "model: $primary${OPENCLAW_MODEL_FALLBACK:+ (fallbacks ${OPENCLAW_MODEL_FALLBACK})}"
   if [ "$DRY_RUN" = yes ]; then
     log "would patch the model"
     return 0
@@ -522,6 +532,56 @@ configure_model() {
     | "$OPENCLAW" config patch --stdin || die "could not configure the model"
 }
 
+
+# --- 4d. how long a refused model is waited on -------------------------------
+#
+# OpenClaw 2026.9.4 retries the *same* model before it will consider the
+# fallback chain, and for a 429 it sleeps for whatever the provider's
+# `Retry-After` header asks. Anthropic asks for as long as the limit has left
+# to run -- 41 to 260 minutes, measured here across five incidents -- while the
+# turn itself is abandoned after about six. So the fallback was never reached:
+# every rate limit ended in "this turn was interrupted because it stopped
+# making progress", with OpenRouter configured, credentialed and idle.
+#
+# Two details in the upstream code make it worse than a tuning problem. The
+# delay is `Math.max(jittered, retryAfterMs)` and only the jitter is capped, so
+# the header bypasses the 30s ceiling; and the 90s total-retry budget is
+# disabled precisely for `rate_limit`, which is the reason that ceiling existed.
+# The escape hatch upstream does have -- a "long window" classifier -- reads the
+# error *text*, and Anthropic's is generic ("This request would exceed your
+# account's rate limit"), so it never fires. None of this existed in 2026.7.1-2.
+#
+# There is no per-provider setting: `settings.retry.provider` names the layer,
+# not the vendor, and the resolver takes no provider argument. So the budget
+# goes to zero for everything, and `configure_model` grows a comma-separated
+# chain to compensate -- depth in the chain does what retries used to do,
+# without waiting on the model that just refused.
+#
+# Merged rather than written: OpenClaw persists its own settings in this file.
+
+configure_provider_retry() {
+  retries="${OPENCLAW_PROVIDER_MAX_RETRIES:-0}"
+  settings="$STATE_DIR/agents/${OPENCLAW_AGENT:-main}/agent/settings.json"
+
+  log "provider retry budget: $retries"
+  if [ "$DRY_RUN" = yes ]; then
+    log "would merge retry.provider.maxRetries into $settings"
+    return 0
+  fi
+
+  run mkdir -p "$(dirname "$settings")"
+  SETTINGS_PATH="$settings" MAX_RETRIES="$retries" node -e '
+    const fs = require("node:fs")
+    const path = process.env.SETTINGS_PATH
+    let settings = {}
+    try {
+      settings = JSON.parse(fs.readFileSync(path, "utf8"))
+      if (settings === null || typeof settings !== "object" || Array.isArray(settings)) settings = {}
+    } catch {}
+    settings.retry = { ...settings.retry, provider: { ...settings.retry?.provider, maxRetries: Number(process.env.MAX_RETRIES) } }
+    fs.writeFileSync(path, JSON.stringify(settings, null, 2) + "\n")
+  ' || die "could not write $settings"
+}
 
 # --- 5. the gateway's own configuration --------------------------------------
 #
@@ -732,6 +792,7 @@ case "$MODE" in
     resolve_gateway_token
     configure_model_auth
     configure_model
+    configure_provider_retry
     deploy_agent_files
     configure_gateway
     [ "$DRY_RUN" = yes ] && { log "dry run complete, not starting the gateway"; exit 0; }
