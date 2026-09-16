@@ -1,15 +1,15 @@
 #!/bin/sh
 #
 # Vendors a Quartz checkout's framework files into <vault>/quartz/, leaving
-# the vault's own content/ and quartz.config.yaml untouched (CLAUDE.md,
+# the vault's own content/ and quartz.config.yaml untouched (docs/decisions/0029-quartz-plans-from-folded-state.md,
 # *Current state* — the manual procedure this script replaces). Rerunnable:
 # a second run updates the framework in place, which is what makes this also
 # an upgrade path, not just a one-time setup.
 #
 # This is one verified path for getting a Quartz site built, not the
 # answer to "how does deployment work" — that question is still deliberately
-# open for phase 5 (CLAUDE.md, *Open items*), because deciding it once here
-# and again in phase 5 is how the two answers end up disagreeing.
+# open (docs/decisions/0036-site-built-off-box-by-default.md), because deciding
+# it here and again in the packaging work is how two answers end up disagreeing.
 #
 # What gets copied is an explicit allowlist, not "everything except a few
 # names": a real Quartz checkout also carries .github/ (the upstream

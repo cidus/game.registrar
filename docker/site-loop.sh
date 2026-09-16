@@ -3,7 +3,7 @@
 # Build the Quartz site whenever the vault's content changes.
 #
 # Off by default, and on a 1 GB machine it should stay off -- see
-# docs/deploy-container.md. It exists for two reasons: an installation that
+# docs/guides/publish-site.md. It exists for two reasons: an installation that
 # does not want a Cloudflare or GitHub account still needs a page, and the
 # shape is the one a future Astro target will reuse unchanged (something
 # builds, something static serves).

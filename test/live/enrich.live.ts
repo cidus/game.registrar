@@ -5,7 +5,7 @@
  * deliberately doesn't end in `.test.ts` so `node --test` never picks it up
  * by accident. Run it explicitly with `npm run test:live`.
  *
- * WHY THIS EXISTS: CLAUDE.md's testing strategy is "no network in unit
+ * WHY THIS EXISTS: docs/development/testing.md says "no network in unit
  * tests, ever" — for good reason, mocked providers can't be wrong about what
  * a real catalog actually looks like. That's exactly how a bug shipped
  * silently: IGDB carries "Final Fantasy VII Remake: Deluxe Edition" as its

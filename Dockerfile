@@ -40,9 +40,9 @@ RUN npm run build && npm pack --ignore-scripts
 
 FROM node:${NODE_VERSION}
 
-# Pinned on purpose. agent/README.md documents behaviour that is specific to a
-# gateway version -- the dead `callback` branch on 2026.7.1-2 being the sharpest
-# example -- so "the CLI and the gateway at versions known to work together" is
+# Pinned on purpose. Behaviour the deployment depends on is specific to a
+# gateway version -- the dead `callback` button branch on 2026.7.1-2 being the
+# sharpest example (docs/explanation/agent-design.md) -- so "the CLI and the gateway at versions known to work together" is
 # the whole point of shipping an image rather than instructions.
 ARG OPENCLAW_VERSION=2026.9.4
 
@@ -70,9 +70,10 @@ RUN chmod 0755 /usr/local/bin/gamereg-checkin /usr/local/bin/gamereg-autobuild \
                 /usr/local/bin/gamereg-entrypoint /usr/local/bin/gamereg-loop \
                 /usr/local/bin/gamereg-site-loop
 
-# What the entrypoint deploys into the gateway's workspace. Skills are code and
-# are replaced on every boot; workspace persona files are the user's and are
-# seeded only when absent. Real directories, never symlinks -- OpenClaw's skill
+# What the entrypoint deploys into the gateway's workspace. Skills, AGENTS.md
+# and TOOLS.md are code and are replaced on every boot; the rest of workspace/
+# is the user's, seeded once and tracked by hash
+# (docs/reference/container.md, docs/decisions/0094-workspace-policy-per-file.md). Real directories, never symlinks -- OpenClaw's skill
 # loader realpaths and refuses anything resolving outside its root.
 COPY agent/skills /opt/gamereg/agent-defaults/skills
 COPY agent/workspace /opt/gamereg/agent-defaults/workspace

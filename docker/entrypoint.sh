@@ -2,8 +2,8 @@
 #
 # Container boot for the Registrar (06-roadmap.md, phase 4).
 #
-# Everything a host currently supplies by hand -- agent/README.md's eleven
-# steps -- has to happen on every boot instead, idempotently, with no terminal.
+# Everything a host supplies by hand -- the steps in
+# docs/guides/deploy-host.md -- has to happen on every boot instead, idempotently, with no terminal.
 # That is the whole job. Invariant 14 is what makes it possible: every
 # configurable value can be set without a TTY, so nothing here has to drive a
 # prompt.

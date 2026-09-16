@@ -22,13 +22,14 @@
 //
 // `amend`/`revoke` are *not* excluded from approvals.example.json's
 // allowlist here, on purpose, after finding the platform approval UI
-// unreliable enough in practice (see README.md, "Why amend/revoke are not
-// behind an approval gate") that SKILL.md's own conversational confirmation
-// became the safer bet. Read that section before assuming this file is the
-// stricter option.
+// unreliable enough in practice (see docs/decisions/
+// 0008-amend-revoke-confirmed-in-conversation.md) that the skill's own
+// conversational confirmation became the safer bet. Read that record before
+// assuming this file is the stricter option.
 //
 // The environment gamereg needs (GAMEREG_VAULT, GAMEREG_SOURCE,
-// GAMEREG_NON_INTERACTIVE) is set on the gateway *process* — see README.md.
+// GAMEREG_NON_INTERACTIVE) is set on the gateway *process* — see
+// docs/guides/deploy-host.md.
 // Do not try to set it here; this file has no mechanism that reaches exec'd
 // child processes with arbitrary env vars.
 {
@@ -81,8 +82,9 @@
 
       // Reaction tokens (docs/spec/05-agent.md, "Reactions"). Both switches
       // are off by default in OpenClaw and both are left off here, because
-      // agent/workspace/REACTIONS.md ships with an empty mapping table:
-      // turning them on before there is any artwork to send buys nothing.
+      // agent/workspace/REACTIONS.md ships with its emoji column filled and its
+      // sticker column empty: turning them on is a per-installation decision,
+      // and no artwork ships here.
       // Uncomment the pair you actually intend to use once that table has a
       // row in it.
       //
@@ -223,7 +225,8 @@
     //
     // Three survive, and each earns it:
     //   - `exec` runs gamereg, which is the entire job.
-    //   - `message` sends buttons, candidate covers, and check-in questions;
+    //   - `message` sends buttons and candidate covers (never a check-in
+    //     question: a wake delivers its own reply);
     //     `action: "edit"`/`"delete"` strip an answered menu, and
     //     `"react"`/`"sendSticker"` carry the reaction tokens.
     //   - `read` loads the skill and its reference/ files. Denying it does
@@ -260,7 +263,8 @@
     // asked for, sometimes minutes of it. `amend` and `revoke` are on the
     // allowlist like every other gamereg command; their confirmation is
     // conversational (reference/corrections.md), not this gate — see
-    // README.md for why and what it trades away. `approvals.exec` below is
+    // docs/decisions/0008-amend-revoke-confirmed-in-conversation.md for why
+    // and what it trades away. `approvals.exec` below is
     // dead weight in this mode, kept only in case a future change
     // reintroduces a real approval path.
     exec: {
@@ -296,7 +300,7 @@
         // a real install (whisper.cpp built from source,
         // ggml-large-v3-turbo-q5_0.bin, `-t 12`) against a short voice note
         // transcribed correctly in pt-BR, and the longer session-closing
-        // smoke test since confirmed (README.md, step 7). `ffmpeg` must
+        // smoke test since confirmed (docs/guides/chat-agent.md). `ffmpeg` must
         // also be on PATH; OpenClaw uses it to decode the incoming audio
         // before handing it to whisper-cli, and fails with a clear "ffmpeg
         // not found" reason if it's missing.

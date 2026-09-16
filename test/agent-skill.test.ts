@@ -258,7 +258,7 @@ test('no gamereg query example invents a --sql flag', () => {
  * number in front of them — not something that happens by accumulation. If
  * this fails, the first question is what can come out, and the second is
  * whether the new material belongs in a `reference/` file (read only when its
- * flow happens) or in `agent/README.md` (the deployment log, read by people).
+ * flow happens) or in a decision record under `docs/decisions/`, read by people.
  *
  * Raised from 30,000 to 32,000 when the deployed workspace was made to equal
  * the shipped one, and the honest reading of that is that the number got
@@ -286,7 +286,7 @@ test('the always-loaded workspace stays inside its budget', () => {
   assert.ok(
     total <= BUDGET,
     `the always-loaded workspace is ${total} bytes, over the ${BUDGET} budget (${breakdown}). ` +
-      `Take something out, move it to a reference/ file or to agent/README.md, ` +
+      `Take something out, move it to a reference/ file or to a decision record, ` +
       `or raise the budget deliberately and say why.`,
   )
 })

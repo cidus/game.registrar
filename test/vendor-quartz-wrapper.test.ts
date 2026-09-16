@@ -4,7 +4,7 @@
  * Sibling of `test/autobuild-wrapper.test.ts`, with the network-risky pieces
  * — `npm install`, `npx quartz build` — stubbed instead of `git`: real
  * invocations would hit the npm registry and run a real Quartz build,
- * neither of which a test should do (CLAUDE.md's *Testing strategy*: no
+ * neither of which a test should do (docs/development/testing.md: no
  * network in unit tests, ever). The stubs are pure fakes, not exec-through
  * wrappers like the `git` stub elsewhere — they only log argv and exit with
  * a configurable code, so no `package-lock.json` or `node_modules` actually

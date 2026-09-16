@@ -1,6 +1,6 @@
 /**
  * The query guard (docs/spec/02-cli.md "gamereg query <sql>") — a security
- * boundary, tested by what it refuses first. Per CLAUDE.md's testing
+ * boundary, tested by what it refuses first. Per docs/development/testing.md's
  * strategy: multiple statements, PRAGMA, ATTACH, comments hiding a second
  * statement, WITH ... DELETE.
  */

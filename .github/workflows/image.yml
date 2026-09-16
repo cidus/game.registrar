@@ -1,8 +1,7 @@
 name: image
 
-# The image has been built and run in production by hand, and CLAUDE.md names
-# that gap explicitly: "there is still no CI building it, so a Dockerfile
-# change is verified by hand or not at all." This workflow closes it.
+# The image is built and run in production. This workflow is what keeps a
+# Dockerfile change from being verified by hand or not at all.
 #
 # Building the image only proves it builds. Each step below uses the result
 # for something the image is actually for, so a broken entrypoint, a broken

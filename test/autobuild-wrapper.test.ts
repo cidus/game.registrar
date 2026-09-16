@@ -13,7 +13,7 @@
  * knob is fake.
  *
  * No IGDB credentials are configured for these tests (`npm test` runs with no
- * network, by repository convention — see CLAUDE.md's *Testing strategy*), so
+ * network, by repository convention — see docs/development/testing.md), so
  * every `gamereg enrich --missing` call here exits 6 (`provider_unavailable`)
  * for real. That is not worked around: exit 6 being non-fatal is exactly the
  * behaviour these tests are meant to prove.
@@ -289,7 +289,7 @@ test('a mirrored cover photo under obsidian/assets gets staged, not just the ori
   // Found live: a new cover photo ingested fine under `assets/` (staged, as
   // asserted above), but `targets/mirror.ts` hardlinks it a second time into
   // `obsidian/assets` (and `quartz/content/assets`) as an add-only pass
-  // *outside* the manifest -- CLAUDE.md: "not a planned file", precisely so
+  // *outside* the manifest -- docs/decisions/0017-obsidian-assets-are-hardlinks.md: not a planned file, precisely so
   // nothing here is a deletion candidate. That also means it never appears in
   // `build --json`'s `planned` array, so a wrapper that only knew about
   // `planned` plus the root `assets/` left the mirrored copy untracked

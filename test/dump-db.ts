@@ -35,7 +35,7 @@ function sqlValue(value: unknown): string {
  * for byte by whoever happens to clone the repo, so it is compared through
  * this instead. Determinism is still asserted on the bytes themselves, where
  * both files come from one machine and one library version (the idempotency
- * test in golden.test.ts, and non-negotiable 2 in CLAUDE.md).
+ * test in golden.test.ts, and invariant 2 in docs/spec/00-architecture.md).
  *
  * Rows come out in each object's own order — for a table that is rowid, hence
  * the build's insertion order, which is deterministic by construction and part

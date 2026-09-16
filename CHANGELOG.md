@@ -57,8 +57,11 @@ file.
   `gamereg build` against the committed goldens and, on `main`, publishes) and
   `live` (the opt-in IGDB suite, weekly, failing when the credentials are
   missing).
-- `test/entrypoint-wrapper.test.ts`, `test/loop-wrapper.test.ts` and
-  `test/phase-citations.test.ts`.
+- `test/entrypoint-wrapper.test.ts`, `test/loop-wrapper.test.ts`,
+  `test/phase-citations.test.ts`, `test/docs-links.test.ts` (every relative
+  link and every `#anchor` in the documentation resolves) and
+  `test/docs-structure.test.ts` (decision records are numbered once, dated and
+  indexed; no page under `docs/` is unreachable from the map).
 - `test/dump-db.ts`: `dumpDatabase()` as a leaf module importing only
   `node:sqlite`, shared by `test/golden.test.ts` and the image workflow, which
   has no `node_modules`.

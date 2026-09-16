@@ -176,7 +176,7 @@ BODY
 # One node call: appends the rows to the wake body and prints `<session> <trigger>`
 # per row for the loop at the end. Node rather than jq because the host already
 # has it -- `gamereg` is a Node program -- and a second dependency for one JSON
-# read is a dependency the phase-5 image would have to carry forever.
+# read is a dependency the container image would have to carry forever.
 if ! pairs=$(printf '%s' "$rows" | node -e '
   let raw = ""
   process.stdin.on("data", (chunk) => { raw += chunk })
