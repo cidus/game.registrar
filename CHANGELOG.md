@@ -12,8 +12,44 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Removed
+
+- `checkin.persona_prompt` from `gamereg.config.json`. It was parsed and
+  validated but read by nothing in `src/`, `agent/`, `docker/` or `scripts/`,
+  while `docs/spec/05-agent.md` described it as how the Registrar's voice is
+  set — a setting that looked configured and did nothing. The register's
+  persona lives on the gateway side, in `agent/workspace/SOUL.md`, and always
+  did. A vault with `checkin.persona_prompt` set now exits 2 at load, naming
+  it as an unknown key, the same as any other removed setting.
+
 ### Fixed
 
+- `gamereg init --day-cutoff` with a malformed value exited 2 with the literal
+  string `error.bad_cutoff` as its message — the i18n key existed in neither
+  `i18n/en.json` nor `i18n/pt-BR.json`, so `t()` fell back to the raw key.
+  Both locales now carry a real message naming the value.
+- `i18n/pt-BR.json`'s `cli.commands` had no entries for `query`, `import`,
+  `attach` or `cover`, so those four commands fell back to their English
+  spelling under `--locale pt-BR` — while `docs/spec/02-cli.md`'s own mapping
+  table claimed `query` → `consultar`. All four are mapped now
+  (`consultar`/`importar`/`anexar`/`capa`), and the spec table is rewritten to
+  match `i18n/pt-BR.json`'s `cli.commands` exactly, entry for entry — it had
+  also been missing `status`, `doctor`, `alias`, `revoke`, `verdict`,
+  `platform`, `add`, `remove` and `list`, which were shipped and translated
+  but never documented.
+- Config values of the wrong type were silently ignored, keeping the default,
+  for `locale`, `timezone`, `defaults.platform`, `platforms` (non-array),
+  `build.targets` (non-array), `build.csv.dir` and every `images.*` key —
+  unlike every other setting, which has always exited 2 on a bad value. Now
+  all of them do, at exit 2 with `error.bad_config_value` naming the key and
+  the file, matching the strictness `checkin`'s block already had.
+  `images.max_edge` and `images.quality` are also range-checked against what
+  the image pipeline itself accepts: `{"images": {"quality": 0}}` used to load
+  clean and only fail later, mid-ingest, with a message naming the photo file
+  rather than the setting. `timezone` is checked against the IANA database, at
+  both `loadConfig` and `gamereg init --timezone` — a well-typed but invalid
+  zone used to write straight into `gamereg.config.json` unchecked and only
+  fail the next time something tried to project an instant into it.
 - `agent/checkin.sh --dry-run` no longer runs `gamereg checkin --expire` for
   real before checking `DRY_RUN`. The expiry sweep appends an `event.amend` for
   every stale `snoozed` check-in, so a dry run was writing to the append-only
