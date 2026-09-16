@@ -154,6 +154,19 @@ The gateway then starts, and once healthy the one-shot `provision` service
 registers the hourly check-in job — it cannot run earlier, because
 `openclaw cron add` is a gateway *client* command.
 
+A model that refuses is handed over, not waited on. OpenClaw 2026.9.4 retries
+the same model before it will consider the fallback chain, and on a 429 it
+sleeps for the provider's `Retry-After` — which Anthropic sets to however long
+the limit has left, 41 to 260 minutes across five incidents here, against a turn
+abandoned after about six. The chain was therefore unreachable, and every rate
+limit reached the user as "this turn was interrupted because it stopped making
+progress". The entrypoint writes `retry.provider.maxRetries: 0` into the agent's
+`settings.json`; `OPENCLAW_PROVIDER_MAX_RETRIES` raises it, which is worth doing
+only with no fallback configured, where waiting is all there is to do. It cannot
+be set per provider, so `OPENCLAW_MODEL_FALLBACK` takes a comma-separated chain
+instead — another entry does what a retry did, without waiting on the model that
+just said no.
+
 The nightly `memory-core` dreaming sweep is disabled here. It writes a narrative
 diary into the workspace, which is the system prompt of every later turn, and
 `tools.allow` gives the agent no tool that could read what it builds. Re-enable

@@ -396,6 +396,79 @@ test('an existing dream diary is moved out of the workspace, not deleted', () =>
   )
 })
 
+/**
+ * The fallback chain was unreachable for two months of rate limits.
+ *
+ * OpenClaw 2026.9.4 retries the same model before considering the chain, and
+ * on a 429 it sleeps for the provider's `Retry-After`. Anthropic asked for 41
+ * to 260 minutes across five real incidents; the turn is abandoned after about
+ * six. So every rate limit ended in "this turn was interrupted because it
+ * stopped making progress" while OpenRouter sat configured, credentialed and
+ * idle. Zero is what makes a refusal hand over instead of wait.
+ */
+test('the boot sets the provider retry budget to zero', () => {
+  const h = host()
+  h.run('gateway')
+
+  const settings = JSON.parse(
+    readFileSync(join(h.config, 'agents', 'main', 'agent', 'settings.json'), 'utf8'),
+  ) as { retry?: { provider?: { maxRetries?: number } } }
+  assert.equal(settings.retry?.provider?.maxRetries, 0)
+})
+
+test('the retry budget is settable, because a lone model has nothing to fail over to', () => {
+  const h = host()
+  h.run('gateway', { OPENCLAW_PROVIDER_MAX_RETRIES: '3' })
+
+  const settings = JSON.parse(
+    readFileSync(join(h.config, 'agents', 'main', 'agent', 'settings.json'), 'utf8'),
+  ) as { retry?: { provider?: { maxRetries?: number } } }
+  assert.equal(settings.retry?.provider?.maxRetries, 3)
+})
+
+/**
+ * OpenClaw persists its own settings in this file. Overwriting it would throw
+ * away whatever the gateway had written there.
+ */
+test('writing the retry budget keeps everything else in settings.json', () => {
+  const h = host()
+  const dir = join(h.config, 'agents', 'main', 'agent')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    join(dir, 'settings.json'),
+    JSON.stringify({ hideThinkingBlock: true, retry: { enabled: true, provider: { timeoutMs: 1234 } } }),
+  )
+
+  h.run('gateway')
+
+  const settings = JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')) as Record<string, unknown>
+  assert.equal(settings['hideThinkingBlock'], true, 'an unrelated setting was discarded')
+  const retry = settings['retry'] as { enabled?: boolean; provider?: Record<string, unknown> }
+  assert.equal(retry.enabled, true, 'a sibling of retry.provider was discarded')
+  assert.equal(retry.provider?.['timeoutMs'], 1234, 'a sibling inside retry.provider was discarded')
+  assert.equal(retry.provider?.['maxRetries'], 0)
+})
+
+/**
+ * With the same-model retry off, depth in the chain is what depth in retries
+ * used to be -- and it costs no waiting on the model that just refused.
+ */
+test('the fallback chain takes more than one model', () => {
+  const h = host()
+  h.run('gateway', {
+    OPENCLAW_MODEL: 'anthropic/claude-sonnet-5',
+    OPENCLAW_MODEL_FALLBACK: 'openrouter/auto, openrouter/anthropic/claude-sonnet-5',
+  })
+
+  assert.match(h.patched(), /fallbacks: \["openrouter\/auto", "openrouter\/anthropic\/claude-sonnet-5"\]/)
+})
+
+test('an empty fallback chain stays empty rather than becoming one empty string', () => {
+  const h = host()
+  h.run('gateway', { OPENCLAW_MODEL: 'anthropic/claude-sonnet-5', OPENCLAW_MODEL_FALLBACK: '' })
+  assert.match(h.patched(), /fallbacks: \[\]/)
+})
+
 test('the boot turns the dreaming sweep off', () => {
   const h = host()
   h.run('gateway')
