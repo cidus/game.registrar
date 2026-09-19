@@ -27,3 +27,10 @@ tags: [gamereg, gamereg/game]
 <!-- gamereg:end block=runs -->
 
 ## Notes
+
+## Gallery
+
+<!-- gamereg:begin block=gallery -->
+![[assets/f0/f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2.webp]]
+*2026-06-02 — Twenty-two minutes, every time.*
+<!-- gamereg:end block=gallery -->

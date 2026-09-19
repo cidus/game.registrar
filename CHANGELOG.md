@@ -12,6 +12,15 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 ## [Unreleased]
 
+### Added
+
+- An `attachments` table in the derived artifacts: `data/attachments.csv`, an
+  `attachments[]` array in `data/export.json`, and `attachments` in
+  `data/log.db`. One row per photo per target, resolved to the game, run and
+  session it belongs to — `game_id` always, the narrower two when the photo
+  was filed against a moment. Revocations and amendments are already applied,
+  which is what asking the fold buys over reading the `events` table.
+
 ### Fixed
 
 - The model fallback chain is actually reached when a rate limit hits. OpenClaw

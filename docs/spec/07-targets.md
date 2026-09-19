@@ -142,7 +142,7 @@ caretaker's index, and only the writer touches it.
 | Target | Produces | Phase |
 |---|---|---|
 | `obsidian` | `obsidian/games/*.md`, `obsidian/runs/*.md`, `obsidian/Game List.md`, `obsidian/Game Database.base` | 0 |
-| `csv` | `data/runs.csv`, `data/sessions.csv`, `data/games.csv` | 0 |
+| `csv` | `data/runs.csv`, `data/sessions.csv`, `data/games.csv`, `data/attachments.csv` | 0 |
 | `sqlite` | `data/log.db` | 1 |
 | `json` | `data/export.json` | 1 |
 | `html` | `Games.html` | 1 |
@@ -188,13 +188,15 @@ notes, a replay cannot appear as its own row in any query view — the same reas
 
 ### `csv`
 
-Three flat files, one per level of the hierarchy, RFC 4180, LF, UTF-8 without
-BOM, header row of English schema tokens. Columns mirror the SQLite tables
-exactly, so the two targets never disagree about what a column means.
+Four flat files — one per level of the hierarchy, plus the photos filed
+against them — RFC 4180, LF, UTF-8 without BOM, header row of English schema
+tokens. Columns mirror the SQLite tables exactly, so the two targets never
+disagree about what a column means.
 
 Sort order is fixed and documented per file, not incidental: `runs.csv` by
 `started_on` then `run_id`; `sessions.csv` by `started_at` then `session_id`;
-`games.csv` by `slug`.
+`games.csv` by `slug`; `attachments.csv` by `filed_at`, then `target`, then
+`sha256`.
 
 *Why it is worth its ~50 lines:* it opens in Numbers, Excel and Google Sheets,
 where sorting, filtering and pivoting are things the user already knows how to
@@ -211,8 +213,8 @@ cache starts lying. `gamereg query` reads it; nothing writes it but the build.
 
 ### `json`
 
-`data/export.json`: `{ schema, games[], runs[], sessions[] }`, the same shape the
-CSV flattens. For the site, for scripts, and for whatever exists in five years
+`data/export.json`: `{ schema, games[], runs[], sessions[], attachments[] }`,
+the same shape the CSV flattens. For the site, for scripts, and for whatever exists in five years
 that reads JSON — which is everything.
 
 ### `html`

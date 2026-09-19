@@ -1,8 +1,9 @@
 /**
  * The `csv` target (docs/spec/07-targets.md).
  *
- * Three flat files, one per level of the hierarchy. RFC 4180 quoting, LF, UTF-8
- * without BOM, a header row of English schema tokens — headers are the schema,
+ * Four flat files: one per level of the hierarchy, plus the photos filed
+ * against them. RFC 4180 quoting, LF, UTF-8 without BOM, a header row of
+ * English schema tokens — headers are the schema,
  * not prose, so nothing here goes through i18n.
  *
  * Columns mirror the SQLite tables of [04-derived](../../docs/spec/04-derived.md)
@@ -10,6 +11,7 @@
  * order is fixed and documented per file rather than incidental, because a
  * spreadsheet that reorders itself between builds is a diff nobody can read.
  */
+import { attachmentRows } from '../core/attachments.ts'
 import type { GameState, RunState, SessionState, VaultState } from '../core/fold.ts'
 import type { PlannedFile, Target, TargetContext } from './types.ts'
 
@@ -58,6 +60,19 @@ const SESSIONS = [
   'minutes',
   'logical_day',
   'note',
+] as const
+
+const ATTACHMENTS = [
+  'sha256',
+  'ext',
+  'kind',
+  'caption',
+  'captured_at',
+  'filed_at',
+  'game_id',
+  'run_id',
+  'session_id',
+  'target',
 ] as const
 
 /** By `slug`. */
@@ -126,6 +141,22 @@ function sessionRows(state: VaultState): Cell[][] {
     ])
 }
 
+/** By `filed_at`, then `target`, then `sha256` — the order `attachmentRows` fixes. */
+function attachmentCells(state: VaultState): Cell[][] {
+  return attachmentRows(state).map((attachment) => [
+    attachment.sha256,
+    attachment.ext,
+    attachment.kind,
+    attachment.caption,
+    attachment.captured_at,
+    attachment.filed_at,
+    attachment.game_id,
+    attachment.run_id,
+    attachment.session_id,
+    attachment.target,
+  ])
+}
+
 export const csv: Target = {
   name: 'csv',
   since: 0,
@@ -138,6 +169,11 @@ export const csv: Target = {
       { path: at('games.csv'), content: encodeCsv(GAMES, gameRows(state)), policy: 'replace' },
       { path: at('runs.csv'), content: encodeCsv(RUNS, runRows(state)), policy: 'replace' },
       { path: at('sessions.csv'), content: encodeCsv(SESSIONS, sessionRows(state)), policy: 'replace' },
+      {
+        path: at('attachments.csv'),
+        content: encodeCsv(ATTACHMENTS, attachmentCells(state)),
+        policy: 'replace',
+      },
     ]
   },
 }

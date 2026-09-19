@@ -734,6 +734,18 @@ export function gameOfEvent(state: VaultState, event: EventEnvelope): GameState 
 export type GameAttachment = { attachment: Attachment; at: string }
 
 /**
+ * The moment an event filed what it carries: the semantic `at` it records when
+ * it has one, and otherwise the moment it was written.
+ *
+ * Exported because two artifacts print this date — the game note's gallery and
+ * the `attachments` table's `filed_at` (docs/spec/04-derived.md) — and one
+ * function is what keeps them from disagreeing.
+ */
+export function filedAtOf(event: EventEnvelope): string {
+  return str(event.data, 'at') ?? event.ts
+}
+
+/**
  * Every attachment on this game's timeline, chronological: filed directly
  * against the game (`attach <game>`, `cover --photo`/`--from`) plus anything
  * inline or retroactively added to an event that belongs to one of its runs
@@ -779,7 +791,7 @@ export function attachmentsOfGame(state: VaultState, game: GameState): GameAttac
   for (const event of state.eventsById.values()) {
     if (!state.attachments.has(event.id)) continue
     if (gameOfEvent(state, event)?.game_id !== game.game_id) continue
-    add(event.id, str(event.data, 'at') ?? event.ts)
+    add(event.id, filedAtOf(event))
   }
 
   return collected.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0))
