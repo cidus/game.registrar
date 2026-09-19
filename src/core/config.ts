@@ -9,6 +9,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { IANAZone } from 'luxon'
 
 import { parseDuration } from './duration.ts'
 import { GameregError } from './errors.ts'
@@ -57,7 +58,11 @@ export type Config = {
     max_edge: number
     /** WebP quality, 1–100. */
     quality: number
-    /** Store the untouched original alongside the normalized copy. Off by default. */
+    /**
+     * Store the original resolution and format alongside the normalized
+     * copy, still EXIF-stripped (invariant 12 is unconditional — see
+     * `images/ingest.ts`). Off by default.
+     */
     keep_original: boolean
     /**
      * Copy attachments (covers included) into the generated site. One switch,
@@ -95,8 +100,6 @@ export type CheckinConfig = {
    * when it ends. Empty means no quiet hours at all.
    */
   quiet_hours: string[]
-  /** The register the check-in is written in. Read by the agent, never here. */
-  persona_prompt: string | null
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -122,7 +125,6 @@ export const DEFAULT_CONFIG: Config = {
     max_per_session: 3,
     reply_window: '45m',
     quiet_hours: ['02:00', '09:00'],
-    persona_prompt: null,
   },
   images: {
     max_edge: 2000,
@@ -222,6 +224,24 @@ function readClockList(value: unknown, key: string, file: string): string[] {
   return value.map((entry, index) => readClock(entry, `${key}[${index}]`, file))
 }
 
+function readString(value: unknown, key: string, file: string): string {
+  if (typeof value !== 'string') throw badValue(key, value, file)
+  return value
+}
+
+function readBoolean(value: unknown, key: string, file: string): boolean {
+  if (typeof value !== 'boolean') throw badValue(key, value, file)
+  return value
+}
+
+/** A positive integer, inclusive of both ends — the `min`/`max` sharp itself accepts. */
+function readIntInRange(value: unknown, key: string, file: string, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+    throw badValue(key, value, file)
+  }
+  return value
+}
+
 /**
  * `checkin`, with every value parsed on the way in (docs/spec/05-agent.md).
  *
@@ -259,11 +279,6 @@ function parseCheckin(source: Record<string, unknown>, into: CheckinConfig, file
     // reading of it that is not a guess.
     if (window.length !== 0 && window.length !== 2) throw badValue('checkin.quiet_hours', source['quiet_hours'], file)
     into.quiet_hours = window
-  }
-  if ('persona_prompt' in source) {
-    const value = source['persona_prompt']
-    if (value !== null && typeof value !== 'string') throw badValue('checkin.persona_prompt', value, file)
-    into.persona_prompt = value
   }
 }
 
@@ -347,14 +362,35 @@ export function loadConfig(root: string): Config {
 
   rejectUnknownKeys(source, DEFAULT_CONFIG, '', file)
 
-  if (typeof source['locale'] === 'string') config.locale = source['locale']
-  if (typeof source['timezone'] === 'string') config.timezone = source['timezone']
+  // `locale` and `timezone` accept `null` explicitly (Config's own type is
+  // `string | null`) as well as a string; anything else — a number, an array,
+  // an object — used to be ignored in silence and kept the default.
+  if ('locale' in source) {
+    const value = source['locale']
+    config.locale = value === null ? null : readString(value, 'locale', file)
+  }
+  if ('timezone' in source) {
+    const value = source['timezone']
+    if (value === null) {
+      config.timezone = null
+    } else {
+      const zone = readString(value, 'timezone', file)
+      // Wrong type used to be ignored; a well-typed but bogus zone loaded
+      // clean and only failed the first time something tried to project an
+      // instant into it, far from `init` and with no config in the message.
+      if (!IANAZone.isValidZone(zone)) throw badValue('timezone', zone, file)
+      config.timezone = zone
+    }
+  }
   if ('day_cutoff' in source) config.day_cutoff = readClock(source['day_cutoff'], 'day_cutoff', file)
 
   const defaults = source['defaults']
   if (typeof defaults === 'object' && defaults !== null && !Array.isArray(defaults)) {
     const entries = defaults as Record<string, unknown>
-    if (typeof entries['platform'] === 'string') config.defaults.platform = entries['platform']
+    if ('platform' in entries) {
+      const value = entries['platform']
+      config.defaults.platform = value === null ? null : readString(value, 'defaults.platform', file)
+    }
     if (typeof entries['form'] === 'string') {
       config.defaults.form = checkEnum('form', entries['form'], FORM)
     }
@@ -363,14 +399,18 @@ export function loadConfig(root: string): Config {
     }
   }
 
-  const platforms = source['platforms']
-  if (Array.isArray(platforms)) config.platforms = parsePlatforms(platforms, file)
+  if ('platforms' in source) {
+    const value = source['platforms']
+    if (!Array.isArray(value)) throw badValue('platforms', value, file)
+    config.platforms = parsePlatforms(value, file)
+  }
 
   const build = source['build']
   if (typeof build === 'object' && build !== null && !Array.isArray(build)) {
     const entries = build as Record<string, unknown>
-    const targets = entries['targets']
-    if (Array.isArray(targets)) {
+    if ('targets' in entries) {
+      const targets = entries['targets']
+      if (!Array.isArray(targets)) throw badValue('build.targets', targets, file)
       // Validated like any other enum: an unknown name exits 2 listing the
       // valid ones, and a later phase's target exits 2 saying so.
       const named: BuildTarget[] = []
@@ -386,9 +426,11 @@ export function loadConfig(root: string): Config {
 
     const csv = entries['csv']
     if (typeof csv === 'object' && csv !== null && !Array.isArray(csv)) {
-      const dir = (csv as Record<string, unknown>)['dir']
-      // Trailing slashes are the user being tidy, not a path component.
-      if (typeof dir === 'string') config.build.csv.dir = dir.replace(/\/+$/, '')
+      const csvEntries = csv as Record<string, unknown>
+      if ('dir' in csvEntries) {
+        // Trailing slashes are the user being tidy, not a path component.
+        config.build.csv.dir = readString(csvEntries['dir'], 'build.csv.dir', file).replace(/\/+$/, '')
+      }
     }
   }
 
@@ -400,10 +442,22 @@ export function loadConfig(root: string): Config {
   const images = source['images']
   if (typeof images === 'object' && images !== null && !Array.isArray(images)) {
     const entries = images as Record<string, unknown>
-    if (typeof entries['max_edge'] === 'number') config.images.max_edge = entries['max_edge']
-    if (typeof entries['quality'] === 'number') config.images.quality = entries['quality']
-    if (typeof entries['keep_original'] === 'boolean') config.images.keep_original = entries['keep_original']
-    if (typeof entries['publish'] === 'boolean') config.images.publish = entries['publish']
+    // Ranges match what `sharp` itself accepts (images/ingest.ts): a value
+    // outside them used to load clean and only fail mid-ingest, inside the
+    // resize/webp pipeline, with a message naming the photo rather than the
+    // setting that caused it.
+    if ('max_edge' in entries) {
+      config.images.max_edge = readIntInRange(entries['max_edge'], 'images.max_edge', file, 1, 20000)
+    }
+    if ('quality' in entries) {
+      config.images.quality = readIntInRange(entries['quality'], 'images.quality', file, 1, 100)
+    }
+    if ('keep_original' in entries) {
+      config.images.keep_original = readBoolean(entries['keep_original'], 'images.keep_original', file)
+    }
+    if ('publish' in entries) {
+      config.images.publish = readBoolean(entries['publish'], 'images.publish', file)
+    }
   }
 
   return config

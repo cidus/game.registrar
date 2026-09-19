@@ -116,6 +116,8 @@
     "bad_duration": "Could not read \"{value}\" as a duration. Try 90, 40m, 2h or 1h20.",
     "bad_hours": "Hours must be a positive number, not {value}.",
     "bad_clock": "A time of day must look like 05:00, not \"{value}\".",
+    "bad_cutoff": "day_cutoff must look like 05:00, not \"{value}\".",
+    "bad_timezone": "\"{value}\" is not a known IANA time zone. Try \"America/Sao_Paulo\" or \"Europe/Lisbon\".",
     "bad_config": "{file} is not valid JSON.",
     "unknown_config_key": "{file}: \"{key}\" is not a setting gamereg knows. Valid at that level: {valid}.",
     "bad_config_value": "{file}: \"{key}\" does not accept \"{value}\".",

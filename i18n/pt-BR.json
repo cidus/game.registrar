@@ -25,7 +25,11 @@
       "add": "adicionar",
       "remove": "remover",
       "list": "listar",
-      "vocab": "vocabulario"
+      "vocab": "vocabulario",
+      "query": "consultar",
+      "import": "importar",
+      "attach": "anexar",
+      "cover": "capa"
     },
     "flags": {
       "--at": "--em",
@@ -191,6 +195,8 @@
     "bad_duration": "Não foi possível ler \"{value}\" como duração. Tente 90, 40m, 2h ou 1h20.",
     "bad_hours": "As horas devem ser um número positivo, e não {value}.",
     "bad_clock": "Um horário deve ter a forma 05:00, e não \"{value}\".",
+    "bad_cutoff": "day_cutoff deve ter a forma 05:00, e não \"{value}\".",
+    "bad_timezone": "\"{value}\" não é um fuso horário IANA conhecido. Tente \"America/Sao_Paulo\" ou \"Europe/Lisbon\".",
     "bad_config": "{file} não é um JSON válido.",
     "unknown_config_key": "{file}: \"{key}\" não é uma configuração que o gamereg conheça. Válidas nesse nível: {valid}.",
     "bad_config_value": "{file}: \"{key}\" não aceita \"{value}\".",

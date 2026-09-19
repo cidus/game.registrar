@@ -9,8 +9,9 @@
  *
  * GPS — and every other EXIF tag — is stripped unconditionally: `sharp`
  * only carries metadata into its output when told to (`withMetadata` /
- * `withExif`), and this pipeline never calls either, so the WebP output
- * simply never has an EXIF segment. Not configurable to false, per spec.
+ * `withExif`), and this pipeline never calls either, so neither the WebP
+ * output nor the optional `keep_original` copy (below) ever has an EXIF
+ * segment. Not configurable to false, per spec.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -73,8 +74,19 @@ async function ingestBuffer(vault: Vault, input: Buffer, config: Config, label: 
     const originalExt = (metadata.format ?? 'bin').toLowerCase()
     const originalPath = join(vault.root, 'assets', sha256.slice(0, 2), `${sha256}.original.${originalExt}`)
     if (!existsSync(originalPath)) {
+      // Re-encoded, not the raw input: `.rotate()` bakes in EXIF orientation
+      // (which the strip below removes) and sharp only carries metadata into
+      // its output when told to, so this comes out with the same pixels and
+      // format as the source and no EXIF segment — invariant 12 applies here
+      // exactly as it does to the normalized copy above.
+      let strippedOriginal: Buffer
+      try {
+        strippedOriginal = await sharp(input).rotate().toBuffer()
+      } catch (cause) {
+        throw new GameregError('usage', 'error.bad_image', { file: label }, { cause })
+      }
       mkdirSync(join(vault.root, 'assets', sha256.slice(0, 2)), { recursive: true })
-      writeFileSync(originalPath, input)
+      writeFileSync(originalPath, strippedOriginal)
     }
   }
 

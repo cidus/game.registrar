@@ -114,6 +114,12 @@ docker compose -f compose.yml -f compose.build.yml build
 docker compose -f compose.yml -f compose.build.yml up -d
 ```
 
+The builder stage copies the whole checkout in to run `npm pack`, so a filled
+`.env` sitting beside `compose.build.yml` would otherwise land in a local
+builder layer and the build cache even though the runtime stage never sees it.
+`.dockerignore` excludes `.env` and every `.env.*` variant except
+`.env.example`, which carries no secret and is documentation.
+
 ## What happens on every boot
 
 The entrypoint is idempotent, so a first run, a restart and an image upgrade all
@@ -140,7 +146,11 @@ take the same path.
 5. **Model auth, then model choice.** Two separate steps: which credential
    exists, and which model answers (`OPENCLAW_MODEL`,
    `OPENCLAW_MODEL_FALLBACK`). A Claude subscription is installed into the
-   per-agent auth store, not the environment — see the trap below.
+   per-agent auth store, not the environment — see the trap below. A
+   `CLAUDE_CODE_OAUTH_TOKEN` is re-pasted whenever it changes: the boot records
+   a hash of the token it last installed (never the token itself), so editing
+   `.env` with a fresh one and restarting actually replaces it rather than
+   leaving the store on the expired one.
 6. **Gateway config.** The shipped example is seeded once; bot token, allowlist
    and approvers are patched from the environment every boot, so editing `.env`
    and restarting moves them.
@@ -333,7 +343,10 @@ subscription lives in the per-agent auth store, not the environment. Setting
 `CLAUDE_CODE_OAUTH_TOKEN` and writing an `anthropic:cli` config profile is what
 an already-onboarded host *looks* like and authenticates nothing. The entrypoint
 installs it with `openclaw models auth paste-token` at boot; if this appears,
-the token is missing or expired.
+the token is missing or expired. Mint a new one with `claude setup-token`, put
+it in `.env` and restart — the boot compares its hash against the one it last
+installed and re-pastes automatically when it differs, so nothing else is
+needed.
 
 **The bot answers intermittently.** Two consumers of one token. Look for an old
 host install: `systemctl --user disable openclaw-gateway.service` — stopping a
