@@ -124,7 +124,12 @@ test('disabling a target cleans up after itself, and moves nothing else', () => 
   )
   const second = rebuild(root)
 
-  assert.deepEqual(second.removed.sort(), ['data/games.csv', 'data/runs.csv', 'data/sessions.csv'])
+  assert.deepEqual(second.removed.sort(), [
+    'data/attachments.csv',
+    'data/games.csv',
+    'data/runs.csv',
+    'data/sessions.csv',
+  ])
   assert.equal(existsSync(join(root, 'data', 'runs.csv')), false)
   assert.equal(existsSync(join(root, 'data', 'events.jsonl')), true)
   assert.equal(readFileSync(join(root, 'obsidian', 'games', 'sabotage.md'), 'utf8'), note)

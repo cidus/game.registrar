@@ -27,3 +27,10 @@ tags: [gamereg, gamereg/game]
 |---|---|---|---|---|---|---|
 | [[runs/2026-06-01-outer-wilds\|2026]] | PC | 2026-06-01 | 2026-06-01 | 1.5 |  | abandoned |
 <!-- gamereg:end block=runs -->
+
+## Gallery
+
+<!-- gamereg:begin block=gallery -->
+*image not published*
+*2026-06-02 — Twenty-two minutes, every time.*
+<!-- gamereg:end block=gallery -->

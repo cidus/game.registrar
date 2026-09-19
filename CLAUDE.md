@@ -152,7 +152,7 @@ with its aside allowance rewritten as positive triggers. `agent/README.md`'s
 *Where the prompt lives* and *The tool surface is part of the prompt* carry the
 numbers and the restart step.
 
-`npm test` is 567 tests, all green (`node --test`, no framework, no network).
+`npm test` is 603 tests, all green (`node --test`, no framework, no network).
 `npm run test:live` (opt-in, real IGDB calls, skips cleanly with no credentials)
 adds 8.
 
@@ -330,6 +330,21 @@ JSON5 patches were unescaped, where a quote adds configuration rather than
 breaking it — `config patch` merges whatever parses. And `provision --dry-run`
 reached a gateway through `cron list`, which is the one call a dry run of that
 mode exists to avoid.
+
+**The derived artifacts gained an `attachments` table.** A photo filed against
+a session, a run or a game was reachable from no derived artifact in a
+machine-readable form: the SQLite tables carried no attachment column, `csv`
+and `json` mirror those tables, the run note's session table drops photos
+entirely, and the game note's gallery groups them per game with no run or
+session identity. So the only route to "which photos belong to this session"
+was the raw `events` table -- which means reimplementing `event.revoke` and
+`event.amend`, and the live vault has 31 revokes and 29 amends to get wrong.
+`src/core/attachments.ts` resolves the fold's target key -- an event id, or a
+game id -- to `(game_id, run_id, session_id)`, and `sqlite`, `csv` and `json`
+all call it. `example-vault/` grew the cases that prove it: an inline photo on
+a session close, a retroactive one against a run close, an amend that corrects
+a caption, and an add that is revoked. None of them existed before, so the
+interaction between corrections and attachments was untested until now.
 
 ## The agent layer
 
@@ -1276,6 +1291,34 @@ Each of these cost real time to find. The reasoning, not just the rule:
   environment genuinely is an auth path for that provider and the comment was
   right. Recorded because the wrong diagnosis was the plausible one, and
   because the command that answers it in one line is worth knowing.
+
+- **The gap between the fold and a consumer was the *key*, not the logic.** It
+  is worth being precise about what the `attachments` table added, because the
+  instinct on reading "attachments are not queryable" is that the correction
+  handling has to be built. It did not: `fold` has always applied revokes and
+  amends before an attachment reaches `state.attachments`, and that is where it
+  stays. What was missing is that the map is keyed by *target* -- an event id,
+  or a game id -- which is what the log carries and not what anybody asks in.
+  One walk resolving that key to `(game, run, session)` was the whole feature,
+  and it lives in `core/` rather than in `db/build.ts` because three targets
+  emit these columns and 04-derived.md says they may not disagree.
+  Two traps found on the way. A `session.open` event's own id is **not** the
+  session id -- both are ULIDs minted in the same command, so they share a long
+  prefix and keying by the wrong one matches nothing while looking plausible.
+  And the fold keys an `attachment.add`'s payload under its own event id *as
+  well as* under its target, so resolving the self-key too would double every
+  retroactive photo; it resolves to no entity and is dropped, which is exactly
+  what the gallery already does with it.
+- **No `path` column, and `filed_at` comes from a shared function.** The path
+  is `assets/<sha256[0:2]>/<sha256>.<ext>`, which 01-model.md owns; a column
+  would be a second place that rule is written down, and `render/assets.ts`
+  already assumes every ingested asset is WebP regardless of the recorded
+  `ext`, so a copy would have to pick one of the two answers. `filed_at` had
+  the same shape of risk in the other direction -- the gallery computes the
+  same date and a second expression could drift -- so `filedAtOf` is exported
+  from `fold.ts` and both call it. The general rule both follow: derived
+  duplication is free when it regenerates from one function, and a liability
+  the moment it regenerates from two.
 
 Add the next one here rather than in a commit message nobody will search for.
 
