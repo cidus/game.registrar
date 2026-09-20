@@ -16,6 +16,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { attachmentRows } from '../core/attachments.ts'
 import type { GameState, RunState, SessionState, VaultState } from '../core/fold.ts'
 import { SCHEMA_SQL } from './schema.ts'
 
@@ -119,6 +120,26 @@ export function buildDatabase(state: VaultState): Buffer {
       )
       for (const brk of breaks) {
         insertBreak.run(brk.break_id, brk.session_id, brk.started_at, brk.ended_at, brk.minutes)
+      }
+
+      // Already sorted, by `filed_at` then target then hash (core/attachments.ts).
+      const insertAttachment = db.prepare(
+        `INSERT INTO attachments (sha256, ext, kind, caption, captured_at, filed_at, game_id, run_id, session_id, target)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      for (const attachment of attachmentRows(state)) {
+        insertAttachment.run(
+          attachment.sha256,
+          attachment.ext,
+          attachment.kind,
+          attachment.caption,
+          attachment.captured_at,
+          attachment.filed_at,
+          attachment.game_id,
+          attachment.run_id,
+          attachment.session_id,
+          attachment.target,
+        )
       }
 
       const insertEvent = db.prepare('INSERT INTO events (event_id, ts, type, source, payload) VALUES (?, ?, ?, ?, ?)')

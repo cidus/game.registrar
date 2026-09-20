@@ -153,6 +153,7 @@ Links to specs, code and other records.
 | [0098](0098-dreaming-disabled.md) | memory-core dreaming is disabled | Agent prompt | Accepted | 2026-09-13 |
 | [0099](0099-image-tags-edge-and-sha-only.md) | The image is published as :edge and :sha tags only, with no :latest before 1.0.0 | Versioning and releases | Accepted | 2026-09-13 |
 | [0100](0100-refused-model-hands-over-to-the-fallback-chain.md) | A model that refuses hands over to the fallback chain instead of being retried | Container deployment | Accepted | 2026-09-16 |
+| [0101](0101-attachments-are-resolved-to-their-owner.md) | Attachments reach the derived artifacts resolved to their owner | Build and targets | Accepted | 2026-09-19 |
 
 ## By area
 
@@ -204,6 +205,7 @@ Links to specs, code and other records.
 - [0016](0016-obsidian-assets-are-hardlinks.md) obsidian/assets is a set of hardlinks, not a symlink
 - [0030](0030-deletion-is-one-manifest-whitelist.md) Build cleanup stays one manifest whitelist, not a per-target policy
 - [0046](0046-unbuilt-targets-list.md) UNBUILT_TARGETS marks a target that is current but not yet built
+- [0101](0101-attachments-are-resolved-to-their-owner.md) Attachments reach the derived artifacts resolved to their owner
 
 ### Site and comments
 

@@ -22,6 +22,15 @@ file.
   the run is open; the opening id for a run filed as a single `run.import`
   (`import`, or `past --ended`).
 
+**Derived artifacts**
+
+- An `attachments` table in the derived artifacts: `data/attachments.csv`, an
+  `attachments[]` array in `data/export.json`, and `attachments` in
+  `data/log.db`. One row per photo per target, resolved to the game, run and
+  session it belongs to — `game_id` always, the narrower two when the photo
+  was filed against a moment. Revocations and amendments are already applied,
+  which is what asking the fold buys over reading the `events` table.
+
 **Container deployment**
 
 - `Dockerfile` and `compose.yml`: the CLI and the OpenClaw gateway in one image,
@@ -98,7 +107,7 @@ file.
   IANA database and `images.max_edge`/`images.quality` against what the image
   pipeline accepts, at load and at `init`.
 - Documentation reorganized into a tutorial, how-to guides, reference,
-  explanation, 100 architecture decision records and development docs, mapped
+  explanation, the architecture decision records and development docs, mapped
   in [docs/README.md](docs/README.md). `CLAUDE.md` is a short briefing again,
   and `agent/README.md` a directory README.
 

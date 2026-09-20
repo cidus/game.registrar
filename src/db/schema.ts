@@ -68,6 +68,24 @@ CREATE TABLE aliases (
   alias   TEXT NOT NULL
 );
 
+-- One row per photo on record, resolved to what it belongs to. \`game_id\` is
+-- always known (a session implies a run implies a game); the narrower two are
+-- null for a photo filed against the game itself. \`target\` is the fold's own
+-- key -- an event id, or a game id -- kept for the same reason
+-- \`runs.platform_raw\` is: the resolved view, plus the way back to the log.
+CREATE TABLE attachments (
+  sha256      TEXT NOT NULL,
+  ext         TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  caption     TEXT,
+  captured_at TEXT,
+  filed_at    TEXT NOT NULL,
+  game_id     TEXT NOT NULL REFERENCES games(game_id),
+  run_id      TEXT REFERENCES runs(run_id),
+  session_id  TEXT REFERENCES sessions(session_id),
+  target      TEXT NOT NULL
+);
+
 -- Raw, for auditing. One row per event on record, id-ordered — chronological,
 -- since ids are ULIDs appended in file order. Payload as recorded: amend and
 -- revoke are rows here too, never applied, exactly as 01-model.md describes them.
@@ -85,6 +103,9 @@ CREATE INDEX idx_runs_game ON runs(game_id);
 CREATE INDEX idx_sessions_run ON sessions(run_id);
 CREATE INDEX idx_breaks_session ON breaks(session_id);
 CREATE INDEX idx_aliases_game ON aliases(game_id);
+CREATE INDEX idx_attachments_game ON attachments(game_id);
+CREATE INDEX idx_attachments_run ON attachments(run_id);
+CREATE INDEX idx_attachments_session ON attachments(session_id);
 
 -- One row per finished run, flattened — the shape most questions ask in.
 CREATE VIEW v_finished AS

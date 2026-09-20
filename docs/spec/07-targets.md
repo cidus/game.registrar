@@ -183,7 +183,7 @@ caretaker's index, and only the writer touches it.
 | Target | Produces |
 |---|---|
 | `obsidian` | `obsidian/games/*.md`, `obsidian/runs/*.md`, `obsidian/Game List.md`, `obsidian/Game Database.base` |
-| `csv` | `data/runs.csv`, `data/sessions.csv`, `data/games.csv` |
+| `csv` | `data/runs.csv`, `data/sessions.csv`, `data/games.csv`, `data/attachments.csv` |
 | `sqlite` | `data/log.db` |
 | `json` | `data/export.json` |
 | `html` | `Games.html` |
@@ -233,20 +233,21 @@ notes, a replay cannot appear as its own row in any query view — the same reas
 
 ### `csv`
 
-Three flat files, one per level of the hierarchy, RFC 4180, LF, UTF-8 without
-BOM, header row of English schema tokens. Column names come from the SQLite
-schema of [04-derived](04-derived.md), so the two targets never disagree about
-what a column means.
+Four flat files — one per level of the hierarchy, plus the photos filed against
+them — RFC 4180, LF, UTF-8 without BOM, header row of English schema tokens.
+Column names come from the SQLite schema of [04-derived](04-derived.md), so the
+two targets never disagree about what a column means.
 
-Three of that schema's eight tables are exported: `games`, `runs` and `sessions`.
-`game_platforms`, `game_genres`, `breaks`, `aliases` and `events` are join tables
-and a raw log, which a flat file has nowhere to put. `runs.csv` also omits
-`runs.platform_raw`, an audit column rather than a spreadsheet one — group by the
-canonicalized `platform`, audit in SQLite.
+Four of that schema's nine tables are exported: `games`, `runs`, `sessions` and
+`attachments`. `game_platforms`, `game_genres`, `breaks`, `aliases` and `events`
+are join tables and a raw log, which a flat file has nowhere to put. `runs.csv`
+also omits `runs.platform_raw`, an audit column rather than a spreadsheet one —
+group by the canonicalized `platform`, audit in SQLite.
 
 Sort order is fixed and documented per file, not incidental: `runs.csv` by
 `started_on` then `run_id`; `sessions.csv` by `started_at` then `session_id`;
-`games.csv` by `slug`.
+`games.csv` by `slug`; `attachments.csv` by `filed_at`, then `target`, then
+`sha256`.
 
 *Why it is worth having:* it opens in Numbers, Excel and Google Sheets, where
 sorting, filtering and pivoting are things the user already knows how to do, and
@@ -262,9 +263,9 @@ cache starts lying. `gamereg query` reads it; nothing writes it but the build.
 
 ### `json`
 
-`data/export.json`: `{ schema, games[], runs[], sessions[] }` — the same three
-tables `csv` flattens, with the same columns and the same sort orders. For
-scripts, and for whatever exists in five years that reads JSON.
+`data/export.json`: `{ schema, games[], runs[], sessions[], attachments[] }` —
+the same four tables `csv` flattens, with the same columns and the same sort
+orders. For scripts, and for whatever exists in five years that reads JSON.
 
 **Not a site feed, and not to be widened into one.** It mirrors the SQLite
 tables column for column, so it carries no cover, genres, platforms, `run.note`

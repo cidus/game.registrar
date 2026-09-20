@@ -323,8 +323,33 @@ runs(run_id, game_id, platform, platform_raw, form, mode, started_on, ended_on,
 sessions(session_id, run_id, started_at, ended_at, minutes, logical_day, note)
 breaks(break_id, session_id, started_at, ended_at, minutes)
 aliases(game_id, alias)
+attachments(sha256, ext, kind, caption, captured_at, filed_at,
+            game_id, run_id, session_id, target)
 events(event_id, ts, type, source, payload)   -- raw, for auditing
 ```
+
+`attachments` is every photo on record, resolved to what it belongs to.
+`game_id` is always known — a session implies a run implies a game — so "every
+photo of this game" is one predicate, which is the question the game note's
+gallery already asks. `run_id` and `session_id` carry the narrower association
+when there is one and are null for a photo filed against the game itself.
+`filed_at` is the date that gallery prints: the attachment's moment, which is
+the `at` of the event it arrived with, or when that event was written.
+
+`target` is the fold's own key — an event id, or a game id — kept for the same
+reason `runs.platform_raw` is: the resolved view, plus the way back to the log.
+There is one row per `(target, sha256)`, so a photo attached to a session and
+then promoted to the game's cover is two rows about one picture; a consumer
+building a gallery de-duplicates on `sha256`, as the game note does. There is
+no `path` column: `assets/<sha256[0:2]>/<sha256>.<ext>` is
+[01-model](01-model.md)'s rule and belongs to it, not to a copy here.
+
+**Revocations and amendments are already applied.** These rows come from the
+fold, not from the `events` table, which is why they exist at all: without
+them the only way to ask which photos belong to a session is to read the raw
+log and reimplement `event.revoke` and `event.amend`, which is exactly what no
+target is allowed to do (invariant 8). Where this table and the gallery
+disagree, it is a bug in one of them and not a choice.
 
 `runs.platform` is canonicalized on the way in (02-cli.md, *Platform
 vocabulary*); `runs.platform_raw` is what the log actually holds. Group by the
@@ -342,13 +367,14 @@ Views worth shipping, because they are what questions actually ask:
 This table is what makes "which RPG did I most recently like a lot?" answerable
 with a real number instead of a guess.
 
-The `csv` and `json` targets flatten **three** of these tables — `games`, `runs`
-and `sessions` — with the same column names and the same sort orders. Two
-differences are deliberate and are not bugs: neither carries `runs.platform_raw`,
-which is an audit column rather than a spreadsheet one, and neither exports
-`game_platforms`, `game_genres`, `breaks`, `aliases` or `events`, which are join
-tables and a raw log that a flat file has nowhere to put. Where a column all
-three share disagrees, this schema is right and the other is a bug.
+The `csv` and `json` targets flatten **four** of these tables — `games`, `runs`,
+`sessions` and `attachments` — with the same column names and the same sort
+orders. Two differences are deliberate and are not bugs: neither carries
+`runs.platform_raw`, which is an audit column rather than a spreadsheet one, and
+neither exports `game_platforms`, `game_genres`, `breaks`, `aliases` or
+`events`, which are join tables and a raw log that a flat file has nowhere to
+put. Where a column all four share disagrees, this schema is right and the other
+is a bug.
 
 ## Heatmap and year in review
 

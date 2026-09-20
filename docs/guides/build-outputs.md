@@ -25,7 +25,7 @@ decides what a build does to it:
 | | `obsidian/runs/<start date>-<slug>.md`, one per run | `replace` |
 | | `obsidian/Game List.md`, one row per run | `splice` |
 | | `obsidian/Game Database.base`, an Obsidian Bases view | `seed` |
-| `csv` | `data/games.csv`, `data/runs.csv`, `data/sessions.csv` | `replace` |
+| `csv` | `data/games.csv`, `data/runs.csv`, `data/sessions.csv`, `data/attachments.csv` | `replace` |
 | `sqlite` | `data/log.db`, which `gamereg query` reads | `replace` |
 | `json` | `data/export.json`, the same rows as the CSV files | `replace` |
 | `html` | `Games.html`, one self-contained page with a sortable, filterable table | `replace` |

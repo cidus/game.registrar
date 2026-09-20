@@ -3,9 +3,12 @@
  * json and sqlite share one schema).
  *
  * `data/export.json`: the same tables, the same column names, as `csv` and
- * `sqlite`. Where any of the three disagree, the SQLite schema is right and
- * the other is the bug (04-derived.md).
+ * `sqlite`. An array per table and nothing nested: widening this into a
+ * projection a site could render is a different artifact, and CLAUDE.md
+ * records why it is not this one. Where any of the three disagree, the SQLite
+ * schema is right and the other is the bug (04-derived.md).
  */
+import { attachmentRows } from '../core/attachments.ts'
 import { SCHEMA_VERSION } from '../core/events.ts'
 import type { GameState, RunState, SessionState, VaultState } from '../core/fold.ts'
 import type { PlannedFile, Target, TargetContext } from './types.ts'
@@ -119,6 +122,9 @@ export const json: Target = {
       games: games(state),
       runs: runs(state),
       sessions: sessions(state),
+      // Already ordered, by `filed_at` then target then hash, and by the same
+      // call `csv` and `sqlite` make (core/attachments.ts).
+      attachments: attachmentRows(state),
     }
     return [{ path: 'data/export.json', content: `${JSON.stringify(payload, null, 2)}\n`, policy: 'replace' }]
   },

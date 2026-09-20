@@ -262,8 +262,9 @@ See [07-targets: Declaring targets](../spec/07-targets.md#declaring-targets) and
 
 ### `build.csv.dir`
 
-- The directory where the `csv` target writes `games.csv`, `runs.csv` and
-  `sessions.csv`. Ignored unless `csv` is in `build.targets`.
+- The directory where the `csv` target writes `games.csv`, `runs.csv`,
+  `sessions.csv` and `attachments.csv`. Ignored unless `csv` is in
+  `build.targets`.
 - Trailing slashes are removed when the file loads.
 - A path outside the vault (absolute, or using `..`) loads without an error.
   The build then exits 1: `A build target planned to write outside the vault`.

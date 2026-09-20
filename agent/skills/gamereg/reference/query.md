@@ -24,7 +24,14 @@ and the failed-exec warning reaches the user.
 | `game_platforms` | `game_id`, `platform` |
 | `game_genres` | `game_id`, `genre` |
 | `aliases` | `game_id`, `alias` |
+| `attachments` | `sha256`, `ext`, `kind`, `caption`, `captured_at`, `filed_at`, `game_id`, `run_id`, `session_id`, `target` |
 | `events` | `event_id`, `ts`, `type`, `source`, `payload` |
+
+**`attachments.game_id` is always set; `run_id` and `session_id` are not.** A
+photo filed against the game itself has neither, so filter on `game_id` for
+"every photo of this game" and on the narrower two only when the question is
+about a run or a session. One photo can hold two rows -- the same hash filed at
+two levels -- so count `DISTINCT sha256` when counting photos.
 
 **`runs.platform` is the platform a playthrough happened on;
 `game_platforms.platform` is every platform the game exists on.** A question

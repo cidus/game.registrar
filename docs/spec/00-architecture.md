@@ -153,7 +153,7 @@ my-register/                 # user repo — private
   .gitignore                 # `init` adds the secrets file to it, and nothing else
   data/
     events.jsonl               # source of truth
-    games.csv runs.csv sessions.csv   # derived — `csv`, under build.csv.dir (default `data`)
+    games.csv runs.csv sessions.csv attachments.csv   # derived — `csv`, under build.csv.dir (default `data`)
     export.json                # derived — `json`
     log.db                     # derived cache — `sqlite`
   assets/<sha[0:2]>/<sha>.webp   # content-addressed images
