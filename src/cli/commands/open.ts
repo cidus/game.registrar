@@ -7,7 +7,7 @@ import { createContext } from '../context.ts'
 import { clockOf } from '../format.ts'
 import { emit } from '../output.ts'
 import type { Registrar } from '../register.ts'
-import { gameOfSession, load, openSessions } from '../workspace.ts'
+import { gameOfSession, load, openSessions, uninterruptedMinutes } from '../workspace.ts'
 
 export function registerOpen(registrar: Registrar): void {
   registrar.command('open', 'help.open').action(async (options: unknown, command: Command) => {
@@ -33,6 +33,7 @@ export function registerOpen(registrar: Registrar): void {
         game_id: game.game_id,
         opened_at: session.started_at,
         open_for_minutes: Math.max(0, openFor),
+        uninterrupted_minutes: uninterruptedMinutes(session, cli.at, cli.time),
         net_minutes: Math.max(0, openFor - breakMinutes),
         on_break: running !== undefined,
         break_started_at: running?.started_at ?? null,

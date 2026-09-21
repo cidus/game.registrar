@@ -33,8 +33,15 @@ function at(value: string): DateTime {
 
 type Checkin = { at: string; trigger: CheckinTrigger; outcome?: CheckinOutcome }
 
+/** A break inside the session. No `close` is a break still running. */
+type Break = { open: string; close?: string }
+
 /** One game, one run, one session opened at 20:00, plus whatever was asked. */
-function log(checkins: readonly Checkin[] = [], openedAt = '2026-05-03 20:00'): EventEnvelope[] {
+function log(
+  checkins: readonly Checkin[] = [],
+  openedAt = '2026-05-03 20:00',
+  breaks: readonly Break[] = [],
+): EventEnvelope[] {
   const events: EventEnvelope[] = [
     event('game.create', { game_id: 'G1', slug: 'hollow-knight', title: 'Hollow Knight' }),
     event('run.open', {
@@ -48,6 +55,13 @@ function log(checkins: readonly Checkin[] = [], openedAt = '2026-05-03 20:00'): 
     }),
     event('session.open', { session_id: 'S1', run_id: 'R1', at: at(openedAt).toISO() }),
   ]
+  breaks.forEach((item, index) => {
+    const breakId = `B${index + 1}`
+    events.push(event('break.open', { break_id: breakId, session_id: 'S1', at: at(item.open).toISO() }))
+    if (item.close !== undefined) {
+      events.push(event('break.close', { break_id: breakId, at: at(item.close).toISO() }))
+    }
+  })
   for (const checkin of checkins) {
     events.push(
       event('session.checkin', {
@@ -80,6 +94,7 @@ type Case = {
   checkins?: Checkin[]
   settings?: Config
   openedAt?: string
+  breaks?: Break[]
   expect: CheckinTrigger | null
 }
 
@@ -101,6 +116,61 @@ const cases: Case[] = [
   {
     name: 'day_cutoff fires at the cutoff and is delivered at chase_at',
     when: '2026-05-04 09:00',
+    expect: 'day_cutoff',
+  },
+
+  // --- the stretch `duration` measures (05-agent, *Triggers*) ---
+  // The wall clock is not the threshold: a break ends the stretch and returns
+  // the trigger to Silent, so the crossing it made moot is never delivered.
+  {
+    name: 'a break ends the stretch: the threshold runs from the end of the break',
+    when: '2026-05-04 03:59',
+    settings: config({ quiet_hours: [] }),
+    breaks: [{ open: '2026-05-03 21:00', close: '2026-05-03 23:59' }],
+    expect: 'duration',
+  },
+  {
+    name: 'and not one minute before the new stretch reaches it',
+    when: '2026-05-04 03:58',
+    settings: config({ quiet_hours: [], clock: [] }),
+    breaks: [{ open: '2026-05-03 21:00', close: '2026-05-03 23:59' }],
+    expect: null,
+  },
+  {
+    name: 'a break resets the stretch, so the wall clock alone is not enough',
+    when: '2026-05-04 00:30',
+    settings: config({ quiet_hours: [], clock: [] }),
+    breaks: [{ open: '2026-05-03 21:00', close: '2026-05-03 23:59' }],
+    expect: null,
+  },
+  {
+    name: 'every break counts: the stretch runs from the last one to end',
+    when: '2026-05-04 03:30',
+    settings: config({ quiet_hours: [] }),
+    breaks: [
+      { open: '2026-05-03 21:00', close: '2026-05-03 22:00' },
+      { open: '2026-05-03 23:00', close: '2026-05-03 23:30' },
+    ],
+    expect: 'duration',
+  },
+  {
+    name: 'nothing offers a pause while the session is already on one',
+    when: '2026-05-04 00:30',
+    settings: config({ quiet_hours: [], clock: [] }),
+    breaks: [{ open: '2026-05-03 21:00' }],
+    expect: null,
+  },
+  {
+    name: 'a break swallowing the crossing never delivers the question it made moot',
+    when: '2026-05-04 04:00',
+    settings: config({ quiet_hours: [], clock: [] }),
+    breaks: [{ open: '2026-05-03 21:00', close: '2026-05-04 02:00' }],
+    expect: null,
+  },
+  {
+    name: 'a forgotten break is still chased the next morning: day_cutoff is not held by one',
+    when: '2026-05-04 09:00',
+    breaks: [{ open: '2026-05-03 21:00' }],
     expect: 'day_cutoff',
   },
 
@@ -244,7 +314,7 @@ const cases: Case[] = [
 for (const item of cases) {
   test(`due: ${item.name}`, () => {
     assert.equal(
-      triggerAt(log(item.checkins ?? [], item.openedAt), item.when, item.settings ?? config()),
+      triggerAt(log(item.checkins ?? [], item.openedAt, item.breaks), item.when, item.settings ?? config()),
       item.expect,
     )
   })
@@ -270,6 +340,7 @@ test('the row carries the facts the wording is built from, and no wording', () =
   assert.equal(row?.game, 'Hollow Knight')
   assert.equal(row?.opened_at, at('2026-05-03 20:00').toISO())
   assert.equal(row?.open_for_minutes, 780)
+  assert.equal(row?.uninterrupted_minutes, 780)
   assert.equal(row?.net_minutes, 780)
   assert.equal(row?.trigger, 'day_cutoff')
   assert.equal(row?.threshold, '05:00')
@@ -278,13 +349,37 @@ test('the row carries the facts the wording is built from, and no wording', () =
 })
 
 test('an open break is deducted from net time while the session runs', () => {
-  const events = log()
-  events.push(event('break.open', { break_id: 'B1', session_id: 'S1', at: at('2026-05-03 23:00').toISO() }))
+  const events = log([], '2026-05-03 20:00', [{ open: '2026-05-03 23:00' }])
 
-  const row = due(fold(events, context), config(), at('2026-05-04 00:30'), context)[0]
+  // A row can still name a session on a break: `clock` and `day_cutoff` are not
+  // held by one, since neither is offering a pause. `duration` is, so this asks
+  // with `after: null` — the row's arithmetic is what is under test here.
+  const row = due(
+    fold(events, context),
+    config({ after: null, clock: ['23:30'] }),
+    at('2026-05-04 00:30'),
+    context,
+  )[0]
   assert.equal(row?.open_for_minutes, 270)
   assert.equal(row?.net_minutes, 180)
+  assert.equal(row?.uninterrupted_minutes, 180)
   assert.equal(row?.on_break, true)
+  assert.equal(row?.break_started_at, at('2026-05-03 23:00').toISO())
+})
+
+test('the stretch ignores the break it follows, and freezes at the one running', () => {
+  const closed = log([], '2026-05-03 20:00', [{ open: '2026-05-03 21:00', close: '2026-05-03 23:00' }])
+  const running = log([], '2026-05-03 20:00', [{ open: '2026-05-03 23:00' }])
+  const settings = config({ after: null, clock: ['23:30'] })
+
+  const row = due(fold(closed, context), settings, at('2026-05-04 00:00'), context)[0]
+  // Played 20:00 to 21:00, broke for two hours, back at it: 60 minutes in.
+  assert.equal(row?.uninterrupted_minutes, 60)
+
+  const frozen = due(fold(running, context), settings, at('2026-05-04 00:30'), context)[0]
+  // Paused at 23:00: the stretch that ended there was three hours, and the
+  // break's own time never counts as play.
+  assert.equal(frozen?.uninterrupted_minutes, 180)
 })
 
 test('two open sessions are two rows, oldest first', () => {

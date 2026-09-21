@@ -258,7 +258,7 @@
       "none": "Nothing is due.",
       "row": "{title} — filed at {time}, open for {duration}. Due: {trigger}.",
       "trigger": {
-        "duration": "time open",
+        "duration": "time uninterrupted",
         "clock": "the hour",
         "day_cutoff": "left open overnight"
       }

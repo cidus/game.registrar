@@ -122,6 +122,14 @@ working around it.
   and `docs/getting-started.md`.** Every other document has an obvious owner;
   those two belong to nobody and go stale first. Ask whether any sentence in
   them is now untrue, not whether they mention the new thing.
+- **When a change alters what the CLI prints, read the agent skills.**
+  Commands, flags, row fields, exit codes and the meaning of a trigger are
+  quoted literally in `agent/skills/gamereg/` and in `agent/workspace/AGENTS.md`,
+  and a model cannot check them. `test/agent-skill.test.ts` covers the commands,
+  the flags and the query schema — nothing covers the fields or the prose, so a
+  stale name passes every test and fails in a chat months later with nobody at a
+  terminal. Start with `agent/skills/gamereg/reference/cli.md` for the command
+  surface and `reference/checkins.md` for anything a wake hands over.
 
 ## Rules for this session
 

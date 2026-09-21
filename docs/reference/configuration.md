@@ -299,9 +299,13 @@ malformed one exits 2, naming the key. See
 
 ### `checkin.after`
 
-- The `duration` trigger fires once a session has been open this long,
-  counting from when it opened, with breaks included. It stays fired, so quiet
-  hours, backoff and the ceiling only delay it.
+- The `duration` trigger fires once a session has been open this long **with no
+  break in the stretch**: measured from the opening, or from the end of the last
+  break since. A break ends the stretch, so the trigger returns to `Silent` and
+  the next crossing is counted from the break, not from the opening. While a
+  break is running nothing is due — the pause has already been taken.
+- Otherwise it stays fired, so quiet hours, backoff and the ceiling only delay
+  it. Background: [ADR 0102](../decisions/0102-a-break-returns-duration-to-silent.md).
 - `null` turns off the `duration` trigger and nothing else. Leaving the key out
   keeps `4h`.
 

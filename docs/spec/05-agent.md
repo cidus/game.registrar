@@ -352,7 +352,7 @@ that pings when it has nothing to ask gets muted within a week, and then the
 
 | Trigger | Fires when | Register |
 |---|---|---|
-| `duration` | Session open longer than `checkin.after` (default 4h) | Curious, offers a break |
+| `duration` | The session has stood open for `checkin.after` (default 4h) **with no break in the stretch** | Curious, offers a break |
 | `clock` | A configured wall-clock time passes with a session open | Gently practical |
 | `day_cutoff` | Session still open past `day_cutoff`, asked at `chase_at` | Formal; asks for a closing time |
 
@@ -502,6 +502,14 @@ stateDiagram-v2
 for `day_cutoff`. `day_cutoff` ignores `quiet_hours` and is exempt from both the
 backoff ladder and the ceiling, which is why it can leave `Exhausted`. With
 `checkin.after` set to `null` the `duration` trigger never leaves `Silent`.
+
+**A break is the one thing that returns a trigger to `Silent`.** `duration`
+measures the *stretch* of play with no break in it — from the opening, or from
+the end of the last break since — so `Asked → BreakStarted` puts it back where
+it started rather than leaving it fired against a wall clock nobody was playing
+([ADR 0102](../decisions/0102-a-break-returns-duration-to-silent.md)). Nothing
+is offered while a break is running either: the pause has already been taken.
+`clock` and `day_cutoff` are not held by a break, since neither is offering one.
 
 Three components move this machine, and the split is the whole design:
 

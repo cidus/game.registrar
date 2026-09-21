@@ -154,6 +154,7 @@ Links to specs, code and other records.
 | [0099](0099-image-tags-edge-and-sha-only.md) | The image is published as :edge and :sha tags only, with no :latest before 1.0.0 | Versioning and releases | Accepted | 2026-09-13 |
 | [0100](0100-refused-model-hands-over-to-the-fallback-chain.md) | A model that refuses hands over to the fallback chain instead of being retried | Container deployment | Accepted | 2026-09-16 |
 | [0101](0101-attachments-are-resolved-to-their-owner.md) | Attachments reach the derived artifacts resolved to their owner | Build and targets | Accepted | 2026-09-19 |
+| [0102](0102-a-break-returns-duration-to-silent.md) | A break returns `duration` to `Silent` | Check-ins | Accepted | 2026-09-20 |
 
 ## By area
 
@@ -244,6 +245,7 @@ Links to specs, code and other records.
 - [0042](0042-wrapper-stdout-empty-and-source-set.md) The check-in wrapper prints nothing on stdout and sets GAMEREG_SOURCE itself
 - [0043](0043-agent-reads-last-checkin-id.md) The agent reads last_checkin_id from gamereg open
 - [0059](0059-checkins-have-no-buttons.md) Check-ins carry no buttons and have a single sender
+- [0102](0102-a-break-returns-duration-to-silent.md) A break returns `duration` to `Silent`
 
 ### Agent prompt
 

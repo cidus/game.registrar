@@ -337,7 +337,7 @@
       "none": "Nada pendente.",
       "row": "{title} — protocolada às {time}, aberta há {duration}. Pendente: {trigger}.",
       "trigger": {
-        "duration": "tempo em aberto",
+        "duration": "tempo sem intervalo",
         "clock": "a hora",
         "day_cutoff": "aberta desde ontem"
       }

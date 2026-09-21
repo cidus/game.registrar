@@ -13,6 +13,7 @@ import {
   fold,
   gameOfSession,
   openSessions,
+  uninterruptedMinutes,
   type GameState,
   type RunState,
   type SessionState,
@@ -33,9 +34,9 @@ import { candidateOf, parseReference, resolveLocal, type Candidate, type Resolve
 import type { Cli } from './context.ts'
 import { choose } from './prompt.ts'
 
-// Two pure queries over folded state, which is where they live; re-exported
-// here so a command still has one import for everything session-shaped.
-export { gameOfSession, openSessions }
+// These pure queries over folded state live there; re-exported here so a
+// command still has one import for everything session-shaped.
+export { gameOfSession, openSessions, uninterruptedMinutes }
 
 export type Workspace = {
   events: EventEnvelope[]

@@ -797,6 +797,35 @@ export function attachmentsOfGame(state: VaultState, game: GameState): GameAttac
   return collected.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0))
 }
 
+/**
+ * Where the current stretch of play began: when the session opened, or the end
+ * of the last break since. Breaks that are still open never move it — the
+ * stretch they paused is measured against the moment it was paused, which is
+ * `uninterruptedMinutes` below.
+ */
+export function stretchStart(session: SessionState, time: TimeContext): DateTime {
+  return session.breaks.reduce((best, item) => {
+    const end = item.ended_at === null ? best : parseISO(item.ended_at, time)
+    return end > best ? end : best
+  }, parseISO(session.started_at, time))
+}
+
+/**
+ * The stretch of play with no break in it: live while the session runs, frozen
+ * at the instant of the break that paused it. Never the wall clock — a session
+ * open for eight hours with three breaks in it was not eight hours of play, and
+ * `checkin.after` asks about play (docs/spec/05-agent.md, *Triggers*).
+ *
+ * This is what `open`'s `open_for_minutes` is not: that one counts from the
+ * opening, breaks included, which is the number a ledger wants where this is
+ * the number a question wants.
+ */
+export function uninterruptedMinutes(session: SessionState, at: DateTime, time: TimeContext): number {
+  const paused = session.breaks.find((item) => item.open)
+  const until = paused === undefined ? at : parseISO(paused.started_at, time)
+  return Math.max(0, minutesBetween(stretchStart(session, time), until > at ? at : until))
+}
+
 /** Every session still open, in the order the log put their games in. */
 export function openSessions(state: VaultState): SessionState[] {
   const sessions: SessionState[] = []
