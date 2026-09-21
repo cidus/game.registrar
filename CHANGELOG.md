@@ -21,6 +21,10 @@ file.
   `run_open_event_id`: the event to `amend` for a closing field. `null` while
   the run is open; the opening id for a run filed as a single `run.import`
   (`import`, or `past --ended`).
+- `uninterrupted_minutes` on the rows of `gamereg open` and `gamereg due`: the
+  stretch of play with no break in it, the figure `checkin.after` is measured
+  against and the one a message may quote. `open_for_minutes` (wall clock) and
+  `net_minutes` (minus every break) are unchanged.
 
 **Derived artifacts**
 
@@ -138,6 +142,11 @@ file.
 
 **Agent and check-ins**
 
+- The `duration` trigger measures the stretch of play with no break in it, from
+  the opening or from the end of the last break, instead of the wall clock. A
+  break sends it back to `Silent` and nothing is due while one runs, so a
+  session that just took a two-hour break is no longer asked "four hours in?"
+  ([ADR 0102](docs/decisions/0102-a-break-returns-duration-to-silent.md)).
 - A rate-limited model hands over to the fallback chain instead of waiting on
   the provider's `Retry-After`, which outlived the turn every time.
 - `agent/checkin.sh --dry-run` no longer appends `event.amend`s through the

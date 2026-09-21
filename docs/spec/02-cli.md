@@ -434,9 +434,9 @@ not re-ordered.
 ### `gamereg open` — list open sessions
 
 Never writes. One row per open session, carrying the session's own facts
-(`opened_at`, `open_for_minutes`, `net_minutes`, `on_break`,
-`break_started_at`, `checkins_so_far`) and three ids that exist for a caller with
-no terminal:
+(`opened_at`, `open_for_minutes`, `uninterrupted_minutes`, `net_minutes`,
+`on_break`, `break_started_at`, `checkins_so_far`) and three ids that exist for a
+caller with no terminal:
 
 | Field | What it names | Null when |
 |---|---|---|
@@ -479,6 +479,7 @@ does this arithmetic so every caller behaves identically — see
     "game_id": "01K...",
     "opened_at": "2026-08-12T20:14:00-03:00",
     "open_for_minutes": 412,
+    "uninterrupted_minutes": 412,
     "net_minutes": 372,
     "on_break": false,
     "break_started_at": null,
@@ -500,6 +501,14 @@ one this evaluation was measured against, never the one about to be asked.
 `threshold` is the setting that fired, as configured: `checkin.after` (default
 `4h`) for `duration`, the hour itself for `clock` and for `day_cutoff`. Rows are
 ordered oldest session first.
+
+The three minute figures answer three different questions, and a message built
+from the wrong one is a wrong message: `open_for_minutes` is the wall clock
+since the opening, `net_minutes` is that minus every break, and
+`uninterrupted_minutes` is the stretch of play with no break in it — what
+`duration` is measured against, live while the session plays and frozen at the
+break that paused it
+([ADR 0102](../decisions/0102-a-break-returns-duration-to-silent.md)).
 
 `trigger` is what the agent uses to choose its register — see
 [05-agent](05-agent.md). Never hardcode the phrasing here; the CLI reports facts.

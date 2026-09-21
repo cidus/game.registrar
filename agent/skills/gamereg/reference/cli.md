@@ -207,9 +207,15 @@ gamereg open
 ```
 
 Every open session. Each row carries `session_id`, `run_id`, `game`, `game_id`,
-`opened_at`, `open_for_minutes`, `net_minutes`, `on_break`, `break_started_at`,
-`checkins_so_far`, `last_checkin_id`, `run_open_event_id` and
-`session_open_event_id`.
+`opened_at`, `open_for_minutes`, `uninterrupted_minutes`, `net_minutes`,
+`on_break`, `break_started_at`, `checkins_so_far`, `last_checkin_id`,
+`run_open_event_id` and `session_open_event_id`.
+
+**Three minute figures, three different questions.** `open_for_minutes` is the
+wall clock since the opening, breaks included. `net_minutes` is that minus every
+break. `uninterrupted_minutes` is the stretch of play with no break in it — the
+only one you may quote as "you have been at this for N", and the one `duration`
+is measured against; it is frozen at the break while one is running.
 
 `last_checkin_id` is the check-in you amend when someone answers one. It is
 `null` until a session has been asked about, and it is only readable while the

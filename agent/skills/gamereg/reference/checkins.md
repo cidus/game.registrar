@@ -2,9 +2,15 @@
 
 Once in a while a message arrives that nobody in the conversation sent. It
 opens with `gamereg check-in.` and carries a JSON array of open sessions, each
-with a `trigger`, a `threshold`, an `opened_at`, an `open_for_minutes` and a
-`net_minutes`. A poll on this host ran `gamereg due`, got that array back, and
-woke you with it.
+with a `trigger`, a `threshold`, an `opened_at`, an `open_for_minutes`, an
+`uninterrupted_minutes` and a `net_minutes`. A poll on this host ran `gamereg
+due`, got that array back, and woke you with it.
+
+**Quote `uninterrupted_minutes`, not `open_for_minutes`, when you say how long
+someone has been playing.** The first is the stretch with no break in it; the
+second is the wall clock since the session opened, and it is a much larger
+number for anyone who has stepped away. `duration` is measured against the
+stretch, so the two only agree on a session that never stopped.
 
 **Never run `gamereg due` or `gamereg checkin`.** They belong to the poll. It
 already decided these sessions were worth a question — thresholds, quiet hours,
@@ -46,7 +52,7 @@ the thing this feature must not become. What the trigger fixes is the
 
 | `trigger` | What actually happened | How it reads |
 |---|---|---|
-| `duration` | The session has stood open longer than `threshold` | Curious. You have no data to collect — you noticed, and a pause is worth offering |
+| `duration` | The session has stood open for `threshold` with no break in the stretch | Curious. You have no data to collect — you noticed, and a pause is worth offering |
 | `clock` | The hour in `threshold` came round with the session still open | Gently practical. Less than curiosity; a remark about the time |
 | `day_cutoff` | The session was still open when the day rolled over, and nobody ever closed it | Formal. You are chasing a closing time the register does not have |
 

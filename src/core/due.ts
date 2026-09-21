@@ -20,7 +20,7 @@ import type { DateTime } from 'luxon'
 
 import type { CheckinConfig, Config } from './config.ts'
 import { minutesBetween, parseDuration } from './duration.ts'
-import { gameOfSession, openSessions, type SessionState, type VaultState } from './fold.ts'
+import { gameOfSession, openSessions, stretchStart, uninterruptedMinutes, type SessionState, type VaultState } from './fold.ts'
 import { atClock, clockMinutes, parseISO, type TimeContext } from './time.ts'
 import type { CheckinTrigger } from './vocab.ts'
 
@@ -35,6 +35,13 @@ export type DueRow = {
   game_id: string
   opened_at: string
   open_for_minutes: number
+  /**
+   * The stretch of play with no break in it — what `checkin.after` is measured
+   * against, and the only one of the three numbers that may be quoted at
+   * someone as "you have been at this for N" (`fold.ts`,
+   * `uninterruptedMinutes`). Frozen at the break when one is open.
+   */
+  uninterrupted_minutes: number
   net_minutes: number
   on_break: boolean
   break_started_at: string | null
@@ -83,16 +90,25 @@ function insideQuietHours(at: DateTime, window: readonly string[]): boolean {
 }
 
 /**
- * Fires once the session has stood open for `checkin.after`, and stays fired:
- * the threshold does not un-cross itself, so being *held* by quiet hours or by
- * backoff is the same thing as not being returned yet.
+ * Fires once the session has stood open for `checkin.after` **with no break in
+ * the stretch**, and stays fired: being *held* by quiet hours or by backoff is
+ * the same thing as not being returned yet.
  *
- * Wall-clock elapsed, not net of breaks — "session open longer than" is what
- * the spec says, and a break is exactly the outcome this trigger hopes for.
+ * The stretch, not the wall clock. `Asked → BreakStarted → Silent` in
+ * docs/spec/05-agent.md's state machine is this line: a break ends the stretch
+ * and returns the trigger to `Silent`, which is the one transition the
+ * evaluator could not express while the threshold was measured from
+ * `session.started_at`. A break is the outcome this trigger asks for, and
+ * "four hours in?" forty minutes after the user took a two-hour break is the
+ * nagging this file exists to prevent.
+ *
+ * Nothing is due *while* a break runs either. An open break is not play, and a
+ * question offering a pause that has already been taken answers itself.
  */
 function fireDuration(session: SessionState, checkin: CheckinConfig, at: DateTime, time: TimeContext): Firing | null {
   if (checkin.after === null) return null
-  const fired = parseISO(session.started_at, time).plus({ minutes: parseDuration(checkin.after) })
+  if (session.breaks.some((item) => item.open)) return null
+  const fired = stretchStart(session, time).plus({ minutes: parseDuration(checkin.after) })
   if (fired > at) return null
   return { trigger: 'duration', threshold: checkin.after, deliverAt: fired }
 }
@@ -222,6 +238,7 @@ export function due(state: VaultState, config: Config, at: DateTime, time: TimeC
       game_id: game.game_id,
       opened_at: session.started_at,
       open_for_minutes: Math.max(0, openFor),
+      uninterrupted_minutes: uninterruptedMinutes(session, at, time),
       net_minutes: Math.max(0, openFor - breakMinutes),
       on_break: running !== undefined,
       break_started_at: running?.started_at ?? null,
