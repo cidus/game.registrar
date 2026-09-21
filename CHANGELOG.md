@@ -1,18 +1,28 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
+All notable changes to this project are documented in this file, in the format
+of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are SemVer
+tied to roadmap phases rather than bumped per feature; the scheme and the
+release procedure are in
+[docs/development/releasing.md](docs/development/releasing.md).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to the versioning scheme described in `CLAUDE.md`
-(SemVer tied to roadmap phases, not to feature-by-feature bumps).
-
-The full reasoning behind a change — not just what changed — lives in the
-annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
-`CLAUDE.md`. This file is the short version.
+This file records what changed. The reasons are in the decision records under
+[docs/decisions/](docs/decisions/README.md) and in each release's annotated tag
+(`git tag -n99 vX.Y.Z`). A GitHub release carries its version's section of this
+file.
 
 ## [Unreleased]
 
 ### Added
+
+**Command line**
+
+- `run_close_event_id` on each run in `gamereg status`, beside
+  `run_open_event_id`: the event to `amend` for a closing field. `null` while
+  the run is open; the opening id for a run filed as a single `run.import`
+  (`import`, or `past --ended`).
+
+**Derived artifacts**
 
 - An `attachments` table in the derived artifacts: `data/attachments.csv`, an
   `attachments[]` array in `data/export.json`, and `attachments` in
@@ -20,249 +30,160 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
   session it belongs to — `game_id` always, the narrower two when the photo
   was filed against a moment. Revocations and amendments are already applied,
   which is what asking the fold buys over reading the `events` table.
-### Removed
 
-- `checkin.persona_prompt` from `gamereg.config.json`. It was parsed and
-  validated but read by nothing in `src/`, `agent/`, `docker/` or `scripts/`,
-  while `docs/spec/05-agent.md` described it as how the Registrar's voice is
-  set — a setting that looked configured and did nothing. The register's
-  persona lives on the gateway side, in `agent/workspace/SOUL.md`, and always
-  did. A vault with `checkin.persona_prompt` set now exits 2 at load, naming
-  it as an unknown key, the same as any other removed setting.
-
-### Fixed
-
-- `gamereg init --day-cutoff` with a malformed value exited 2 with the literal
-  string `error.bad_cutoff` as its message — the i18n key existed in neither
-  `i18n/en.json` nor `i18n/pt-BR.json`, so `t()` fell back to the raw key.
-  Both locales now carry a real message naming the value.
-- `i18n/pt-BR.json`'s `cli.commands` had no entries for `query`, `import`,
-  `attach` or `cover`, so those four commands fell back to their English
-  spelling under `--locale pt-BR` — while `docs/spec/02-cli.md`'s own mapping
-  table claimed `query` → `consultar`. All four are mapped now
-  (`consultar`/`importar`/`anexar`/`capa`), and the spec table is rewritten to
-  match `i18n/pt-BR.json`'s `cli.commands` exactly, entry for entry — it had
-  also been missing `status`, `doctor`, `alias`, `revoke`, `verdict`,
-  `platform`, `add`, `remove` and `list`, which were shipped and translated
-  but never documented.
-- Config values of the wrong type were silently ignored, keeping the default,
-  for `locale`, `timezone`, `defaults.platform`, `platforms` (non-array),
-  `build.targets` (non-array), `build.csv.dir` and every `images.*` key —
-  unlike every other setting, which has always exited 2 on a bad value. Now
-  all of them do, at exit 2 with `error.bad_config_value` naming the key and
-  the file, matching the strictness `checkin`'s block already had.
-  `images.max_edge` and `images.quality` are also range-checked against what
-  the image pipeline itself accepts: `{"images": {"quality": 0}}` used to load
-  clean and only fail later, mid-ingest, with a message naming the photo file
-  rather than the setting. `timezone` is checked against the IANA database, at
-  both `loadConfig` and `gamereg init --timezone` — a well-typed but invalid
-  zone used to write straight into `gamereg.config.json` unchecked and only
-  fail the next time something tried to project an instant into it.
-- `agent/checkin.sh --dry-run` no longer runs `gamereg checkin --expire` for
-  real before checking `DRY_RUN`. The expiry sweep appends an `event.amend` for
-  every stale `snoozed` check-in, so a dry run was writing to the append-only
-  log despite being documented as filing nothing. The sweep now forwards
-  `--dry-run` to `gamereg checkin --expire` itself.
-- `docker/entrypoint.sh`'s `seed_vault()` only ran `git init` inside the branch
-  guarded by "no `gamereg.config.json`". A vault mounted with a config already
-  in place but no `.git` returned before ever becoming a repository, so
-  `scripts/autobuild.sh` — which treats a dirty working tree as its entire
-  state — could never run against it. The two checks are now independent; an
-  existing vault's contents are still never touched.
-- `docker/entrypoint.sh`'s `configure_model_auth()` returned immediately once
-  `.gamereg-auth-seeded` existed, so replacing an expired
-  `CLAUDE_CODE_OAUTH_TOKEN` in `.env` and restarting silently kept the old one
-  in the auth store. The sentinel now holds a hash of the token last pasted
-  (never the token itself) and the boot re-runs
-  `openclaw models auth paste-token` when the hash changes.
-- `images.keep_original` wrote the raw input bytes to disk, EXIF and GPS
-  intact, breaking invariant 12 for every kept original — which then reached
-  `obsidian/assets` and, with `images.publish`, `quartz/content/assets` through
-  the ordinary hardlink mirror. It now goes through the same strip as the
-  normalized copy: re-encoded with orientation baked in and no metadata
-  carried through, same resolution and format as the source.
-- The model fallback chain is actually reached when a rate limit hits. OpenClaw
-  2026.9.4 retries the same model first and, on a 429, sleeps for the
-  provider's `Retry-After` — 41 to 260 minutes from Anthropic across five
-  logged incidents, against a turn abandoned after about six. The entrypoint
-  writes `retry.provider.maxRetries: 0` into the agent's `settings.json`
-  (`OPENCLAW_PROVIDER_MAX_RETRIES` to change it), so a refusal hands over
-  instead of waiting.
-
-### Added
-
-- `OPENCLAW_MODEL_FALLBACK` takes a comma-separated chain, tried in order.
-  With the same-model retry off, depth in the chain is what depth in retries
-  used to be — and it costs no waiting on the model that just refused.
-
-### Fixed
-
-- The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
-  seeding them once. They are code — `test/agent-skill.test.ts` asserts their
-  contents against the real binary and the real SQL schema — and seeding them
-  meant an image upgrade shipped new behaviour with the old standing orders,
-  silently. A card that had been edited is kept under `backups/` first.
-- Workspace files that *are* the user's (`SOUL.md`, `IDENTITY.md`,
-  `REACTIONS.md`, `USER.md`, `HEARTBEAT.md`) now carry the hash of what was
-  seeded, so a boot can tell an edit from a shipped default that moved: an
-  untouched file follows the image with no action from anyone, an edited one is
-  kept and the boot logs a `NOTICE` naming the shipped copy and the way to take
-  the new version. An install from before the tracking is left alone, loudly.
-
-### Security
-
-- `.dockerignore` now excludes `.env` and every `.env.*` variant except
-  `.env.example`. The builder stage's `COPY . .` was pulling a filled `.env`
-  into a local builder layer and the build cache for anyone building from a
-  checkout (`compose.build.yml`) — the runtime stage never copies it in, so no
-  secret reached a published image, but it did reach the machine's own Docker
-  build cache.
-
-### Removed
-
-- `memory-core`'s nightly `dreaming` sweep, disabled in the boot config patch.
-  It wrote a growing narrative diary into the workspace — and so into the
-  system prompt of every turn — while `tools.allow` left the agent no tool that
-  could query the memory it built. An existing `DREAMS.md` is moved out of the
-  workspace and kept.
-
-### Added
-
-- `agent/workspace/USER.md` (house rules, never overriding *Safety*) and
-  `agent/workspace/HEARTBEAT.md` (comments only). Both claim slots the gateway
-  otherwise fills with its own defaults, which is what makes the deployed
-  prompt equal to the shipped one — and the size budget, raised to 32,000,
-  finally a measure of all of it rather than 87% of it.
-
-### Fixed
-
-- `gamereg amend` refuses a `--set` key the target event's type does not carry,
-  at exit 2, naming the fields it does carry. Such a key was merged into the
-  payload, read by nobody and reported as a success: `rating` and `difficulty`
-  patched onto a `run.open` (which reads neither) and `minutes` onto a
-  `run.close` (derived state) both reached a live log, one of them after the
-  agent told the user a rating had been recorded.
-
-### Added
-
-- `run_close_event_id` on each run in `gamereg status`, beside
-  `run_open_event_id` — the event an `amend` on a closing field takes. `null`
-  while the run is open; equal to the opening id for a run filed by `past` or
-  `import`, which carries both halves on one event.
-
-### Changed
-
-- `GATEWAY_MEM_LIMIT` defaults to `1g`, from `480m`. The pinned OpenClaw idles
-  at ~432 MB and restart-loops at the old limit. `.env.example`,
-  `compose.yml` and `docs/deploy-container.md` carry the measurements and the
-  finding that the 1 GB e2-micro is no longer a comfortable target.
-
-### Changed
-
-- OpenClaw pinned to `2026.9.4` (from `2026.7.1-2`) and the image's Node to 24,
-  which the new OpenClaw requires (`>=24.16`). gamereg's own floor is unchanged
-  at 22.18, and a clean-room build on Node 24 reproduces the committed goldens
-  byte for byte, SQLite included.
-- `tools.exec.security` + `ask` migrated to `tools.exec.mode: "allowlist"`.
-  OpenClaw 2026.8 refuses the pair when combined, which stopped the container
-  at its boot-time `config patch`.
-- `docker/entrypoint.sh` seeds the exec allowlist with `openclaw approvals set
-  --file` instead of copying `exec-approvals.json` into place. The store moved
-  into `state/openclaw.sqlite` in 2026.9, and a legacy file left behind is
-  fatal at runtime rather than at boot. A legacy file from an older image is
-  removed on the way.
-- `docker/entrypoint.sh` runs `openclaw doctor --fix` when the saved config
-  fails validation against the installed OpenClaw, and still dies if it is
-  invalid afterwards. `meta.lastTouchedAt`, written by OpenClaw itself, became
-  unrecognized across this upgrade and would otherwise have blocked every boot.
-
-### Changed
-
-- `agent/README.md` restructured: 1290 lines to 650. Architecture and the
-  prompt layout first, an objective step-by-step setup that points at
-  `docs/deploy-container.md` for the deployment actually in use, then decisions
-  and traps as their own sections instead of essays interleaved between the
-  setup steps. The chronology went; the reasons stayed. One contradiction was
-  resolved on the way — the approvals section asserted both that an explicit
-  `approvers` list was required and that `enabled: true` alone sufficed.
-
-### Changed
-
-- Check-ins carry no buttons. The three exits are typed, which makes the
-  agent's `message` tool unnecessary on that turn and leaves `--deliver` as
-  the only sender — so "exactly one delivery path" stopped being a rule the
-  wake had to enforce and became a property of the design.
-
-### Fixed
-
-- `gamereg doctor` no longer reports every `session.checkin` as invalid. Its
-  enum table was keyed by field name alone, so `outcome` was checked against
-  the run's list (`finished|abandoned`) on check-ins too, which spend the same
-  field on `snoozed|break_started|session_closed|no_reply`. The live vault
-  carried eleven false positives — and they were hiding two real orphans.
-
-### Fixed
-
-- Check-in buttons are stripped once the question is answered. The rule lived
-  in `AGENTS.md`'s *Buttons* section and the check-in flow never routed back to
-  it, so a check-in answered in plain text kept its buttons live. A second
-  check-in for the same session now also strips the first, and a tap naming a
-  session that `gamereg open` no longer lists is answered in words rather than
-  with a command that exits 5.
-
-### Added
+**Container deployment**
 
 - `Dockerfile` and `compose.yml`: the CLI and the OpenClaw gateway in one image,
-  at versions pinned to work together. Three core services — the gateway, the
-  maintenance loop, and a one-shot `provision` that registers the check-in cron
-  job against the running gateway.
-- `docker/entrypoint.sh`, which seeds an empty vault and commits it, configures
-  git, installs the model credential into the per-agent auth store, deploys the
+  at pinned versions. Three core services: the gateway, the maintenance loop
+  (`docker/loop.sh` running `scripts/autobuild.sh`: enrich, build, commit and
+  push whenever the vault's tree is dirty), and a one-shot `provision` that
+  registers the check-in cron job against the running gateway.
+- The image is published to `ghcr.io/cidus/gamereg` for `linux/amd64` and
+  `linux/arm64` on every push to `main`, tagged `:edge` (moves with `main`) and
+  `:sha-<commit>` (never moves). No `:latest` or version tag is published.
+- `compose.yml` runs the published image, so installing needs only
+  `compose.yml` and `.env` (`.env.example` documents every variable).
+  `GAMEREG_IMAGE_TAG` selects the tag; `compose.build.yml` builds from a
+  checkout instead.
+- `docker/entrypoint.sh` seeds an empty vault and commits it, configures git,
+  installs the model credential into the per-agent auth store, deploys the
   skill and persona, and patches the gateway configuration from the environment
   on every boot. `--dry-run` performs nothing.
-- `docker/loop.sh` and `scripts/autobuild.sh` as a container service: enrich,
-  build, commit and push whenever the vault's tree is dirty.
+- Model selection from the environment: `OPENCLAW_MODEL` for the primary,
+  `OPENCLAW_MODEL_FALLBACK` for a comma-separated fallback chain tried in order,
+  and `OPENCLAW_PROVIDER_MAX_RETRIES` (default `0`) for how often the same model
+  is retried before the chain.
+- With `TELEGRAM_ALLOW_FROM` empty, the gateway starts in Telegram pairing mode:
+  the bot replies to a first message with the sender's numeric id and a code to
+  approve.
+- The `gateway` and `maintenance` services mount the host's `/etc/localtime`,
+  so both keep the host's time zone.
 - Optional compose profiles, all off by default: `site` (a Quartz build loop
   plus Caddy), `comments` (Remark42) and `tunnel` (cloudflared). `site` can
   serve the comments on its own origin under `/remark42`.
-- `docs/deploy-container.md` and `.env.example`.
+
+**Agent**
+
+- `agent/workspace/USER.md` (house rules, which never override *Safety*) and
+  `agent/workspace/HEARTBEAT.md` (comments only), so the gateway does not fill
+  those slots with its own defaults.
+
+**CI and tests**
+
+- GitHub Actions: `test` (typecheck and the suite on Node 22.18 and 24), `image`
+  (builds the container, runs its entrypoint's `--dry-run`, diffs a clean-room
+  `gamereg build` against the committed goldens and, on `main`, publishes) and
+  `live` (the opt-in IGDB suite, weekly, failing when the credentials are
+  missing).
 - `test/entrypoint-wrapper.test.ts`, `test/loop-wrapper.test.ts` and
   `test/phase-citations.test.ts`.
-- GitHub Actions: `test` (typecheck and the suite on Node 22.18 and 24), `image`
-  (builds the container, runs its entrypoint's `--dry-run`, and diffs a
-  clean-room `gamereg build` against the committed goldens) and `live` (the
-  opt-in IGDB suite, weekly, which now fails rather than passing vacuously when
-  the credentials are absent).
-- `test/dump-db.ts` — `dumpDatabase()` as a leaf module importing only
-  `node:sqlite`, so the container workflow and `test/golden.test.ts` compare
-  through one implementation with no `node_modules` on the runner.
+- `test/docs-links.test.ts` (every relative link and `#anchor` in the
+  documentation resolves) and `test/docs-structure.test.ts` (decision records
+  are numbered once, dated and indexed; no page under `docs/` is unreachable
+  from the map).
+- `test/dump-db.ts`: `dumpDatabase()` as a leaf module importing only
+  `node:sqlite`, shared by `test/golden.test.ts` and the image workflow, which
+  has no `node_modules`.
+
+### Changed
+
+- Check-ins carry no buttons: the three answers are typed, and `--deliver` is a
+  check-in's only sender.
+- OpenClaw pinned to `2026.9.4` (from `2026.7.1-2`) and the image's Node to 24,
+  which that version requires (`>=24.16`). gamereg itself still supports Node
+  22.18.
+- `GATEWAY_MEM_LIMIT` defaults to `1g`, from `480m`: the pinned OpenClaw idles
+  at about 432 MB and restart-loops at the old limit.
+- `tools.exec.security` plus `ask` became `tools.exec.mode: "allowlist"`, since
+  OpenClaw 2026.8 refuses the pair.
+- The container seeds the exec allowlist with `openclaw approvals set --file`
+  instead of copying `exec-approvals.json`, and removes a legacy file left by an
+  older image.
+- The container runs `openclaw doctor --fix` before anything else reads the
+  config, when the saved config fails validation against the installed
+  OpenClaw, and still stops if it is invalid afterwards.
+- A configuration value of the wrong type exits 2 naming the key, for every
+  key, instead of being ignored for some. `timezone` is checked against the
+  IANA database and `images.max_edge`/`images.quality` against what the image
+  pipeline accepts, at load and at `init`.
+- Documentation reorganized into a tutorial, how-to guides, reference,
+  explanation, the architecture decision records and development docs, mapped
+  in [docs/README.md](docs/README.md). `CLAUDE.md` is a short briefing again,
+  and `agent/README.md` a directory README.
+
+### Removed
+
+- `checkin.persona_prompt`, which was validated but read by nothing. The persona
+  lives in the gateway workspace; a vault that still sets the key exits 2 at
+  load, naming it as unknown.
+- `memory-core`'s nightly `dreaming` sweep, disabled in the boot config patch.
+  An existing `DREAMS.md` is moved out of the workspace and kept.
 
 ### Fixed
 
-- The query guard refused `pragma` but not `pragma_table_info(...)`: `_` is a
-  word character, so the word-boundary scan read straight past the
-  table-valued-function form. The reserved `pragma_` and `sqlite_` namespaces
-  are now refused outright.
-- The Remark42 service no longer receives the whole `.env`. Compose loads an
-  `env_file` wholesale, so the one container reachable from the internet held
-  the model credential, the Telegram bot token, the tunnel token and the IGDB
-  keys, none of which it reads. Every variable it needs is named explicitly.
-- The Cloudflare tunnel token moved from argv, where it was visible in
-  `/proc/<pid>/cmdline`, to the environment.
-- The Quartz site is built in a scratch directory rather than in the vault, so
-  the vault can be mounted read-only for a service that executes third-party
-  plugin code.
+**Command line**
+
+- `gamereg amend` refuses, at exit 2, a `--set` key that the target event's type
+  does not carry, and names the fields it does carry. Such a key used to be
+  accepted, ignored and reported as a success.
+- `gamereg doctor` no longer reports every `session.checkin` as invalid: a
+  check-in's `outcome` is checked against the check-in outcomes, not the run's.
+- `gamereg init --day-cutoff` with a malformed value printed the raw key
+  `error.bad_cutoff` instead of a message.
+- `query`, `import`, `attach` and `cover` have pt-BR command names
+  (`consultar`, `importar`, `anexar`, `capa`).
+- `scripts/vendor-quartz.sh` seeds `wrangler.jsonc` with the vault directory's
+  name as the Worker name, without an invented `-site` suffix, and flags the
+  name as a guess to check.
+
+**Agent and check-ins**
+
+- A rate-limited model hands over to the fallback chain instead of waiting on
+  the provider's `Retry-After`, which outlived the turn every time.
+- `agent/checkin.sh --dry-run` no longer appends `event.amend`s through the
+  reply-window sweep.
+
+**Container deployment**
+
+- The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
+  seeding them once; a previous copy that differed is kept under `backups/`.
+- The other workspace files (`SOUL.md`, `IDENTITY.md`, `REACTIONS.md`,
+  `USER.md`, `HEARTBEAT.md`) record the hash of what was seeded. An untouched
+  file follows the image; an edited one, or one from an install that predates
+  the tracking and differs from the shipped copy, is kept with a `NOTICE` in
+  the boot log.
+- A new `CLAUDE_CODE_OAUTH_TOKEN` in `.env` is installed on the next boot; the
+  boot compares a hash of the token instead of running once.
+- An existing vault that has a config but no `.git` becomes a repository, so
+  the maintenance loop can run against it.
+- The token in `/config/.gateway-token` is restated in the gateway
+  configuration on every boot, so a config repair cannot lock CLI clients out
+  with `token_mismatch`.
+- `provision --dry-run` no longer contacts the gateway.
+- Remark42 no longer receives `AUTH_TELEGRAM=""`, which it read as enabling
+  Telegram sign-in; boolean flags default to an explicit `false`.
+- `compose.yml` passes Remark42 the Patreon and Microsoft sign-in variables that
+  `.env.example` offers, and a test keeps the two files in agreement.
+
+### Security
+
+- Remark42, the one service reachable from the internet, no longer receives the
+  whole `.env` (model credential, Telegram bot token, tunnel token, IGDB keys);
+  `compose.yml` names each variable it reads.
+- `images.keep_original` writes its copy through the same EXIF and GPS strip
+  as the normalized image, restoring invariant 12.
+- The query guard refuses the reserved `pragma_` and `sqlite_` namespaces, so
+  `pragma_table_info(...)` no longer gets past its `pragma` check.
+- The Cloudflare tunnel token is passed in the environment instead of argv,
+  where `/proc/<pid>/cmdline` exposed it.
+- The `site` profile builds Quartz in a scratch directory, so the vault is
+  mounted read-only in the service that runs third-party plugin code.
 - Values interpolated into the gateway's JSON5 configuration patches are
   escaped, so a quote in one cannot add configuration keys.
-- `provision --dry-run` no longer contacts the gateway.
-- `AUTH_TELEGRAM=""` is no longer passed to Remark42 as an empty string.
-  Presence is read as enable, so it advertised a sign-in method that then
-  failed against the Telegram API. Boolean flags carry an explicit `false`.
-- Every auth provider `.env.example` advertises is passed through by
-  `compose.yml`. Patreon and Microsoft were offered and never wired, which,
-  after the `env_file` removal, meant filling them in did nothing and said
-  nothing. A test holds the two files to each other.
-
+- `.dockerignore` excludes `.env` and its variants, so a filled `.env` no
+  longer reaches a local builder layer or the build cache.
+- Upgrading OpenClaw to `2026.9.4` clears the 11 `npm audit` advisories, 7 of
+  them high, that `2026.7.1-2` carried at the time.
 
 ## [0.3.0] - Phase 3 — Check-ins, stats and the Quartz site
 
@@ -585,7 +506,8 @@ annotated git tag (`git tag -n99 vX.Y.Z`) and, for standing decisions, in
 
 136 tests, no network in the test suite.
 
-[Unreleased]: https://github.com/cidus/game.registrar/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/cidus/game.registrar/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/cidus/game.registrar/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/cidus/game.registrar/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/cidus/game.registrar/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/cidus/game.registrar/compare/v0.1.0...v0.1.1

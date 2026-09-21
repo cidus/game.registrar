@@ -10,19 +10,22 @@
 > *The Registrar notes that the Hollow Knight session, filed at 20:14, remains
 > open. Kindly state the time of closure.*
 
-A gaming journal that lives in text files. You talk to the Registrar — by chat,
-by voice, or from the terminal — and it files everything into Markdown, versioned
-in git.
+A gaming journal that lives in text files. You talk to the Registrar by chat,
+by voice or from the terminal, and it files each session into an append-only
+event log with one JSON event per line. Markdown notes, tables, a SQLite
+database and site content are all rebuilt from that log. Keep the register in
+git if you want history and sync; nothing requires it.
 
 This is not another backlog manager. It is a **register**: sessions with hours,
 a note per session, and a consolidated verdict when the game ends.
 
-```
+```console
 $ gamereg start "hollow knight"
-Filed: Hollow Knight (Switch) — session opened at 20:14.
+Filed: Hollow Knight (Nintendo Switch) — session opened at 20:14.
 
 $ gamereg end --break 40m --note "Stuck on Watcher Knights. Hard, but fair."
 Session closed at 23:52. Net duration: 2h58. Game total: 21h10.
+Breaks deducted: 40m.
 ```
 
 <!-- human-owned -->
@@ -59,182 +62,161 @@ I hope it will be useful to more people. `:)` Open to collaboration!
 Part of the fun has been giving the chatbot a personality; I did not want something generic. I created a character who works in a kind of registry office, in an absurd corporate world inspired by The Office. I hope you like Veronika. `:D`
 <!-- /human-owned -->
 
+## Features
+
+- **Record play as it happens.** Sessions with breaks, runs that are finished
+  or dropped, games played years ago, and a verdict when a game ends.
+  Durations are computed from the events, never estimated.
+  See [Getting started](docs/getting-started.md).
+- **Correct without editing.** `amend` and `revoke` append corrections and the
+  original event stays. `doctor` checks the log.
+  See [Fix mistakes](docs/guides/fix-mistakes.md).
+- **Metadata and cover art from IGDB.** A separate `enrich` command fetches
+  them. See [Metadata and covers](docs/guides/metadata-and-covers.md).
+- **Your own photos.** Attach them to a session or a game. They are resized
+  and stripped of EXIF and GPS on ingest, and can become the cover.
+  See [Metadata and covers](docs/guides/metadata-and-covers.md).
+- **Import from a spreadsheet.** One closed run per row, with hours, rating
+  and review. See [Import a spreadsheet](docs/guides/import-spreadsheet.md).
+- **Build targets.** Obsidian notes and a Base, CSV, JSON, a self-contained
+  HTML table, a SQLite database for `gamereg query`, a stats page with a
+  calendar heatmap and a year in review, and content for a
+  [Quartz](https://quartz.jzhao.xyz) site. See
+  [Build outputs](docs/guides/build-outputs.md) and
+  [Publish a site](docs/guides/publish-site.md).
+- **Chat agent.** An [OpenClaw](https://openclaw.ai) agent on Telegram that
+  does nothing but call the CLI. Voice notes are transcribed before anything
+  reaches the CLI, and an ambiguous title becomes a set of buttons. When a
+  session is left open, `gamereg due` decides in code when to ask about it.
+  Reaction tokens ship with the gateway switches off.
+  See [Chat agent](docs/guides/chat-agent.md).
+- **Container image.** One image holds the CLI and the gateway. Compose runs
+  the register, the agent and vault maintenance, with optional `site`,
+  `comments` and `tunnel` profiles.
+  See [Deploy with containers](docs/guides/deploy-container.md).
+- **Localized interface.** English and Brazilian Portuguese.
+  See [Localization](#localization).
+
 ## Principles
 
-1. **Your data is text.** Markdown and JSONL in a git repo. No proprietary
-   database, no export button, no escape hatch — because there is nothing to
-   escape from.
+1. **Your data is text.** The record is `data/events.jsonl`, a plain-text file
+   in a directory you own. There is no proprietary database and no export step.
 2. **The AI interprets; the code executes.** The agent translates natural
    language into CLI calls. Arithmetic, state and file writes are deterministic,
    testable code.
 3. **It works without AI.** The CLI is usable on its own, from a terminal, with
-   no API key. The agent is an optional layer.
-4. **Nothing you wrote by hand is ever rewritten.** The build only touches what
-   sits between markers.
+   no API key. No write command touches the network. Only `enrich` and `search`
+   reach a metadata provider.
+4. **Hand-written prose has a place, and the build leaves it alone.** In game
+   notes and in the list, stats and review pages, the build rewrites only what
+   sits between `<!-- gamereg:... -->` markers. Your prose around them
+   survives. Run notes, exports, the database and site content are generated
+   whole, so anything typed into them is lost at the next build.
 5. **One log, several shapes.** The same events become Obsidian notes, a
-   sortable base, a spreadsheet, a database — because a register you cannot
-   query from the angle you want is a diary with extra steps.
+   sortable Base, a spreadsheet and a database, so you can read and query the
+   register in whichever shape suits the question.
+
+## Quick start
+
+### Run the whole stack from the container image
+
+You need Docker with Compose, a Telegram bot token and a model credential.
+Nothing is cloned: `compose.yml` and a `.env` file are the whole installation.
+
+```bash
+curl -O https://raw.githubusercontent.com/cidus/game.registrar/main/compose.yml
+curl -o .env https://raw.githubusercontent.com/cidus/game.registrar/main/.env.example
+```
+
+In `.env`, set `TELEGRAM_BOT_TOKEN`, one model credential, and `PUID`/`PGID` to
+the output of `id -u` and `id -g`. Then start the stack:
+
+```bash
+mkdir -p vault config/ssh
+docker compose up -d
+```
+
+[Deploy with containers](docs/guides/deploy-container.md) covers machine size,
+the first boot, pairing your Telegram account, and updates.
+
+### Install the CLI from source
+
+You need Node 22.18 or newer and git. `npm install` also compiles the
+TypeScript.
+
+```bash
+git clone https://github.com/cidus/game.registrar.git
+cd game.registrar
+npm install
+npm link
+```
+
+Create a register in an empty directory and record a first session:
+
+```bash
+mkdir ~/games
+cd ~/games
+gamereg init --targets obsidian,sqlite
+gamereg start "hollow knight" --platform "Nintendo Switch" --at -3h
+gamereg end --break 20m --note "Stuck on Watcher Knights."
+gamereg finish "hollow knight" --rating 9
+gamereg build
+```
+
+`--at` backdates an event: `--at -3h` opens the session three hours ago, so the
+20-minute break fits inside it. Without `--at`, a command is filed at the
+current time. At a terminal, a title that is not on record opens a menu that offers a new
+entry. Behind a pipe the command exits 4 instead, and `--no-metadata` opens the
+entry without asking. Open `obsidian/` as an Obsidian vault, or query the
+database:
+
+```bash
+gamereg query "select title, hours, rating from v_finished order by hours desc limit 5"
+```
+
+The [tutorial](docs/getting-started.md) explains each step.
+[02-cli](docs/spec/02-cli.md) lists every command.
+
+## Documentation
+
+| Section | What you find there |
+|---|---|
+| [Tutorial](docs/README.md#start-here) | Install the CLI, create a register and record a first session. |
+| [How-to guides](docs/README.md#how-to-guides) | Import a spreadsheet, fetch metadata, choose outputs, fix mistakes, set up the agent, deploy, publish a site. |
+| [Reference](docs/README.md#reference) | Configuration keys, environment variables, the container, commands and exit codes, and the data model. |
+| [Explanation](docs/README.md#explanation) | How the log, the fold and the build fit together; the agent's design; security. |
+| [Specification](docs/README.md#specification) | The normative specs under `docs/spec/`. |
+| [Decisions](docs/README.md#decisions) | Architecture decision records: what was decided, and why. |
+| [Contributing](docs/README.md#for-contributors) | Development setup, tests, releases and writing documentation. |
 
 ## Status
 
-**Phases 0–3 are done and tagged (`v0.3.0`); phase 4 is under way.** The
-CLI records, enriches titles and cover art from IGDB, ingests your own photos,
-and regenerates Obsidian notes and a sortable Base, CSV, JSON, an HTML table
-and a SQLite cache — all from one event log. Already keeping this in a
-spreadsheet? `gamereg import` files years of it in one pass, one closed run per
-row, hours and rating and review included — see
-[*Coming from a spreadsheet*](docs/getting-started.md#coming-from-a-spreadsheet).
-A chat agent for [OpenClaw](https://openclaw.ai) lives in
-[`agent/`](agent/) and is
-live-tested on a real Telegram deployment, voice included: recording a game
-by text or by speaking, answering the platform question, correcting an
-already-recorded run, ad hoc questions answered by SQL against the register,
-opening a live session with `start`, exit-code-3 disambiguation resolved by
-an actual inline-button tap, a session closed by a voice note, and a full
-`finish` + `verdict` pass — the roadmap's own exit criterion for phase 2, a
-game logged start to finish without opening a terminal once. **Phase 3's five
-steps are all built, and the Registrar now speaks first:** `gamereg due`
-decides in code which open session is owed a question — three triggers, a
-delivery slot, quiet hours, an escalating backoff ladder and a hard ceiling —
-and an hourly poll on the gateway host wakes the
-agent only when there is something to ask, so a quiet day costs nothing and
-says nothing. The build also emits a `stats` note with a calendar heatmap and a
-year in review, the agent reacts to what it files — with emoji out of the box,
-or a sticker where an installation maps one — and `gamereg build quartz` writes
-the register a second time as [Quartz](https://quartz.jzhao.xyz) input — notes,
-a front page and a seeded config — which gamereg emits and never builds:
-turning it into a site is yours to run, by hand or from CI.
-
-**Phase 4 is under way, and it moved ahead of board games.** Phase 3's own exit
-criterion asks for a page a stranger can open, which is hosting — so the phase
-that makes this installable had to come first, and board games moved to *After
-1.0* because it is additive by design and should not hold a release hostage.
-The first piece is here and it runs: a [`Dockerfile`](Dockerfile) and a
-[`compose.yml`](compose.yml) that start the CLI and the gateway together from
-one image, seed an empty vault, deploy the skill and persona on every boot,
-install the model credential, register the check-in job against the running
-gateway and keep the vault enriched, built, committed and pushed on a timer —
-sized for a 1 GB machine, with no published port and no Docker socket. Three
-optional profiles ship alongside, all off by default: `site` builds the Quartz
-site here and serves it, `comments` runs [Remark42](https://remark42.com), and
-`tunnel` is how something outside reaches in. `site` can front the comments on
-its own origin under `/remark42`, which a real GitHub sign-in was verified
-through.
-
-This has been deployed for real, on an always-free Google Cloud e2-micro and
-then as the maintainer's own production install: the register answering on
-Telegram, the vault committing and pushing itself, the site rebuilding from that
-repository, and comments served through a tunnel. A clean-room `gamereg build`
-inside the image — different libc, locale and install path — came out
-byte-identical to the committed golden files.
-
-What it is not yet is *published*: there is no image on a registry, no CI
-building one, and no first-run wizard. Installing it still means cloning this
-repository. See [*Running the Registrar in
-containers*](docs/deploy-container.md).
-
-See
-[06-roadmap](docs/spec/06-roadmap.md), [`CLAUDE.md`](CLAUDE.md)'s *Current
-state* for the detailed status, and [`CHANGELOG.md`](CHANGELOG.md) — or the
-tagged [releases](https://github.com/cidus/game.registrar/releases) for the
-fuller version of the same story — for what shipped in each phase.
-
-```
-git clone … && cd game.registrar && npm install && npm link
-```
-
-New here? **[docs/getting-started.md](docs/getting-started.md)** walks through
-installing, creating a register, and setting up the chat agent. The rest of
-this page is the overview.
-
-Then, from the directory holding your register (or with `--vault <path>`):
-
-```
-gamereg init
-gamereg start "hollow knight" --platform Switch
-gamereg break start
-gamereg break end
-gamereg end --break 40m --note "Stuck on Watcher Knights." --photo boss.jpg
-gamereg finish "hollow knight" --rating 9 --difficulty hard --criteria true_ending
-gamereg verdict "hollow knight" -m "Started as a curiosity and became..."
-gamereg past "chrono trigger" --ended 2011-07 --rating 10 --hours 30
-gamereg import games.csv --mapping mapping.json --dry-run
-gamereg enrich --all --covers
-gamereg open · gamereg status · gamereg search "zelda"
-gamereg query "select title, hours from games order by hours desc limit 5"
-gamereg build · gamereg build csv · gamereg doctor
-```
-
-A title not on record yet is offered as a new entry when you are at a terminal;
-behind a pipe it exits 4 and `--no-metadata` opens it without asking.
-`gamereg enrich` needs IGDB credentials — `gamereg init` seeds an empty
-`gamereg.secrets.json` for them; nothing else in the CLI ever touches the
-network.
-
-Open **`obsidian/`** inside your register as the Obsidian vault, not the
-register's own root — that folder is everything the `obsidian` target
-writes (notes, the consolidated table, the Base), kept separate from the
-event log, credentials and build bookkeeping sitting one level up.
-
-`example-vault/` is a working register with fictional data — the golden files the
-test suite builds against.
-
-### Configuration
-
-`gamereg.config.json` at the vault root, every key optional:
-
-```json
-{
-  "locale": "pt-BR",
-  "timezone": "America/Sao_Paulo",
-  "day_cutoff": "05:00",
-  "defaults": { "platform": "Switch", "form": "digital", "mode": "solo" }
-}
-```
-
-`defaults` fills in what `start` was not told. Platform is taken from the
-game's last run first, then from here, then from a single-platform match
-against the catalog once the game is enriched; without any of those, `start`
-opens the session with no platform recorded rather than asking — `end`,
-`finish` and `drop` settle it later, once there is a catalog to narrow from.
-
-`build.targets` declares which formats the vault emits, defaulting to
-`["obsidian"]`:
-
-```json
-{ "build": { "targets": ["obsidian", "csv"] } }
-```
-
-`gamereg build` emits all of them; `gamereg build csv` narrows one build without
-changing what the vault contains. See
-[07-targets](docs/spec/07-targets.md).
-
-## Specs
-
-| Document | Contents |
-|---|---|
-| [00-architecture](docs/spec/00-architecture.md) | Decisions, non-goals, stack, repository layout |
-| [01-model](docs/spec/01-model.md) | Entities, JSONL events, enums, derived state |
-| [02-cli](docs/spec/02-cli.md) | Subcommands, flags, exit codes, output contract |
-| [03-resolution](docs/spec/03-resolution.md) | Name resolution and disambiguation |
-| [04-derived](docs/spec/04-derived.md) | Game notes, run notes, table, bases, SQLite |
-| [05-agent](docs/spec/05-agent.md) | Chat layer, voice, check-ins, persona |
-| [06-roadmap](docs/spec/06-roadmap.md) | Delivery phases |
-| [07-targets](docs/spec/07-targets.md) | Build targets: contract, config, ownership |
+See the [latest release](https://github.com/cidus/game.registrar/releases/latest).
+`main` is `1.0.0-dev`, the first version meant to be installed by people other
+than the author. `main` already ships a container image: CI verifies it and
+publishes it to `ghcr.io/cidus/gamereg` for linux/amd64 and linux/arm64, as
+`:edge` and `:sha-<commit>`, with no `:latest` yet. `compose.yml` runs from
+that image, with no clone. Not built yet: an npm package (the CLI installs from
+source), the configuration generator, and first-run setup as a conversation.
+See the [roadmap](docs/spec/06-roadmap.md) and [CHANGELOG.md](CHANGELOG.md).
+Each GitHub release carries its changelog section, and the annotated tag
+(`git tag -n99 vX.Y.Z`) carries the longer account.
 
 ## Localization
 
-The schema and the codebase are English. The interface is localized: command
-verbs, prompts and generated labels come from `i18n/<locale>.json`. `en` and
-`pt-BR` ship in the box — `gamereg start` and `gamereg iniciar` are the same
-command.
+The schema and the code are in English, and the interface is localized.
+Command names, prompts and generated labels come from `i18n/<locale>.json`.
+`en` and `pt-BR` ship, so `gamereg start` and `gamereg iniciar` are the same
+command. See the
+[command name mapping](docs/spec/02-cli.md#command-name-mapping-pt-br).
 
 ## Contributing
 
-Issues and PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for
-setup and conventions, [SECURITY.md](SECURITY.md) to report a vulnerability
-privately, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers
+setup and conventions, and [SECURITY.md](SECURITY.md) explains how to report a
+vulnerability privately. Participation follows the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-Code under MIT.
+[MIT](LICENSE).

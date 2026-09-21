@@ -50,17 +50,17 @@ neither has to pass a flag. See [02-cli](02-cli.md) and
 regenerating blocks while preserving hand-written prose byte for byte. Quartz is
 Node too, and OpenClaw is Node should a native plugin ever be wanted.
 
-*On Quartz specifically:* the original reason given here was that it "builds the
-site straight from an Obsidian vault with no converter." That stopped being true
-when `quartz` became a target that plans its own content from the folded state —
-gamereg **is** the converter now, so reading a vault unaided no longer
-distinguishes Quartz from anything else. The reason that survives is different
-and better: over content that is genuinely a graph — game to runs to years —
-Quartz gives backlinks, a graph view, link popovers and folder listings for
-free, and those are work rather than a plugin install in a general-purpose
-generator. Astro is the recorded fallback: its islands would make an interactive
-query surface nearly free, which is the one thing Quartz makes expensive, so if
-that half ever becomes the point of the site the trade flips.
+*On Quartz specifically:* over content that is genuinely a graph — game to runs
+to years — Quartz gives backlinks, a graph view, link popovers and folder
+listings for free, and those are work rather than a plugin install in a
+general-purpose generator. That, and not "it reads an Obsidian vault unaided",
+is the reason: the `quartz` target plans its own content from the folded state
+and gamereg never runs Quartz at all — see
+[0029](../decisions/0029-quartz-plans-from-folded-state.md). Astro is the
+recorded fallback, fed a projection rather than Markdown
+([0058](../decisions/0058-astro-gets-a-projection.md)): its islands would make
+an interactive query surface nearly free, which is the one thing Quartz makes
+expensive, so if that half ever becomes the point of the site the trade flips.
 
 ### D5 — Metadata providers are pluggable and isolated
 
@@ -106,9 +106,9 @@ and it is fenced accordingly.
 ### D9 — Capability is introspectable, never a list the caller keeps
 
 A caller that needs to know what this tool can do asks it. `query --schema`
-returns the views, `vocab` returns the terms, and anything of the same kind
-follows the same shape: a JSON answer from the installed binary, not a table the
-caller carries.
+returns the cache's tables and views with their columns, `vocab` returns the
+terms, and anything of the same kind follows the same shape: a JSON answer from
+the installed binary, not a table the caller carries.
 
 *Why:* every copy of such a list is a copy that can silently disagree with the
 version actually installed. The agent layer already paid for this lesson —
@@ -124,8 +124,12 @@ Small, and the alternative is paid later in a bug nobody can reproduce.
 
 - **Not a library manager.** It does not import your Steam account, does not know
   what you own, does not suggest what to play. It records what you played.
-- **No server, no accounts.** Runs on your machine, writes to your files.
-- **Not social.** No profiles, no following, no feed.
+- **No hosted service, no accounts.** It runs where you run it and writes to
+  your files. The project operates nothing on your behalf and has no sign-up.
+  Publishing the site and accepting comments are opt-in services you host
+  yourself (see [guides/deploy-container.md](../guides/deploy-container.md)).
+- **Not social.** The register has no profiles, no following and no feed.
+  Comments, where they are enabled, belong to the published website.
 - **No automatic tracking.** You say you started; it does not detect it.
 - **Not a replacement for Obsidian.** It emits files Obsidian reads well, but
   does not depend on it. Any text editor works.
@@ -145,42 +149,60 @@ game.registrar/              # this repo — MIT, public
 
 my-register/                 # user repo — private
   gamereg.config.json
-  gamereg.secrets.json       # provider credentials (gitignored, see 02-cli.md)
-  data/events.jsonl          # source of truth
-  data/*.csv                 # derived
-  data/log.db                # derived (gitignored)
-  assets/<sha>/              # content-addressed images
+  gamereg.secrets.json       # provider credentials (see 02-cli.md)
+  .gitignore                 # `init` adds the secrets file to it, and nothing else
+  data/
+    events.jsonl               # source of truth
+    games.csv runs.csv sessions.csv attachments.csv   # derived — `csv`, under build.csv.dir (default `data`)
+    export.json                # derived — `json`
+    log.db                     # derived cache — `sqlite`
+  assets/<sha[0:2]>/<sha>.webp   # content-addressed images
+  Games.html                 # derived — `html`, one self-contained page
   obsidian/                  # the obsidian target's own folder — open *this* in Obsidian
-    games/*.md                 # derived blocks + hand-written prose
+    games/<slug>.md            # derived blocks + hand-written prose
     runs/<started_on>-<slug>.md  # derived, one per playthrough, date-first so a plain sort is chronological
-    Game List.md                # derived
-    Game Database.base          # seeded once, then yours
+    Game List.md               # derived
+    Game Database.base         # seeded once, then yours
+    Stats.md                   # derived — `stats`
+    reviews/<year>.md          # derived — `stats`, with heatmap-<year>.svg beside it
     assets/                    # hardlinks to ../assets (07-targets.md)
-  .gamereg/manifest.json     # build bookkeeping (gitignored)
   quartz/
     content/                 # derived by the quartz target, and committed
+      games/ runs/ reviews/    # the same notes, in the site's flavour
+      index.md stats.md        # front page and stats, named for a site
+      Game Database.base       # the same seed obsidian/ gets, byte for byte
     quartz.config.yaml       # seeded once, then yours
+  .gamereg/
+    manifest.json            # build bookkeeping: which target owns which file
+    build.lock               # held for the write phase of a build
 ```
+
+Which of those exist depends on `build.targets`; the tree above declares them
+all. Only `gamereg.secrets.json` is gitignored, and only because `init` writes
+that one line. Everything else is your decision: `data/log.db` and `.gamereg/`
+are regenerable and most registers ignore them, while `example-vault/` commits
+the cache on purpose because it is a golden fixture.
 
 Everything the `obsidian` target writes lands under `obsidian/`, so opening that
 folder — not the repo root — as the Obsidian vault shows only what Obsidian
 should see: no `data/`, no `gamereg.secrets.json`, no `.gamereg/`. `assets/`
-itself stays at the vault root regardless — it is written directly by image
-ingestion (`--photo`), not by any build target, and a future non-Obsidian
-target would want it too. `obsidian/assets` is what makes an embed inside a
+itself stays at the vault root regardless — it is written by image ingestion
+(`--photo`, and `enrich --covers` downloading provider art through the same
+pipeline), not by any build target, and a future non-Obsidian target would want
+it too. `obsidian/assets` is what makes an embed inside a
 game note (`![[assets/<sha>...]]`) resolve once Obsidian's own vault root has
 moved one level down: the build hardlinks each asset into it — one inode, two
 names, no second copy — because Obsidian on Linux does not follow a symlink.
-See 07-targets.md's `obsidian` section.
+`quartz/content/assets` gets the same add-only pass when `images.publish` says
+the site may carry pictures. See 07-targets.md's `obsidian` section and
+[0016](../decisions/0016-obsidian-assets-are-hardlinks.md).
 
 `quartz/content/` is derived like everything else and **committed anyway**, which
 looks like an exception and is not: `obsidian/` is derived and committed too, for
 the same reason. Committed derived Markdown is what lets something with no
 gamereg installed — a CI runner, most obviously — turn the vault into a site with
-nothing but Quartz. It also keeps the phases honest: publishing the package is
-a later phase than the site, so a site that needed gamereg in CI would depend
-on work that had not happened yet. Whatever directory Quartz then writes is Quartz's, gitignored, and not the
-build's to track or clean.
+nothing but Quartz. Whatever directory Quartz then writes is Quartz's,
+gitignored, and not the build's to track or clean.
 
 *Why separate:* your notes are personal. In one repo you either publish your
 diary alongside the code, or you never publish the code.
@@ -189,11 +211,11 @@ diary alongside the code, or you never publish the code.
 
 | Layer | Choice |
 |---|---|
-| Runtime | Node 22+, TypeScript, ESM |
+| Runtime | Node ≥ 22.18, TypeScript, ESM (the published image runs Node 24) |
 | CLI | `commander` + `@inquirer/prompts` (only when interactive) |
-| Markdown | `unified` + `remark-parse` + `remark-stringify` + `remark-frontmatter` |
+| Markdown | `unified` + `remark-parse` + `remark-frontmatter` + `unist-util-visit` |
 | YAML | `yaml` (frontmatter is always regenerated; no round-trip needed) |
-| SQLite | `node:sqlite` (built in, Node 22+) |
+| SQLite | `node:sqlite` (built in) |
 | HTTP | native `fetch` |
 | Images | `sharp` |
 | IDs | `ulid` |
@@ -204,9 +226,8 @@ diary alongside the code, or you never publish the code.
 
 ## Invariants
 
-Breaking any of these is a serious bug, not a preference. `CLAUDE.md` repeats
-this list for a coding session, under the name *Non-negotiables* and with the
-same numbering: "invariant 5" and "non-negotiable 5" are one rule. Several are
+Breaking any of these is a serious bug, not a preference. This list is the only
+copy; anything that needs to cite one cites it by number from here. Several are
 stated in full elsewhere in the spec and consolidated here; those carry a
 pointer.
 
@@ -226,9 +247,11 @@ pointer.
 10. SQLite is a cache, never a source of truth. Deleting `data/log.db` costs
     nothing, `query` only reads it, and nothing but the build writes it. See
     [07-targets](07-targets.md).
-11. A cover with `source: user` is never replaced by enrichment, not even under
-    `--covers --force`. Only `cover --reset` gives provider art back. See
-    [02-cli](02-cli.md).
+11. A cover with `source: user` is never replaced by enrichment. No option or
+    bulk selector on `enrich` overrides it, and `--covers` skips the download
+    rather than fetching art the fold would discard. Only `cover --reset` gives
+    provider art back. See [02-cli](02-cli.md) and
+    [0024](../decisions/0024-user-covers-are-never-replaced.md).
 12. GPS and the rest of EXIF are stripped on ingest. Not configurable off. See
     [04-derived](04-derived.md).
 13. Output format and interactivity are two independent axes, both defaulted
@@ -250,10 +273,16 @@ reachable by others.
 
 - The CLI validates every argument against the schema. An agent cannot write an
   invalid enum, a negative duration, or a rating outside range.
-- No command deletes data. `amend` and `revoke` append events; the original stays
-  on record.
-- Anything destructive at the filesystem level (removing derived artifacts) is
-  behind an explicit flag and never invoked by the agent.
-- The build removes only files listed in its own manifest as owned by a target
-  and no longer planned by it. It never deletes by pattern, never touches a
-  seeded `.base`, and skips cleanup entirely when the manifest is missing.
+- No command removes anything from the log. `amend` and `revoke` append events;
+  the original stays on record.
+- The one thing that removes files is `gamereg build`, which the agent may run.
+  It needs no flag, and it is fenced instead: it removes only paths its own
+  manifest records as owned by a target and no longer planned by it. It never
+  deletes by pattern, never touches a seeded `.base`, and skips cleanup
+  entirely when the manifest is missing. See
+  [0030](../decisions/0030-deletion-is-one-manifest-whitelist.md).
+- Nothing is written outside the vault root. A target that plans an escaping
+  path is refused before any byte reaches the disk.
+- `query` runs SQL from outside against a read-only connection behind an
+  allowlist. The deployment's own exposure is separate; see
+  [explanation/security.md](../explanation/security.md).

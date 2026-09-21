@@ -4,9 +4,11 @@ Optional. Everything below sits on top of a CLI that works without it.
 
 ## Boundary
 
-The agent may **only** invoke `gamereg`. It does not read or write vault files
-directly, does not edit Markdown, does not compute durations, and does not
-invent identifiers.
+The agent may invoke **no command but `gamereg`**. It does not read or write
+vault files directly, does not edit Markdown, does not compute durations, and
+does not invent identifiers. Beyond executing that one binary, a deployment
+grants it only what holding a conversation needs: sending a message, for
+candidate menus and covers, and reading the reference files of its own prompt.
 
 Its actual jobs:
 
@@ -38,11 +40,11 @@ Three rules follow, and they are the same rule seen from three sides:
 The cost of getting this wrong is not only latency. The impulse to check
 something first is what produces an invented, chained invocation
 (`gamereg query --sql "..." 2>&1 || gamereg --help`), and a compound shell
-string is a different, unlisted command that the exec allowlist denies —
-observed live, twice, from exactly this impulse. It is also what turns one
-contradiction into a cascade: a check-in wake naming a session the register did
-not have produced twenty-five commands, none of which could make the wake's
-facts true.
+string is a different, unlisted command that the exec allowlist denies. It is
+also what turns one contradiction into a cascade. **When the facts a turn
+started from have moved on, the agent says so and asks**, rather than
+investigating — see
+[0072](../decisions/0072-agent-turn-command-budget.md).
 
 ## Gateway
 
@@ -70,8 +72,7 @@ result.** JSON is neutral by contract: prose in the Registrar's voice is exactly
 what an agent behind a pipe never receives, and a gateway is never a TTY, so
 `"Filed: Hollow Knight — session opened at 20:14."` is emitted for a human and
 for nobody else. Every word the user reads in a chat is therefore a word the
-model chose. Two things follow, and both were observed live before they were
-written down here:
+model chose. Two things follow:
 
 - A result carries raw tokens — `"difficulty": "hard"`, `"criteria":
   "true_ending"`, `"form": "physical"`. Narrating those in another language is
@@ -81,8 +82,8 @@ written down here:
   for the English word it was given in its prompt, and "filed" lands in the
   middle of a Portuguese sentence.
 
-`gamereg vocab` (02-cli.md) answers both, and a third the agent got wrong live:
-the register's own nouns. `run` narrated as "run" in a Portuguese sentence is
+`gamereg vocab` (02-cli.md) answers both, and a third that goes wrong the same
+way: the register's own nouns. `run` narrated as "run" in a Portuguese sentence is
 the same failure as `filed` — the word exists in `i18n/`, inside sentence
 templates, where nothing can look it up. The block names the things (`entity`:
 game, run, session, break, verdict) as well as what happens to them.
@@ -94,7 +95,8 @@ it in and produce something indistinguishable from output the CLI actually
 emitted. A word cannot be filled in.
 
 So: **the vocabulary is data the CLI serves, never a glossary the agent layer
-keeps.** `i18n/<locale>.json` stays the one place each term is written down. A
+keeps**
+([0019](../decisions/0019-agent-gets-words-not-sentences.md)). `i18n/<locale>.json` stays the one place each term is written down. A
 copy under `agent/` could disagree with it silently; a `reference/locale/*.md`
 per language, or a skill per language, multiplies every behaviour rule by the
 number of locales with one anti-drift test able to check one of them.
@@ -112,8 +114,10 @@ open run with no open session is this register's ordinary resting state.
 ## Voice
 
 Transcription happens **before** the CLI sees anything. `gamereg` never touches
-audio. Whisper (`whisper.cpp` or `faster-whisper`) on the host is enough; most
-gateways transcribe upstream anyway.
+audio: the gateway transcribes and hands over text. The reference deployment
+uses the gateway's own audio tool, with a hosted model in the shipped
+configuration and a local Whisper as the alternative when the audio should not
+leave the machine.
 
 Transcribed titles are unreliable. This is precisely why resolution has an alias
 table (see 03): the user corrects a mis-transcribed title once.
@@ -145,8 +149,12 @@ exists, `gamereg search` stops consulting the provider — it asks the catalog
 only when nothing local matches — so the invented title answers every future
 search and keeps confirming itself.
 
-`gamereg start "hollow knight" --json` → on code 3, present candidates → re-invoke
-with `--id`.
+For a title that may not be on record, the deployed procedure leads with
+`gamereg search "hollow knight" --json`, which answers both questions at once —
+what the register holds and what the catalog has — and exits 0 either way. Then
+`gamereg start --id <ref>`. For a title already on record, `gamereg start
+"hollow knight" --json` is one call, and a code 3 is presented as candidates and
+re-invoked with `--id`.
 
 **Do not ask for the platform here.** `start` no longer needs one (02-cli.md),
 and asking is the wrong move twice over: the user announced they were *playing*,
@@ -191,8 +199,10 @@ yet and the CLI could not settle it on its own. That is the cue — and the only
 cue — to ask. A result that comes back with a platform was either told, inherited
 or resolved; asking anyway is asking a question the register already answered.
 
-What to offer is not the agent's invention. `gamereg platform list --json` and
-the game's own `platforms` give the same four groups the CLI menu uses
+What to offer is not the agent's invention. `gamereg platform list --json`
+reports the register's own configured platforms, and the game's `platforms`
+field reports what the catalog knows; between them they carry the same
+information the CLI menu groups
 (02-cli.md, *What gets offered, and when nothing is asked*): the ones the user
 owns that the game exists on, then the rest of the catalog, then the rest of
 what they own, then free text. Order matters more than length here — "PS5 or Switch?" is a good question, a list of fourteen platforms is a form.
@@ -317,9 +327,12 @@ did not know they were sending.
 
 ### Check-ins
 
-The Registrar occasionally notices an open session and says something. Cron runs
-`gamereg due --json` on a schedule (hourly is enough); the CLI decides what is
-actually due, so cron carries no state and no logic.
+The Registrar occasionally notices an open session and says something. A cron
+job runs a wrapper on a schedule (hourly is enough), and the wrapper does four
+things in this order: sweeps expired check-ins (`gamereg checkin --expire`),
+asks `gamereg due --json` what is owed, wakes the agent for each row, and files
+the check-in once the wake has returned. The CLI decides what is due, so cron
+carries no state and no logic.
 
 That job is a **command, not an agent turn**: it runs the binary on the gateway
 host and no model is involved. Only when `due` comes back non-empty does the
@@ -398,10 +411,10 @@ its only failure mode: when the facts turn out to be false, there is nothing to
 verify them *against* that would make the question answerable, so the only
 correct move is to say the check-in refers to something no longer open.
 
-Observed live: a wake naming a game with no session anywhere in the log
-produced a `break start` on a *different* game, ten diagnostic queries, and a
-break that had to be revoked. Twenty-five commands, every one of them after the
-first contradiction.
+The failure this prevents is a cascade: a wake naming a game with no session
+anywhere in the log, answered by investigating, produced a `break start` on a
+*different* game and a break that had to be revoked. See
+[0072](../decisions/0072-agent-turn-command-budget.md).
 
 #### Chasing vs noticing
 
@@ -419,9 +432,9 @@ Each check-in offers three exits, and the reply routes to a command:
 
 | Reply | Command |
 |---|---|
-| "taking a break" | `gamereg break start` |
-| "stopping now" + impressions | `gamereg end --note "..."` |
-| "still going" / anything else | nothing; the record already reads `snoozed` |
+| "taking a break" | `gamereg break start --id game:<game_id>` |
+| "stopping now" + impressions | `gamereg end --id game:<game_id> --note "..."` |
+| "still going" / anything else | nothing to run; the record stays `snoozed` until the reply window passes, after which the sweep amends it to `no_reply` |
 
 This is what finally makes breaks get used. Nobody remembers to run
 `break start` on their own; being asked at hour four is exactly when it is
@@ -431,16 +444,23 @@ useful.
 
 Non-optional. Violate these and the feature makes the whole assistant annoying.
 
-1. The **wrapper** files `gamereg checkin --outcome snoozed`, immediately after
-   enqueueing the wake and never before it — see [02-cli](02-cli.md) for why that
-   order is load-bearing. The session is then inside its backoff window and will
-   not be raised again. The agent does not file this and must not try to.
-2. Backoff **escalates**: `checkin.backoff` is a list, default `[2h, 3h, 5h]`.
-   The fourth check-in never happens.
-3. `checkin.max_per_session` (default 3) is a hard ceiling regardless of backoff.
+1. The **wrapper** files `gamereg checkin --outcome snoozed`, and it does so
+   only once the wake has returned successfully — never before it. The wake is
+   a synchronous call, so a gateway that was down leaves the session eligible
+   on the next tick instead of silently in backoff. The session is then inside
+   its backoff window and will not be raised again. The agent does not file
+   this and must not try to
+   ([0031](../decisions/0031-wrapper-files-checkin-after-wake.md)).
+2. Backoff **escalates**: `checkin.backoff` is a list, default `[2h, 3h, 5h]`,
+   measured from the last check-in of any trigger. Past the end of the list the
+   last step repeats; the ladder alone never stops the asking.
+3. `checkin.max_per_session` (default 3) is the hard ceiling that does, and it
+   counts only `duration` and `clock` — the fourth noticing check-in is the one
+   that never happens.
 4. Silence is an answer. After `checkin.reply_window` (default 45m) with no
-   reply, `gamereg checkin --expire` amends the record to `no_reply` on the next
-   tick. Do not re-ask, do not escalate tone. Nothing here is the agent's either:
+   reply, `gamereg checkin --expire` amends the record to `no_reply`. The sweep
+   runs at the start of every tick, before `due`, so the effective resolution is
+   the poll interval rather than the window itself. Do not re-ask, do not escalate tone. Nothing here is the agent's either:
    it would have to keep a promise 45 minutes after the fact, which is not
    something a chat turn can do.
 5. Never auto-close, auto-pause, or estimate a duration. A guessed number
@@ -488,10 +508,10 @@ Three components move this machine, and the split is the whole design:
 | Transition | Owner | How |
 |---|---|---|
 | `Silent → Fired → Withheld → Returned` | **CLI** | `gamereg due` — threshold, quiet hours, delivery window, backoff, ceiling |
-| `Returned → Asked` | **cron wrapper** | enqueue the wake, then `gamereg checkin --outcome snoozed` |
+| `Returned → Asked` | **cron wrapper** | run the wake, then `gamereg checkin --outcome snoozed` once it has returned |
 | the wording of the question | **agent** | prose only; the facts come from `due` |
 | `Asked → BreakStarted` / `SessionClosed` | **agent** | `break start` or `end --note`, then amend the outcome |
-| `Asked → NoReply` | **cron wrapper** | `gamereg checkin --expire`, on the same tick |
+| `Asked → NoReply` | **cron wrapper** | `gamereg checkin --expire`, on the first tick after the reply window passes |
 
 The agent owns one row and half of another. Everything with a clock or a counter
 in it belongs to the CLI, per invariant 7, and everything that has to survive
@@ -505,11 +525,10 @@ session is still open. See [02-cli](02-cli.md).
 
 #### Personality
 
-The register comes from a per-installation pre-prompt, so the Registrar can be
-dry, theatrical, or barely there — but that pre-prompt lives on the gateway
-side, in the agent's own `workspace/SOUL.md`, not in `gamereg.config.json`.
-`checkin`'s own keys are the clock-and-counter half of the feature (docs/spec
-carries no persona field, and gamereg never reads or renders prose):
+The Registrar can be dry, theatrical or barely there. Its voice comes from the
+deployment's own prompt files — in the reference deployment,
+`agent/workspace/SOUL.md` and `IDENTITY.md` — and not from the register's
+configuration, which holds only the clock and the counters:
 
 ```json
 {
@@ -526,6 +545,9 @@ carries no persona field, and gamereg never reads or renders prose):
 }
 ```
 
+There is no persona setting in `gamereg.config.json`: a vault that still carries
+the old `checkin.persona_prompt` key exits 2 at load, naming it as unknown.
+
 `quiet_hours` suppresses `duration` and `clock` only. A trigger that fires inside
 the window is not lost — it is held and delivered at the end of it, merged into
 the morning message. `day_cutoff` ignores `quiet_hours`, since `chase_at` already
@@ -539,8 +561,10 @@ Two constraints on any persona, whatever the pre-prompt says:
 
 - It **offers**, never judges. "Not good to take a break?" is an invitation;
   "you've been playing too long" is a different product and a worse one.
-- It stays off entirely when `checkin.after` is `null`. Someone who wants a
-  silent ledger must be able to have one, with the `day_cutoff` chase intact.
+- It can be turned off. `checkin.after: null` disables the `duration` trigger;
+  a genuinely silent ledger also needs `clock: []`, since that trigger is
+  independent. The `day_cutoff` chase survives both, which is the point: the
+  one check-in that chases missing data stays.
 
 ### Finishing
 
@@ -571,9 +595,14 @@ the register that claims to be the user's opinion.
 
 The numbers are not the agent's to compute. `gamereg build` has already written
 `obsidian/reviews/<year>.md` — hours, sessions, days played, what was finished,
-what was most played, the calendar ([04-derived](04-derived.md)) — and the agent
-reads them with `gamereg query` and relays them. It never adds up a year in a
-chat turn; invariant 7 is the same rule here as everywhere else.
+what was most played, the calendar ([04-derived](04-derived.md)).
+
+What the agent can *read back* is narrower than what that note shows, and the
+distinction matters: `gamereg query` reaches the SQLite cache, so hours,
+sessions and what was finished are answerable, while the figures the renderer
+computes for the note (days played, the longest session, the most played) are
+in the note and in no view. The agent answers from the database and never adds
+up a year in a chat turn; invariant 7 is the same rule here as everywhere else.
 
 What it may offer is the **opening paragraph**, on exactly the terms a verdict
 draft is offered: propose it, show it, and let the user accept, edit or refuse.
@@ -664,10 +693,13 @@ language the user speaks; the other is a key in a lookup table that happens to
 read as English. Conflating them puts a Portuguese word in a table lookup, or
 an English one in a sentence, and both fail quietly.
 
-**The mapping lives on the gateway side, per installation, and never in this
-repository.** A table resolves a token to a channel-specific asset (Telegram
-`file_id`, WhatsApp `.webp`); the artwork is the user's. The fallback chain is
-sticker, then emoji, then nothing.
+**The mapping lives on the gateway side, one copy per installation.** It is a
+table with a column per channel asset — today a Telegram `file_id` — and an
+emoji column, and it ships in this repository as the deployment's starting
+point (`agent/workspace/REACTIONS.md`), copied into the gateway's workspace like
+the rest of the prompt. Nothing about it reaches the CLI or the log. The
+fallback chain is sticker, then emoji, then nothing
+([0044](../decisions/0044-reactions-are-a-second-call.md)).
 
 The two columns ship differently, and the line between them is whether the value
 is an asset somebody has to obtain. **The emoji column ships filled**, one per
@@ -696,14 +728,21 @@ Two limits, whatever the gateway is:
 The agent has shell access and a public-facing channel.
 
 - Allowlist the sender. Non-negotiable on any channel.
-- The agent may invoke `gamereg` and nothing else. No arbitrary shell.
+- The agent may invoke `gamereg` and nothing else. No arbitrary shell, and the
+  gateway's own tool surface is narrowed to what the flows need
+  ([0064](../decisions/0064-boundaries-by-tools-allow.md)).
 - `--dry-run` on `past` and `import` — bulk, unobvious, awkward to unpick —
   and show the user the plan. Not on the rest: `start`, `end`, `break`,
   `finish`, `attach` and `verdict` are each one `revoke` from undone, and a
   standing "dry-run anything you are unsure of" doubles every uncertain call
-  for a rehearsal of something already reversible. One such rehearsal died on
-  an approval timeout and cost the user a turn.
-- Never expose `amend` / `revoke` without an explicit user instruction naming the
-  event.
-- Log every invocation with its arguments. When something looks wrong months
-  later, that log is how it gets diagnosed.
+  for a rehearsal of something already reversible.
+- `amend` and `revoke` are confirmed in the conversation: the agent states what
+  will change and files nothing without an unambiguous yes. It may *offer* a
+  correction unprompted — a missing difficulty, a wrong platform — because
+  offering is not filing. The one amend it makes without asking is bookkeeping
+  on a check-in the wrapper filed, which changes no record of play
+  ([0008](../decisions/0008-amend-revoke-confirmed-in-conversation.md)).
+- Invocations are recorded where the gateway keeps its session transcripts;
+  `gamereg` stamps each event with its `source` (`cli`, `chat`, `cron`) but not
+  with the arguments it was given. When something looks wrong months later,
+  those two together are how it gets diagnosed.
