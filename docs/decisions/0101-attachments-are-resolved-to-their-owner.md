@@ -36,8 +36,11 @@ resolved view, plus the way back to the log.
 The walk lives in `core/` rather than in `db/build.ts` because three targets
 emit these columns, and because the gallery already asks the same question.
 
-`filed_at` comes from `filedAtOf`, exported from `fold.ts` and used by the game
-note's gallery too, so the two dates cannot drift. There is **no `path`
+For an event-keyed attachment, `filed_at` comes from `filedAtOf`, exported from
+`fold.ts` and also used by the game note's gallery. For an attachment keyed
+directly by game, it comes from the first `attachment.add` timestamp for that
+game and hash, falling back to the first such timestamp for the game.
+There is **no `path`
 column**: `assets/<sha256[0:2]>/<sha256>.<ext>` is
 [01-model](../spec/01-model.md)'s rule, and `render/assets.ts` already assumes
 WebP regardless of the recorded `ext`, so a copy would have to pick one of those
