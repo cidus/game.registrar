@@ -5,9 +5,13 @@
 # by hand, from CI, from a cron job — and nothing in gamereg requires Quartz to
 # be installed in order to build a vault. See https://quartz.jzhao.xyz.
 #
+# Requires a Quartz v5 checkout with npm plugin support (the v5.0.0 tag
+# predates that support). See docs/guides/publish-site.md.
+#
 # This is Quartz's own `obsidian` template, which is the one that matches what
-# gamereg emits: wikilinks, embeds and Obsidian-flavored Markdown. Only the
-# site's own identity is changed (title, base URL, no analytics). `npx quartz
+# gamereg emits: wikilinks, embeds and Obsidian-flavored Markdown. The site
+# identity is changed (title, base URL, no analytics), and the unavailable
+# Excalidraw plugin is disabled. `npx quartz
 # create` will happily overwrite it with another template; that is your call,
 # and gamereg will not write over it again either way.
 configuration:
@@ -273,7 +277,7 @@ plugins:
       priority: 15
       display: all
   - source: "@quartz-community/obsidian-plugin-excalidraw"
-    enabled: true
+    enabled: false
     options:
       enableInteraction: true
       darkMode: auto

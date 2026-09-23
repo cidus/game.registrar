@@ -269,22 +269,9 @@ if [ -d "$SOURCE/quartz" ]; then
   done
 fi
 
-node -e '
-  const fs = require("node:fs")
-  const [srcPath, destPath] = process.argv.slice(1)
-  const src = JSON.parse(fs.readFileSync(srcPath, "utf8"))
-  let dest = {}
-  try { dest = JSON.parse(fs.readFileSync(destPath, "utf8")) } catch { /* first vendor, nothing to preserve */ }
-  const merged = { ...src }
-  for (const key of ["dependencies", "devDependencies"]) {
-    const srcDeps = src[key] ?? {}
-    const destOnly = Object.fromEntries(
-      Object.entries(dest[key] ?? {}).filter(([name]) => !(name in srcDeps)),
-    )
-    if (Object.keys(destOnly).length > 0) merged[key] = { ...srcDeps, ...destOnly }
-  }
-  fs.writeFileSync(destPath, JSON.stringify(merged, null, 2) + "\n")
-' "$SOURCE/package.json" "$DEST/package.json" || {
+# Resolve this helper relative to the script, not the caller's directory.
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 1
+node "$SCRIPT_DIR/quartz-package.mjs" "$SOURCE/package.json" "$DEST/package.json" "$DEST/quartz.config.yaml" || {
   echo "vendor-quartz.sh: failed to merge package.json" >&2
   exit 1
 }

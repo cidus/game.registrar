@@ -397,3 +397,36 @@ test('--dry-run with --clone describes the plan without cloning', () => {
   assert.deepEqual(gateway.calls('git'), [])
   assert.deepEqual(gateway.calls('npm'), [])
 })
+
+for (const [label, plugin, expected] of [
+  ['default', { source: '@quartz-themes/core', enabled: true, options: { theme: 'default' } }, 'default'],
+  ['variation', { source: '@quartz-themes/core', enabled: true, options: { theme: 'tokyo-night.storm' } }, 'tokyo-night'],
+  ['disabled', { source: '@quartz-themes/core', enabled: false, options: { theme: 'default' } }, null],
+  ['implicit theme', { source: '@quartz-themes/core', enabled: true, options: {} }, 'tokyo-night'],
+  ['not enabled', { source: '@quartz-themes/core', options: { theme: 'default' } }, null],
+] as const) {
+  test(`theme dependency: ${label}, with YAML flow syntax`, () => {
+    const gateway = host()
+    const config = `plugins: [${JSON.stringify(plugin)}]\n`
+    writeFileSync(join(gateway.vault, 'quartz', 'quartz.config.yaml'), config)
+    const run = gateway.run('--source', gateway.source)
+    assert.equal(run.status, 0, run.stderr)
+    const pkg = JSON.parse(readFileSync(join(gateway.vault, 'quartz', 'package.json'), 'utf8'))
+    if (expected) assert.equal(pkg.dependencies[`@quartz-themes/${expected}`], '*')
+    else assert.deepEqual(Object.keys(pkg.dependencies).filter((name) => name !== '@quartz-themes/core'), [])
+    assert.equal(readFileSync(join(gateway.vault, 'quartz', 'quartz.config.yaml'), 'utf8'), config)
+  })
+}
+
+test('an existing theme version is preserved', () => {
+  const gateway = host()
+  writeFileSync(join(gateway.vault, 'quartz', 'quartz.config.yaml'),
+    "plugins:\n  - source: '@quartz-themes/core'\n    enabled: true\n    options:\n      theme: default\n")
+  writeFileSync(join(gateway.vault, 'quartz', 'package.json'), JSON.stringify({
+    dependencies: { '@quartz-themes/default': '^1.0.1' },
+  }))
+  const run = gateway.run('--source', gateway.source)
+  assert.equal(run.status, 0, run.stderr)
+  const pkg = JSON.parse(readFileSync(join(gateway.vault, 'quartz', 'package.json'), 'utf8'))
+  assert.equal(pkg.dependencies['@quartz-themes/default'], '^1.0.1')
+})
