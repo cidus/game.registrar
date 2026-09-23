@@ -157,6 +157,7 @@ Links to specs, code and other records.
 | [0102](0102-a-break-returns-duration-to-silent.md) | A break returns `duration` to `Silent` | Check-ins | Accepted | 2026-09-20 |
 | [0103](0103-quartz-bootstrap-needs-compatible-code-and-theme.md) | Quartz bootstrap needs compatible framework code and a declared theme | Site and comments | Accepted | 2026-09-22 |
 | [0104](0104-attach-reports-every-bad-photo.md) | attach ingests every --photo and reports every failure, not just the first | Photos and covers | Accepted | 2026-09-22 |
+| [0105](0105-a-photo-is-attached-in-the-turn-it-arrives.md) | A photo is attached in the turn it arrives, and nothing is invented to explain a failure | Agent prompt | Accepted | 2026-09-22 |
 
 ## By area
 
@@ -269,6 +270,7 @@ Links to specs, code and other records.
 - [0093](0093-flow-independent-rules-in-the-card.md) Rules that apply in every flow live in the always-loaded card
 - [0097](0097-agents-md-is-code.md) AGENTS.md stays large and code-owned; customization goes in USER.md
 - [0098](0098-dreaming-disabled.md) memory-core dreaming is disabled
+- [0105](0105-a-photo-is-attached-in-the-turn-it-arrives.md) A photo is attached in the turn it arrives, and nothing is invented to explain a failure
 
 ### Chat channel
 

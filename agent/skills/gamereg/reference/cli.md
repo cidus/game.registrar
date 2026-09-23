@@ -172,7 +172,18 @@ gamereg cover <query> --id --photo --kind --from --reset
 `--photo` and `--caption` are repeatable on every recording command, and a
 caption applies to the `--photo` immediately before it. `--kind` is
 `screenshot|photo|box|media|other` and applies to every photo in that
-invocation. `attach`'s target is an event id, or a game query.
+invocation.
+
+**`attach`'s target decides what the photo belongs to, and the two are not
+interchangeable.** An event id files it against that moment, so it carries the
+run and the session; a game query files it against the game alone, with no run
+and no session. For a photo from an open session the target is
+`session_open_event_id`, off the `gamereg open` row — a game query there loses
+which sitting it came from, without failing.
+
+A bad `--photo` path fails the whole invocation and attaches nothing, including
+the paths that were fine. The error names **every** bad path, so there is no
+second one to discover on retry.
 
 `cover` takes exactly one of `--photo` (ingest and promote), `--from <hash>`
 (promote something already on this game's timeline) or `--reset` (give provider

@@ -112,9 +112,25 @@ the run `--form physical`: a fact about how they played, invented from a tap.
 Three decisions, and only these:
 
 **Which command the photo belongs to.** A photo with no text, arriving while a
-session is open, belongs to the session that is about to close — hold it and
-send it with `end`. A photo arriving alone with no open session is ambiguous:
-ask, do not guess. `gamereg attach` exists for exactly that.
+session is open, belongs to that session — **attach it in the turn it
+arrives**, against the session's own event:
+
+```
+gamereg attach "<session_open_event_id>" --photo "<the path from the message>" --kind screenshot --json
+```
+
+`session_open_event_id` is on the `gamereg open` row. Never hold a photo for
+later: the path exists only in the message that carried it, and a path retyped
+from memory a few turns on is an invented one — see *Never invent* in the card.
+
+**Never `attach` a mid-session photo against the game's title.** It will not
+fail, and that is the problem: a game query attaches to the *game*, so the
+photo lands with no run and no session, and which sitting it came from is lost.
+The event id is what carries that, and it is on the row you already read.
+
+A photo arriving *with* the message that ends the session goes on `end
+--photo`, which files it inline and needs no second call. A photo arriving
+alone with no open session is ambiguous: ask, do not guess.
 
 **What kind of photo it is.** `--kind` takes `screenshot`, `photo`, `box`,
 `media`, `other`, and it is the decision the two below hang off, so make it

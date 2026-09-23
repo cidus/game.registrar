@@ -161,6 +161,16 @@ file.
   the provider's `Retry-After`, which outlived the turn every time.
 - `agent/checkin.sh --dry-run` no longer appends `event.amend`s through the
   reply-window sweep.
+- A photo arriving during an open session is attached in the turn it arrives,
+  against `session_open_event_id`, instead of being held until the session
+  closes. Holding it was a workaround for a `gamereg open` row that carried no
+  event id, a constraint that went away weeks before the rule did; an agent
+  holding two photos once ran `end` without them, reconstructed the paths from
+  memory, fabricated both, and then fabricated a cleanup job to explain the
+  failure. `AGENTS.md`'s "never invent" rule now names a media path alongside
+  an id or a hash, and a new rule forbids inventing a cause for an unexplained
+  failure
+  ([ADR 0105](docs/decisions/0105-a-photo-is-attached-in-the-turn-it-arrives.md)).
 
 **Container deployment**
 

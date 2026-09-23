@@ -546,3 +546,66 @@ test('every shipped workspace file is classified as code or as the user\'s', () 
     assert.ok(!replace.includes(name), `${name} is in both policies`)
   }
 })
+
+/**
+ * A real incident: a session held two photos to attach "with `end`", the
+ * agent ran `end` with no `--photo` at all, then tried to reconstruct the
+ * paths in a separate `attach` call two minutes later and fabricated both —
+ * neither matched anything the message ever carried. The card's own words
+ * ("Guardei a intenção, não o caminho dos arquivos") named the mechanism
+ * correctly in character.
+ *
+ * The fix is that nothing is held at all (ADR 0105): the photo is attached in
+ * the turn it arrives, against `session_open_event_id`, which resolves to the
+ * same game/run/session the deferred inline path did. So there is no interval
+ * in which a path must survive, and no reminder to guard.
+ *
+ * Two guards, and the second is the one that matters. `attach` against a game
+ * *title* does not fail — it files the photo against the game with `run_id`
+ * and `session_id` empty — so nothing at runtime catches the wrong target and
+ * only the prompt stands between the agent and a silently misfiled photo.
+ */
+test('a photo from an open session is attached in the turn it arrives, on the session event', () => {
+  const media = readFileSync(join(SKILL, 'reference', 'media.md'), 'utf8')
+  assert.match(
+    media,
+    /attach it in the turn it\s*\n?\s*arrives/,
+    'reference/media.md no longer says a photo is attached in the turn it arrives',
+  )
+  assert.match(
+    media,
+    /gamereg attach "<session_open_event_id>" --photo/,
+    'reference/media.md no longer shows the attach call against the session event',
+  )
+  assert.match(
+    media,
+    /Never hold a photo for\s*\n?\s*later/,
+    'reference/media.md no longer forbids holding a photo for later',
+  )
+})
+
+test('the skill warns that attaching against a game title loses the session', () => {
+  const media = readFileSync(join(SKILL, 'reference', 'media.md'), 'utf8')
+  assert.match(
+    media,
+    /Never `attach` a mid-session photo against the game's title/,
+    'reference/media.md no longer warns against the game-query target',
+  )
+  // The reason has to be there too: a rule whose cost is unstated reads as a
+  // style preference, and this one fails silently rather than erroring.
+  assert.match(media, /It will not\s*\n?\s*fail, and that is the problem/, 'the silent-failure reason is gone')
+
+  const cli = readFileSync(join(SKILL, 'reference', 'cli.md'), 'utf8')
+  assert.match(
+    cli,
+    /`attach`'s target decides what the photo belongs to/,
+    "reference/cli.md no longer explains what attach's target decides",
+  )
+})
+
+test('the never-invent rule covers a media path, not only ids and hashes', () => {
+  const card = readFileSync(join(WORKSPACE, 'AGENTS.md'), 'utf8')
+  const rule = /Never invent an id.*?you do not have one[^*]*/s.exec(card)?.[0]
+  assert.ok(rule, 'AGENTS.md no longer has a "never invent" rule at all')
+  assert.match(rule, /\bpath\b/, 'the never-invent rule no longer names a file path')
+})

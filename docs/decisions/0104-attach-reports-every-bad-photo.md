@@ -46,3 +46,4 @@ everything) is what keeps one `attach` call mapping to one coherent event.
 - [src/cli/attachments.ts](../../src/cli/attachments.ts)
 - [src/images/ingest.ts](../../src/images/ingest.ts)
 - [test/photo-cli.test.ts](../../test/photo-cli.test.ts)
+- [0105](0105-a-photo-is-attached-in-the-turn-it-arrives.md) — the prompt half of the same incident

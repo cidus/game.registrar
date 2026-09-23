@@ -217,6 +217,23 @@ used to be accepted and silently do nothing; it is refused now.
 **Fix.** Check `gamereg status --json` for what was actually filed, and correct
 the right event. See [Fix mistakes](fix-mistakes.md).
 
+### The agent reports a photo lost, and resending shows fewer are actually missing
+
+**Cause.** A photo was held to attach at session close, and by the time the
+attach ran the exact path had scrolled out of context — the agent reconstructed
+it from memory and fabricated the wrong one. A batch attach also used to abort
+on the first bad path and never attempt the rest, so a report of "two lost"
+could be one confirmed failure plus one guess. Fixed on both sides: a photo is
+attached in the turn it arrives, so no path has to survive, and a batch failure
+names every bad path it actually tried
+([ADR 0104](../decisions/0104-attach-reports-every-bad-photo.md),
+[ADR 0105](../decisions/0105-a-photo-is-attached-in-the-turn-it-arrives.md)).
+
+**Fix.** Resend what is missing; `gamereg status --json` is the record of what
+actually made it in. If the agent names a cause for the loss (a cleanup job, a
+timeout), verify it before trusting it — this is the incident where it invented
+one.
+
 ### A `message` call reports success and the message is wrong
 
 **Cause.** An argument the tool's schema does not define is accepted and

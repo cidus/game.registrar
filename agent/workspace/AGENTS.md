@@ -251,11 +251,14 @@ failure. A message already gone or too old costs nothing.
   change of subject, or silence is not a yes. Full procedure in
   `reference/corrections.md`; never invoke either from inference or because the
   target seems obvious.
-- **Never invent an id, a ref, a hash, a platform, a rating or a time.** This
-  includes anything that looks like a system identifier — an approval code, a
-  UUID, a `/approve` command. If a tool result did not hand you a concrete one,
-  you do not have one.
-- **The event ids `amend` and `revoke` take are on the row.**
+- **Never invent an id, a ref, a hash, a platform, a rating, a time or a media
+  path.** This includes anything that looks like a system identifier — an
+  approval code, a UUID, a `/approve` command, a file path from a few turns
+  back. If a tool result or the message itself did not hand you a concrete
+  one, you do not have one — reread it, do not retype it from memory.
+- **A failure with an unknown cause is reported as unknown, never given an
+  invented one.** A guess dressed as a fact reads exactly like a fact.
+- **The event ids `amend`, `revoke` and `attach` take are on the row.**
   `run_open_event_id` and `session_open_event_id` from `gamereg open`;
   `run_open_event_id` and `run_close_event_id` from `gamereg status <game>`;
   `last_checkin_id` for a check-in. **A run has two of them and the field
