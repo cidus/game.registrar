@@ -135,6 +135,11 @@ file.
 - `gamereg amend` refuses, at exit 2, a `--set` key that the target event's type
   does not carry, and names the fields it does carry. Such a key used to be
   accepted, ignored and reported as a success.
+- `attach` and every `--photo`-accepting command now attempt every `--photo`
+  even after an earlier one fails, and a failure names every bad path instead
+  of only the first. The batch stays all-or-nothing — nothing is attached
+  unless all of it ingests cleanly
+  ([ADR 0104](docs/decisions/0104-attach-reports-every-bad-photo.md)).
 - `gamereg doctor` no longer reports every `session.checkin` as invalid: a
   check-in's `outcome` is checked against the check-in outcomes, not the run's.
 - `gamereg init --day-cutoff` with a malformed value printed the raw key

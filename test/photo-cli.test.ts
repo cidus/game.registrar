@@ -224,3 +224,52 @@ test('a nonexistent photo path is a clear usage error, not a crash', () => {
   const started = run(root, 'start', 'celeste', '--no-metadata', '--photo', join(root, 'missing.jpg'), '--at', '2026-05-03 20:00')
   assert.equal(started.status, 2)
 })
+
+/**
+ * A batch with a bad file used to abort on the first one and never attempt
+ * the rest, so a two-photo failure reported only the first path — a caller
+ * (human or model) had no way to learn whether the second was also bad. One
+ * real incident had an agent report "two photos lost" after a batch failure
+ * that had only ever named one, because the CLI itself never tried the
+ * second. Every `--photo` is attempted now, and a failure names all of them.
+ */
+test('every --photo is attempted, and a batch failure names every bad path, not just the first', async () => {
+  const root = vault()
+  run(root, 'start', 'celeste', '--no-metadata', '--at', '2026-05-03 20:00')
+  const missingA = join(root, 'missing-a.jpg')
+  const missingB = join(root, 'missing-b.jpg')
+
+  const attached = run(root, 'attach', 'celeste', '--photo', missingA, '--photo', missingB)
+  assert.equal(attached.status, 2)
+  assert.match(attached.json['message'] as string, new RegExp(missingA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.match(attached.json['message'] as string, new RegExp(missingB.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+
+  const failures = attached.json['failures'] as { path: string }[]
+  assert.equal(failures.length, 2, 'both bad paths must be reported, not just the first')
+  assert.deepEqual(
+    failures.map((f) => f.path).sort(),
+    [missingA, missingB].sort(),
+  )
+})
+
+/**
+ * The other half of the same fix: a batch is still all-or-nothing (nothing
+ * here calls `stage()`, so a failure commits no attachment), but the one good
+ * file in a mixed batch is named as fine, not folded into "both failed".
+ */
+test('a batch with one good and one bad photo names only the bad one, and attaches neither', async () => {
+  const root = vault()
+  run(root, 'start', 'celeste', '--no-metadata', '--at', '2026-05-03 20:00')
+  const good = await photo(root, { r: 30, g: 31, b: 32 })
+  const missing = join(root, 'missing.jpg')
+
+  const attached = run(root, 'attach', 'celeste', '--photo', good, '--photo', missing)
+  assert.equal(attached.status, 2)
+  const failures = attached.json['failures'] as { path: string }[]
+  assert.equal(failures.length, 1, 'the good photo must not be reported as a failure')
+  assert.equal(failures[0]!.path, missing)
+
+  run(root, 'build')
+  const note = readFileSync(join(root, 'obsidian', 'games', 'celeste.md'), 'utf8')
+  assert.doesNotMatch(note, /## Gallery/, 'the good photo in a failed batch must not have been attached either')
+})

@@ -263,6 +263,7 @@
     "bad_match_ref": "\"{value}\" não é uma referência de provedor. Esperado <provedor>:<id>, ex.: igdb:7346.",
     "as_cover_without_photo": "--as-cover promove uma foto anexada neste mesmo comando. Informe também --photo.",
     "no_photo_to_attach": "Informe ao menos um --photo.",
+    "photo_ingest_failed": "{count} foto(s) não puderam ser processadas, e nenhuma foi anexada: {files}.",
     "cover_needs_source": "Informe a capa com --photo <arquivo>, --from <hash>, ou --reset.",
     "cover_too_many_sources": "Apenas um entre --photo, --from ou --reset é permitido.",
     "unknown_attachment": "Nenhum anexo em {title} tem o hash \"{value}\"."

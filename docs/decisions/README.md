@@ -156,6 +156,7 @@ Links to specs, code and other records.
 | [0101](0101-attachments-are-resolved-to-their-owner.md) | Attachments reach the derived artifacts resolved to their owner | Build and targets | Accepted | 2026-09-19 |
 | [0102](0102-a-break-returns-duration-to-silent.md) | A break returns `duration` to `Silent` | Check-ins | Accepted | 2026-09-20 |
 | [0103](0103-quartz-bootstrap-needs-compatible-code-and-theme.md) | Quartz bootstrap needs compatible framework code and a declared theme | Site and comments | Accepted | 2026-09-22 |
+| [0104](0104-attach-reports-every-bad-photo.md) | attach ingests every --photo and reports every failure, not just the first | Photos and covers | Accepted | 2026-09-22 |
 
 ## By area
 
@@ -195,6 +196,7 @@ Links to specs, code and other records.
 
 - [0024](0024-user-covers-are-never-replaced.md) A user cover is never fetched or replaced by enrichment
 - [0026](0026-photo-kind-drives-cover-and-form.md) A photo's kind decides the cover offer and the physical-media inference
+- [0104](0104-attach-reports-every-bad-photo.md) attach ingests every --photo and reports every failure, not just the first
 
 ### Configuration
 

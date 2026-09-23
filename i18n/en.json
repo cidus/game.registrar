@@ -184,6 +184,7 @@
     "bad_match_ref": "\"{value}\" is not a provider reference. Expected <provider>:<id>, e.g. igdb:7346.",
     "as_cover_without_photo": "--as-cover promotes a photo attached in this same command. Pass --photo too.",
     "no_photo_to_attach": "Provide at least one --photo.",
+    "photo_ingest_failed": "{count} photo(s) could not be ingested, and none were attached: {files}.",
     "cover_needs_source": "Provide the cover with --photo <file>, --from <hash>, or --reset.",
     "cover_too_many_sources": "Only one of --photo, --from or --reset is allowed.",
     "unknown_attachment": "No attachment on {title} has the hash \"{value}\"."

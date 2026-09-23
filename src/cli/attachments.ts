@@ -61,7 +61,20 @@ export function photoSpecsFrom(command: Command): PhotoSpec[] {
 
 export type IngestedPhoto = { attachment: Attachment; written: boolean }
 
-/** Ingests every `--photo`, in order. Never touches the log — the caller decides where the record lands. */
+/**
+ * Ingests every `--photo`, in order. Never touches the log — the caller
+ * decides where the record lands, and nothing here appends an event, so a
+ * caller that throws before `stage()` leaves the log untouched either way.
+ *
+ * Every spec is attempted, even after one fails. A `--photo` batch bad in one
+ * place used to abort on the first bad file and never touch the rest, so an
+ * `end --photo a --photo b` with `a` missing reported only `a` — the caller
+ * had no way to learn whether `b` was fine, and one real incident had an
+ * agent report "two photos lost" after a batch failure that had only ever
+ * named one. All-or-nothing is kept (nothing here calls `stage()`, so a
+ * failure still commits no attachment), but the failure now names every bad
+ * path in one round trip instead of the first.
+ */
 export async function ingestAttachments(
   vault: Vault,
   specs: readonly PhotoSpec[],
@@ -69,19 +82,36 @@ export async function ingestAttachments(
 ): Promise<IngestedPhoto[]> {
   const attachmentKind = kind === undefined ? 'other' : checkEnum('kind', kind, ATTACHMENT_KIND)
   const out: IngestedPhoto[] = []
+  const failures: { path: string; key: string; params: Record<string, unknown> }[] = []
+
   for (const spec of specs) {
-    const result = await ingestImage(vault, spec.path)
-    out.push({
-      written: result.written,
-      attachment: {
-        sha256: result.sha256,
-        ext: result.ext,
-        caption: spec.caption,
-        captured_at: result.captured_at,
-        kind: attachmentKind,
-      },
-    })
+    try {
+      const result = await ingestImage(vault, spec.path)
+      out.push({
+        written: result.written,
+        attachment: {
+          sha256: result.sha256,
+          ext: result.ext,
+          caption: spec.caption,
+          captured_at: result.captured_at,
+          kind: attachmentKind,
+        },
+      })
+    } catch (cause) {
+      if (!(cause instanceof GameregError)) throw cause
+      failures.push({ path: spec.path, key: cause.key, params: cause.params })
+    }
   }
+
+  if (failures.length > 0) {
+    throw new GameregError(
+      'usage',
+      'error.photo_ingest_failed',
+      { count: failures.length, files: failures.map((f) => f.path).join(', ') },
+      { details: { failures } },
+    )
+  }
+
   return out
 }
 
