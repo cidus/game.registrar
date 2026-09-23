@@ -125,6 +125,11 @@ file.
 
 ### Fixed
 
+- Fresh Quartz sites keep the npm plugin configuration and install their
+  configured theme before building. The publishing guide no longer selects
+  the incompatible `v5.0.0` tag; an unavailable Excalidraw plugin is disabled
+  in the seed.
+
 **Command line**
 
 - `gamereg amend` refuses, at exit 2, a `--set` key that the target event's type
