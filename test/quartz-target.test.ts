@@ -101,6 +101,14 @@ test('nothing the target plans lives outside quartz/', () => {
   for (const file of plan()) assert.match(file.path, /^quartz\//, file.path)
 })
 
+test('seeded plugins retain npm packages and the default theme', () => {
+  const config = text(plan(), 'quartz/quartz.config.yaml')
+  assert.match(config, /source: "@quartz-community\/content-page"/)
+  assert.match(config, /source: "@quartz-community\/quartz-fonts"\n    enabled: true/)
+  assert.match(config, /source: "@quartz-themes\/core"\n    enabled: true/)
+  assert.match(config, /theme: default/)
+})
+
 test('the site frontmatter carries description and draft, and the vault flavour carries neither', () => {
   const state = exampleState()
   const game = state.gamesById.get('01K5A00000000000000000GAM1')

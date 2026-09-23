@@ -155,6 +155,7 @@ Links to specs, code and other records.
 | [0100](0100-refused-model-hands-over-to-the-fallback-chain.md) | A model that refuses hands over to the fallback chain instead of being retried | Container deployment | Accepted | 2026-09-16 |
 | [0101](0101-attachments-are-resolved-to-their-owner.md) | Attachments reach the derived artifacts resolved to their owner | Build and targets | Accepted | 2026-09-19 |
 | [0102](0102-a-break-returns-duration-to-silent.md) | A break returns `duration` to `Silent` | Check-ins | Accepted | 2026-09-20 |
+| [0103](0103-quartz-bootstrap-needs-compatible-code-and-theme.md) | Quartz bootstrap needs compatible framework code and a declared theme | Site and comments | Accepted | 2026-09-22 |
 
 ## By area
 
@@ -217,6 +218,7 @@ Links to specs, code and other records.
 - [0052](0052-site-wikilinks-name-the-folder.md) Site wikilinks name their folder; vault wikilinks do not
 - [0053](0053-front-page-names.md) The front page is index.md on the site and Game List.md in the vault
 - [0054](0054-vendored-quartz-config.md) The seeded quartz.config.yaml is Quartz's obsidian template, vendored
+- [0103](0103-quartz-bootstrap-needs-compatible-code-and-theme.md) Quartz bootstrap needs compatible framework code and a declared theme
 - [0055](0055-one-publish-switch-rendered.md) One images.publish switch, rendered as well as obeyed
 - [0058](0058-astro-gets-a-projection.md) A future Astro generator is fed a nested projection, never data/export.json *(Proposed)*
 - [0060](0060-site-without-client-side-filtering.md) The site gets the Stats page and reviews, but no client-side filtering

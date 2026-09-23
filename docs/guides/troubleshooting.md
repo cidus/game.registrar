@@ -421,3 +421,18 @@ set in `.env` but not named in `compose.yml` does nothing at all.
 variables in `.env` and its line in `compose.yml`
 ([ADR 0089](../decisions/0089-public-service-gets-named-variables.md)). Telegram
 sign-in needs `AUTH_TELEGRAM=true` and its own second bot token.
+
+## A fresh Quartz site fails while an existing vault builds
+
+Use a Quartz v5 checkout with npm plugin support, not the `v5.0.0` tag.
+The package version alone does not distinguish those implementations. Keep
+npm plugin sources in `quartz.config.yaml`; changing them all to Git sources
+can introduce unbuilt plugin packages. Rerun the vendor script with a compatible
+checkout so it installs the configured theme before Quartz emits the site.
+See [publishing](publish-site.md#2-vendor-quartz-into-the-vault) and
+[ADR 0103](../decisions/0103-quartz-bootstrap-needs-compatible-code-and-theme.md).
+
+Existing configuration is preserved. If an earlier repair changed npm sources
+to `github:` sources or disabled core plugins, compare it with
+[the template](../../templates/quartz.config.yaml) and restore the intended
+plugins while retaining your site settings.
