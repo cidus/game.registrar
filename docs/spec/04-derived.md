@@ -373,8 +373,8 @@ orders. Two differences are deliberate and are not bugs: neither carries
 `runs.platform_raw`, which is an audit column rather than a spreadsheet one, and
 neither exports `game_platforms`, `game_genres`, `breaks`, `aliases` or
 `events`, which are join tables and a raw log that a flat file has nowhere to
-put. Where a column all four share disagrees, this schema is right and the other
-is a bug.
+put. Where a column shared by SQLite, CSV and JSON disagrees, this schema is
+right and the other representation has a bug.
 
 ## Heatmap and year in review
 
