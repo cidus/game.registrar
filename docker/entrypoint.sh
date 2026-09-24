@@ -211,7 +211,7 @@ seed_vault() {
 # What this cannot fix: a conversation already under way keeps the copy it
 # loaded. After an image upgrade the running session needs `/reset`.
 
-WORKSPACE_REPLACE="AGENTS.md TOOLS.md"
+WORKSPACE_REPLACE="AGENTS.md"
 SEED_STATE="$STATE_DIR/.gamereg-seed"
 
 sha_of() { sha256sum "$1" | cut -d' ' -f1; }
@@ -309,17 +309,29 @@ deploy_seed() {
   fi
 }
 
-# memory-core's dreaming sweep writes a narrative diary here, which then sits
-# in the system prompt of every later turn and grows by an entry per phase per
-# night. configure_gateway turns the sweep off; this takes the file it already
-# wrote out of the workspace. Moved, never deleted -- it is model-written prose
-# about the user's own sessions, and the objection is to where it lives.
-retire_dream_diary() {
-  [ -f "$WORKSPACE/DREAMS.md" ] || return 0
-  keep="$STATE_DIR/DREAMS.md"
-  [ -e "$keep" ] && keep="$STATE_DIR/DREAMS.md.$(date -u +%Y%m%dT%H%M%SZ)"
-  log "moving DREAMS.md out of the workspace (dreaming is disabled); kept at $keep"
-  run mv "$WORKSPACE/DREAMS.md" "$keep"
+# Files that used to belong in the workspace and no longer reach the model.
+# Moved out rather than deleted, because a workspace file may carry something
+# somebody wrote, and the objection is to where it lives, not to its existence.
+#
+# DREAMS.md is memory-core's narrative diary, which grew by an entry per phase
+# per night inside the cached prompt; configure_gateway turns the sweep off.
+#
+# TOOLS.md and HEARTBEAT.md were dropped from OpenClaw's injected set in
+# 2026.9.4 -- `loadWorkspaceBootstrapFiles` reads a fixed list, now AGENTS.md,
+# SOUL.md, IDENTITY.md, USER.md, BOOTSTRAP.md and MEMORY.md -- so both became
+# bytes on disk that no turn ever saw. Leaving them also keeps `openclaw
+# doctor` reporting a migration that can never complete: it wants TOOLS.md
+# merged into AGENTS.md and HEARTBEAT.md moved into cron scratch, and a boot
+# that re-seeds them undoes the migration every time.
+retire_unread_workspace_files() {
+  for name in DREAMS.md TOOLS.md HEARTBEAT.md; do
+    [ -f "$WORKSPACE/$name" ] || continue
+    keep="$STATE_DIR/$name"
+    [ -e "$keep" ] && keep="$STATE_DIR/$name.$(date -u +%Y%m%dT%H%M%SZ)"
+    log "moving $name out of the workspace (nothing reads it there); kept at $keep"
+    run mv "$WORKSPACE/$name" "$keep"
+    run rm -f "$SEED_STATE/$name.sha256"
+  done
 }
 
 deploy_agent_files() {
@@ -339,7 +351,7 @@ deploy_agent_files() {
     fi
   done
 
-  retire_dream_diary
+  retire_unread_workspace_files
 }
 
 # --- 3b. the gateway's own token ---------------------------------------------

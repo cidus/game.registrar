@@ -234,6 +234,29 @@ actually made it in. If the agent names a cause for the loss (a cleanup job, a
 timeout), verify it before trusting it — this is the incident where it invented
 one.
 
+### `openclaw doctor` reports a pending migration that never completes
+
+**Cause.** A workspace file OpenClaw has retired is being re-created on every
+boot. 2026.9.4 wants `TOOLS.md` merged into `AGENTS.md` and `HEARTBEAT.md` moved
+into cron-owned scratch, and a boot that seeds either one undoes the migration.
+
+**Fix.** Nothing to do on a current image: neither file is shipped any more, and
+the entrypoint moves either one out of the workspace, keeping it beside the
+config ([ADR 0106](../decisions/0106-only-the-injected-set-is-shipped.md)). If
+you added one by hand, that is what doctor is asking about.
+
+### A rule in the prompt is ignored, and the file holding it looks fine
+
+**Cause.** OpenClaw injects a fixed list of workspace filenames — `AGENTS.md`,
+`SOUL.md`, `IDENTITY.md`, `USER.md`, `BOOTSTRAP.md`, `MEMORY.md` — and nothing
+else. A file outside that list is never in the prompt, however correct it looks
+on disk. `TOOLS.md` was injected on 2026.7.1-2 and dropped in 2026.9.4, which
+took its notes out of every turn with no error anywhere.
+
+**Fix.** Put the rule in `AGENTS.md`, or have the prompt tell the agent to read
+the file (which is how `REACTIONS.md` works). After an OpenClaw upgrade, check
+that list again: `openclaw doctor` previews the migrations it implies.
+
 ### A `message` call reports success and the message is wrong
 
 **Cause.** An argument the tool's schema does not define is accepted and

@@ -246,39 +246,75 @@ test('no gamereg query example invents a --sql flag', () => {
 /**
  * The prompt has a budget, and this test is the budget.
  *
- * `agent/workspace/*.md` is compiled into the system prompt on every turn, so
- * every byte in it is paid for continuously, by every conversation, forever.
- * That is exactly the pressure that grew the old `SKILL.md` to 56KB: no single
- * correction was wrong, each one added a paragraph, and nothing ever measured
- * the total. The failure mode is invisible per-commit and obvious in
+ * Every byte injected into the system prompt is paid for continuously, by every
+ * conversation, forever. That is the pressure that grew the old `SKILL.md` to
+ * 56KB: no single correction was wrong, each added a paragraph, and nothing
+ * measured the total. The failure mode is invisible per-commit and obvious in
  * aggregate.
  *
- * So the ceiling is asserted rather than intended. Raising it is allowed and
- * is meant to be a decision someone makes on purpose, in a diff, with the
- * number in front of them — not something that happens by accumulation. If
- * this fails, the first question is what can come out, and the second is
- * whether the new material belongs in a `reference/` file (read only when its
- * flow happens) or in a decision record under `docs/decisions/`, read by people.
+ * **`INJECTED` is not every file in the directory.** OpenClaw reads a fixed
+ * list of workspace filenames into the prompt — `loadWorkspaceBootstrapFiles`,
+ * `WORKSPACE_BOOTSTRAP_FILENAMES` — and 2026.9.4 narrowed it. `TOOLS.md` was in
+ * the list on 2026.7.1-2 and is not in 2026.9.4, which silently stopped the
+ * tool-surface notes reaching the model at the upgrade; `REACTIONS.md` was
+ * never in it at all and is read on demand with the `read` tool, exactly as a
+ * `reference/` file is. Measuring the directory instead of the list counted
+ * 3,841 bytes that no turn ever saw, which is the same error as measuring a
+ * subset, pointed the other way.
  *
- * Raised from 30,000 to 32,000 when the deployed workspace was made to equal
- * the shipped one, and the honest reading of that is that the number got
- * *truer* rather than looser. It used to cover a subset: a live gateway also
- * held `USER.md` (a generic "update this as you go" template) and `DREAMS.md`
- * (a diary written nightly by memory-core's dreaming sweep, growing by an
- * entry per phase per night) — 4,337 bytes this repository neither wrote nor
- * counted, on a measured prompt of 33,314. With dreaming off, `USER.md` ours,
- * and `HEARTBEAT.md` claimed so the gateway cannot seed its own, every file in
- * the prompt is a file in this directory. The real total went down by ~3KB and
- * stopped growing by itself; the constant went up because it finally measures
- * all of it.
+ * So the ceiling is asserted rather than intended. Raising it is allowed and is
+ * meant to be a decision someone makes on purpose, in a diff, with the number
+ * in front of them — not something that happens by accumulation. If this fails,
+ * the first question is what can come out, and the second is whether the new
+ * material belongs in a `reference/` file (read only when its flow happens) or
+ * in a decision record under `docs/decisions/`, read by people.
+ *
+ * OpenClaw enforces its own ceilings underneath this one: `bootstrapMaxChars`
+ * truncates a single file at 20,000 characters by default and
+ * `bootstrapTotalMaxChars` the whole set at 60,000. Silent truncation of
+ * `AGENTS.md` would be the worst failure available here — the card's tail is
+ * *Safety* — so the per-file assertion below is not decoration.
  */
-test('the always-loaded workspace stays inside its budget', () => {
-  const BUDGET = 32_000
+const INJECTED = ['AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md']
 
-  const files = readdirSync(WORKSPACE)
-    .filter((entry) => entry.endsWith('.md'))
-    .sort()
-    .map((entry) => ({ entry, bytes: Buffer.byteLength(readFileSync(join(WORKSPACE, entry), 'utf8')) }))
+/** OpenClaw's own defaults, which truncate rather than fail. */
+const OPENCLAW_PER_FILE_CHARS = 20_000
+const OPENCLAW_TOTAL_CHARS = 60_000
+
+test('every file this repository ships is either injected or read on demand', () => {
+  // A new workspace file is one of two things, and the difference decides
+  // whether it costs every turn. Nothing here should be a third thing.
+  const shipped = readdirSync(WORKSPACE).filter((entry) => entry.endsWith('.md'))
+  const onDemand = ['REACTIONS.md']
+
+  for (const entry of shipped) {
+    assert.ok(
+      INJECTED.includes(entry) || onDemand.includes(entry),
+      `agent/workspace/${entry} is shipped but classified neither injected nor read-on-demand. ` +
+        `If OpenClaw injects it, add it to INJECTED so the budget counts it; if the prompt tells ` +
+        `the agent to read it, add it to onDemand; if neither reads it, it does not belong here.`,
+    )
+  }
+
+  for (const entry of INJECTED) {
+    assert.ok(shipped.includes(entry), `INJECTED names ${entry}, which this repository does not ship`)
+  }
+
+  // The two OpenClaw dropped from its injected set in 2026.9.4. Shipping either
+  // one puts bytes in the workspace that no turn reads, and leaves `openclaw
+  // doctor` reporting a migration a re-seeding boot undoes every time.
+  for (const gone of ['TOOLS.md', 'HEARTBEAT.md']) {
+    assert.ok(!shipped.includes(gone), `${gone} is no longer injected by OpenClaw and must not be shipped`)
+  }
+})
+
+test('the always-loaded workspace stays inside its budget', () => {
+  const BUDGET = 28_000
+
+  const files = INJECTED.sort().map((entry) => ({
+    entry,
+    bytes: Buffer.byteLength(readFileSync(join(WORKSPACE, entry), 'utf8')),
+  }))
 
   const total = files.reduce((sum, file) => sum + file.bytes, 0)
   const breakdown = files.map((file) => `${file.entry} ${file.bytes}`).join(', ')
@@ -289,6 +325,19 @@ test('the always-loaded workspace stays inside its budget', () => {
       `Take something out, move it to a reference/ file or to a decision record, ` +
       `or raise the budget deliberately and say why.`,
   )
+
+  // Under OpenClaw's own limits, which truncate silently instead of failing.
+  assert.ok(
+    total < OPENCLAW_TOTAL_CHARS,
+    `the injected set is ${total} bytes against OpenClaw's ${OPENCLAW_TOTAL_CHARS}-char bootstrapTotalMaxChars`,
+  )
+  for (const file of files) {
+    assert.ok(
+      file.bytes < OPENCLAW_PER_FILE_CHARS,
+      `${file.entry} is ${file.bytes} bytes against OpenClaw's ${OPENCLAW_PER_FILE_CHARS}-char bootstrapMaxChars, ` +
+        `past which it is truncated silently`,
+    )
+  }
 })
 
 test('every reference file the prompt routes to actually exists', () => {

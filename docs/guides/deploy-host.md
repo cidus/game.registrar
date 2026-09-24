@@ -102,7 +102,7 @@ cp agent/workspace/*.md ~/.openclaw/workspace/
 > Use real copies, not symlinks into the checkout: the gateway refuses a skill
 > path that escapes its configured root, and the only sign is a line in the log.
 
-Repeat both commands after every update. `AGENTS.md` and `TOOLS.md` are code —
+Repeat both commands after every update. `AGENTS.md` is code —
 their contents are asserted against the real binary in CI — so a stale copy
 means the agent follows the previous release's procedure
 ([ADR 0095](../decisions/0095-workspace-policy-per-file.md)). The other

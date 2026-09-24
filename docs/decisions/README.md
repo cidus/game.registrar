@@ -119,7 +119,7 @@ Links to specs, code and other records.
 | [0064](0064-boundaries-by-tools-allow.md) | The agent's boundary is enforced with tools.allow, not prose | Agent prompt | Accepted | 2026-08-31 |
 | [0065](0065-status-exposes-correctable-event-ids.md) | open and status expose the event ids a correction needs | Corrections | Accepted | 2026-08-31 |
 | [0066](0066-persona-asides-positive-triggers.md) | Persona allowances are stated as positive triggers | Agent prompt | Accepted | 2026-08-31 |
-| [0067](0067-every-workspace-slot-is-shipped.md) | Every workspace slot is shipped, so the prompt budget measures the whole prompt | Agent prompt | Accepted | 2026-08-31 |
+| [0067](0067-every-workspace-slot-is-shipped.md) | Every workspace slot is shipped, so the prompt budget measures the whole prompt | Agent prompt | Superseded by [0106](0106-only-the-injected-set-is-shipped.md) | 2026-08-31 |
 | [0068](0068-query-reference-mirrors-the-schema.md) | The query reference mirrors the SQL schema, held to it by a test | Agent prompt | Accepted | 2026-08-31 |
 | [0069](0069-prompt-examples-are-whole-calls.md) | Prompt examples are whole tool calls, never payload fragments | Agent prompt | Accepted | 2026-08-31 |
 | [0070](0070-prompt-states-rules-not-incidents.md) | Prompt files state rules; incidents are recorded elsewhere | Documentation | Accepted | 2026-08-31 |
@@ -158,6 +158,7 @@ Links to specs, code and other records.
 | [0103](0103-quartz-bootstrap-needs-compatible-code-and-theme.md) | Quartz bootstrap needs compatible framework code and a declared theme | Site and comments | Accepted | 2026-09-22 |
 | [0104](0104-attach-reports-every-bad-photo.md) | attach ingests every --photo and reports every failure, not just the first | Photos and covers | Accepted | 2026-09-22 |
 | [0105](0105-a-photo-is-attached-in-the-turn-it-arrives.md) | A photo is attached in the turn it arrives, and nothing is invented to explain a failure | Agent prompt | Accepted | 2026-09-22 |
+| [0106](0106-only-the-injected-set-is-shipped.md) | Only the files OpenClaw injects are shipped as workspace files | Agent prompt | Accepted | 2026-09-23 |
 
 ## By area
 
@@ -262,7 +263,7 @@ Links to specs, code and other records.
 - [0063](0063-procedure-in-the-always-loaded-card.md) The common procedure lives in the always-loaded card; rare flows are read on demand
 - [0064](0064-boundaries-by-tools-allow.md) The agent's boundary is enforced with tools.allow, not prose
 - [0066](0066-persona-asides-positive-triggers.md) Persona allowances are stated as positive triggers
-- [0067](0067-every-workspace-slot-is-shipped.md) Every workspace slot is shipped, so the prompt budget measures the whole prompt
+- [0067](0067-every-workspace-slot-is-shipped.md) Every workspace slot is shipped, so the prompt budget measures the whole prompt *(Superseded)*
 - [0068](0068-query-reference-mirrors-the-schema.md) The query reference mirrors the SQL schema, held to it by a test
 - [0069](0069-prompt-examples-are-whole-calls.md) Prompt examples are whole tool calls, never payload fragments
 - [0071](0071-prompt-cites-no-repository-paths.md) The deployed prompt cites no repository path
@@ -271,6 +272,7 @@ Links to specs, code and other records.
 - [0097](0097-agents-md-is-code.md) AGENTS.md stays large and code-owned; customization goes in USER.md
 - [0098](0098-dreaming-disabled.md) memory-core dreaming is disabled
 - [0105](0105-a-photo-is-attached-in-the-turn-it-arrives.md) A photo is attached in the turn it arrives, and nothing is invented to explain a failure
+- [0106](0106-only-the-injected-set-is-shipped.md) Only the files OpenClaw injects are shipped as workspace files
 
 ### Chat channel
 
