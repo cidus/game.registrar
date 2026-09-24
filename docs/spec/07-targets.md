@@ -299,7 +299,10 @@ a single page is a snapshot rather than an archive.
 
 This overlaps the Quartz site and does not replace it: the site is a
 vault-wide, linked, publishable thing; this is one page that answers questions
-about runs. Labels come from `i18n/`; the embedded data stays in schema tokens.
+about runs. Headers and rendered cell values are both localized: the embedded
+row data stays in schema tokens (same rule as `csv` and `sqlite`), and a
+separate token → label map is embedded alongside it, so the client-side
+script renders labels without the page ever translating the data itself.
 
 ### `stats`
 
