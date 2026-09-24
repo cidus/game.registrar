@@ -4,14 +4,14 @@ filters:
     - file.hasTag("gamereg")
 properties:
   title:
-    displayName: Game
+    displayName: {{base.column.game}}
   completion_criteria:
-    displayName: Criteria
+    displayName: {{base.column.criteria}}
   hours_source:
-    displayName: Hours from
+    displayName: {{base.column.hours_source}}
 views:
   - type: table
-    name: Finished
+    name: {{base.view.finished}}
     filters:
       and:
         - 'status == "finished"'
@@ -29,7 +29,7 @@ views:
     summaries:
       hours: Sum
   - type: table
-    name: Playing
+    name: {{base.view.playing}}
     filters:
       and:
         - 'status == "playing"'
@@ -43,7 +43,7 @@ views:
       - property: started_on
         direction: DESC
   - type: table
-    name: By genre
+    name: {{base.view.by_genre}}
     groupBy:
       property: genres
       direction: ASC
@@ -59,7 +59,7 @@ views:
     summaries:
       hours: Sum
   - type: table
-    name: Dropped
+    name: {{base.view.dropped}}
     filters:
       and:
         - 'status == "abandoned"'
@@ -70,7 +70,7 @@ views:
       - hours
       - rating
   - type: cards
-    name: Shelf
+    name: {{base.view.shelf}}
     filters:
       and:
         - 'status != "playing"'

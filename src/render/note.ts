@@ -237,7 +237,12 @@ export function runsBlock(game: GameState, bundle: Translator, flavour: Flavour)
       run.ended_on === null ? '' : atPrecision(run.ended_on, run.ended_precision),
       hours,
       cell(run.rating),
-      cell(run.completion_criteria),
+      // The label, not the token — see render/table.ts.
+      cell(
+        run.completion_criteria === null
+          ? null
+          : bundle.label('completion_criteria', run.completion_criteria),
+      ),
     ]
   })
 

@@ -99,7 +99,7 @@ Started as a curiosity and turned into the best thing I played this year...
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[2026-05-03-hollow-knight\|2026]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | true_ending |
+| [[2026-05-03-hollow-knight\|2026]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | true ending |
 <!-- gamereg:end block=runs -->
 
 ## Gallery
@@ -319,9 +319,17 @@ the user should hear it before the build does it.
 <!-- gamereg:begin block=table -->
 | Cover | Game | Platform | Started | Ended | Hours | Rating | Difficulty | Criteria |
 |---|---|---|---|---|---|---|---|---|
-| ![[assets/e3/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.webp\|128]] | [[hollow-knight\|Hollow Knight]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | hard | true_ending |
+| ![[assets/e3/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.webp\|128]] | [[hollow-knight\|Hollow Knight]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | hard | true ending |
 <!-- gamereg:end block=table -->
 ```
+
+**`Difficulty` and `Criteria` hold labels, not tokens.** The cell says what the
+header above it is written in — `true ending` in English, `final verdadeiro` in
+pt-BR — while the run note's frontmatter keeps `completion_criteria:
+true_ending`, because that is what the Bases view filters on and what
+`gamereg query` mirrors. A token is localized when it is prose in a cell and
+never when something queries it
+([ADR 0111](../decisions/0111-localized-surface-english-schema.md)).
 
 `Cover` is empty for a game whose cover is not locally ingested yet — the same
 rule the game note's header embed and the run note's `cover` property both
@@ -655,8 +663,12 @@ to every target, not only to Markdown.
 - Stable sort keys everywhere, ties broken by ULID
 - Fixed decimal precision for hours (one place)
 - LF endings, no trailing whitespace, single trailing newline
-- Locale-independent formatting inside generated blocks — dates as ISO, numbers
-  with `.` — because the file is data, not presentation
+- Locale-independent *formatting* inside generated blocks — dates as ISO,
+  numbers with `.`, durations as `2h30` — because those are data, not
+  presentation. The locale still decides the *words* around them: headings,
+  column headers, and the labels in the Difficulty and Criteria columns. It
+  is an input to the build, not a source of drift — for a fixed locale the
+  bytes are fixed ([ADR 0111](../decisions/0111-localized-surface-english-schema.md))
 - Binary targets included: SQLite is built with a fixed page size, a fixed
   insertion order and no timestamps
 

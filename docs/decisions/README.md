@@ -163,6 +163,7 @@ Links to specs, code and other records.
 | [0108](0108-an-attachment-has-no-extension-to-vary.md) | An attachment has no extension to vary, so the derived artifacts stop carrying one | Build and targets | Accepted | 2026-09-24 |
 | [0109](0109-run-prose-reaches-the-derived-artifacts.md) | A run's note and verdict reach the derived artifacts as columns on `runs` | Build and targets | Accepted | 2026-09-24 |
 | [0110](0110-diary-is-not-the-feed.md) | The diary is not the "feed" the non-goals rule out; a verdict gets a synthetic end-of-day sort key, and the front page a count rather than a window | Site and comments | Accepted | 2026-09-24 |
+| [0111](0111-localized-surface-english-schema.md) | The vault's surface is localized; its schema, its queries and its seeds' filenames are not | Build and targets | Accepted | 2026-09-24 |
 
 ## By area
 
@@ -219,6 +220,7 @@ Links to specs, code and other records.
 - [0107](0107-the-cover-is-three-columns-on-games.md) A game's cover reaches the derived artifacts as three columns on `games`
 - [0108](0108-an-attachment-has-no-extension-to-vary.md) An attachment has no extension to vary, so the derived artifacts stop carrying one
 - [0109](0109-run-prose-reaches-the-derived-artifacts.md) A run's note and verdict reach the derived artifacts as columns on `runs`
+- [0111](0111-localized-surface-english-schema.md) The vault's surface is localized; its schema, its queries and its seeds' filenames are not
 
 ### Site and comments
 

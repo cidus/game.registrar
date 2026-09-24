@@ -37,9 +37,16 @@ export const stats: Target = {
 
   plan(state: VaultState, context: TargetContext): PlannedFile[] {
     const { bundle } = context
+    // Localized, like the vault's other front-matter-less note: the explorer
+    // shows a basename, and an English one in a Portuguese vault is the same
+    // gap the column headers used to have (ADR 0111).
+    //
+    // `stats.title` rather than a filename key of its own: it is already the
+    // note's `H1`, and a second key holding the same word is how a filename
+    // and the heading inside it drift apart.
     const files: PlannedFile[] = [
       {
-        path: 'obsidian/Stats.md',
+        path: `obsidian/${bundle.t('stats.title')}.md`,
         content: newStats(state, bundle, OBSIDIAN),
         policy: 'splice',
         parts: { frontmatter: null, blocks: statsBlocks(state, bundle, OBSIDIAN) },
