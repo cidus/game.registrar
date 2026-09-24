@@ -2,7 +2,7 @@
 gamereg_run_id: 01K5A00000000000000000RUN2
 gamereg_id: 01K5A00000000000000000GAM2
 title: Chrono Trigger
-description: Super Nintendo · 2011-01 → 2011-07 · 30h00 across 0 sessions
+description: Super Nintendo · 2011-01 → 2011-07 · 30h00
 draft: false
 game: "[[games/chrono-trigger]]"
 status: finished
@@ -26,7 +26,7 @@ tags: [gamereg, gamereg/run]
 ---
 
 <!-- gamereg:begin block=header -->
-[[games/chrono-trigger|Chrono Trigger]] · Super Nintendo · 2011-01 → 2011-07 · 30h00 across 0 sessions
+[[games/chrono-trigger|Chrono Trigger]] · Super Nintendo · 2011-01 → 2011-07 · 30h00
 <!-- gamereg:end block=header -->
 
 ## Verdict

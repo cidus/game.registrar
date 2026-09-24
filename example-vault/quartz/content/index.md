@@ -64,7 +64,7 @@ First hours. Combat feels tight.
 ## 2011-07-01
 
 **[[games/chrono-trigger|Chrono Trigger]]**
-*Verdict · Super Nintendo · 30h00 across 0 sessions · 10*
+*Verdict · Super Nintendo · 30h00 · 10*
 
 > Replayed it over one long week, and the memory held up better than memories usually do.
 >

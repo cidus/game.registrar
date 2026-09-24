@@ -24,7 +24,7 @@ tags: [gamereg, gamereg/run]
 ---
 
 <!-- gamereg:begin block=header -->
-[[chrono-trigger|Chrono Trigger]] · Super Nintendo · 2011-01 → 2011-07 · 30h00 across 0 sessions
+[[chrono-trigger|Chrono Trigger]] · Super Nintendo · 2011-01 → 2011-07 · 30h00
 <!-- gamereg:end block=header -->
 
 ## Verdict

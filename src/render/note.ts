@@ -12,13 +12,14 @@
  */
 import { Document, Scalar } from 'yaml'
 
-import { formatHm, formatHours } from '../core/duration.ts'
+import { formatHours } from '../core/duration.ts'
 import { attachmentsOfGame, type GameState, type RunState, type SessionState, type VaultState } from '../core/fold.ts'
 import type { Translator } from '../i18n/index.ts'
 import { assetEmbed } from './assets.ts'
 import { atPrecision } from './dates.ts'
 import { noteRef, type Flavour } from './flavour.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
+import { timePlayed } from './played.ts'
 import { runNoteNames, runsInOrder } from './run.ts'
 
 export const BLOCK_ORDER = ['header', 'verdict', 'runs', 'gallery'] as const
@@ -130,18 +131,8 @@ function headerParts(game: GameState, bundle: Translator, emphasis: boolean): st
   const platform = recordedPlatform(game)
   if (platform !== null) parts.push(platform)
 
-  // Nothing measured yet says nothing about duration: an open session is never
-  // estimated, and "0m" would read as a claim.
-  if (game.total_minutes > 0) {
-    parts.push(
-      sessions.length === 1
-        ? bundle.t('note.header.total_one', { duration: formatHm(game.total_minutes) })
-        : bundle.t('note.header.total', {
-            duration: formatHm(game.total_minutes),
-            sessions: sessions.length,
-          }),
-    )
-  }
+  const played = timePlayed(game.total_minutes, sessions.length, bundle)
+  if (played !== null) parts.push(played)
 
   return parts
 }

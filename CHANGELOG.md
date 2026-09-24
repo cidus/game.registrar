@@ -40,6 +40,14 @@ file.
   [ADR 0110](docs/decisions/0110-diary-is-not-the-feed.md).
 - `quartz/content/all-games.md`: the consolidated table, under its own name.
 
+### Fixed
+
+- A run with stated hours and no recorded sessions read `30h00 across 0
+  sessions` on its game note, its run note and the diary. Nobody recorded a
+  count of zero, and those hours did not come from sessions at all — the
+  clause is now the duration alone. The rule moved into `render/played.ts`,
+  shared by the three renderers that had a copy of it each.
+
 ### Changed
 
 **Derived artifacts**

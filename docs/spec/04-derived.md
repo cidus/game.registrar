@@ -122,6 +122,23 @@ ingestion pipeline. The embed is content-addressed —
 is the same path the run note's `cover` property and the consolidated table's
 `Cover` column point at. There is no `covers/` folder.
 
+The header line ends with **how long, and over how many sittings** — one clause
+rendered by `render/played.ts` and shared with the run note and the diary, so
+the three cannot disagree about a run. Two facts, and only the ones on record:
+
+- **Nothing measured says nothing about duration.** The clause is omitted
+  entirely rather than written as `0m`, which would read as a claim that no
+  time passed. An open session is never estimated.
+- **Zero sessions is not a number worth stating.** Hours filed by `import` or
+  `past --hours` belong to the run and to no sitting at all, so a run with
+  stated hours and no sessions reads `30h00` and stops there. `hours_source`
+  is where that distinction is actually carried, and the consolidated table
+  marks such hours `(stated)`.
+
+The bare duration goes through no translation key, for the same reason the
+release year and the platform beside it do not: a duration is data that
+`core/duration.ts` formats, not a sentence (00-architecture D7).
+
 The `gallery` block holds every photo on the game's timeline, oldest first,
 de-duplicated by hash — the same image attached to a session and promoted to the
 cover is one entry. Each embed is content-addressed the same way.
