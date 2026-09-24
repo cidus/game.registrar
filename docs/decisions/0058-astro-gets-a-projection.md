@@ -17,6 +17,14 @@ stale. The decision is not: what a nested projection would add is the *shape* �
 each game with its runs, each run with its sessions — and no single flat column
 changes that.
 
+*Later again, same reason:* since
+[0109](0109-run-prose-reaches-the-derived-artifacts.md) `run.note` and the
+verdict are no longer missing either — `runs` carries `note` and `verdict`, and
+`data/export.json` mirrors them. Of the five fields this context lists, only the
+two multi-valued ones (genres, game platforms) are still absent, and those are
+the ones a flat row genuinely cannot hold. The decision is unchanged for the
+same reason as above: what is left is the shape.
+
 ## Decision
 
 A future Astro path gets its own nested projection target: each game with its platforms, genres, cover and runs, each run with its verdict, note and sessions. Field names come from the SQLite schema, which stays the authority. data/export.json must not be widened into that artifact: widening breaks its spreadsheet usefulness and contradicts 04-derived.md's rule that the SQLite schema wins any disagreement. With data, gamereg says what is true and the site decides which pages exist, so gamereg does not dictate a downstream site's URL structure, and cross-cutting pages (by year, genre, platform) and charts need no new artifact. That target is cheaper than quartz: no remark, frontmatter, markers or splice, just a projection.

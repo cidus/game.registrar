@@ -61,6 +61,8 @@ const RUNS = [
   'minutes',
   'hours_source',
   'replay',
+  'note',
+  'verdict',
 ] as const
 
 const SESSIONS = [
@@ -130,6 +132,11 @@ function runRows(state: VaultState): Cell[][] {
       run.minutes,
       run.hours_source,
       run.replay,
+      // Prose, and an empty field for a run that filed none. A verdict may
+      // carry line breaks; `field` quotes them, so the row stays one record
+      // however many lines of the file it spans.
+      run.note,
+      run.verdict,
     ])
 }
 

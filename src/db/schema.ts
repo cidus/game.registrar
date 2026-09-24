@@ -38,6 +38,14 @@ CREATE TABLE game_genres (
   genre   TEXT NOT NULL
 );
 
+-- \`note\` and \`verdict\` are the run's two pieces of prose, both nullable and
+-- both carried for the same reason \`sessions.note\` always has been: prose in a
+-- TEXT column is a value like any other, and a consumer that cannot read it
+-- here has to parse a Markdown note to get it back. \`note\` is the line filed
+-- with \`run.close\` / \`run.import\`; \`verdict\` is the latest \`run.verdict\`
+-- text, last filing wins (core/fold.ts). Multi-valued facts -- genres,
+-- platforms -- are the ones a flat row genuinely cannot hold, and those stay in
+-- their join tables.
 CREATE TABLE runs (
   run_id              TEXT PRIMARY KEY,
   game_id             TEXT NOT NULL REFERENCES games(game_id),
@@ -53,7 +61,9 @@ CREATE TABLE runs (
   difficulty          TEXT,
   minutes             INTEGER NOT NULL,
   hours_source        TEXT NOT NULL,
-  replay              INTEGER NOT NULL
+  replay              INTEGER NOT NULL,
+  note                TEXT,
+  verdict             TEXT
 );
 
 CREATE TABLE sessions (

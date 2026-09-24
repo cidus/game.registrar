@@ -42,6 +42,10 @@ type JsonRun = {
   minutes: number
   hours_source: string
   replay: boolean
+  /** Prose, null for a run that filed none; see `runs` in src/db/schema.ts. */
+  note: string | null
+  /** The latest `run.verdict` text, null for a run that has none. */
+  verdict: string | null
 }
 
 type JsonSession = {
@@ -96,6 +100,8 @@ function runs(state: VaultState): JsonRun[] {
       minutes: run.minutes,
       hours_source: run.hours_source,
       replay: run.replay,
+      note: run.note,
+      verdict: run.verdict,
     }))
 }
 

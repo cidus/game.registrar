@@ -134,8 +134,17 @@ export type RunState = {
   completion_criteria: CompletionCriteria | null
   rating: number | null
   difficulty: Difficulty | null
+  /**
+   * The line filed with `run.close` / `run.import`. Prose, and emitted by
+   * `runs.note` in every derived artifact.
+   */
   note: string | null
-  /** The latest `run.verdict` text. Prose, and never read back into anything. */
+  /**
+   * The latest `run.verdict` text — filing again replaces the previous one,
+   * and both stay in the file. Prose, rendered by the run and game notes and
+   * emitted by `runs.verdict` in sqlite, csv and json
+   * ([0109](../../docs/decisions/0109-run-prose-reaches-the-derived-artifacts.md)).
+   */
   verdict: string | null
   replay: boolean
   sessions: SessionState[]

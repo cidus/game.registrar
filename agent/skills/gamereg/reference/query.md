@@ -18,7 +18,7 @@ and the failed-exec warning reaches the user.
 | Table | Columns |
 |---|---|
 | `games` | `game_id`, `slug`, `title`, `release_year`, `developer`, `publisher`, `status`, `cover_sha256`, `cover_url`, `cover_source` |
-| `runs` | `run_id`, `game_id`, `platform`, `platform_raw`, `form`, `mode`, `started_on`, `ended_on`, `outcome`, `completion_criteria`, `rating`, `difficulty`, `minutes`, `hours_source`, `replay` |
+| `runs` | `run_id`, `game_id`, `platform`, `platform_raw`, `form`, `mode`, `started_on`, `ended_on`, `outcome`, `completion_criteria`, `rating`, `difficulty`, `minutes`, `hours_source`, `replay`, `note`, `verdict` |
 | `sessions` | `session_id`, `run_id`, `started_at`, `ended_at`, `minutes`, `logical_day`, `note` |
 | `breaks` | `break_id`, `session_id`, `started_at`, `ended_at`, `minutes` |
 | `game_platforms` | `game_id`, `platform` |
@@ -125,6 +125,11 @@ the database returns the number.
   `COUNT(*)` over runs is not how many games they played.
 - **`v_finished` is finished runs only.** Abandoned runs are in `runs` with
   `outcome = 'abandoned'`; open runs have no `outcome` at all.
+- **`runs.verdict` is the latest verdict filed for that run**, not the first —
+  filing again replaces it, and a revoked one is null again. `runs.note` is the
+  line the run was closed with. Both are prose, both are nullable, and null
+  means nothing was written rather than an empty string. Neither is on
+  `v_finished`; join `runs` when the question wants the words.
 
 ## Worked examples
 

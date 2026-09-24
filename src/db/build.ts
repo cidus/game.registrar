@@ -84,8 +84,8 @@ export function buildDatabase(state: VaultState): Buffer {
 
       const insertRun = db.prepare(
         `INSERT INTO runs (run_id, game_id, platform, platform_raw, form, mode, started_on, ended_on,
-           outcome, completion_criteria, rating, difficulty, minutes, hours_source, replay)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           outcome, completion_criteria, rating, difficulty, minutes, hours_source, replay, note, verdict)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       for (const run of runs) {
         insertRun.run(
@@ -104,6 +104,11 @@ export function buildDatabase(state: VaultState): Buffer {
           run.minutes,
           run.hours_source,
           run.replay ? 1 : 0,
+          // Prose, stored as filed: null when nothing was written, never an
+          // empty string. `verdict` is the latest `run.verdict` -- the fold has
+          // already resolved re-filings and revocations.
+          run.note,
+          run.verdict,
         )
       }
 
