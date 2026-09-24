@@ -304,11 +304,10 @@ a single page is a snapshot rather than an archive.
 
 This overlaps the Quartz site and does not replace it: the site is a
 vault-wide, linked, publishable thing; this is one page that answers questions
-about runs. Column headers come from `i18n/` and the embedded data stays in
-schema tokens — but unlike the notes, the *cells* still print the raw
-`difficulty` and `completion_criteria` tokens rather than their labels, and
-the client script hardcodes `playing`. That is a gap, not a decision; see
-[ADR 0111](../decisions/0111-localized-surface-english-schema.md).
+about runs. Headers and rendered cell values are both localized: the embedded
+row data stays in schema tokens (same rule as `csv` and `sqlite`), and a
+separate token → label map is embedded alongside it, so the client-side
+script renders labels without the page ever translating the data itself.
 
 ### `stats`
 

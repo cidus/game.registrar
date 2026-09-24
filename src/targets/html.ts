@@ -3,13 +3,15 @@
  *
  * One self-contained file: data embedded as JSON, the table sorted and
  * filtered by plain JavaScript, no build step, no CDN, no network at
- * runtime. Opens straight from the filesystem. Labels come from `i18n/`; the
- * embedded data stays in schema tokens, same as `csv` and `sqlite`
- * (04-derived.md).
+ * runtime. Opens straight from the filesystem. Headers and cell values are
+ * localized from `i18n/`, but the embedded row data stays in schema tokens,
+ * same as `csv` and `sqlite` (04-derived.md) — a second, small token → label
+ * map travels alongside it so the client script can look labels up at
+ * render time without translating the data itself.
  */
 import { formatHours } from '../core/duration.ts'
 import type { GameState, RunState, VaultState } from '../core/fold.ts'
-import type { DatePrecision } from '../core/vocab.ts'
+import { COMPLETION_CRITERIA, DIFFICULTY, GAME_STATUS, type DatePrecision } from '../core/vocab.ts'
 import { heatmapSvg, playByDay, yearsPlayed } from '../render/heatmap.ts'
 import type { PlannedFile, Target, TargetContext } from './types.ts'
 
@@ -89,6 +91,7 @@ const STYLE = `
 const SCRIPT = `
 (function () {
   var data = window.__GAMEREG_RUNS__;
+  var labels = window.__GAMEREG_LABELS__;
   var tbody = document.querySelector("tbody");
   var search = document.getElementById("filter");
   var headers = Array.prototype.slice.call(document.querySelectorAll("th[data-key]"));
@@ -96,6 +99,10 @@ const SCRIPT = `
   var sortDir = 1;
 
   function cell(value) { return value === null || value === undefined ? "" : String(value); }
+
+  function label(group, token) {
+    return token === null || token === undefined ? "" : (labels[group][token] || token);
+  }
 
   function render() {
     var term = (search.value || "").toLowerCase();
@@ -118,8 +125,8 @@ const SCRIPT = `
       var tr = document.createElement("tr");
       if (row.open) tr.className = "open";
       var hours = row.hours + (row.hours_source !== "measured" ? " *" : "");
-      var status = row.open ? "playing" : cell(row.completion_criteria);
-      [row.title, cell(row.platform), cell(row.started_on), cell(row.ended_on), hours, cell(row.rating), cell(row.difficulty), status].forEach(
+      var status = row.open ? label("status", "playing") : label("completion_criteria", row.completion_criteria);
+      [row.title, cell(row.platform), cell(row.started_on), cell(row.ended_on), hours, cell(row.rating), label("difficulty", row.difficulty), status].forEach(
         function (value, index) {
           var td = document.createElement("td");
           td.textContent = value;
@@ -158,6 +165,13 @@ export const html: Target = {
   plan(state: VaultState, context: TargetContext): PlannedFile[] {
     const bundle = context.bundle
     const rows = rowsOf(state)
+    const labels = (group: string, tokens: readonly string[]): Record<string, string> =>
+      Object.fromEntries(tokens.map((token) => [token, bundle.label(group, token)]))
+    const labelMaps = {
+      difficulty: labels('difficulty', DIFFICULTY),
+      completion_criteria: labels('completion_criteria', COMPLETION_CRITERIA),
+      status: labels('status', GAME_STATUS),
+    }
     const columns: { key: keyof Row; label: string }[] = [
       { key: 'title', label: bundle.t('table.game') },
       { key: 'platform', label: bundle.t('table.platform') },
@@ -197,6 +211,7 @@ ${heatmap}<input type="search" id="filter" placeholder="${escapeHtml(bundle.t('t
 <tbody></tbody>
 </table>
 <script>window.__GAMEREG_RUNS__ = ${embedJson(rows)};</script>
+<script>window.__GAMEREG_LABELS__ = ${embedJson(labelMaps)};</script>
 <script>${SCRIPT}</script>
 </body>
 </html>

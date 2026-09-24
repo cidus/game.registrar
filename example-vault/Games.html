@@ -29,8 +29,10 @@
 <tbody></tbody>
 </table>
 <script>window.__GAMEREG_RUNS__ = [{"title":"Stardew Valley","platform":"PC","started_on":"2026-09-01","ended_on":null,"minutes":1422,"hours":"23.7","hours_source":"mixed","rating":null,"difficulty":null,"completion_criteria":null,"open":true},{"title":"Tunic","platform":null,"started_on":"2026-08-15","ended_on":null,"minutes":150,"hours":"2.5","hours_source":"measured","rating":null,"difficulty":null,"completion_criteria":null,"open":true},{"title":"Celeste","platform":"Nintendo Switch","started_on":"2026-07-20","ended_on":null,"minutes":0,"hours":"0.0","hours_source":"measured","rating":null,"difficulty":null,"completion_criteria":null,"open":true},{"title":"Hollow Knight","platform":"Nintendo Switch","started_on":"2026-05-03","ended_on":"2026-08-12","minutes":538,"hours":"9.0","hours_source":"measured","rating":9,"difficulty":"hard","completion_criteria":"true_ending","open":false},{"title":"Outer Wilds","platform":"PC","started_on":"2026-06-01","ended_on":"2026-06-01","minutes":90,"hours":"1.5","hours_source":"measured","rating":null,"difficulty":null,"completion_criteria":"abandoned","open":false},{"title":"Chrono Trigger","platform":"Super Nintendo","started_on":"2011-01","ended_on":"2011-07","minutes":1800,"hours":"30.0","hours_source":"stated","rating":10,"difficulty":"normal","completion_criteria":"credits","open":false}];</script>
+<script>window.__GAMEREG_LABELS__ = {"difficulty":{"trivial":"trivial","easy":"easy","normal":"normal","hard":"hard","brutal":"brutal"},"completion_criteria":{"credits":"credits","true_ending":"true ending","full_completion":"full completion","platinum":"platinum","enough":"enough","endless":"endless","abandoned":"abandoned"},"status":{"unplayed":"unplayed","playing":"playing","finished":"finished","abandoned":"abandoned"}};</script>
 <script>(function () {
   var data = window.__GAMEREG_RUNS__;
+  var labels = window.__GAMEREG_LABELS__;
   var tbody = document.querySelector("tbody");
   var search = document.getElementById("filter");
   var headers = Array.prototype.slice.call(document.querySelectorAll("th[data-key]"));
@@ -38,6 +40,10 @@
   var sortDir = 1;
 
   function cell(value) { return value === null || value === undefined ? "" : String(value); }
+
+  function label(group, token) {
+    return token === null || token === undefined ? "" : (labels[group][token] || token);
+  }
 
   function render() {
     var term = (search.value || "").toLowerCase();
@@ -60,8 +66,8 @@
       var tr = document.createElement("tr");
       if (row.open) tr.className = "open";
       var hours = row.hours + (row.hours_source !== "measured" ? " *" : "");
-      var status = row.open ? "playing" : cell(row.completion_criteria);
-      [row.title, cell(row.platform), cell(row.started_on), cell(row.ended_on), hours, cell(row.rating), cell(row.difficulty), status].forEach(
+      var status = row.open ? label("status", "playing") : label("completion_criteria", row.completion_criteria);
+      [row.title, cell(row.platform), cell(row.started_on), cell(row.ended_on), hours, cell(row.rating), label("difficulty", row.difficulty), status].forEach(
         function (value, index) {
           var td = document.createElement("td");
           td.textContent = value;

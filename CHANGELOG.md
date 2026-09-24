@@ -42,6 +42,12 @@ file.
 
 ### Fixed
 
+- The `html` target's table no longer prints raw enum tokens (`hard`,
+  `true_ending`) or the hardcoded English literal `"playing"` for an open run,
+  while its column headers were already localized. The embedded row data
+  still stays in schema tokens, same as `csv` and `sqlite`; a separate
+  token → label map travels alongside it in the page, and the client-side
+  script looks labels up at render time instead of translating the data.
 - The header line of the game note, the run note and the diary no longer
   renders a stated portion as if it were measured, which
   [01-model.md](docs/spec/01-model.md) forbids of any report. A run with
