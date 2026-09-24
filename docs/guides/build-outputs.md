@@ -23,17 +23,22 @@ decides what a build does to it:
 |---|---|---|
 | `obsidian` | `obsidian/games/<slug>.md`, one per game | `splice` |
 | | `obsidian/runs/<start date>-<slug>.md`, one per run | `replace` |
-| | `obsidian/Game List.md`, one row per run | `splice` |
+| | `obsidian/Game List.md`, one row per run (named for the locale) | `splice` |
 | | `obsidian/Game Database.base`, an Obsidian Bases view | `seed` |
 | `csv` | `data/games.csv`, `data/runs.csv`, `data/sessions.csv`, `data/attachments.csv` | `replace` |
 | `sqlite` | `data/log.db`, which `gamereg query` reads | `replace` |
 | `json` | `data/export.json`, the same rows as the CSV files | `replace` |
 | `html` | `Games.html`, one self-contained page with a sortable, filterable table | `replace` |
-| `stats` | `obsidian/Stats.md`: totals, a row per year, a row per genre, every year's heatmap | `splice` |
+| `stats` | `obsidian/Stats.md`: totals, a row per year, a row per genre, every year's heatmap (named for the locale) | `splice` |
 | | `obsidian/reviews/<year>.md`, a year in review for each year with sessions | `splice` |
 | | `obsidian/reviews/heatmap-<year>.svg` | `replace` |
 | `quartz` | `quartz/content/**`: games, runs, `index.md` (the diary's most recent entries), `all-games.md`, `stats.md`, reviews, heatmaps and a diary per year | `replace` |
 | | `quartz/content/Game Database.base` and `quartz/quartz.config.yaml` | `seed` |
+
+Two of those names follow the vault's `locale`: under `pt-BR` they are
+`Lista de Jogos.md` and `Estatísticas.md`. Changing `locale` renames them on
+the next build, which discards anything written outside their markers. See
+[ADR 0111](../decisions/0111-localized-surface-english-schema.md).
 
 `build.csv.dir` sets the folder for the CSV files, `data` by default. The
 `obsidian` target also links every stored photo into `obsidian/assets/`, so

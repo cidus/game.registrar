@@ -234,6 +234,12 @@ Run `gamereg build` again and it reports `0 files written`. The build
 regenerates everything from the log and writes only the files whose content
 changed.
 
+`Game List.md` and the stats note are named in the vault's language: set
+`locale` to `pt-BR` and they are `Lista de Jogos.md` and `Estatísticas.md`.
+The folders, the game and run filenames, and everything the notes store in
+frontmatter stay English in every language — see
+[configuration](reference/configuration.md#locale).
+
 In Obsidian, choose **Open folder as vault** and pick `~/games/obsidian`, not
 `~/games`. That folder holds the notes. The log, the secrets file and the
 build's bookkeeping stay one level up, outside Obsidian's index.

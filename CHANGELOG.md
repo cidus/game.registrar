@@ -57,6 +57,29 @@ file.
 
 ### Changed
 
+**Localization**
+
+- Generated notes now localize the **Difficulty** and **Criteria** cells, not
+  just the headers above them: a pt-BR vault reads `difícil` and
+  `final verdadeiro` where it used to read `hard` and `true_ending`. The
+  frontmatter keeps the English token, because that is what the Bases view
+  filters on and what `gamereg query` mirrors. In English two labels move too,
+  to `true ending` and `full completion`.
+- `obsidian/Game List.md` and `obsidian/Stats.md` follow the vault's `locale`
+  (`Lista de Jogos.md`, `Estatísticas.md` under pt-BR), and `Game List`'s own
+  `H1` is now the same string as its filename — it used to read `Games`.
+  **Changing `locale` renames these two on the next build, which discards
+  anything written outside their markers.** Nothing under `quartz/content/`
+  moves, and no seeded file is ever renamed.
+- The two seeded files are localized when first written: `Game Database.base`
+  gets its view and column names, and `quartz.config.yaml` gets `pageTitle`
+  and `locale` — the latter was pinned to `en-US`, which left Quartz's own
+  interface in English on a Portuguese site. Seeds are written once, so an
+  existing vault refreshes them by deleting them and rebuilding.
+- Shipped templates now carry named holes (`{{base.view.finished}}`) filled
+  from `i18n/` at plan time, rather than there being a per-locale copy of each
+  template. See [ADR 0111](docs/decisions/0111-localized-surface-english-schema.md).
+
 **Derived artifacts**
 
 - The site's front page (`quartz/content/index.md`) is now the diary's 30 most
