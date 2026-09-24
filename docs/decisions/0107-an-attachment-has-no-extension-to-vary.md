@@ -48,11 +48,15 @@ value — the field holds the format, never the claim.
 `assets/<sha256[0:2]>/<sha256>.webp` stays [01-model](../spec/01-model.md)'s
 rule, which is now the only place it is stated.
 
-**The event payload is unchanged.** `attachments[]` entries still carry
-`ext: "webp"`; 01-model specifies that field, the log is append-only so every
-event written so far has it, and removing it would be a model change rather than
-a derived-layer one. Whether new events should still record a constant is a fair
-question and is left open below, for the maintainer rather than for a session.
+**The event payload is unchanged, and stays that way.** `attachments[]` entries
+still carry `ext: "webp"`; 01-model specifies that field, the log is append-only
+so every event written so far has it, and removing it would be a model change
+rather than a derived-layer one. Raised with the maintainer and settled there:
+the field stays. It is harmless where it is — the log records what was true when
+it was written, which is the point of an event log — and it is the natural place
+for the answer to change if an attachment ever legitimately is not a WebP (see
+the reopening condition below). What is forbidden is a *derived* column that
+varies while `assetPath()` does not.
 
 ## Consequences
 
