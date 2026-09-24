@@ -21,6 +21,10 @@ type JsonGame = {
   developer: string | null
   publisher: string | null
   status: string
+  /** All three null for a game with no cover; see `games` in src/db/schema.ts for the rest of the nullability. */
+  cover_sha256: string | null
+  cover_url: string | null
+  cover_source: string | null
 }
 
 type JsonRun = {
@@ -38,6 +42,10 @@ type JsonRun = {
   minutes: number
   hours_source: string
   replay: boolean
+  /** Prose, null for a run that filed none; see `runs` in src/db/schema.ts. */
+  note: string | null
+  /** The latest `run.verdict` text, null for a run that has none. */
+  verdict: string | null
 }
 
 type JsonSession = {
@@ -62,6 +70,9 @@ function games(state: VaultState): JsonGame[] {
       developer: game.developer,
       publisher: game.publisher,
       status: game.status,
+      cover_sha256: game.cover?.sha256 ?? null,
+      cover_url: game.cover?.url ?? null,
+      cover_source: game.cover?.source ?? null,
     }))
 }
 
@@ -89,6 +100,8 @@ function runs(state: VaultState): JsonRun[] {
       minutes: run.minutes,
       hours_source: run.hours_source,
       replay: run.replay,
+      note: run.note,
+      verdict: run.verdict,
     }))
 }
 

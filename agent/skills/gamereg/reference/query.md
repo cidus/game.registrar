@@ -17,21 +17,32 @@ and the failed-exec warning reaches the user.
 
 | Table | Columns |
 |---|---|
-| `games` | `game_id`, `slug`, `title`, `release_year`, `developer`, `publisher`, `status` |
-| `runs` | `run_id`, `game_id`, `platform`, `platform_raw`, `form`, `mode`, `started_on`, `ended_on`, `outcome`, `completion_criteria`, `rating`, `difficulty`, `minutes`, `hours_source`, `replay` |
+| `games` | `game_id`, `slug`, `title`, `release_year`, `developer`, `publisher`, `status`, `cover_sha256`, `cover_url`, `cover_source` |
+| `runs` | `run_id`, `game_id`, `platform`, `platform_raw`, `form`, `mode`, `started_on`, `ended_on`, `outcome`, `completion_criteria`, `rating`, `difficulty`, `minutes`, `hours_source`, `replay`, `note`, `verdict` |
 | `sessions` | `session_id`, `run_id`, `started_at`, `ended_at`, `minutes`, `logical_day`, `note` |
 | `breaks` | `break_id`, `session_id`, `started_at`, `ended_at`, `minutes` |
 | `game_platforms` | `game_id`, `platform` |
 | `game_genres` | `game_id`, `genre` |
 | `aliases` | `game_id`, `alias` |
-| `attachments` | `sha256`, `ext`, `kind`, `caption`, `captured_at`, `filed_at`, `game_id`, `run_id`, `session_id`, `target` |
+| `attachments` | `sha256`, `kind`, `caption`, `captured_at`, `filed_at`, `game_id`, `run_id`, `session_id`, `target` |
 | `events` | `event_id`, `ts`, `type`, `source`, `payload` |
+
+**A game's cover is three columns on `games`, not a row in `attachments`.**
+`cover_source` is `user` or `provider`; `cover_sha256` is the ingested image and
+`cover_url` the provider's address, either of which may be null on its own. All
+three are null for a game with no cover. A cover promoted from the user's own
+photo is also an `attachments` row, so count covers on `games.cover_sha256` and
+never by looking for one in `attachments`.
 
 **`attachments.game_id` is always set; `run_id` and `session_id` are not.** A
 photo filed against the game itself has neither, so filter on `game_id` for
 "every photo of this game" and on the narrower two only when the question is
 about a run or a session. One photo can hold two rows -- the same hash filed at
 two levels -- so count `DISTINCT sha256` when counting photos.
+
+**A photo's file is `assets/<first two characters of sha256>/<sha256>.webp`.**
+Every stored image is a WebP, so there is no extension column and no path column
+to read — the hash is the whole address.
 
 **`runs.platform` is the platform a playthrough happened on;
 `game_platforms.platform` is every platform the game exists on.** A question
@@ -114,6 +125,11 @@ the database returns the number.
   `COUNT(*)` over runs is not how many games they played.
 - **`v_finished` is finished runs only.** Abandoned runs are in `runs` with
   `outcome = 'abandoned'`; open runs have no `outcome` at all.
+- **`runs.verdict` is the latest verdict filed for that run**, not the first —
+  filing again replaces it, and a revoked one is null again. `runs.note` is the
+  line the run was closed with. Both are prose, both are nullable, and null
+  means nothing was written rather than an empty string. Neither is on
+  `v_finished`; join `runs` when the question wants the words.
 
 ## Worked examples
 

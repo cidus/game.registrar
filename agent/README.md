@@ -29,10 +29,9 @@ workspace/              copied into the gateway's workspace; compiled into the
   AGENTS.md             the operating card: boundary, procedure, buttons, safety
   SOUL.md               the persona's voice
   IDENTITY.md           name, creature, vibe
-  REACTIONS.md          the per-installation token mapping
   USER.md               your own house rules
-  HEARTBEAT.md          what to do when woken by a finished background call
-  TOOLS.md              holds the slot the gateway would otherwise fill itself
+  REACTIONS.md          the per-installation token mapping — read on demand,
+                        not injected: OpenClaw's list does not include it
 skills/gamereg/         read on demand, mid-turn
   SKILL.md              a pointer back to the card
   reference/cli.md      the CLI surface, kept honest by test/agent-skill.test.ts
@@ -52,8 +51,8 @@ PERSONAS.md             how the two clerks are drawn. Design material, deployed
 | File | In the container | On a host |
 |---|---|---|
 | `skills/gamereg/**` | Replaced on every boot | `cp -R` after every update |
-| `AGENTS.md`, `TOOLS.md` | Replaced on every boot | `cp` after every update |
-| `SOUL.md`, `IDENTITY.md`, `REACTIONS.md`, `USER.md`, `HEARTBEAT.md` | Seeded once, then yours; the boot records a hash so an untouched file still follows the image | `cp` once |
+| `AGENTS.md` | Replaced on every boot | `cp` after every update |
+| `SOUL.md`, `IDENTITY.md`, `REACTIONS.md`, `USER.md` | Seeded once, then yours; the boot records a hash so an untouched file still follows the image | `cp` once |
 | `openclaw.example.json5` | Seeded once, with an environment overlay every boot | `openclaw config patch` |
 | `approvals.example.json` | Written through the gateway's own CLI at boot | `openclaw approvals set` |
 | `checkin.sh` | Installed as `gamereg-checkin`, registered by the `provision` service | `cp` plus `openclaw cron add` |
@@ -65,10 +64,12 @@ default that moved, is in
 
 ## Editing the prompt
 
-`AGENTS.md` and `TOOLS.md` are **code**: their contents are asserted against
-the real binary and the real SQL schema by
+`AGENTS.md` is **code**: its contents are asserted against the real binary and
+the real SQL schema by
 [`test/agent-skill.test.ts`](../test/agent-skill.test.ts), which also holds a
-size budget over `workspace/*.md`. Rules that shaped these files, and that a
+size budget over the files OpenClaw actually injects — `AGENTS.md`, `SOUL.md`,
+`IDENTITY.md` and `USER.md`, and not every `*.md` in the directory
+([ADR 0106](../docs/decisions/0106-only-the-injected-set-is-shipped.md)). Rules that shaped these files, and that a
 change should respect:
 
 - The common procedure belongs in the always-loaded card; rare flows belong in

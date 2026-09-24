@@ -37,7 +37,14 @@ export type FoldProblem = {
 
 export type Attachment = {
   sha256: string
-  ext: string
+  /**
+   * Always `webp`, and a literal type rather than a `string` on purpose: the
+   * hash is of the bytes ingestion normalized, so the hash and the extension
+   * are not two independent facts (01-model.md, *Content addressing*). A
+   * payload claiming anything else is describing a file that does not exist,
+   * so the value here is the format, never the claim.
+   */
+  ext: 'webp'
   caption: string | null
   captured_at: string | null
   kind: string
@@ -127,8 +134,17 @@ export type RunState = {
   completion_criteria: CompletionCriteria | null
   rating: number | null
   difficulty: Difficulty | null
+  /**
+   * The line filed with `run.close` / `run.import`. Prose, and emitted by
+   * `runs.note` in every derived artifact.
+   */
   note: string | null
-  /** The latest `run.verdict` text. Prose, and never read back into anything. */
+  /**
+   * The latest `run.verdict` text — filing again replaces the previous one,
+   * and both stay in the file. Prose, rendered by the run and game notes and
+   * emitted by `runs.verdict` in sqlite, csv and json
+   * ([0109](../../docs/decisions/0109-run-prose-reaches-the-derived-artifacts.md)).
+   */
   verdict: string | null
   replay: boolean
   sessions: SessionState[]
@@ -214,7 +230,10 @@ function attachmentsOf(data: Record<string, unknown>): Attachment[] {
     if (sha256 === null) continue
     out.push({
       sha256,
-      ext: str(entry, 'ext') ?? 'webp',
+      // Not read from the payload: see `Attachment.ext`. Old events carry it,
+      // hand-written ones may carry something else, and `assets/` holds a WebP
+      // either way.
+      ext: 'webp',
       caption: str(entry, 'caption'),
       captured_at: str(entry, 'captured_at'),
       kind: str(entry, 'kind') ?? 'other',

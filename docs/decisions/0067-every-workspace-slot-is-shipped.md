@@ -1,6 +1,6 @@
 # 0067. Every workspace slot is shipped, so the prompt budget measures the whole prompt
 
-- **Status:** Accepted
+- **Status:** Superseded by [0106](0106-only-the-injected-set-is-shipped.md)
 - **Date:** 2026-08-31
 - **Area:** Agent prompt
 
@@ -24,8 +24,7 @@ The budget constant rose 30,000 to 32,000 while the real total fell ~3KB and sto
 
 ## Related
 
-- [agent/workspace/TOOLS.md](../../agent/workspace/TOOLS.md)
-- [agent/workspace/HEARTBEAT.md](../../agent/workspace/HEARTBEAT.md)
+- [0106](0106-only-the-injected-set-is-shipped.md) — supersedes this
 - [agent/workspace/USER.md](../../agent/workspace/USER.md)
 - [docker/entrypoint.sh](../../docker/entrypoint.sh)
 - [test/agent-skill.test.ts](../../test/agent-skill.test.ts)

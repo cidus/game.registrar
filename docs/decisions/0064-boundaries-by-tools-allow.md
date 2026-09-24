@@ -20,5 +20,5 @@ Each surviving tool must be argued for: exec runs gamereg, message sends buttons
 
 - [agent/openclaw.example.json5](../../agent/openclaw.example.json5)
 - [agent/README.md](../../agent/README.md)
-- [agent/workspace/TOOLS.md](../../agent/workspace/TOOLS.md)
+- [0106](0106-only-the-injected-set-is-shipped.md) — TOOLS.md stopped being injected in OpenClaw 2026.9.4 and its notes moved into the card
 - [docker/entrypoint.sh](../../docker/entrypoint.sh)

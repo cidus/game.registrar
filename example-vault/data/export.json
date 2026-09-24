@@ -8,7 +8,10 @@
       "release_year": 2018,
       "developer": "Extremely OK Games",
       "publisher": null,
-      "status": "playing"
+      "status": "playing",
+      "cover_sha256": null,
+      "cover_url": null,
+      "cover_source": null
     },
     {
       "game_id": "01K5A00000000000000000GAM2",
@@ -17,7 +20,10 @@
       "release_year": 1995,
       "developer": "Square",
       "publisher": null,
-      "status": "finished"
+      "status": "finished",
+      "cover_sha256": null,
+      "cover_url": "https://images.example/covers/chrono-trigger.jpg",
+      "cover_source": "provider"
     },
     {
       "game_id": "01K5A00000000000000000GAM1",
@@ -26,7 +32,10 @@
       "release_year": 2017,
       "developer": "Team Cherry",
       "publisher": "Team Cherry",
-      "status": "finished"
+      "status": "finished",
+      "cover_sha256": "bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9",
+      "cover_url": null,
+      "cover_source": "user"
     },
     {
       "game_id": "01K5A00000000000000000GAM3",
@@ -35,7 +44,10 @@
       "release_year": 2019,
       "developer": "Mobius Digital",
       "publisher": null,
-      "status": "abandoned"
+      "status": "abandoned",
+      "cover_sha256": "f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2",
+      "cover_url": "https://images.example/covers/outer-wilds.webp",
+      "cover_source": "provider"
     },
     {
       "game_id": "01K5A00000000000000000GAM5",
@@ -44,7 +56,10 @@
       "release_year": 2022,
       "developer": "Andrew Shouldice",
       "publisher": "Finji",
-      "status": "playing"
+      "status": "playing",
+      "cover_sha256": null,
+      "cover_url": null,
+      "cover_source": null
     }
   ],
   "runs": [
@@ -62,7 +77,9 @@
       "difficulty": "normal",
       "minutes": 1800,
       "hours_source": "stated",
-      "replay": false
+      "replay": false,
+      "note": "Filed from memory, fifteen years late.",
+      "verdict": "Replayed it over one long week, and the memory held up better than memories usually do.\n\nStill a ten, for a different reason: it is not \"the best RPG\", it is the one that never wastes a scene."
     },
     {
       "run_id": "01K5A00000000000000000RUN1",
@@ -78,7 +95,9 @@
       "difficulty": "hard",
       "minutes": 538,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": null,
+      "verdict": "Started as a curiosity and turned into the thing I thought about on the way to\nwork. The first ten hours are a map problem; the last ten are a nerve problem,\nand somewhere in between it stopped feeling unfair.\n\nWhat stayed with me is not the difficulty but the silence around it. I would\nfile it again."
     },
     {
       "run_id": "01K5A00000000000000000RUN3",
@@ -94,7 +113,9 @@
       "difficulty": null,
       "minutes": 90,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": "Not the right month for it.",
+      "verdict": null
     },
     {
       "run_id": "01K5A00000000000000000RUN4",
@@ -110,7 +131,9 @@
       "difficulty": null,
       "minutes": 0,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": null,
+      "verdict": null
     },
     {
       "run_id": "01K5A00000000000000000RUN5",
@@ -126,7 +149,9 @@
       "difficulty": null,
       "minutes": 150,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": null,
+      "verdict": null
     }
   ],
   "sessions": [
@@ -188,7 +213,6 @@
   "attachments": [
     {
       "sha256": "f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2",
-      "ext": "webp",
       "kind": "screenshot",
       "caption": "Twenty-two minutes, every time.",
       "captured_at": null,
@@ -200,7 +224,6 @@
     },
     {
       "sha256": "bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9",
-      "ext": "webp",
       "kind": "screenshot",
       "caption": "Watcher Knights, on the third try.",
       "captured_at": "2026-08-12T23:40:00-03:00",
@@ -212,7 +235,6 @@
     },
     {
       "sha256": "bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9",
-      "ext": "webp",
       "kind": "screenshot",
       "caption": "The shrine, finally.",
       "captured_at": "2026-05-03T22:40:00-03:00",
@@ -224,7 +246,6 @@
     },
     {
       "sha256": "f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2",
-      "ext": "webp",
       "kind": "photo",
       "caption": null,
       "captured_at": null,

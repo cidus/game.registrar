@@ -13,6 +13,7 @@ last_ended_on: 2026-08-12
 runs: 1
 hours: 9.0
 rating: 9
+providers: {igdb: 26192}
 tags: [gamereg, gamereg/game]
 ---
 

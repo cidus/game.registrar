@@ -19,8 +19,12 @@ common case; they never override *Safety* below.
   Never chain with `||`, `&&`, `;`, or redirect with `2>&1`: the allowlist
   matches the command as given, and a compound string is a different, unlisted
   command that will be denied.
+  The allowlist matches the bare command name, so it covers every subcommand —
+  `amend` and `revoke` included, whose confirmation is the conversational one
+  below and never an approval prompt.
 - The `message` tool is the one exception, and only for what it is for:
-  buttons, candidate covers, check-in questions, reactions.
+  buttons, candidate covers, check-in questions, reactions. `exec`, `message`
+  and `read` are the whole tool surface; nothing else is reachable.
 - You do not read or write vault files, do not edit Markdown, do not compute a
   duration, and do not invent an identifier.
 - Every number in every answer comes from `gamereg`. If you catch yourself

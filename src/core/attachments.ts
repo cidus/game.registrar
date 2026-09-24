@@ -19,7 +19,6 @@ import { filedAtOf } from './fold.ts'
 
 export type AttachmentRow = {
   sha256: string
-  ext: string
   kind: string
   caption: string | null
   captured_at: string | null
@@ -110,7 +109,6 @@ export function attachmentRows(state: VaultState): AttachmentRow[] {
   const push = (target: string, attachment: Attachment, filedAt: string, owner: Owner): void => {
     rows.push({
       sha256: attachment.sha256,
-      ext: attachment.ext,
       kind: attachment.kind,
       caption: attachment.caption,
       captured_at: attachment.captured_at,

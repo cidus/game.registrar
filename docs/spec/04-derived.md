@@ -314,19 +314,42 @@ rationale and the query shape are in [07-targets](07-targets.md).
 truth; deleting it costs nothing.
 
 ```sql
-games(game_id, slug, title, release_year, developer, publisher, status)
+games(game_id, slug, title, release_year, developer, publisher, status,
+      cover_sha256, cover_url, cover_source)
 game_platforms(game_id, platform)
 game_genres(game_id, genre)
 runs(run_id, game_id, platform, platform_raw, form, mode, started_on, ended_on,
      outcome, completion_criteria, rating, difficulty, minutes, hours_source,
-     replay)
+     replay, note, verdict)
 sessions(session_id, run_id, started_at, ended_at, minutes, logical_day, note)
 breaks(break_id, session_id, started_at, ended_at, minutes)
 aliases(game_id, alias)
-attachments(sha256, ext, kind, caption, captured_at, filed_at,
+attachments(sha256, kind, caption, captured_at, filed_at,
             game_id, run_id, session_id, target)
 events(event_id, ts, type, source, payload)   -- raw, for auditing
 ```
+
+The three `cover_*` columns mirror `GameState.cover` field for field, because
+the cover is a different assertion from an attachment: exactly one per game,
+replaceable, and belonging to the game rather than to a moment on the timeline.
+A provider cover never becomes an attachment row at all — `game.enrich` carries
+no `attachments[]` — and a cover promoted from a photo is an attachment row with
+nothing marking it as the cover, so neither is reachable through that table.
+
+**All three are nullable.** A game may have no cover, and then all three are
+null together. `cover_url` is null for a cover promoted from the user's own
+photo. `cover_sha256` is null while a provider cover is a URL that was recorded
+but never downloaded — `game.enrich` accepts `cover` as a bare URL string and
+the fold reads that shape forever, so the column stays nullable however few rows
+a given vault has. `cover_source` is `user` or `provider`, and is never null
+while either other column is set.
+
+`cover_source` is carried rather than dropped because it is invariant 11 made
+visible here: a consumer can see *why* a cover is what it is, and an audit can
+spot a user cover that enrichment should never have touched. There is no
+`cover_path` column, for the same reason `attachments` has none:
+`assets/<sha256[0:2]>/<sha256>.webp` is [01-model](01-model.md)'s rule and
+belongs to it, not to a copy here.
 
 `attachments` is every photo on record, resolved to what it belongs to.
 `game_id` is always known — a session implies a run implies a game — so "every
@@ -340,9 +363,18 @@ the `at` of the event it arrived with, or when that event was written.
 reason `runs.platform_raw` is: the resolved view, plus the way back to the log.
 There is one row per `(target, sha256)`, so a photo attached to a session and
 then promoted to the game's cover is two rows about one picture; a consumer
-building a gallery de-duplicates on `sha256`, as the game note does. There is
-no `path` column: `assets/<sha256[0:2]>/<sha256>.<ext>` is
-[01-model](01-model.md)'s rule and belongs to it, not to a copy here.
+building a gallery de-duplicates on `sha256`, as the game note does.
+
+There is **no `path` column and no `ext` column**:
+`assets/<sha256[0:2]>/<sha256>.webp` is [01-model](01-model.md)'s rule and
+belongs to it, not to a copy here. Nor is the extension a per-row fact that
+could be copied — ingestion hashes the bytes it normalized, so a hash and a
+`.webp` are one fact rather than two, and `images.keep_original`'s
+`<sha256>.original.<source format>` is a sibling no attachment names. An `ext`
+column was carried here until
+[0108](../decisions/0108-an-attachment-has-no-extension-to-vary.md); it never
+held anything but `webp`, and a consumer that built a path out of it was right
+only by luck.
 
 **Revocations and amendments are already applied.** These rows come from the
 fold, not from the `events` table, which is why they exist at all: without
@@ -350,6 +382,23 @@ them the only way to ask which photos belong to a session is to read the raw
 log and reimplement `event.revoke` and `event.amend`, which is exactly what no
 target is allowed to do (invariant 8). Where this table and the gallery
 disagree, it is a bug in one of them and not a choice.
+
+`runs.note` and `runs.verdict` are the run's two pieces of prose, both
+nullable. `note` is the line filed with `run.close` or `run.import`; `verdict`
+is the latest `run.verdict` text — **filing again replaces the previous
+verdict, and both stay in the log**, so the column carries the fold's answer and
+not the first thing written. Revoking the only filing leaves it null, which is
+indistinguishable from never having filed one, as it should be. The run note and
+the game note render the same `verdict` value between their `block=verdict`
+markers; this is where a consumer reads it without parsing Markdown.
+
+Prose in a TEXT column is not a new kind of value here — `sessions.note` has
+been one since the schema existed, and is flattened to CSV and JSON like any
+other. What a flat row genuinely cannot hold is a *multi-valued* fact, which is
+why genres and platforms stay in their join tables. A verdict is longer than a
+session note and may contain line breaks; the CSV encoder quotes it (RFC 4180),
+so a `runs.csv` with a multi-line verdict spans more lines than it has rows.
+Read it with a CSV parser, never by splitting on newlines.
 
 `runs.platform` is canonicalized on the way in (02-cli.md, *Platform
 vocabulary*); `runs.platform_raw` is what the log actually holds. Group by the

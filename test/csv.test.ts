@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { parseCsv } from '../src/cli/csv-parse.ts'
 import { readEvents } from '../src/core/events.ts'
 import { fold } from '../src/core/fold.ts'
 import { openVault, timeContext } from '../src/core/vault.ts'
@@ -51,11 +52,11 @@ test('headers are schema tokens, and no locale touches them', () => {
 
   assert.equal(
     readFileSync(join(root, 'data', 'runs.csv'), 'utf8').split('\n')[0],
-    'run_id,game_id,platform,form,mode,started_on,ended_on,outcome,completion_criteria,rating,difficulty,minutes,hours_source,replay',
+    'run_id,game_id,platform,form,mode,started_on,ended_on,outcome,completion_criteria,rating,difficulty,minutes,hours_source,replay,note,verdict',
   )
   assert.equal(
     readFileSync(join(root, 'data', 'games.csv'), 'utf8').split('\n')[0],
-    'game_id,slug,title,release_year,developer,publisher,status',
+    'game_id,slug,title,release_year,developer,publisher,status,cover_sha256,cover_url,cover_source',
   )
   assert.equal(
     readFileSync(join(root, 'data', 'sessions.csv'), 'utf8').split('\n')[0],
@@ -63,26 +64,28 @@ test('headers are schema tokens, and no locale touches them', () => {
   )
 })
 
+/**
+ * Read through `parseCsv`, not by splitting on newlines: `runs.verdict` is
+ * prose and may carry line breaks, so a line is not a record. The test read the
+ * file the naive way until the verdict column arrived, and it was the first
+ * thing the column broke.
+ */
 test('sort order is fixed, not incidental', () => {
   const root = copyExample()
   const vault = openVault(root)
   build(vault, fold(readEvents(vault.eventsFile), timeContext(vault)), translator('en'))
 
-  const column = (file: string, index: number): string[] =>
-    readFileSync(join(root, 'data', file), 'utf8')
-      .trim()
-      .split('\n')
-      .slice(1)
-      .map((line) => line.split(',')[index] ?? '')
+  const column = (file: string, name: string): string[] =>
+    parseCsv(readFileSync(join(root, 'data', file), 'utf8')).map((row) => row[name] ?? '')
 
-  assert.deepEqual(column('games.csv', 1), [
+  assert.deepEqual(column('games.csv', 'slug'), [
     'celeste',
     'chrono-trigger',
     'hollow-knight',
     'outer-wilds',
     'tunic',
   ])
-  assert.deepEqual(column('runs.csv', 5), [
+  assert.deepEqual(column('runs.csv', 'started_on'), [
     '2011-01-01',
     '2026-05-03',
     '2026-06-01',
@@ -90,7 +93,7 @@ test('sort order is fixed, not incidental', () => {
     '2026-08-15',
   ])
   assert.deepEqual(
-    column('sessions.csv', 2),
+    column('sessions.csv', 'started_at'),
     [
       '2026-05-03T20:00:00-03:00',
       '2026-05-06T22:00:00-03:00',

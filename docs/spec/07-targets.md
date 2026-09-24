@@ -249,6 +249,11 @@ Sort order is fixed and documented per file, not incidental: `runs.csv` by
 `games.csv` by `slug`; `attachments.csv` by `filed_at`, then `target`, then
 `sha256`.
 
+A row is not a line. `runs.verdict`, `runs.note` and `sessions.note` are prose,
+and a verdict routinely contains a blank line; RFC 4180 quoting means the file
+then spans more lines than it has rows. Every spreadsheet reads this correctly
+and so does any CSV parser — only a hand-rolled `split('\n')` does not.
+
 *Why it is worth having:* it opens in Numbers, Excel and Google Sheets, where
 sorting, filtering and pivoting are things the user already knows how to do, and
 it is the format every spreadsheet-shaped register in the world already speaks —
@@ -268,10 +273,19 @@ the same four tables `csv` flattens, with the same columns and the same sort
 orders. For scripts, and for whatever exists in five years that reads JSON.
 
 **Not a site feed, and not to be widened into one.** It mirrors the SQLite
-tables column for column, so it carries no cover, genres, platforms, `run.note`
-or verdict; adding those would break what makes it useful to a spreadsheet and
-contradict 04-derived's rule that the SQLite schema wins any disagreement. A
-generator that wants a richer shape gets its own nested projection — see
+tables column for column, and the line that draws is **multi-valued**, not
+prose. A flat row holds one value per column: the cover is three flat columns on
+`games`, and `runs.note` and `runs.verdict` are two more, so all five are here
+too. Genres and platforms are not — they are many per game, they live in join
+tables the flattening drops, and no column could hold them without inventing a
+separator this file does not define. Prose was never the obstacle:
+`sessions.note` has been a flattened TEXT column since the schema existed, and a
+verdict is a longer one rather than a different kind ([ADR
+0109](../decisions/0109-run-prose-reaches-the-derived-artifacts.md)). What
+widening would mean here is *nesting* — runs inside games, sessions inside runs
+— and that would break what makes this useful to a spreadsheet and contradict
+04-derived's rule that the SQLite schema wins any disagreement. A generator that
+wants that shape gets its own nested projection — see
 [ADR 0058](../decisions/0058-astro-gets-a-projection.md). Nothing reads this file
 to build the site today: `quartz` plans from folded state.
 

@@ -175,8 +175,9 @@ which is how `docker compose run --rm gateway gamereg …` works.
 
 | File | Policy |
 |---|---|
-| `AGENTS.md`, `TOOLS.md` | Replaced every boot. They are code: their contents are asserted against the real binary and the SQL schema in CI |
-| `SOUL.md`, `IDENTITY.md`, `REACTIONS.md`, `USER.md`, `HEARTBEAT.md` | Seeded once, then yours |
+| `AGENTS.md` | Replaced every boot. It is code: its contents are asserted against the real binary and the SQL schema in CI |
+| `SOUL.md`, `IDENTITY.md`, `REACTIONS.md`, `USER.md` | Seeded once, then yours |
+| `DREAMS.md`, `TOOLS.md`, `HEARTBEAT.md` | Moved out of the workspace if found. OpenClaw injects none of them, so they were bytes no turn read ([ADR 0106](../decisions/0106-only-the-injected-set-is-shipped.md)) |
 
 A replaced file that had been edited is copied under `backups/` first. A seeded
 file records the hash of what was written, so a later boot can tell an edit

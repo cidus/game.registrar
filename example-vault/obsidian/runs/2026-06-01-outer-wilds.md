@@ -3,6 +3,7 @@ gamereg_run_id: 01K5A00000000000000000RUN3
 gamereg_id: 01K5A00000000000000000GAM3
 title: Outer Wilds
 game: "[[outer-wilds]]"
+cover: "[[assets/f0/f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2.webp]]"
 status: abandoned
 platform: PC
 form: digital

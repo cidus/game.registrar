@@ -7,6 +7,14 @@
  */
 
 export const SCHEMA_SQL = `
+-- \`cover_*\` mirror \`GameState.cover\` (core/fold.ts) field for field. All three
+-- are nullable: a game may have no cover; \`cover_url\` is null for a cover
+-- promoted from the user's own photo; \`cover_sha256\` is null while a provider
+-- cover is a URL that was never downloaded. \`cover_source\` is \`user\` or
+-- \`provider\`, and is what makes invariant 11 -- a user cover is never replaced
+-- by enrichment -- visible to a consumer. There is no \`cover_path\` column, for
+-- the same reason \`attachments\` has none: \`assets/<sha256[0:2]>/<sha256>.webp\`
+-- is 01-model.md's rule and belongs to it.
 CREATE TABLE games (
   game_id      TEXT PRIMARY KEY,
   slug         TEXT NOT NULL,
@@ -14,7 +22,10 @@ CREATE TABLE games (
   release_year INTEGER,
   developer    TEXT,
   publisher    TEXT,
-  status       TEXT NOT NULL
+  status       TEXT NOT NULL,
+  cover_sha256 TEXT,
+  cover_url    TEXT,
+  cover_source TEXT
 );
 
 CREATE TABLE game_platforms (
@@ -27,6 +38,14 @@ CREATE TABLE game_genres (
   genre   TEXT NOT NULL
 );
 
+-- \`note\` and \`verdict\` are the run's two pieces of prose, both nullable and
+-- both carried for the same reason \`sessions.note\` always has been: prose in a
+-- TEXT column is a value like any other, and a consumer that cannot read it
+-- here has to parse a Markdown note to get it back. \`note\` is the line filed
+-- with \`run.close\` / \`run.import\`; \`verdict\` is the latest \`run.verdict\`
+-- text, last filing wins (core/fold.ts). Multi-valued facts -- genres,
+-- platforms -- are the ones a flat row genuinely cannot hold, and those stay in
+-- their join tables.
 CREATE TABLE runs (
   run_id              TEXT PRIMARY KEY,
   game_id             TEXT NOT NULL REFERENCES games(game_id),
@@ -42,7 +61,9 @@ CREATE TABLE runs (
   difficulty          TEXT,
   minutes             INTEGER NOT NULL,
   hours_source        TEXT NOT NULL,
-  replay              INTEGER NOT NULL
+  replay              INTEGER NOT NULL,
+  note                TEXT,
+  verdict             TEXT
 );
 
 CREATE TABLE sessions (
@@ -73,9 +94,12 @@ CREATE TABLE aliases (
 -- null for a photo filed against the game itself. \`target\` is the fold's own
 -- key -- an event id, or a game id -- kept for the same reason
 -- \`runs.platform_raw\` is: the resolved view, plus the way back to the log.
+-- There is no \`ext\` column and no \`path\` column: ingestion normalizes every
+-- image to WebP and hashes the result, so the file is
+-- \`assets/<sha256[0:2]>/<sha256>.webp\` and nothing about it varies per row.
+-- That rule is 01-model.md's and belongs to it.
 CREATE TABLE attachments (
   sha256      TEXT NOT NULL,
-  ext         TEXT NOT NULL,
   kind        TEXT NOT NULL,
   caption     TEXT,
   captured_at TEXT,

@@ -27,6 +27,14 @@ tags: [gamereg, gamereg/run]
 [[chrono-trigger|Chrono Trigger]] · Super Nintendo · 2011-01 → 2011-07 · 30h00 across 0 sessions
 <!-- gamereg:end block=header -->
 
+## Verdict
+
+<!-- gamereg:begin block=verdict -->
+Replayed it over one long week, and the memory held up better than memories usually do.
+
+Still a ten, for a different reason: it is not "the best RPG", it is the one that never wastes a scene.
+<!-- gamereg:end block=verdict -->
+
 ## Log
 
 <!-- gamereg:begin block=sessions -->

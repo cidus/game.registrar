@@ -48,8 +48,53 @@ test('a game row has exactly the csv column names', () => {
   const game = payload.games[0]!
   assert.deepEqual(
     Object.keys(game).sort(),
-    ['developer', 'game_id', 'publisher', 'release_year', 'slug', 'status', 'title'].sort(),
+    [
+      'developer',
+      'game_id',
+      'publisher',
+      'release_year',
+      'slug',
+      'status',
+      'title',
+      'cover_sha256',
+      'cover_url',
+      'cover_source',
+    ].sort(),
   )
+})
+
+/**
+ * The mirror of the test above for `runs`, and the reason it exists: `note` and
+ * `verdict` are prose, and prose was the argument for leaving them out
+ * ([0109](../docs/decisions/0109-run-prose-reaches-the-derived-artifacts.md)).
+ */
+test('a run row has exactly the csv column names, prose included', () => {
+  const payload = JSON.parse(plan()) as { runs: Record<string, unknown>[] }
+  const run = payload.runs[0]!
+  assert.deepEqual(
+    Object.keys(run).sort(),
+    [
+      'completion_criteria',
+      'difficulty',
+      'ended_on',
+      'form',
+      'game_id',
+      'hours_source',
+      'minutes',
+      'mode',
+      'note',
+      'outcome',
+      'platform',
+      'rating',
+      'replay',
+      'run_id',
+      'started_on',
+      'verdict',
+    ].sort(),
+  )
+  // `platform_raw` is the one `runs` column the flattening drops on purpose
+  // (04-derived.md); a new column arriving by accident would show up here.
+  assert.equal('platform_raw' in run, false)
 })
 
 test('two builds from the same state are byte-identical', () => {

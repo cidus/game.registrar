@@ -24,7 +24,7 @@ No memory consolidation.
 
 - [docker/entrypoint.sh](../../docker/entrypoint.sh)
 - [test/agent-skill.test.ts](../../test/agent-skill.test.ts)
-- [agent/workspace/HEARTBEAT.md](../../agent/workspace/HEARTBEAT.md)
+- [0106](0106-only-the-injected-set-is-shipped.md) — HEARTBEAT.md is no longer shipped, for the same reason DREAMS.md is not
 - [agent/workspace/USER.md](../../agent/workspace/USER.md)
 - [agent/openclaw.example.json5](../../agent/openclaw.example.json5)
 - [agent/workspace/AGENTS.md](../../agent/workspace/AGENTS.md)
