@@ -161,6 +161,7 @@ Links to specs, code and other records.
 | [0106](0106-only-the-injected-set-is-shipped.md) | Only the files OpenClaw injects are shipped as workspace files | Agent prompt | Accepted | 2026-09-23 |
 | [0107](0107-the-cover-is-three-columns-on-games.md) | A game's cover reaches the derived artifacts as three columns on `games` | Build and targets | Accepted | 2026-09-24 |
 | [0108](0108-an-attachment-has-no-extension-to-vary.md) | An attachment has no extension to vary, so the derived artifacts stop carrying one | Build and targets | Accepted | 2026-09-24 |
+| [0109](0109-run-prose-reaches-the-derived-artifacts.md) | A run's note and verdict reach the derived artifacts as columns on `runs` | Build and targets | Accepted | 2026-09-24 |
 
 ## By area
 
@@ -216,6 +217,7 @@ Links to specs, code and other records.
 - [0101](0101-attachments-are-resolved-to-their-owner.md) Attachments reach the derived artifacts resolved to their owner
 - [0107](0107-the-cover-is-three-columns-on-games.md) A game's cover reaches the derived artifacts as three columns on `games`
 - [0108](0108-an-attachment-has-no-extension-to-vary.md) An attachment has no extension to vary, so the derived artifacts stop carrying one
+- [0109](0109-run-prose-reaches-the-derived-artifacts.md) A run's note and verdict reach the derived artifacts as columns on `runs`
 
 ### Site and comments
 

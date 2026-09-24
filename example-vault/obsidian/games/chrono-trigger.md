@@ -20,6 +20,14 @@ tags: [gamereg, gamereg/game]
 **Square** · 1995 · Super Nintendo · 30h00 across 0 sessions
 <!-- gamereg:end block=header -->
 
+## Verdict
+
+<!-- gamereg:begin block=verdict -->
+Replayed it over one long week, and the memory held up better than memories usually do.
+
+Still a ten, for a different reason: it is not "the best RPG", it is the one that never wastes a scene.
+<!-- gamereg:end block=verdict -->
+
 ## Runs
 
 <!-- gamereg:begin block=runs -->

@@ -37,7 +37,12 @@ decides what a build does to it:
 
 `build.csv.dir` sets the folder for the CSV files, `data` by default. The
 `obsidian` target also links every stored photo into `obsidian/assets/`, so
-embeds resolve inside the vault. See [07-targets](../spec/07-targets.md#the-targets)
+embeds resolve inside the vault.
+
+`data/runs.csv` carries the verdict and the closing note as columns, so a
+spreadsheet or a script gets them without reading a note. A verdict often spans
+paragraphs; the field is quoted, which every spreadsheet and every CSV library
+reads correctly, and only a hand-rolled line split does not. See [07-targets](../spec/07-targets.md#the-targets)
 for each target in detail.
 
 Declare the targets in `gamereg.config.json`:
@@ -213,6 +218,10 @@ gamereg query "SELECT title, hours FROM v_finished ORDER BY rating DESC"
   `minutes` on `runs` and `sessions`.
 - The database is rebuilt whole by every build, and nothing else writes to it.
   After you record something, run `gamereg build` before you query.
+- `runs.verdict` holds the latest verdict filed for a run and `runs.note` the
+  line it was closed with, so `SELECT title, verdict FROM runs JOIN games USING
+  (game_id)` answers "what did I say about it" without opening a note. Both are
+  null when nothing was written.
 - At a terminal, the rows print as JSON after a count. With `--json`, or in a
   pipe, they arrive inside the usual envelope.
 

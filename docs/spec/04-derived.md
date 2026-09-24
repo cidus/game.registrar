@@ -320,7 +320,7 @@ game_platforms(game_id, platform)
 game_genres(game_id, genre)
 runs(run_id, game_id, platform, platform_raw, form, mode, started_on, ended_on,
      outcome, completion_criteria, rating, difficulty, minutes, hours_source,
-     replay)
+     replay, note, verdict)
 sessions(session_id, run_id, started_at, ended_at, minutes, logical_day, note)
 breaks(break_id, session_id, started_at, ended_at, minutes)
 aliases(game_id, alias)
@@ -382,6 +382,23 @@ them the only way to ask which photos belong to a session is to read the raw
 log and reimplement `event.revoke` and `event.amend`, which is exactly what no
 target is allowed to do (invariant 8). Where this table and the gallery
 disagree, it is a bug in one of them and not a choice.
+
+`runs.note` and `runs.verdict` are the run's two pieces of prose, both
+nullable. `note` is the line filed with `run.close` or `run.import`; `verdict`
+is the latest `run.verdict` text — **filing again replaces the previous
+verdict, and both stay in the log**, so the column carries the fold's answer and
+not the first thing written. Revoking the only filing leaves it null, which is
+indistinguishable from never having filed one, as it should be. The run note and
+the game note render the same `verdict` value between their `block=verdict`
+markers; this is where a consumer reads it without parsing Markdown.
+
+Prose in a TEXT column is not a new kind of value here — `sessions.note` has
+been one since the schema existed, and is flattened to CSV and JSON like any
+other. What a flat row genuinely cannot hold is a *multi-valued* fact, which is
+why genres and platforms stay in their join tables. A verdict is longer than a
+session note and may contain line breaks; the CSV encoder quotes it (RFC 4180),
+so a `runs.csv` with a multi-line verdict spans more lines than it has rows.
+Read it with a CSV parser, never by splitting on newlines.
 
 `runs.platform` is canonicalized on the way in (02-cli.md, *Platform
 vocabulary*); `runs.platform_raw` is what the log actually holds. Group by the

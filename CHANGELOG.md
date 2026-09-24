@@ -43,6 +43,14 @@ file.
   `cover_sha256` while a provider cover is a URL that was never downloaded.
   `cover_source` (`user` or `provider`) is what lets a consumer see why a cover
   is what it is.
+- `note` and `verdict` on `runs` in all three of `data/runs.csv`,
+  `data/export.json` and `data/log.db`. The verdict was reachable from no
+  derived artifact, so a consumer had to parse a run note's `block=verdict`
+  markers to read it, and the run's closing note reached nothing at all. Both
+  are null for a run that filed neither, and a verdict filed twice reaches the
+  column as the latest one — a revoked verdict is null again. A verdict may
+  contain line breaks, which `runs.csv` quotes per RFC 4180: read that file with
+  a CSV parser rather than by splitting on newlines.
 
 **Container deployment**
 

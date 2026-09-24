@@ -77,7 +77,9 @@
       "difficulty": "normal",
       "minutes": 1800,
       "hours_source": "stated",
-      "replay": false
+      "replay": false,
+      "note": "Filed from memory, fifteen years late.",
+      "verdict": "Replayed it over one long week, and the memory held up better than memories usually do.\n\nStill a ten, for a different reason: it is not \"the best RPG\", it is the one that never wastes a scene."
     },
     {
       "run_id": "01K5A00000000000000000RUN1",
@@ -93,7 +95,9 @@
       "difficulty": "hard",
       "minutes": 538,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": null,
+      "verdict": "Started as a curiosity and turned into the thing I thought about on the way to\nwork. The first ten hours are a map problem; the last ten are a nerve problem,\nand somewhere in between it stopped feeling unfair.\n\nWhat stayed with me is not the difficulty but the silence around it. I would\nfile it again."
     },
     {
       "run_id": "01K5A00000000000000000RUN3",
@@ -109,7 +113,9 @@
       "difficulty": null,
       "minutes": 90,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": "Not the right month for it.",
+      "verdict": null
     },
     {
       "run_id": "01K5A00000000000000000RUN4",
@@ -125,7 +131,9 @@
       "difficulty": null,
       "minutes": 0,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": null,
+      "verdict": null
     },
     {
       "run_id": "01K5A00000000000000000RUN5",
@@ -141,7 +149,9 @@
       "difficulty": null,
       "minutes": 150,
       "hours_source": "measured",
-      "replay": false
+      "replay": false,
+      "note": null,
+      "verdict": null
     }
   ],
   "sessions": [
