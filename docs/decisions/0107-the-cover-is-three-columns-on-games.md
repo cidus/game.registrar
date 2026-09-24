@@ -1,4 +1,4 @@
-# 0106. A game's cover reaches the derived artifacts as three columns on `games`
+# 0107. A game's cover reaches the derived artifacts as three columns on `games`
 
 - **Status:** Accepted
 - **Date:** 2026-09-24

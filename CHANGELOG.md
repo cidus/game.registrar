@@ -77,9 +77,8 @@ file.
 
 **Agent**
 
-- `agent/workspace/USER.md` (house rules, which never override *Safety*) and
-  `agent/workspace/HEARTBEAT.md` (comments only), so the gateway does not fill
-  those slots with its own defaults.
+- `agent/workspace/USER.md`: house rules, which never override *Safety*. Ours
+  rather than the gateway's generic "update this as you go" template.
 
 **CI and tests**
 
@@ -141,6 +140,16 @@ file.
   load, naming it as unknown.
 - `memory-core`'s nightly `dreaming` sweep, disabled in the boot config patch.
   An existing `DREAMS.md` is moved out of the workspace and kept.
+- `agent/workspace/TOOLS.md`. (`HEARTBEAT.md` was shipped and withdrawn inside
+  this same unreleased cycle, so it is only mentioned here.) OpenClaw
+  2026.9.4 injects neither — its workspace list is `AGENTS.md`, `SOUL.md`,
+  `IDENTITY.md`, `USER.md`, `BOOTSTRAP.md` and `MEMORY.md` — so both were bytes
+  no turn read, and both left `openclaw doctor` reporting a migration that a
+  re-seeding boot undid every time. The two facts `TOOLS.md` carried that the
+  card did not are now sentences in `AGENTS.md`'s *Boundary*. The entrypoint
+  moves either file out of an existing workspace, keeping it, alongside
+  `DREAMS.md`
+  ([ADR 0106](docs/decisions/0106-only-the-injected-set-is-shipped.md)).
 
 ### Fixed
 
@@ -171,6 +180,14 @@ file.
 
 **Agent and check-ins**
 
+- `TOOLS.md`'s notes reach the model again. OpenClaw injected the file on
+  2026.7.1-2 and stopped on 2026.9.4, so the tool-surface notes were absent from
+  every turn between the upgrade and this change, with nothing failing — a file
+  that is not read produces no error. They live in `AGENTS.md` now.
+- The prompt size budget measures the files OpenClaw injects rather than every
+  `agent/workspace/*.md`, and asserts OpenClaw's own ceilings underneath it
+  (`bootstrapMaxChars` 20,000 per file, `bootstrapTotalMaxChars` 60,000 total),
+  past which a file is truncated silently.
 - The `duration` trigger measures the stretch of play with no break in it, from
   the opening or from the end of the last break, instead of the wall clock. A
   break sends it back to `Silent` and nothing is due while one runs, so a
@@ -193,10 +210,10 @@ file.
 
 **Container deployment**
 
-- The container replaces `AGENTS.md` and `TOOLS.md` on every boot instead of
-  seeding them once; a previous copy that differed is kept under `backups/`.
+- The container replaces `AGENTS.md` on every boot instead of seeding it once; a
+  previous copy that differed is kept under `backups/`.
 - The other workspace files (`SOUL.md`, `IDENTITY.md`, `REACTIONS.md`,
-  `USER.md`, `HEARTBEAT.md`) record the hash of what was seeded. An untouched
+  `USER.md`) record the hash of what was seeded. An untouched
   file follows the image; an edited one, or one from an install that predates
   the tracking and differs from the shipped copy, is kept with a `NOTICE` in
   the boot log.

@@ -372,7 +372,7 @@ could be copied — ingestion hashes the bytes it normalized, so a hash and a
 `.webp` are one fact rather than two, and `images.keep_original`'s
 `<sha256>.original.<source format>` is a sibling no attachment names. An `ext`
 column was carried here until
-[0107](../decisions/0107-an-attachment-has-no-extension-to-vary.md); it never
+[0108](../decisions/0108-an-attachment-has-no-extension-to-vary.md); it never
 held anything but `webp`, and a consumer that built a path out of it was right
 only by luck.
 

@@ -66,7 +66,7 @@ from one function, and a liability the moment it regenerates from two.
 *Later, and left here rather than edited into the paragraph above, since a record
 is not rewritten after the fact:* the `path` column is still declined, but the
 "two answers" this record weighed turned out to be one.
-[0107](0107-an-attachment-has-no-extension-to-vary.md) established from the
+[0108](0108-an-attachment-has-no-extension-to-vary.md) established from the
 ingestion pipeline that an attachment's stored bytes are always WebP — the hash
 is of the normalized bytes — so `assetPath()` was right and it was `ext` that was
 wrong. That column is gone, and the path rule

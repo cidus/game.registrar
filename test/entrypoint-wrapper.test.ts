@@ -406,6 +406,52 @@ test('an untracked file that differs is kept, loudly, and not adopted', () => {
  * grows there. The sweep is turned off in the config; this is the copy it
  * already wrote.
  */
+/**
+ * OpenClaw 2026.9.4 dropped TOOLS.md and HEARTBEAT.md from the list it injects
+ * into the prompt, so a workspace still holding them holds bytes no turn reads
+ * — and `openclaw doctor` reports a migration that a re-seeding boot undoes
+ * every time. Retired alongside DREAMS.md, for one reason.
+ */
+test('files OpenClaw no longer injects are moved out of an existing workspace', () => {
+  const h = host()
+  h.run('gateway')
+
+  const workspace = join(h.config, 'workspace')
+  for (const name of ['TOOLS.md', 'HEARTBEAT.md']) {
+    writeFileSync(join(workspace, name), `left by an older image: ${name}\n`)
+  }
+  // A seed hash from when they were shipped: it must go too, or a later boot
+  // treats the file as adopted and tracked.
+  mkdirSync(join(h.config, '.gamereg-seed'), { recursive: true })
+  writeFileSync(join(h.config, '.gamereg-seed', 'TOOLS.md.sha256'), 'stale\n')
+
+  const r = h.run('gateway')
+  for (const name of ['TOOLS.md', 'HEARTBEAT.md']) {
+    assert.ok(!existsSync(join(workspace, name)), `${name} must leave the workspace`)
+    assert.match(
+      readFileSync(join(h.config, name), 'utf8'),
+      new RegExp(name),
+      `${name} must be kept outside the workspace, not deleted`,
+    )
+  }
+  assert.ok(
+    !existsSync(join(h.config, '.gamereg-seed', 'TOOLS.md.sha256')),
+    'a retired file must not keep its seed hash',
+  )
+  assert.match(r.stderr, /moving TOOLS\.md out of the workspace/)
+})
+
+test('the shipped workspace no longer carries the files OpenClaw dropped', () => {
+  // The image ships what the entrypoint deploys; if these come back, every
+  // boot re-creates what the boot before it retired.
+  for (const name of ['TOOLS.md', 'HEARTBEAT.md']) {
+    assert.ok(
+      !existsSync(join(ROOT, 'agent', 'workspace', name)),
+      `agent/workspace/${name} is shipped again, which the retirement above would fight every boot`,
+    )
+  }
+})
+
 test('an existing dream diary is moved out of the workspace, not deleted', () => {
   const h = host()
   h.run('gateway')

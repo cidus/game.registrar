@@ -1,6 +1,6 @@
 /**
  * A game's cover as columns on `games` (docs/spec/04-derived.md "SQLite",
- * [0106](../docs/decisions/0106-the-cover-is-three-columns-on-games.md)).
+ * [0107](../docs/decisions/0107-the-cover-is-three-columns-on-games.md)).
  *
  * `test/attachment-rows.test.ts` covers the photos filed against an event.
  * This covers the one assertion that is *not* one of those: exactly one

@@ -10,7 +10,7 @@ Astro would sit alongside Quartz, not replace it; the site-to-quartz rename made
 
 *Later, and left here rather than edited into the paragraph above, since a record
 is not rewritten after the fact:* since
-[0106](0106-the-cover-is-three-columns-on-games.md) the cover is no longer one of
+[0107](0107-the-cover-is-three-columns-on-games.md) the cover is no longer one of
 the missing fields — `games` carries `cover_sha256`, `cover_url` and
 `cover_source`, and `data/export.json` mirrors them. That much of the context is
 stale. The decision is not: what a nested projection would add is the *shape* —

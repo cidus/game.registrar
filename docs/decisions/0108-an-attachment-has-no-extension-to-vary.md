@@ -1,4 +1,4 @@
-# 0107. An attachment has no extension to vary, so the derived artifacts stop carrying one
+# 0108. An attachment has no extension to vary, so the derived artifacts stop carrying one
 
 - **Status:** Accepted
 - **Date:** 2026-09-24
@@ -93,5 +93,5 @@ state this record exists to forbid.
 - [docs/spec/04-derived.md](../spec/04-derived.md#sqlite), [docs/spec/01-model.md](../spec/01-model.md) (*Content addressing*, unchanged)
 - [agent/skills/gamereg/reference/query.md](../../agent/skills/gamereg/reference/query.md)
 - [0101](0101-attachments-are-resolved-to-their-owner.md) — added the column, and named this contradiction as a reason there is no `path` column
-- [0106](0106-the-cover-is-three-columns-on-games.md) — declined an `images` table partly because `ext` carried nothing
+- [0107](0107-the-cover-is-three-columns-on-games.md) — declined an `images` table partly because `ext` carried nothing
 - [0027](0027-fixture-webp-never-regenerated.md) — why no fixture could have answered this

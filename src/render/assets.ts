@@ -15,7 +15,7 @@ import type { Flavour } from './flavour.ts'
  * and not two, and an attachment cannot exist whose stored bytes are anything
  * else. `images.keep_original` does not weaken that — it writes a sibling,
  * `<sha256>.original.<source format>`, keyed off this same hash, which no
- * attachment ever names ([0107](../../docs/decisions/0107-an-attachment-has-no-extension-to-vary.md)).
+ * attachment ever names ([0108](../../docs/decisions/0108-an-attachment-has-no-extension-to-vary.md)).
  */
 export function assetPath(sha256: string): string {
   return `assets/${sha256.slice(0, 2)}/${sha256}.webp`

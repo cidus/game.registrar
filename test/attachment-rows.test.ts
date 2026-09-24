@@ -206,7 +206,7 @@ function columnsOf(bytes: Buffer, table: string): { columns: string[]; rows: num
 
 /**
  * There is no `ext` column, and reintroducing one is the thing this test exists
- * to stop ([0107](../docs/decisions/0107-an-attachment-has-no-extension-to-vary.md)).
+ * to stop ([0108](../docs/decisions/0108-an-attachment-has-no-extension-to-vary.md)).
  *
  * The column used to be carried through all three targets while
  * `render/assets.ts` hardcoded `.webp`, so the artifacts implied a variability
