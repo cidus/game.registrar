@@ -60,4 +60,13 @@ Got lost in Fungal Wastes, in a good way.
 *Session · 2h30*
 
 First hours. Combat feels tight.
+
+## 2011-07-01
+
+**[[games/chrono-trigger|Chrono Trigger]]**
+*Verdict · Super Nintendo · 30h00 across 0 sessions · 10*
+
+> Replayed it over one long week, and the memory held up better than memories usually do.
+>
+> Still a ten, for a different reason: it is not "the best RPG", it is the one that never wastes a scene.
 <!-- gamereg:end block=entries -->
