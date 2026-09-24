@@ -216,7 +216,10 @@ and it does not download provider art for a game whose cover is yours.
   `gamereg enrich "Chrono Trigger" --covers`.
 
 The cover appears in the notes and in the Cover column of `Game List.md`. It
-appears on a published site only when `images.publish` is `true`.
+appears on a published site only when `images.publish` is `true`. For a script or
+a spreadsheet, it is three columns on `games` — `cover_sha256`, `cover_url` and
+`cover_source` — in `data/games.csv`, `data/export.json` and `data/log.db`; the
+file for a hash is `assets/<first two characters>/<hash>.webp`.
 
 ## 6. Adjust image settings
 

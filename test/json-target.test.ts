@@ -48,7 +48,18 @@ test('a game row has exactly the csv column names', () => {
   const game = payload.games[0]!
   assert.deepEqual(
     Object.keys(game).sort(),
-    ['developer', 'game_id', 'publisher', 'release_year', 'slug', 'status', 'title'].sort(),
+    [
+      'developer',
+      'game_id',
+      'publisher',
+      'release_year',
+      'slug',
+      'status',
+      'title',
+      'cover_sha256',
+      'cover_url',
+      'cover_source',
+    ].sort(),
   )
 })
 

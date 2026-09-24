@@ -37,7 +37,14 @@ export type FoldProblem = {
 
 export type Attachment = {
   sha256: string
-  ext: string
+  /**
+   * Always `webp`, and a literal type rather than a `string` on purpose: the
+   * hash is of the bytes ingestion normalized, so the hash and the extension
+   * are not two independent facts (01-model.md, *Content addressing*). A
+   * payload claiming anything else is describing a file that does not exist,
+   * so the value here is the format, never the claim.
+   */
+  ext: 'webp'
   caption: string | null
   captured_at: string | null
   kind: string
@@ -214,7 +221,10 @@ function attachmentsOf(data: Record<string, unknown>): Attachment[] {
     if (sha256 === null) continue
     out.push({
       sha256,
-      ext: str(entry, 'ext') ?? 'webp',
+      // Not read from the payload: see `Attachment.ext`. Old events carry it,
+      // hand-written ones may carry something else, and `assets/` holds a WebP
+      // either way.
+      ext: 'webp',
       caption: str(entry, 'caption'),
       captured_at: str(entry, 'captured_at'),
       kind: str(entry, 'kind') ?? 'other',

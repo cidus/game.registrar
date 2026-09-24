@@ -34,6 +34,15 @@ file.
   session it belongs to — `game_id` always, the narrower two when the photo
   was filed against a moment. Revocations and amendments are already applied,
   which is what asking the fold buys over reading the `events` table.
+- `cover_sha256`, `cover_url` and `cover_source` on `games` in all three of
+  `data/games.csv`, `data/export.json` and `data/log.db`. A game's cover was
+  reachable from no derived artifact before this — the attachments table cannot
+  hold it, since a provider cover is never an attachment and a promoted photo
+  carries no flag saying it is the cover. All three are null for a game with no
+  cover; `cover_url` is null for a cover the user promoted from a photo, and
+  `cover_sha256` while a provider cover is a URL that was never downloaded.
+  `cover_source` (`user` or `provider`) is what lets a consumer see why a cover
+  is what it is.
 
 **Container deployment**
 
@@ -116,6 +125,16 @@ file.
 
 ### Removed
 
+- The `ext` column from the `attachments` table in every derived artifact
+  (`data/attachments.csv`, `attachments[]` in `data/export.json`, and
+  `attachments` in `data/log.db`). Ingestion normalizes every image to WebP and
+  hashes the result, so a photo's file is
+  `assets/<first two characters of sha256>/<sha256>.webp` and the extension was
+  never a per-row fact — the column only ever held `webp`, while inviting a
+  consumer to build a path out of it. Use the hash. `images.keep_original`'s
+  second copy is a sibling (`<sha256>.original.<source format>`) that no
+  attachment names. The event log is unchanged: `attachments[]` entries still
+  record `ext`.
 - `checkin.persona_prompt`, which was validated but read by nothing. The persona
   lives in the gateway workspace; a vault that still sets the key exits 2 at
   load, naming it as unknown.

@@ -11,10 +11,12 @@ first_started_on: 2026-06-01
 last_ended_on: 2026-06-01
 runs: 1
 hours: 1.5
+providers: {igdb: 17539}
 tags: [gamereg, gamereg/game]
 ---
 
 <!-- gamereg:begin block=header -->
+![[assets/f0/f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2.webp]]
 **Mobius Digital** · 2019 · PC · 1h30 in one session
 <!-- gamereg:end block=header -->
 

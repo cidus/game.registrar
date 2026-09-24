@@ -55,7 +55,9 @@ export function buildDatabase(state: VaultState): Buffer {
       const events = byKey([...state.eventsById.values()], (event) => event.id)
 
       const insertGame = db.prepare(
-        'INSERT INTO games (game_id, slug, title, release_year, developer, publisher, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        `INSERT INTO games (game_id, slug, title, release_year, developer, publisher, status,
+           cover_sha256, cover_url, cover_source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       const insertPlatform = db.prepare('INSERT INTO game_platforms (game_id, platform) VALUES (?, ?)')
       const insertGenre = db.prepare('INSERT INTO game_genres (game_id, genre) VALUES (?, ?)')
@@ -69,6 +71,11 @@ export function buildDatabase(state: VaultState): Buffer {
           game.developer,
           game.publisher,
           game.status,
+          // Three nulls for a game with no cover at all, which is the only
+          // state in which `cover_source` is null too.
+          game.cover?.sha256 ?? null,
+          game.cover?.url ?? null,
+          game.cover?.source ?? null,
         )
         for (const platform of game.platforms) insertPlatform.run(game.game_id, platform)
         for (const genre of game.genres) insertGenre.run(game.game_id, genre)
@@ -124,13 +131,12 @@ export function buildDatabase(state: VaultState): Buffer {
 
       // Already sorted, by `filed_at` then target then hash (core/attachments.ts).
       const insertAttachment = db.prepare(
-        `INSERT INTO attachments (sha256, ext, kind, caption, captured_at, filed_at, game_id, run_id, session_id, target)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO attachments (sha256, kind, caption, captured_at, filed_at, game_id, run_id, session_id, target)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       for (const attachment of attachmentRows(state)) {
         insertAttachment.run(
           attachment.sha256,
-          attachment.ext,
           attachment.kind,
           attachment.caption,
           attachment.captured_at,

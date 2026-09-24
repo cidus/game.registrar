@@ -55,7 +55,7 @@ test('headers are schema tokens, and no locale touches them', () => {
   )
   assert.equal(
     readFileSync(join(root, 'data', 'games.csv'), 'utf8').split('\n')[0],
-    'game_id,slug,title,release_year,developer,publisher,status',
+    'game_id,slug,title,release_year,developer,publisher,status,cover_sha256,cover_url,cover_source',
   )
   assert.equal(
     readFileSync(join(root, 'data', 'sessions.csv'), 'utf8').split('\n')[0],
