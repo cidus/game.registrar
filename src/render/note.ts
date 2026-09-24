@@ -131,8 +131,10 @@ function headerParts(game: GameState, bundle: Translator, emphasis: boolean): st
   const platform = recordedPlatform(game)
   if (platform !== null) parts.push(platform)
 
-  const played = timePlayed(game.total_minutes, sessions.length, bundle)
-  if (played !== null) parts.push(played)
+  // Summed across runs, so a game with an imported playthrough and a tracked
+  // one keeps the two apart the way each run's own note does.
+  const stated = game.runs.reduce((total, run) => total + run.stated_minutes, 0)
+  parts.push(...timePlayed(game.total_minutes, sessions.length, stated, bundle))
 
   return parts
 }

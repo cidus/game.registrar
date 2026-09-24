@@ -42,11 +42,18 @@ file.
 
 ### Fixed
 
-- A run with stated hours and no recorded sessions read `30h00 across 0
-  sessions` on its game note, its run note and the diary. Nobody recorded a
-  count of zero, and those hours did not come from sessions at all — the
-  clause is now the duration alone. The rule moved into `render/played.ts`,
-  shared by the three renderers that had a copy of it each.
+- The header line of the game note, the run note and the diary no longer
+  renders a stated portion as if it were measured, which
+  [01-model.md](docs/spec/01-model.md) forbids of any report. A run with
+  stated hours and no sessions read `30h00 across 0 sessions`, and a `mixed`
+  run — a baseline plus sessions recorded after it — spent the whole total on
+  a sentence about its sessions, crediting them with hours that predate the
+  register. Each number now carries its own provenance: `30h00 (stated)`
+  alone, or `20h00 (stated) · 3h42 across 2 sessions`. The total is left to
+  frontmatter and the consolidated table, where a sum of two kinds of number
+  belongs. The rule moved into `render/played.ts`, shared by the three
+  renderers that had a copy of it each, and `example-vault` gained a mixed run
+  so the golden files cover every `hours_source`.
 
 ### Changed
 

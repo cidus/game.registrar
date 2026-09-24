@@ -122,21 +122,42 @@ ingestion pipeline. The embed is content-addressed —
 is the same path the run note's `cover` property and the consolidated table's
 `Cover` column point at. There is no `covers/` folder.
 
-The header line ends with **how long, and over how many sittings** — one clause
+The header line ends with **how long, and where the time came from** — clauses
 rendered by `render/played.ts` and shared with the run note and the diary, so
-the three cannot disagree about a run. Two facts, and only the ones on record:
+the three cannot disagree about a run.
+
+**A stated portion is never rendered as if it were measured.** That is
+[01-model](01-model.md)'s rule for `hours_source`, written there as a
+requirement on reports, and this is where the notes keep it. `run.minutes` is a
+baseline plus the minutes its sessions measured, so a header that spends the
+sum on a sentence about sessions credits sittings that never happened. Each
+number is therefore written with its own provenance:
+
+| Run | Header ends with |
+|---|---|
+| measured only | `8h58 across 3 sessions` |
+| stated only | `30h00 (stated)` |
+| mixed | `20h00 (stated) · 3h42 across 2 sessions` |
+| nothing measured, nothing stated | nothing at all |
+
+The total is deliberately absent: it sums two numbers of different kinds, and
+it is already carried where a sum belongs — `hours` in frontmatter, the `Hours`
+column of the consolidated table, and the `runs` and `games` tables of the
+derived layer.
+
+Two further rules hold across all four rows:
 
 - **Nothing measured says nothing about duration.** The clause is omitted
-  entirely rather than written as `0m`, which would read as a claim that no
-  time passed. An open session is never estimated.
-- **Zero sessions is not a number worth stating.** Hours filed by `import` or
-  `past --hours` belong to the run and to no sitting at all, so a run with
-  stated hours and no sessions reads `30h00` and stops there. `hours_source`
-  is where that distinction is actually carried, and the consolidated table
-  marks such hours `(stated)`.
+  rather than written as `0m`, which would read as a claim that no time
+  passed. An open session is never estimated.
+- **The marker is the consolidated table's own** (`table.stated_marker`),
+  not a phrase of the renderer's. Two spellings of one idea is how a
+  vocabulary drifts, and a parenthetical does not inflect — a key like
+  `"{duration} declaradas"` agrees with *horas* and then reads wrong the first
+  time a baseline is filed in minutes.
 
-The bare duration goes through no translation key, for the same reason the
-release year and the platform beside it do not: a duration is data that
+The bare durations go through no translation key, for the same reason the
+release year and the platform beside them do not: a duration is data that
 `core/duration.ts` formats, not a sentence (00-architecture D7).
 
 The `gallery` block holds every photo on the game's timeline, oldest first,

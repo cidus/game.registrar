@@ -50,6 +50,18 @@
       "cover_source": "provider"
     },
     {
+      "game_id": "01K5A00000000000000000GAM6",
+      "slug": "stardew-valley",
+      "title": "Stardew Valley",
+      "release_year": 2016,
+      "developer": "ConcernedApe",
+      "publisher": "ConcernedApe",
+      "status": "playing",
+      "cover_sha256": null,
+      "cover_url": null,
+      "cover_source": null
+    },
+    {
       "game_id": "01K5A00000000000000000GAM5",
       "slug": "tunic",
       "title": "Tunic",
@@ -152,6 +164,24 @@
       "replay": false,
       "note": null,
       "verdict": null
+    },
+    {
+      "run_id": "01K5A00000000000000000RUN6",
+      "game_id": "01K5A00000000000000000GAM6",
+      "platform": "PC",
+      "form": "digital",
+      "mode": "solo",
+      "started_on": "2026-09-01",
+      "ended_on": null,
+      "outcome": null,
+      "completion_criteria": null,
+      "rating": null,
+      "difficulty": null,
+      "minutes": 1422,
+      "hours_source": "mixed",
+      "replay": false,
+      "note": null,
+      "verdict": null
     }
   ],
   "sessions": [
@@ -208,6 +238,24 @@
       "minutes": 150,
       "logical_day": "2026-08-15",
       "note": "Read the manual page by page. Half of it is in a language I cannot read and it still explained the game."
+    },
+    {
+      "session_id": "01K5A00000000000000000SES8",
+      "run_id": "01K5A00000000000000000RUN6",
+      "started_at": "2026-09-05T20:00:00-03:00",
+      "ended_at": "2026-09-05T22:12:00-03:00",
+      "minutes": 132,
+      "logical_day": "2026-09-05",
+      "note": "Year three, and the greenhouse finally pays for itself."
+    },
+    {
+      "session_id": "01K5A00000000000000000SES9",
+      "run_id": "01K5A00000000000000000RUN6",
+      "started_at": "2026-09-12T21:00:00-03:00",
+      "ended_at": "2026-09-12T22:30:00-03:00",
+      "minutes": 90,
+      "logical_day": "2026-09-12",
+      "note": "Community centre done. Stopped to look at the fireworks."
     }
   ],
   "attachments": [

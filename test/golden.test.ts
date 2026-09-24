@@ -123,11 +123,17 @@ test('the fixture log is free of irregularities', () => {
   assert.deepEqual(state.problems, [])
 })
 
-test('the fixture exercises measured hours, stated hours and an open run', () => {
+test('the fixture exercises every hours_source, and an open run', () => {
   const vault = openVault(EXAMPLE)
   const state = fold(readEvents(vault.eventsFile), timeContext(vault))
   const runs = state.games.flatMap((game) => game.runs)
 
+  // All three, because each renders differently: measured names its sessions,
+  // stated is marked and claims none, and mixed keeps the two numbers apart
+  // (src/render/played.ts). Stardew Valley is the mixed one — a baseline that
+  // predates the register plus sessions measured after it.
+  assert.equal(runs.some((run) => run.hours_source === 'measured'), true)
+  assert.equal(runs.some((run) => run.hours_source === 'mixed'), true)
   assert.equal(runs.some((run) => run.hours_source === 'stated'), true)
   assert.equal(runs.some((run) => run.open), true)
   assert.equal(runs.some((run) => run.outcome === 'abandoned'), true)

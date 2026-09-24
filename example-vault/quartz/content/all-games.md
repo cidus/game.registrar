@@ -6,6 +6,7 @@ draft: false
 <!-- gamereg:begin block=table -->
 | Cover | Game | Platform | Started | Ended | Hours | Rating | Difficulty | Criteria |
 |---|---|---|---|---|---|---|---|---|
+|  | [[games/stardew-valley\|Stardew Valley]] | PC | 2026-09-01 |  | 23.7 (stated) |  |  |  |
 |  | [[games/tunic\|Tunic]] |  | 2026-08-15 |  | 2.5 |  |  |  |
 |  | [[games/celeste\|Celeste]] | Nintendo Switch | 2026-07-20 |  | 0.0 |  |  |  |
 |  | [[games/hollow-knight\|Hollow Knight]] | Nintendo Switch | 2026-05-03 | 2026-08-12 | 9.0 | 9 | hard | true_ending |

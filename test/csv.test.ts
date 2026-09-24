@@ -83,6 +83,7 @@ test('sort order is fixed, not incidental', () => {
     'chrono-trigger',
     'hollow-knight',
     'outer-wilds',
+    'stardew-valley',
     'tunic',
   ])
   assert.deepEqual(column('runs.csv', 'started_on'), [
@@ -91,6 +92,7 @@ test('sort order is fixed, not incidental', () => {
     '2026-06-01',
     '2026-07-20',
     '2026-08-15',
+    '2026-09-01',
   ])
   assert.deepEqual(
     column('sessions.csv', 'started_at'),
@@ -101,6 +103,8 @@ test('sort order is fixed, not incidental', () => {
       '2026-07-20T21:00:00-03:00',
       '2026-08-12T20:14:00-03:00',
       '2026-08-15T20:00:00-03:00',
+      '2026-09-05T20:00:00-03:00',
+      '2026-09-12T21:00:00-03:00',
     ],
   )
 })

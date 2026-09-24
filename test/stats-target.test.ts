@@ -131,13 +131,13 @@ test('the SVG carries its own palette, because a file has no document to inherit
 
 test('the review is arithmetic over the log, and says so in every number', () => {
   const review = reviewOf(exampleState(), 2026)
-  assert.equal(review.sessions, 6)
-  assert.equal(review.days_played, 6)
-  assert.equal(review.games_played, 4)
+  assert.equal(review.sessions, 8)
+  assert.equal(review.days_played, 8)
+  assert.equal(review.games_played, 5)
   assert.equal(review.runs_finished, 1)
   assert.equal(review.runs_abandoned, 1)
   assert.equal(review.first_session?.day, '2026-05-03')
-  assert.equal(review.last_session?.day, '2026-08-15')
+  assert.equal(review.last_session?.day, '2026-09-12')
   // Most played first, and only games with a session that year.
   assert.equal(review.top_titles[0]?.slug, 'hollow-knight')
   assert.deepEqual(
@@ -164,10 +164,17 @@ test('the flavour decides bare or qualified wikilinks, the vault target passes O
 })
 
 test('stated hours belong to the run, not to a day, so they stay out of the year', () => {
-  // Chrono Trigger is an import: 30 stated hours, no session, ended in 2011.
+  // Two runs carry stated hours, and neither kind reaches a year. Chrono
+  // Trigger is an import: 30 stated hours, no session at all, ended in 2011.
+  // Stardew Valley is `mixed` — a 20h baseline that predates the register,
+  // plus two sessions measured after it — so it is the case that would break
+  // first if a year ever summed `run.minutes` instead of session minutes.
   const state = exampleState()
-  assert.equal(totalsOf(state).minutes, 2578)
-  assert.equal(reviewOf(state, 2026).minutes, 778)
+  assert.equal(totalsOf(state).minutes, 4000)
+  // 1800 stated (Chrono Trigger) + 1200 stated (Stardew Valley) of that total
+  // belong to no day, leaving the year exactly the measured remainder.
+  assert.equal(reviewOf(state, 2026).minutes, 1000)
+  assert.equal(totalsOf(state).minutes - 1800 - 1200, reviewOf(state, 2026).minutes)
   assert.deepEqual(yearsPlayed(state), [2026])
 })
 

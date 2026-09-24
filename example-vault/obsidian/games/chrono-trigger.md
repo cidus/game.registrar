@@ -17,7 +17,7 @@ tags: [gamereg, gamereg/game]
 ---
 
 <!-- gamereg:begin block=header -->
-**Square** · 1995 · Super Nintendo · 30h00
+**Square** · 1995 · Super Nintendo · 30h00 (stated)
 <!-- gamereg:end block=header -->
 
 ## Verdict

@@ -60,16 +60,21 @@ test('a run carries both the canonical platform and the one the log holds', () =
   )
   try {
     const rows = db
-      .prepare('SELECT platform, platform_raw FROM runs ORDER BY started_on')
-      .all() as { platform: string | null; platform_raw: string | null }[]
+      .prepare('SELECT started_on, platform, platform_raw FROM runs ORDER BY started_on')
+      .all() as { started_on: string; platform: string | null; platform_raw: string | null }[]
+    const on = (day: string): (typeof rows)[number] | undefined =>
+      rows.find((row) => row.started_on === day)
 
     // Group by the first, audit with the second: "SNES" was typed, "Super
     // Nintendo" is what every report agrees to call it.
     assert.equal(rows[0]?.platform, 'Super Nintendo')
     assert.equal(rows[0]?.platform_raw, 'SNES')
     // A run nobody has answered for is null in both, not an empty string.
-    assert.equal(rows.at(-1)?.platform, null)
-    assert.equal(rows.at(-1)?.platform_raw, null)
+    // Named by its date rather than taken from the end of the list: the last
+    // row is whichever run started latest, which is a fact about the fixture
+    // and not about this rule.
+    assert.equal(on('2026-08-15')?.platform, null)
+    assert.equal(on('2026-08-15')?.platform_raw, null)
   } finally {
     cleanup()
   }

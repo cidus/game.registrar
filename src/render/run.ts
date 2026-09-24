@@ -153,8 +153,7 @@ function runHeaderParts(game: GameState, run: RunState, bundle: Translator): str
   const ended = run.ended_on === null ? null : atPrecision(run.ended_on, run.ended_precision)
   parts.push(ended === null ? started : `${started} → ${ended}`)
 
-  const played = timePlayed(run.minutes, run.sessions.length, bundle)
-  if (played !== null) parts.push(played)
+  parts.push(...timePlayed(run.minutes, run.sessions.length, run.stated_minutes, bundle))
 
   return parts
 }

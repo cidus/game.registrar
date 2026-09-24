@@ -159,7 +159,7 @@ test('the front page is the diary; the consolidated table moves to all-games', (
   // The landing page carries the most recent entries, not the whole register.
   const index = text(files, 'quartz/content/index.md')
   assert.match(index, /^title: Diary$/m)
-  assert.match(index, /^## 2026-08-15$/m)
+  assert.match(index, /^## 2026-09-12$/m)
   assert.equal(index.includes('| Cover |'), false)
   // And it says where the whole register is, since nothing else on the page does.
   assert.match(index, /\[\[all-games\|All games\]\]/)
@@ -181,9 +181,10 @@ test('the front page carries the most recent entries and stops there', () => {
   const all = diaryEntries(state)
 
   const home = newDiaryHome(state, bundle, quartzFlavour(false), 'all-games', 2)
-  // Exactly the two newest, and the third is not on the page.
-  assert.match(home, /## 2026-08-15/)
-  assert.match(home, /## 2026-08-12/)
+  // Exactly the two newest, and nothing older.
+  assert.match(home, /## 2026-09-12/)
+  assert.match(home, /## 2026-09-05/)
+  assert.equal(home.includes('## 2026-08-15'), false)
   assert.equal(home.includes('## 2026-05-03'), false)
   assert.ok(all.length > 2, 'the fixture needs more entries than the limit for this to mean anything')
 })
@@ -194,7 +195,7 @@ test('the front page reads the log, never a clock', () => {
   // to the log cannot (ADR 0047, ADR 0110).
   const home = text(plan(), 'quartz/content/index.md')
   assert.equal(home.includes('Nothing was written down'), false)
-  assert.match(home, /## 2026-08-15/)
+  assert.match(home, /## 2026-09-12/)
 })
 
 test('a game note on the site has no empty heading waiting for prose', () => {

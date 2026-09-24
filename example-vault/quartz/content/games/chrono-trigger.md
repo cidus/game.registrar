@@ -1,7 +1,7 @@
 ---
 gamereg_id: 01K5A00000000000000000GAM2
 title: Chrono Trigger
-description: Square · 1995 · Super Nintendo · 30h00
+description: Square · 1995 · Super Nintendo · 30h00 (stated)
 draft: false
 aliases: [Chrono Trigger]
 status: finished
@@ -19,7 +19,7 @@ tags: [gamereg, gamereg/game]
 ---
 
 <!-- gamereg:begin block=header -->
-**Square** · 1995 · Super Nintendo · 30h00
+**Square** · 1995 · Super Nintendo · 30h00 (stated)
 <!-- gamereg:end block=header -->
 
 ## Verdict

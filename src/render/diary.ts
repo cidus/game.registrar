@@ -176,8 +176,7 @@ function sessionMeta(session: SessionState, bundle: Translator): string {
 function verdictMeta(run: RunState, bundle: Translator): string {
   const parts = [bundle.t('diary.kind.verdict')]
   if (run.platform !== null) parts.push(run.platform)
-  const played = timePlayed(run.minutes, run.sessions.length, bundle)
-  if (played !== null) parts.push(played)
+  parts.push(...timePlayed(run.minutes, run.sessions.length, run.stated_minutes, bundle))
   if (run.rating !== null) parts.push(String(run.rating))
   return parts.join(' · ')
 }
