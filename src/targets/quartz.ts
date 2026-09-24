@@ -140,7 +140,7 @@ export const quartz: Target = {
     // template is reused verbatim rather than forked.
     files.push({
       path: `${CONTENT}/Game Database.base`,
-      content: template('Game Database.base'),
+      content: template('Game Database.base', bundle),
       policy: 'seed',
     })
 
@@ -150,7 +150,7 @@ export const quartz: Target = {
     // back to the shipped default.
     files.push({
       path: 'quartz/quartz.config.yaml',
-      content: template('quartz.config.yaml'),
+      content: template('quartz.config.yaml', bundle),
       policy: 'seed',
     })
 

@@ -101,8 +101,10 @@ test('seeds the same Game Database.base the vault gets, for @quartz-community/ba
   assert.equal(base?.policy, 'seed')
   // Reused verbatim: every property and filter it references — tags, status,
   // platform, genres — is already written the same way in both flavours, so
-  // there is no quartz-specific fork of this file.
-  assert.equal(base?.content, template('Game Database.base'))
+  // there is no quartz-specific fork of this file. Same locale in, same file:
+  // the seed is localized, but not per target.
+  assert.equal(base?.content, template('Game Database.base', translator('en')))
+  assert.equal(base?.content.includes('{{'), false)
 })
 
 test('nothing the target plans lives outside quartz/', () => {

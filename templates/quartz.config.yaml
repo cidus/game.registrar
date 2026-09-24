@@ -15,11 +15,11 @@
 # create` will happily overwrite it with another template; that is your call,
 # and gamereg will not write over it again either way.
 configuration:
-  pageTitle: Game Register
+  pageTitle: {{site.title}}
   pageTitleSuffix: ""
   enableSPA: true
   enablePopovers: true
-  locale: en-US
+  locale: {{site.locale_tag}}
   baseUrl: example.com
   ignorePatterns:
     - private

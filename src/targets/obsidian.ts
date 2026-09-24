@@ -66,9 +66,16 @@ export const obsidian: Target = {
     // explorer and quick switcher show the basename with no extension, and
     // two files named the same but for `.md` vs `.base` were indistinguishable
     // at a glance.
+    //
+    // The name is localized, and the note's own `H1` is the *same* string, so
+    // the explorer and the page agree. A `.md` note may be renamed this way
+    // because the manifest removes the path it no longer plans; the `.base`
+    // below may not, because a seed is never removed and the user would be
+    // left holding two of them (ADR 0111).
+    const gameList = bundle.t('file.game_list')
     files.push({
-      path: 'obsidian/Game List.md',
-      content: newTable(state, bundle, OBSIDIAN),
+      path: `obsidian/${gameList}.md`,
+      content: newTable(state, bundle, OBSIDIAN, gameList),
       policy: 'splice',
       parts: { frontmatter: null, blocks: tableBlocks(state, bundle, OBSIDIAN) },
     })
@@ -79,7 +86,7 @@ export const obsidian: Target = {
     // safe because prose lives outside the markers; a base has no outside.
     files.push({
       path: 'obsidian/Game Database.base',
-      content: template('Game Database.base'),
+      content: template('Game Database.base', bundle),
       policy: 'seed',
     })
 

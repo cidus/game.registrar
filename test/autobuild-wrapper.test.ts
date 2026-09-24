@@ -88,6 +88,13 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
   mkdirSync(vault, { recursive: true })
   mkdirSync(bin, { recursive: true })
   mkdirSync(home, { recursive: true })
+  // Pin the locale, as test/cli.test.ts does. Two generated note names are
+  // localized (ADR 0111), so a vault that declares none takes the developer's
+  // own LANG and the paths asserted below would follow it.
+  writeFileSync(
+    join(vault, 'gamereg.config.json'),
+    JSON.stringify({ locale: 'en', timezone: 'America/Sao_Paulo' }),
+  )
   const gitconfig = join(home, '.gitconfig')
   writeFileSync(gitconfig, '[user]\n\tname = Test\n\temail = test@example.com\n')
   // See the file header: scopes every real `git` call below to this fixture's
@@ -115,6 +122,10 @@ function host(options: { failCmd?: string; failCode?: number } = {}): Host {
   chmodSync(git, 0o755)
 
   execFileSync(REAL_GIT, ['init', '-q'], { cwd: vault, env: gitEnv })
+  // The config goes into the first commit, so the tree these tests start from
+  // is genuinely clean — an untracked config would read as drift to every
+  // "does nothing on a clean vault" assertion below.
+  execFileSync(REAL_GIT, ['add', '-A'], { cwd: vault, env: gitEnv })
   execFileSync(
     REAL_GIT,
     ['-c', 'user.email=test@example.com', '-c', 'user.name=Test', 'commit', '-q', '--allow-empty', '-m', 'init'],

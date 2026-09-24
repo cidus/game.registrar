@@ -187,7 +187,8 @@
     "photo_ingest_failed": "{count} photo(s) could not be ingested, and none were attached: {files}.",
     "cover_needs_source": "Provide the cover with --photo <file>, --from <hash>, or --reset.",
     "cover_too_many_sources": "Only one of --photo, --from or --reset is allowed.",
-    "unknown_attachment": "No attachment on {title} has the hash \"{value}\"."
+    "unknown_attachment": "No attachment on {title} has the hash \"{value}\".",
+    "template_placeholder": "The shipped template \"{name}\" has a placeholder \"{key}\" that this version cannot fill."
   },
   "doctor": {
     "unparseable_line": "Line {line} is not valid JSON.",
@@ -441,6 +442,27 @@
     "criteria": "Criteria",
     "empty": "Nothing on record yet.",
     "stated_marker": "stated"
+  },
+  "base": {
+    "view": {
+      "finished": "Finished",
+      "playing": "Playing",
+      "by_genre": "By genre",
+      "dropped": "Dropped",
+      "shelf": "Shelf"
+    },
+    "column": {
+      "game": "Game",
+      "criteria": "Criteria",
+      "hours_source": "Hours from"
+    }
+  },
+  "site": {
+    "title": "Game Register",
+    "locale_tag": "en-US"
+  },
+  "file": {
+    "game_list": "Game List"
   },
   "stats": {
     "title": "Stats",

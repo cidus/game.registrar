@@ -127,6 +127,20 @@ the default.
 
 - Sets the language of human-readable output: prose, prompts, help text and
   error messages. JSON output and stored data are never translated.
+- It also sets the language of **generated notes**: headings, table headers,
+  and the labels inside the Difficulty and Criteria columns. The tokens those
+  labels stand for (`hard`, `true_ending`) stay English in frontmatter, where
+  the Bases view and `gamereg query` read them
+  ([ADR 0111](../decisions/0111-localized-surface-english-schema.md)).
+- **Two generated file names follow it**: `obsidian/Game List.md` and
+  `obsidian/Stats.md` are `Lista de Jogos.md` and `Estatísticas.md` under
+  `pt-BR`. Changing `locale` therefore renames them on the next build — the
+  old path is removed as no longer owned, which **discards anything written
+  outside its markers**. Nothing under `quartz/content/` moves.
+- The two seeded files (`Game Database.base`, `quartz.config.yaml`) are
+  localized **at the moment they are first written**, and never again. A vault
+  that changes `locale` later keeps the seeds it already has; deleting them and
+  rebuilding is how they are refreshed.
 - The language comes from the first of these that is set and matches a
   bundle: the `--locale` flag, `locale`, `GAMEREG_LOCALE`, `LC_ALL`, `LANG`.
   If none matches, it is `en`.
