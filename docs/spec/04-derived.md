@@ -446,6 +446,119 @@ refused by them; an accepted paragraph is text they paste into the note outside
 the markers, where invariant 3 keeps it through every later build. See
 [ADR 0050](../decisions/0050-review-prose-has-no-command.md).
 
+## Diary
+
+`quartz/content/diary/<year>.md`, one page per year with a session in it — the
+same years `yearsPlayed(state)` gives the year in review, and the same rule:
+never a clock. One reverse-chronological timeline mixing two kinds of entry,
+built by `render/diary.ts`. It is the register's own log, re-cut by time
+instead of by game, the way `reviews/` re-cuts it by year and `stats.md` by
+genre; no new fact enters the register that a run note or a game note did not
+already carry. It is not the "feed" [00-architecture](00-architecture.md)'s
+non-goals rule out — that rule is about *other people's* activity, and this
+page has no profile, no following and nothing about anyone but the vault's own
+history. See [ADR 0110](../decisions/0110-diary-is-not-the-feed.md).
+
+**Session entry.** Emitted when the session carries a note, an attachment of
+its own, or both — a photo with no words is still something that happened.
+Sorted by `started_at`, ties broken by `session_id`. Displayed under its
+`logical_day`.
+
+**Verdict entry.** Emitted when the run carries a verdict, an attachment filed
+directly against the run (never one filed against one of its sessions — that
+photo already has its own entry), or both. An open run (`ended_on` still null)
+produces no verdict entry. A run's end is a *date*, not a timestamp; to place
+it on a timeline of timestamps it sorts on `${ended_on}T23:59:59`, ties broken
+by `run_id` — a synthetic end-of-day key that puts a closure after the last
+session of the day it closed on, which is the real order of events. See
+[ADR 0110](../decisions/0110-diary-is-not-the-feed.md).
+
+**Year assignment happens after resolution**, not by filtering sessions before
+they are placed: an entry belongs to year *Y* when its *displayed* date —
+`logical_day` for a session, `ended_on` for a verdict — starts with *Y*. A run
+that started in one year and ended in the next files its verdict in the year it
+closed, where it belongs. One consequence follows from reusing `yearsPlayed`
+rather than inventing a second year source: a verdict closing in a year with no
+session of its own has no page to land on, the same limitation the year in
+review already has for the same reason.
+
+**A year with no entries still gets a page.** `yearsPlayed` put it there because
+a session happened, and a year that was played but never written about is a
+true statement worth rendering — the empty text is `diary.empty`, the same
+convention `note.sessions.empty` already sets.
+
+**One `##` heading per day, not per entry.** A day heads however many entries
+share it: a date repeated three times down a page is noise, and the heading
+level gives Quartz's table of contents a list of dates rather than a list of
+duplicated game titles. Within a day the entries keep the order above, so a
+verdict still reads before the session it closed.
+
+**Each entry then leads with the game's cover**, with the title and the meta
+line stacked to its right and aligned to its top — the title identifies the
+entry, and the cover is what makes a timeline scannable without reading it.
+The cover comes from `assetThumb`, so it is silently absent when the game has
+no locally ingested cover or when this tree carries no assets at all; a cover
+does not earn the "image not published" line a photo does, which is the same
+call the consolidated table already makes.
+
+That head is **the one place the diary emits HTML**: a two-column flex `div`,
+which Quartz passes through while still parsing the Markdown inside it. Plain
+Markdown cannot say "beside, top-aligned" — an inline embed sits on the text
+baseline, which drops the title to the bottom of the cover and pushes the meta
+line clear underneath it. Both columns are wrapped symmetrically, because a
+bare embed as a direct flex child keeps a paragraph margin the text column's
+does not, which offsets the cover from the title by 16px. The style is inline
+rather than a class: gamereg ships no stylesheet, `quartz/styles/custom.scss`
+is the user's file (preserved across framework updates by
+`scripts/vendor-quartz.sh`, never written by a target), and a class would name
+CSS that exists in no vault until someone writes it by hand. This is the same
+call `assetThumb`'s `|64` already makes — the size of a cover is a rendering
+decision the emitter owns. An entry with no cover emits no wrapper at all.
+
+A verdict entry is rendered as a blockquote and a session entry as a plain
+paragraph — the one typographic distinction the page draws, and it earns its
+place: a verdict is the register's opinion of a whole playthrough, a note is
+one evening, and the model already treats `run.verdict` as its own event.
+Photos reuse `assetEmbed` (so an unpublished picture says so rather than
+showing a broken embed) and the caption line format the gallery block already
+uses (`note.gallery.captioned`).
+
+### The front page
+
+`quartz/content/index.md` is the diary too: the **30 most recent entries** in
+the register, rendered by the same function, above a link to `all-games.md`.
+
+It is a *count*, never a window ending today. "The last 30 days" would have to
+read a clock, which [ADR 0047](../decisions/0047-review-reads-no-clock.md)
+forbids and invariant 2 makes untestable — the golden fixture's newest session
+would age out of the window and the committed front page would change bytes on
+its own, with no event behind the change. A count is a pure function of folded
+state, keeps the page a known size whether the last month held forty sessions
+or one, and cannot render empty while the register holds anything at all. A
+register whose last session was in 2019 shows its 2019 entries here, which is
+a true statement about that register. See
+[ADR 0110](../decisions/0110-diary-is-not-the-feed.md).
+
+The consolidated table it displaced is still built, as
+`quartz/content/all-games.md` — the whole register, one click away, which is
+where a table that grows without bound belongs. **The vault keeps the opposite
+arrangement**: `obsidian/Game List.md` is unchanged and there is no diary in
+it, because Obsidian has the Bases view for querying and no landing page to
+speak of ([ADR 0053](../decisions/0053-front-page-names.md)).
+
+Quartz only, for now: the vault already has the Bases view for querying, and
+the diary's value is a *reading* experience, which is a site concern. Nothing
+about the shape is Quartz-specific — `newDiary` takes the same `Flavour` every
+other renderer does — so an Obsidian diary costs one more `files.push` in
+`targets/obsidian.ts` if it is ever wanted.
+
+**The year in review is the diary's entry point.** `quartz` passes the year's
+diary path to `newReview` when it plans the site's review note, which links to
+it above the summary table — the review and the diary are the same year cut
+two ways, so one points at the other. This is a link, not a `Flavour` answer:
+`stats` (the vault target) never passes one, so an Obsidian review note is
+unaffected.
+
 ## Determinism
 
 `gamereg build` twice in a row must produce byte-identical output. This applies
@@ -496,9 +609,11 @@ exemption. A target that cannot promise claim 1 does not belong in the build.
 ## Site
 
 `gamereg build quartz` writes `quartz/content/` in the flavour Quartz reads: the
-game and run notes again, the consolidated table as `index.md`, `stats.md`, one
-`reviews/<year>.md` and one `reviews/heatmap-<year>.svg` per year the log knows
-about, and a seeded `Game Database.base`. Alongside the content tree it seeds
+game and run notes again, the diary's most recent entries as `index.md`, the
+consolidated table as `all-games.md`, `stats.md`, one `reviews/<year>.md` and
+one `reviews/heatmap-<year>.svg` per year the log knows about, one
+`diary/<year>.md` per year the log knows about, and a seeded
+`Game Database.base`. Alongside the content tree it seeds
 `quartz/quartz.config.yaml`.
 
 **It does not run Quartz.** Turning that content into a site is the user's

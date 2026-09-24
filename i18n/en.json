@@ -418,8 +418,18 @@
       "period_open": "since {started}"
     }
   },
+  "diary": {
+    "title": "Diary {year}",
+    "home_title": "Diary",
+    "kind": {
+      "session": "Session",
+      "verdict": "Verdict"
+    },
+    "empty": "Nothing was written down this year."
+  },
   "table": {
     "title": "Games",
+    "all_games": "All games",
     "cover": "Cover",
     "game": "Game",
     "platform": "Platform",
@@ -475,7 +485,8 @@
       "longest": "Longest session",
       "mean_rating": "Mean rating",
       "first": "First session",
-      "last": "Last session"
+      "last": "Last session",
+      "diary": "{year} diary"
     },
     "heatmap": {
       "alt": "Sessions in {year}"

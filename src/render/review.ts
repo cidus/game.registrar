@@ -282,8 +282,22 @@ export function reviewFrontmatter(year: number): string {
  * The title is an `H1` in the vault and frontmatter on the site, the same
  * reason `render/table.ts`'s `newTable` gives: Quartz renders `title` as the
  * page's own heading, and a note carrying both would show it twice.
+ *
+ * `diaryPath`, when given, links to that year's diary — the same year cut a
+ * second way. It is not a `Flavour` answer: the diary exists only on the site
+ * today, so `stats` (obsidian) simply never passes one, rather than growing a
+ * fifth boolean nobody but `quartz` would ever set (ADR 0051). It is written
+ * outside every marker, which is safe only because a site review note has no
+ * hand-prose half for invariant 3 to protect — the vault's `stats` target
+ * calls `reviewBlocks` directly for its splice and never reaches this branch.
  */
-export function newReview(state: VaultState, year: number, bundle: Translator, flavour: Flavour): string {
+export function newReview(
+  state: VaultState,
+  year: number,
+  bundle: Translator,
+  flavour: Flavour,
+  diaryPath: string | null = null,
+): string {
   const body = reviewBlocks(state, year, bundle, flavour)
     .filter((entry) => entry.content.trim() !== '')
     .map((entry) =>
@@ -297,7 +311,9 @@ export function newReview(state: VaultState, year: number, bundle: Translator, f
     const title = bundle.t('stats.review.title', { year })
     return `---\n${reviewFrontmatter(year)}\n---\n\n# ${title}\n\n${body}\n`
   }
-  return `---\n${reviewFrontmatter(year)}\ndraft: false\n---\n\n${body}\n`
+  const diaryLink =
+    diaryPath === null ? '' : `[[${diaryPath}|${bundle.t('stats.review.diary', { year })}]]\n\n`
+  return `---\n${reviewFrontmatter(year)}\ndraft: false\n---\n\n${diaryLink}${body}\n`
 }
 
 /* ------------------------------------------------------------------ overview */

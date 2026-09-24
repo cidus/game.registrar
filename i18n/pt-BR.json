@@ -497,8 +497,18 @@
       "period_open": "desde {started}"
     }
   },
+  "diary": {
+    "title": "Diário {year}",
+    "home_title": "Diário",
+    "kind": {
+      "session": "Sessão",
+      "verdict": "Parecer"
+    },
+    "empty": "Nada foi registrado neste ano."
+  },
   "table": {
     "title": "Jogos",
+    "all_games": "Todos os jogos",
     "cover": "Capa",
     "game": "Título",
     "platform": "Plataforma",
@@ -554,7 +564,8 @@
       "longest": "Sessão mais longa",
       "mean_rating": "Nota média",
       "first": "Primeira sessão",
-      "last": "Última sessão"
+      "last": "Última sessão",
+      "diary": "Diário de {year}"
     },
     "heatmap": {
       "alt": "Sessões em {year}"

@@ -12,10 +12,12 @@ target. It writes:
 |---|---|
 | `quartz/content/games/<slug>.md` | replace |
 | `quartz/content/runs/*.md` | replace |
-| `quartz/content/index.md` — the consolidated table, and Quartz's landing page | replace |
+| `quartz/content/index.md` — the diary's most recent entries, and Quartz's landing page | replace |
+| `quartz/content/all-games.md` — the consolidated table | replace |
 | `quartz/content/stats.md` | replace |
 | `quartz/content/reviews/<year>.md` | replace |
 | `quartz/content/reviews/heatmap-<year>.svg` | replace |
+| `quartz/content/diary/<year>.md` | replace |
 | `quartz/content/Game Database.base` | seed |
 | `quartz/quartz.config.yaml` | seed |
 

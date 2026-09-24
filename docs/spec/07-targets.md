@@ -188,7 +188,7 @@ caretaker's index, and only the writer touches it.
 | `json` | `data/export.json` |
 | `html` | `Games.html` |
 | `stats` | `obsidian/Stats.md`, `obsidian/reviews/<year>.md`, `obsidian/reviews/heatmap-<year>.svg` |
-| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/content/stats.md`, `quartz/content/reviews/<year>.md`, `quartz/content/reviews/heatmap-<year>.svg`, `quartz/content/Game Database.base`, `quartz/quartz.config.yaml` |
+| `quartz` | `quartz/content/games/*.md`, `quartz/content/runs/*.md`, `quartz/content/index.md`, `quartz/content/all-games.md`, `quartz/content/stats.md`, `quartz/content/reviews/<year>.md`, `quartz/content/reviews/heatmap-<year>.svg`, `quartz/content/diary/<year>.md`, `quartz/content/Game Database.base`, `quartz/quartz.config.yaml` |
 
 Two directories are written by the build and are **not** planned files, so they
 appear in no manifest and are never cleanup candidates: `obsidian/assets` for the
@@ -366,9 +366,15 @@ targets wrote. See
 
 - `quartz/content/games/*.md` and `quartz/content/runs/*.md` — the notes again,
   in the site flavour.
-- `quartz/content/index.md` — the consolidated table, as Quartz's landing page.
+- `quartz/content/index.md` — the diary's most recent entries, as Quartz's
+  landing page.
+- `quartz/content/all-games.md` — the consolidated table, under its own name.
 - `quartz/content/stats.md`, `quartz/content/reviews/<year>.md` and
   `quartz/content/reviews/heatmap-<year>.svg` — the same renderers `stats` calls.
+- `quartz/content/diary/<year>.md` — one reverse-chronological timeline per
+  year, mixing session notes, session photos and run verdicts. See
+  [04-derived](04-derived.md)'s *Diary* and
+  [ADR 0110](../decisions/0110-diary-is-not-the-feed.md).
 - `quartz/content/Game Database.base` — the vault's seed, reused unchanged.
 - `quartz/quartz.config.yaml` — a seeded Quartz configuration.
 
@@ -381,11 +387,13 @@ been run. The build spawns no subprocess, touches no network, and does not
 require Quartz to be installed in order to build a vault.
 
 The content tree mirrors the vault's own shape — `games/` and `runs/` — with
-the consolidated table as `index.md`, which is Quartz's landing page. It is
-`Game List.md` in the vault for the opposite reason: Obsidian shows a basename,
-and a file called `index` says nothing in a quick switcher. Same block, same
-renderer, two names because two readers
-([ADR 0053](../decisions/0053-front-page-names.md)).
+the diary as `index.md`, Quartz's landing page, and the consolidated table
+beside it as `all-games.md`. The vault inverts both halves: its front page *is*
+the table, named `Game List.md` because Obsidian shows a basename and a file
+called `index` says nothing in a quick switcher, and it has no diary at all.
+Same block, same renderer, different names and different front pages because
+two readers ([ADR 0053](../decisions/0053-front-page-names.md),
+[ADR 0110](../decisions/0110-diary-is-not-the-feed.md)).
 
 **The site carries what the log knows** — title, metadata, the cover when
 `images.publish` allows it, the runs table, sessions, `note`s and `verdict`s —
@@ -440,8 +448,8 @@ into `quartz/content/` instead of `obsidian/` and linked with the site's
 qualified wikilinks (`[[reviews/2026]]`, `[[games/hollow-knight]]`) instead of
 Obsidian's bare ones. These are `replace` rather than `splice`, for the reason
 the table above gives: a Quartz note has no hand-prose slot to preserve.
-`index.md` is unchanged by this — the Stats page is reached through Quartz's own
-content-tree explorer, not a link added to the table. Client-side filtering and
+`all-games.md` is unchanged by this — the Stats page is reached through Quartz's
+own content-tree explorer, not a link added to the table. Client-side filtering and
 sorting, which `html` has, is deliberately not added here
 ([ADR 0060](../decisions/0060-site-without-client-side-filtering.md)).
 

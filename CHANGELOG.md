@@ -28,6 +28,29 @@ file.
 
 **Derived artifacts**
 
+- `quartz/content/diary/<year>.md`: one page per year the log knows about,
+  mixing session notes, session photos and run verdicts in a single
+  reverse-chronological timeline, one heading per day and each entry led by the
+  game's cover, with the title and meta line beside it and aligned to its top.
+  Reuses `attachmentRows` (see below) to join a photo
+  to the session or run it belongs to — the missing link that made the run
+  note's session table drop attachments and the game note's gallery drop
+  session identity. Quartz only, for now. See
+  [docs/spec/04-derived.md](docs/spec/04-derived.md)'s *Diary* and
+  [ADR 0110](docs/decisions/0110-diary-is-not-the-feed.md).
+- `quartz/content/all-games.md`: the consolidated table, under its own name.
+
+### Changed
+
+**Derived artifacts**
+
+- The site's front page (`quartz/content/index.md`) is now the diary's 30 most
+  recent entries rather than the consolidated table, which moved to
+  `quartz/content/all-games.md` and is linked from the front page. A count
+  rather than "the last 30 days": a window ending today would have to read a
+  clock, which [ADR 0047](docs/decisions/0047-review-reads-no-clock.md) forbids
+  and invariant 2 makes untestable. **The vault is unchanged** —
+  `obsidian/Game List.md` is still Obsidian's front page and has no diary.
 - An `attachments` table in the derived artifacts: `data/attachments.csv`, an
   `attachments[]` array in `data/export.json`, and `attachments` in
   `data/log.db`. One row per photo per target, resolved to the game, run and

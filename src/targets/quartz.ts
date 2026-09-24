@@ -22,6 +22,7 @@
  */
 import { GameregError } from '../core/errors.ts'
 import type { VaultState } from '../core/fold.ts'
+import { newDiary, newDiaryHome, diaryNotePath } from '../render/diary.ts'
 import { quartzFlavour } from '../render/flavour.ts'
 import { yearsPlayed } from '../render/heatmap.ts'
 import { newNote } from '../render/note.ts'
@@ -32,6 +33,9 @@ import { template } from './templates.ts'
 import type { PlannedFile, Target, TargetContext } from './types.ts'
 
 export const CONTENT = 'quartz/content'
+
+/** The consolidated table's own page, now that `index.md` is the diary. */
+export const ALL_GAMES = 'all-games'
 
 export const quartz: Target = {
   name: 'quartz',
@@ -70,12 +74,24 @@ export const quartz: Target = {
       }
     }
 
-    // `index.md` is Quartz's landing page, and the consolidated table is what a
-    // register's front page is for. It is `Game List.md` in the vault because
-    // Obsidian shows a basename and a file called `index` says nothing there.
+    // `index.md` is Quartz's landing page, and on the site that is the diary:
+    // the most recent entries in the register, which is what a visitor who has
+    // never seen it wants first. The consolidated table is still here, one
+    // click away as `all-games.md` — it is the whole register, and a front page
+    // is not the place for a table that grows without bound.
+    //
+    // The vault keeps the opposite arrangement: `Game List.md`, with no diary
+    // at all. Obsidian shows a basename, a file called `index` says nothing in
+    // a quick switcher, and the vault has the Bases view for querying
+    // (ADR 0053, ADR 0110).
     files.push({
       path: `${CONTENT}/index.md`,
-      content: newTable(state, bundle, flavour),
+      content: newDiaryHome(state, bundle, flavour, ALL_GAMES),
+      policy: 'replace',
+    })
+    files.push({
+      path: `${CONTENT}/${ALL_GAMES}.md`,
+      content: newTable(state, bundle, flavour, bundle.t('table.all_games')),
       policy: 'replace',
     })
 
@@ -91,12 +107,28 @@ export const quartz: Target = {
     for (const year of yearsPlayed(state)) {
       files.push({
         path: `${CONTENT}/${reviewNotePath(year)}`,
-        content: newReview(state, year, bundle, flavour),
+        // The review and the diary are the same year cut two ways, so the
+        // review links to it — the diary's own entry point, since nothing
+        // else on the site does.
+        content: newReview(state, year, bundle, flavour, diaryNotePath(year).replace(/\.md$/, '')),
         policy: 'replace',
       })
       files.push({
         path: `${CONTENT}/${heatmapPath(year)}`,
         content: heatmapFor(state, year, bundle),
+        policy: 'replace',
+      })
+    }
+
+    // The register's own log, re-cut by time instead of by game — one
+    // reverse-chronological timeline of session notes, session photos and
+    // run verdicts, per year the log knows about. Not the "feed" 00-
+    // architecture's non-goals rule out: no profiles, no following, nothing
+    // about anyone but the vault's own history (ADR 0110).
+    for (const year of yearsPlayed(state)) {
+      files.push({
+        path: `${CONTENT}/${diaryNotePath(year)}`,
+        content: newDiary(state, year, bundle, flavour),
         policy: 'replace',
       })
     }

@@ -104,9 +104,19 @@ export function tableBlocks(
  * The title is an `H1` in the vault and frontmatter on the site, because Quartz
  * renders `title` as the page's own heading and a note carrying both would show
  * it twice.
+ *
+ * `title` overrides the default heading. The site calls the same table *All
+ * games*, because there it is no longer the front page — the diary is — and a
+ * page called "Games" sitting beside a folder called `games/` says nothing
+ * about which one holds the whole register.
  */
-export function newTable(state: VaultState, bundle: Translator, flavour: Flavour): string {
+export function newTable(
+  state: VaultState,
+  bundle: Translator,
+  flavour: Flavour,
+  title: string = bundle.t('table.title'),
+): string {
   const block = wrapBlock(TABLE_BLOCK, tableBlock(state, bundle, flavour))
-  if (!flavour.siteFrontmatter) return `# ${bundle.t('table.title')}\n\n${block}\n`
-  return `---\ntitle: ${bundle.t('table.title')}\ndraft: false\n---\n\n${block}\n`
+  if (!flavour.siteFrontmatter) return `# ${title}\n\n${block}\n`
+  return `---\ntitle: ${title}\ndraft: false\n---\n\n${block}\n`
 }

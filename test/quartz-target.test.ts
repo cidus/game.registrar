@@ -19,8 +19,10 @@ import { appendEvents, readEvents } from '../src/core/events.ts'
 import { fold, type VaultState } from '../src/core/fold.ts'
 import { openVault, timeContext } from '../src/core/vault.ts'
 import { translator } from '../src/i18n/index.ts'
+import { diaryEntries, newDiaryHome } from '../src/render/diary.ts'
 import { OBSIDIAN, quartzFlavour } from '../src/render/flavour.ts'
 import { frontmatter, newNote } from '../src/render/note.ts'
+import { newTable } from '../src/render/table.ts'
 import { build } from '../src/targets/build.ts'
 import { quartz } from '../src/targets/quartz.ts'
 import { template } from '../src/targets/templates.ts'
@@ -87,6 +89,12 @@ test('plans a Stats page and a review note per year, both replaced whole', () =>
   assert.match(text(files, 'quartz/content/reviews/2026.md'), /\[\[games\/hollow-knight\\\|/)
 })
 
+test('the review note links to that year\'s diary, its own entry point', () => {
+  const files = plan()
+  assert.equal(files.some((file) => file.path === 'quartz/content/diary/2026.md'), true)
+  assert.match(text(files, 'quartz/content/reviews/2026.md'), /\[\[diary\/2026\|2026 diary\]\]/)
+})
+
 test('seeds the same Game Database.base the vault gets, for @quartz-community/bases-page', () => {
   const files = plan()
   const base = files.find((file) => file.path === 'quartz/content/Game Database.base')
@@ -128,7 +136,7 @@ test('a site wikilink names the folder; the vault one relies on shortest match',
   const files = plan()
   const note = text(files, 'quartz/content/runs/2026-05-03-hollow-knight.md')
   assert.match(note, /\[\[games\/hollow-knight\|Hollow Knight\]\]/)
-  assert.match(text(files, 'quartz/content/index.md'), /\[\[games\/hollow-knight\\\|/)
+  assert.match(text(files, 'quartz/content/all-games.md'), /\[\[games\/hollow-knight\\\|/)
   assert.match(text(files, 'quartz/content/games/hollow-knight.md'), /\[\[runs\/2026-05-03-hollow-knight\\\|/)
 
   const bundle = translator('en')
@@ -138,9 +146,55 @@ test('a site wikilink names the folder; the vault one relies on shortest match',
 })
 
 test('the index leads with frontmatter rather than a heading, so Quartz does not title it twice', () => {
-  const index = text(plan(), 'quartz/content/index.md')
-  assert.match(index, /^---\ntitle: /)
-  assert.equal(index.includes('\n# '), false)
+  for (const path of ['quartz/content/index.md', 'quartz/content/all-games.md']) {
+    const page = text(plan(), path)
+    assert.match(page, /^---\ntitle: /, path)
+    assert.equal(page.includes('\n# '), false, path)
+  }
+})
+
+test('the front page is the diary; the consolidated table moves to all-games', () => {
+  const files = plan()
+
+  // The landing page carries the most recent entries, not the whole register.
+  const index = text(files, 'quartz/content/index.md')
+  assert.match(index, /^title: Diary$/m)
+  assert.match(index, /^## 2026-08-15$/m)
+  assert.equal(index.includes('| Cover |'), false)
+  // And it says where the whole register is, since nothing else on the page does.
+  assert.match(index, /\[\[all-games\|All games\]\]/)
+
+  // The table itself is unchanged, under its own name.
+  const all = text(files, 'quartz/content/all-games.md')
+  assert.match(all, /^title: All games$/m)
+  assert.match(all, /\| Cover \| Game \|/)
+
+  // The vault's own front page is untouched: it has no diary, and `Game List`
+  // keeps the title it always had (ADR 0053).
+  const vault = newTable(exampleState(), translator('en'), OBSIDIAN)
+  assert.match(vault, /^# Games$/m)
+})
+
+test('the front page carries the most recent entries and stops there', () => {
+  const state = exampleState()
+  const bundle = translator('en')
+  const all = diaryEntries(state)
+
+  const home = newDiaryHome(state, bundle, quartzFlavour(false), 'all-games', 2)
+  // Exactly the two newest, and the third is not on the page.
+  assert.match(home, /## 2026-08-15/)
+  assert.match(home, /## 2026-08-12/)
+  assert.equal(home.includes('## 2026-05-03'), false)
+  assert.ok(all.length > 2, 'the fixture needs more entries than the limit for this to mean anything')
+})
+
+test('the front page reads the log, never a clock', () => {
+  // Every entry in the fixture is from 2026, months before any plausible
+  // "today". A window ending now would leave this page empty; a count anchored
+  // to the log cannot (ADR 0047, ADR 0110).
+  const home = text(plan(), 'quartz/content/index.md')
+  assert.equal(home.includes('Nothing was written down'), false)
+  assert.match(home, /## 2026-08-15/)
 })
 
 test('a game note on the site has no empty heading waiting for prose', () => {

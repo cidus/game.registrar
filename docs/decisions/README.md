@@ -158,6 +158,7 @@ Links to specs, code and other records.
 | [0103](0103-quartz-bootstrap-needs-compatible-code-and-theme.md) | Quartz bootstrap needs compatible framework code and a declared theme | Site and comments | Accepted | 2026-09-22 |
 | [0104](0104-attach-reports-every-bad-photo.md) | attach ingests every --photo and reports every failure, not just the first | Photos and covers | Accepted | 2026-09-22 |
 | [0105](0105-a-photo-is-attached-in-the-turn-it-arrives.md) | A photo is attached in the turn it arrives, and nothing is invented to explain a failure | Agent prompt | Accepted | 2026-09-22 |
+| [0110](0110-diary-is-not-the-feed.md) | The diary is not the "feed" the non-goals rule out; a verdict gets a synthetic end-of-day sort key, and the front page a count rather than a window | Site and comments | Accepted | 2026-09-24 |
 
 ## By area
 
@@ -229,6 +230,7 @@ Links to specs, code and other records.
 - [0076](0076-site-profile-builds-in-the-gamereg-image.md) The site profile builds Quartz in the gamereg image and watches git HEAD
 - [0086](0086-comments-under-the-site-origin.md) Comments are served under the site's origin through a subpath proxy
 - [0087](0087-seeded-guesses-say-so.md) A seeded value that nothing can verify says it is a guess
+- [0110](0110-diary-is-not-the-feed.md) The diary is not the "feed" the non-goals rule out; a verdict gets a synthetic end-of-day sort key, and the front page a count rather than a window
 
 ### Stats and year in review
 

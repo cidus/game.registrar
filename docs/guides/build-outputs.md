@@ -32,7 +32,7 @@ decides what a build does to it:
 | `stats` | `obsidian/Stats.md`: totals, a row per year, a row per genre, every year's heatmap | `splice` |
 | | `obsidian/reviews/<year>.md`, a year in review for each year with sessions | `splice` |
 | | `obsidian/reviews/heatmap-<year>.svg` | `replace` |
-| `quartz` | `quartz/content/**`: games, runs, `index.md`, `stats.md`, reviews and heatmaps | `replace` |
+| `quartz` | `quartz/content/**`: games, runs, `index.md` (the diary's most recent entries), `all-games.md`, `stats.md`, reviews, heatmaps and a diary per year | `replace` |
 | | `quartz/content/Game Database.base` and `quartz/quartz.config.yaml` | `seed` |
 
 `build.csv.dir` sets the folder for the CSV files, `data` by default. The
