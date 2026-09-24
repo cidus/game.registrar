@@ -25,6 +25,12 @@ import { readCapturedAt } from './exif.ts'
 
 export type IngestResult = {
   sha256: string
+  /**
+   * Always `webp`: the hash below is of the normalized bytes, so there is no
+   * other format an ingested attachment could be stored in. Kept as a field
+   * because the event payload records it (01-model.md, *Attachments*), not
+   * because a caller has a choice to make.
+   */
   ext: 'webp'
   /** Suggested only — the caller decides whether/how to use it (04-derived.md). */
   captured_at: string | null

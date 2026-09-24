@@ -203,7 +203,6 @@
   "attachments": [
     {
       "sha256": "f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2",
-      "ext": "webp",
       "kind": "screenshot",
       "caption": "Twenty-two minutes, every time.",
       "captured_at": null,
@@ -215,7 +214,6 @@
     },
     {
       "sha256": "bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9",
-      "ext": "webp",
       "kind": "screenshot",
       "caption": "Watcher Knights, on the third try.",
       "captured_at": "2026-08-12T23:40:00-03:00",
@@ -227,7 +225,6 @@
     },
     {
       "sha256": "bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9",
-      "ext": "webp",
       "kind": "screenshot",
       "caption": "The shrine, finally.",
       "captured_at": "2026-05-03T22:40:00-03:00",
@@ -239,7 +236,6 @@
     },
     {
       "sha256": "f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2",
-      "ext": "webp",
       "kind": "photo",
       "caption": null,
       "captured_at": null,

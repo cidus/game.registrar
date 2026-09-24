@@ -75,7 +75,6 @@ const SESSIONS = [
 
 const ATTACHMENTS = [
   'sha256',
-  'ext',
   'kind',
   'caption',
   'captured_at',
@@ -162,7 +161,6 @@ function sessionRows(state: VaultState): Cell[][] {
 function attachmentCells(state: VaultState): Cell[][] {
   return attachmentRows(state).map((attachment) => [
     attachment.sha256,
-    attachment.ext,
     attachment.kind,
     attachment.caption,
     attachment.captured_at,

@@ -10,6 +10,7 @@ import sharp from 'sharp'
 import { DEFAULT_CONFIG } from '../src/core/config.ts'
 import { openVault } from '../src/core/vault.ts'
 import { ingestImage } from '../src/images/ingest.ts'
+import { assetPath } from '../src/render/assets.ts'
 import { tempDir } from './helpers.ts'
 
 async function photo(options: {
@@ -21,6 +22,13 @@ async function photo(options: {
   })
   if (options.exif !== undefined) pipeline = pipeline.withExif(options.exif)
   return pipeline.jpeg().toBuffer()
+}
+
+/** A PNG, so a test can tell "the source extension" from "the stored one". */
+async function png(): Promise<Buffer> {
+  return sharp({ create: { width: 120, height: 80, channels: 3, background: { r: 200, g: 10, b: 60 } } })
+    .png()
+    .toBuffer()
 }
 
 function vaultAt(root: string) {
@@ -134,6 +142,61 @@ test('keep_original off by default: no .original file is written', async () => {
   const result = await ingestImage(vault, src)
   const originalPath = join(root, 'assets', result.sha256.slice(0, 2), `${result.sha256}.original.jpeg`)
   assert.equal(existsSync(originalPath), false)
+})
+
+/**
+ * The pipeline and `render/assets.ts` must not be able to disagree about where
+ * an attachment lives. `assetPath()` hardcodes `.webp`; this is what makes that
+ * correct rather than lucky, and it fails the moment ingestion is changed to
+ * carry a source extension through.
+ *
+ * Driven from the pipeline, not from a fixture: every fixture in the repository
+ * happens to be a WebP already, so no fixture can tell the two readings apart.
+ * PNG and JPEG go in; one extension comes out.
+ */
+test('whatever goes in, the stored file is the .webp that assetPath names', async () => {
+  const root = tempDir('gamereg-ingest-')
+  const vault = vaultAt(root)
+
+  for (const [name, bytes] of [
+    ['in.png', await png()],
+    ['in.jpg', await photo({ width: 100 })],
+  ] as const) {
+    const src = join(root, name)
+    writeFileSync(src, bytes)
+
+    const result = await ingestImage(vault, src)
+    assert.equal(result.ext, 'webp', name)
+    assert.equal(existsSync(join(root, assetPath(result.sha256))), true, `${name}: assetPath names no file`)
+    assert.equal((await sharp(readFileSync(join(root, assetPath(result.sha256)))).metadata()).format, 'webp', name)
+  }
+})
+
+/**
+ * `images.keep_original` is the one setting that puts a differently-suffixed
+ * file in `assets/`, and it is the reason to check rather than assume: the copy
+ * is a *sibling* keyed off the same WebP hash, so the attachment's own path is
+ * unchanged and nothing in the log or the derived artifacts names the sibling
+ * (01-model.md: `ext` describes the stored bytes "rather than naming a second
+ * location").
+ */
+test('keep_original adds a sibling and does not move where the attachment lives', async () => {
+  const root = tempDir('gamereg-ingest-')
+  const vault = vaultAt(root)
+  const src = join(root, 'in.png')
+  writeFileSync(src, await png())
+
+  const config = { ...DEFAULT_CONFIG, images: { ...DEFAULT_CONFIG.images, keep_original: true } }
+  const result = await ingestImage(vault, src, config)
+
+  assert.equal(result.ext, 'webp')
+  assert.equal(existsSync(join(root, assetPath(result.sha256))), true)
+  // The sibling exists, carries the source format, and is not what `ext` names.
+  assert.equal(
+    existsSync(join(root, 'assets', result.sha256.slice(0, 2), `${result.sha256}.original.png`)),
+    true,
+  )
+  assert.notEqual(assetPath(result.sha256).endsWith('.original.png'), true)
 })
 
 test('a nonexistent source file is a usage error, not a crash', async () => {

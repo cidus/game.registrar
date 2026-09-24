@@ -6,8 +6,17 @@
 import type { Translator } from '../i18n/index.ts'
 import type { Flavour } from './flavour.ts'
 
-/** Every attachment is normalized to WebP by the ingestion pipeline, so the
- * hash alone determines the path. */
+/**
+ * Every attachment is normalized to WebP by the ingestion pipeline, so the hash
+ * alone determines the path.
+ *
+ * Not an assumption this makes about someone else's data: `images/ingest.ts`
+ * hashes the *normalized* bytes, so a hash and a `.webp` extension are one fact
+ * and not two, and an attachment cannot exist whose stored bytes are anything
+ * else. `images.keep_original` does not weaken that — it writes a sibling,
+ * `<sha256>.original.<source format>`, keyed off this same hash, which no
+ * attachment ever names ([0107](../../docs/decisions/0107-an-attachment-has-no-extension-to-vary.md)).
+ */
 export function assetPath(sha256: string): string {
   return `assets/${sha256.slice(0, 2)}/${sha256}.webp`
 }

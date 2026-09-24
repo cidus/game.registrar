@@ -84,9 +84,12 @@ CREATE TABLE aliases (
 -- null for a photo filed against the game itself. \`target\` is the fold's own
 -- key -- an event id, or a game id -- kept for the same reason
 -- \`runs.platform_raw\` is: the resolved view, plus the way back to the log.
+-- There is no \`ext\` column and no \`path\` column: ingestion normalizes every
+-- image to WebP and hashes the result, so the file is
+-- \`assets/<sha256[0:2]>/<sha256>.webp\` and nothing about it varies per row.
+-- That rule is 01-model.md's and belongs to it.
 CREATE TABLE attachments (
   sha256      TEXT NOT NULL,
-  ext         TEXT NOT NULL,
   kind        TEXT NOT NULL,
   caption     TEXT,
   captured_at TEXT,

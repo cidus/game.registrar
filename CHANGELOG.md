@@ -126,6 +126,16 @@ file.
 
 ### Removed
 
+- The `ext` column from the `attachments` table in every derived artifact
+  (`data/attachments.csv`, `attachments[]` in `data/export.json`, and
+  `attachments` in `data/log.db`). Ingestion normalizes every image to WebP and
+  hashes the result, so a photo's file is
+  `assets/<first two characters of sha256>/<sha256>.webp` and the extension was
+  never a per-row fact — the column only ever held `webp`, while inviting a
+  consumer to build a path out of it. Use the hash. `images.keep_original`'s
+  second copy is a sibling (`<sha256>.original.<source format>`) that no
+  attachment names. The event log is unchanged: `attachments[]` entries still
+  record `ext`.
 - `checkin.persona_prompt`, which was validated but read by nothing. The persona
   lives in the gateway workspace; a vault that still sets the key exits 2 at
   load, naming it as unknown.

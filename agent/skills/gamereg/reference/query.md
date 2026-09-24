@@ -24,7 +24,7 @@ and the failed-exec warning reaches the user.
 | `game_platforms` | `game_id`, `platform` |
 | `game_genres` | `game_id`, `genre` |
 | `aliases` | `game_id`, `alias` |
-| `attachments` | `sha256`, `ext`, `kind`, `caption`, `captured_at`, `filed_at`, `game_id`, `run_id`, `session_id`, `target` |
+| `attachments` | `sha256`, `kind`, `caption`, `captured_at`, `filed_at`, `game_id`, `run_id`, `session_id`, `target` |
 | `events` | `event_id`, `ts`, `type`, `source`, `payload` |
 
 **A game's cover is three columns on `games`, not a row in `attachments`.**
@@ -39,6 +39,10 @@ photo filed against the game itself has neither, so filter on `game_id` for
 "every photo of this game" and on the narrower two only when the question is
 about a run or a session. One photo can hold two rows -- the same hash filed at
 two levels -- so count `DISTINCT sha256` when counting photos.
+
+**A photo's file is `assets/<first two characters of sha256>/<sha256>.webp`.**
+Every stored image is a WebP, so there is no extension column and no path column
+to read — the hash is the whole address.
 
 **`runs.platform` is the platform a playthrough happened on;
 `game_platforms.platform` is every platform the game exists on.** A question

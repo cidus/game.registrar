@@ -131,13 +131,12 @@ export function buildDatabase(state: VaultState): Buffer {
 
       // Already sorted, by `filed_at` then target then hash (core/attachments.ts).
       const insertAttachment = db.prepare(
-        `INSERT INTO attachments (sha256, ext, kind, caption, captured_at, filed_at, game_id, run_id, session_id, target)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO attachments (sha256, kind, caption, captured_at, filed_at, game_id, run_id, session_id, target)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       for (const attachment of attachmentRows(state)) {
         insertAttachment.run(
           attachment.sha256,
-          attachment.ext,
           attachment.kind,
           attachment.caption,
           attachment.captured_at,

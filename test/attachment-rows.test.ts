@@ -19,6 +19,7 @@ import { readEvents } from '../src/core/events.ts'
 import { fold } from '../src/core/fold.ts'
 import { openVault, timeContext } from '../src/core/vault.ts'
 import { buildDatabase } from '../src/db/build.ts'
+import { assetPath } from '../src/render/assets.ts'
 import { csv } from '../src/targets/csv.ts'
 import { json } from '../src/targets/json.ts'
 import { DEFAULT_CONFIG } from '../src/core/config.ts'
@@ -202,6 +203,60 @@ function columnsOf(bytes: Buffer, table: string): { columns: string[]; rows: num
     rmSync(dir, { recursive: true, force: true })
   }
 }
+
+/**
+ * There is no `ext` column, and reintroducing one is the thing this test exists
+ * to stop ([0107](../docs/decisions/0107-an-attachment-has-no-extension-to-vary.md)).
+ *
+ * The column used to be carried through all three targets while
+ * `render/assets.ts` hardcoded `.webp`, so the artifacts implied a variability
+ * the pipeline cannot produce: `test/ingest.test.ts` pins that every stored
+ * attachment is the WebP `assetPath()` names. A row with an extension is a row
+ * inviting a consumer to build a path from it, which is the wrong way to get the
+ * right answer.
+ */
+test('no target carries an extension for an attachment', () => {
+  const events = baseLog()
+  events.push(
+    event('session.close', {
+      session_id: 'S1',
+      at: '2026-05-03T22:00:00-03:00',
+      // The legacy field, as every event written so far carries it, plus a
+      // payload that lies about it: neither reaches a row, and the file both
+      // describe is the same one.
+      attachments: [
+        { sha256: PHOTO, ext: 'webp', caption: null, captured_at: null, kind: 'screenshot' },
+        { sha256: OTHER, ext: 'png', caption: null, captured_at: null, kind: 'photo' },
+      ],
+    }),
+  )
+  const state = fold(events, context)
+
+  const rows = attachmentRows(state)
+  assert.equal(rows.length, 2)
+  for (const row of rows) {
+    assert.equal('ext' in row, false, 'attachmentRows grew an ext field back')
+    assert.match(assetPath(row.sha256), /\.webp$/)
+  }
+
+  // The fold normalizes rather than trusting: `ext: 'png'` names no file.
+  for (const attachments of state.attachments.values()) {
+    for (const attachment of attachments) assert.equal(attachment.ext, 'webp')
+  }
+
+  const target = { config: structuredClone(DEFAULT_CONFIG), bundle: translator('en') }
+  const header = String(csv.plan(state, target).find((file) => file.path.endsWith('attachments.csv'))?.content)
+    .split('\n')[0]
+    ?.split(',')
+  assert.equal(header?.includes('ext'), false)
+
+  const payload = JSON.parse(String(json.plan(state, target)[0]?.content)) as {
+    attachments: Record<string, unknown>[]
+  }
+  assert.equal('ext' in payload.attachments[0]!, false)
+
+  assert.equal(columnsOf(buildDatabase(state), 'attachments').columns.includes('ext'), false)
+})
 
 test('sqlite, csv and json agree on the columns and on how many rows there are', () => {
   const vault = openVault(join(import.meta.dirname, '..', 'example-vault'))

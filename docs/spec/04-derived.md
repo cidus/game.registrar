@@ -324,7 +324,7 @@ runs(run_id, game_id, platform, platform_raw, form, mode, started_on, ended_on,
 sessions(session_id, run_id, started_at, ended_at, minutes, logical_day, note)
 breaks(break_id, session_id, started_at, ended_at, minutes)
 aliases(game_id, alias)
-attachments(sha256, ext, kind, caption, captured_at, filed_at,
+attachments(sha256, kind, caption, captured_at, filed_at,
             game_id, run_id, session_id, target)
 events(event_id, ts, type, source, payload)   -- raw, for auditing
 ```
@@ -363,9 +363,18 @@ the `at` of the event it arrived with, or when that event was written.
 reason `runs.platform_raw` is: the resolved view, plus the way back to the log.
 There is one row per `(target, sha256)`, so a photo attached to a session and
 then promoted to the game's cover is two rows about one picture; a consumer
-building a gallery de-duplicates on `sha256`, as the game note does. There is
-no `path` column: `assets/<sha256[0:2]>/<sha256>.<ext>` is
-[01-model](01-model.md)'s rule and belongs to it, not to a copy here.
+building a gallery de-duplicates on `sha256`, as the game note does.
+
+There is **no `path` column and no `ext` column**:
+`assets/<sha256[0:2]>/<sha256>.webp` is [01-model](01-model.md)'s rule and
+belongs to it, not to a copy here. Nor is the extension a per-row fact that
+could be copied — ingestion hashes the bytes it normalized, so a hash and a
+`.webp` are one fact rather than two, and `images.keep_original`'s
+`<sha256>.original.<source format>` is a sibling no attachment names. An `ext`
+column was carried here until
+[0107](../decisions/0107-an-attachment-has-no-extension-to-vary.md); it never
+held anything but `webp`, and a consumer that built a path out of it was right
+only by luck.
 
 **Revocations and amendments are already applied.** These rows come from the
 fold, not from the `events` table, which is why they exist at all: without
