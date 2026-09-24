@@ -17,7 +17,7 @@ and the failed-exec warning reaches the user.
 
 | Table | Columns |
 |---|---|
-| `games` | `game_id`, `slug`, `title`, `release_year`, `developer`, `publisher`, `status` |
+| `games` | `game_id`, `slug`, `title`, `release_year`, `developer`, `publisher`, `status`, `cover_sha256`, `cover_url`, `cover_source` |
 | `runs` | `run_id`, `game_id`, `platform`, `platform_raw`, `form`, `mode`, `started_on`, `ended_on`, `outcome`, `completion_criteria`, `rating`, `difficulty`, `minutes`, `hours_source`, `replay` |
 | `sessions` | `session_id`, `run_id`, `started_at`, `ended_at`, `minutes`, `logical_day`, `note` |
 | `breaks` | `break_id`, `session_id`, `started_at`, `ended_at`, `minutes` |
@@ -26,6 +26,13 @@ and the failed-exec warning reaches the user.
 | `aliases` | `game_id`, `alias` |
 | `attachments` | `sha256`, `ext`, `kind`, `caption`, `captured_at`, `filed_at`, `game_id`, `run_id`, `session_id`, `target` |
 | `events` | `event_id`, `ts`, `type`, `source`, `payload` |
+
+**A game's cover is three columns on `games`, not a row in `attachments`.**
+`cover_source` is `user` or `provider`; `cover_sha256` is the ingested image and
+`cover_url` the provider's address, either of which may be null on its own. All
+three are null for a game with no cover. A cover promoted from the user's own
+photo is also an `attachments` row, so count covers on `games.cover_sha256` and
+never by looking for one in `attachments`.
 
 **`attachments.game_id` is always set; `run_id` and `session_id` are not.** A
 photo filed against the game itself has neither, so filter on `game_id` for

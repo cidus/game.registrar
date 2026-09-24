@@ -34,6 +34,15 @@ file.
   session it belongs to — `game_id` always, the narrower two when the photo
   was filed against a moment. Revocations and amendments are already applied,
   which is what asking the fold buys over reading the `events` table.
+- `cover_sha256`, `cover_url` and `cover_source` on `games` in all three of
+  `data/games.csv`, `data/export.json` and `data/log.db`. A game's cover was
+  reachable from no derived artifact before this — the attachments table cannot
+  hold it, since a provider cover is never an attachment and a promoted photo
+  carries no flag saying it is the cover. All three are null for a game with no
+  cover; `cover_url` is null for a cover the user promoted from a photo, and
+  `cover_sha256` while a provider cover is a URL that was never downloaded.
+  `cover_source` (`user` or `provider`) is what lets a consumer see why a cover
+  is what it is.
 
 **Container deployment**
 

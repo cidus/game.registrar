@@ -158,6 +158,7 @@ Links to specs, code and other records.
 | [0103](0103-quartz-bootstrap-needs-compatible-code-and-theme.md) | Quartz bootstrap needs compatible framework code and a declared theme | Site and comments | Accepted | 2026-09-22 |
 | [0104](0104-attach-reports-every-bad-photo.md) | attach ingests every --photo and reports every failure, not just the first | Photos and covers | Accepted | 2026-09-22 |
 | [0105](0105-a-photo-is-attached-in-the-turn-it-arrives.md) | A photo is attached in the turn it arrives, and nothing is invented to explain a failure | Agent prompt | Accepted | 2026-09-22 |
+| [0106](0106-the-cover-is-three-columns-on-games.md) | A game's cover reaches the derived artifacts as three columns on `games` | Build and targets | Accepted | 2026-09-24 |
 
 ## By area
 
@@ -211,6 +212,7 @@ Links to specs, code and other records.
 - [0030](0030-deletion-is-one-manifest-whitelist.md) Build cleanup stays one manifest whitelist, not a per-target policy
 - [0046](0046-unbuilt-targets-list.md) UNBUILT_TARGETS marks a target that is current but not yet built
 - [0101](0101-attachments-are-resolved-to-their-owner.md) Attachments reach the derived artifacts resolved to their owner
+- [0106](0106-the-cover-is-three-columns-on-games.md) A game's cover reaches the derived artifacts as three columns on `games`
 
 ### Site and comments
 

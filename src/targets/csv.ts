@@ -33,7 +33,18 @@ export function encodeCsv(header: readonly string[], rows: readonly Cell[][]): s
   return [header.join(','), ...rows.map((row) => row.map(field).join(','))].join('\n')
 }
 
-const GAMES = ['game_id', 'slug', 'title', 'release_year', 'developer', 'publisher', 'status'] as const
+const GAMES = [
+  'game_id',
+  'slug',
+  'title',
+  'release_year',
+  'developer',
+  'publisher',
+  'status',
+  'cover_sha256',
+  'cover_url',
+  'cover_source',
+] as const
 
 const RUNS = [
   'run_id',
@@ -87,6 +98,12 @@ function gameRows(state: VaultState): Cell[][] {
       game.developer,
       game.publisher,
       game.status,
+      // Empty in all three cells for a game with no cover. `cover_url` is also
+      // empty for a cover promoted from the user's own photo, and
+      // `cover_sha256` while a provider cover is a URL never downloaded.
+      game.cover?.sha256 ?? null,
+      game.cover?.url ?? null,
+      game.cover?.source ?? null,
     ])
 }
 

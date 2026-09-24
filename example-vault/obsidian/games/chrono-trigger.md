@@ -12,6 +12,7 @@ last_ended_on: 2011-07-01
 runs: 1
 hours: 30.0
 rating: 10
+providers: {igdb: 2364}
 tags: [gamereg, gamereg/game]
 ---
 

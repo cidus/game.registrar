@@ -7,6 +7,14 @@
  */
 
 export const SCHEMA_SQL = `
+-- \`cover_*\` mirror \`GameState.cover\` (core/fold.ts) field for field. All three
+-- are nullable: a game may have no cover; \`cover_url\` is null for a cover
+-- promoted from the user's own photo; \`cover_sha256\` is null while a provider
+-- cover is a URL that was never downloaded. \`cover_source\` is \`user\` or
+-- \`provider\`, and is what makes invariant 11 -- a user cover is never replaced
+-- by enrichment -- visible to a consumer. There is no \`cover_path\` column, for
+-- the same reason \`attachments\` has none: \`assets/<sha256[0:2]>/<sha256>.webp\`
+-- is 01-model.md's rule and belongs to it.
 CREATE TABLE games (
   game_id      TEXT PRIMARY KEY,
   slug         TEXT NOT NULL,
@@ -14,7 +22,10 @@ CREATE TABLE games (
   release_year INTEGER,
   developer    TEXT,
   publisher    TEXT,
-  status       TEXT NOT NULL
+  status       TEXT NOT NULL,
+  cover_sha256 TEXT,
+  cover_url    TEXT,
+  cover_source TEXT
 );
 
 CREATE TABLE game_platforms (

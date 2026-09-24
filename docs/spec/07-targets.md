@@ -268,10 +268,13 @@ the same four tables `csv` flattens, with the same columns and the same sort
 orders. For scripts, and for whatever exists in five years that reads JSON.
 
 **Not a site feed, and not to be widened into one.** It mirrors the SQLite
-tables column for column, so it carries no cover, genres, platforms, `run.note`
-or verdict; adding those would break what makes it useful to a spreadsheet and
-contradict 04-derived's rule that the SQLite schema wins any disagreement. A
-generator that wants a richer shape gets its own nested projection — see
+tables column for column, which decides both directions: the cover is three flat
+columns on `games`, so it is here too, while genres and platforms are
+multi-valued and live in join tables the flattening drops, and `run.note` and the
+verdict are prose a spreadsheet cell has nowhere to put. Adding the last four
+would break what makes this useful to a spreadsheet and contradict 04-derived's
+rule that the SQLite schema wins any disagreement. A generator that wants a
+richer shape gets its own nested projection — see
 [ADR 0058](../decisions/0058-astro-gets-a-projection.md). Nothing reads this file
 to build the site today: `quartz` plans from folded state.
 

@@ -8,7 +8,10 @@
       "release_year": 2018,
       "developer": "Extremely OK Games",
       "publisher": null,
-      "status": "playing"
+      "status": "playing",
+      "cover_sha256": null,
+      "cover_url": null,
+      "cover_source": null
     },
     {
       "game_id": "01K5A00000000000000000GAM2",
@@ -17,7 +20,10 @@
       "release_year": 1995,
       "developer": "Square",
       "publisher": null,
-      "status": "finished"
+      "status": "finished",
+      "cover_sha256": null,
+      "cover_url": "https://images.example/covers/chrono-trigger.jpg",
+      "cover_source": "provider"
     },
     {
       "game_id": "01K5A00000000000000000GAM1",
@@ -26,7 +32,10 @@
       "release_year": 2017,
       "developer": "Team Cherry",
       "publisher": "Team Cherry",
-      "status": "finished"
+      "status": "finished",
+      "cover_sha256": "bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9",
+      "cover_url": null,
+      "cover_source": "user"
     },
     {
       "game_id": "01K5A00000000000000000GAM3",
@@ -35,7 +44,10 @@
       "release_year": 2019,
       "developer": "Mobius Digital",
       "publisher": null,
-      "status": "abandoned"
+      "status": "abandoned",
+      "cover_sha256": "f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2",
+      "cover_url": "https://images.example/covers/outer-wilds.webp",
+      "cover_source": "provider"
     },
     {
       "game_id": "01K5A00000000000000000GAM5",
@@ -44,7 +56,10 @@
       "release_year": 2022,
       "developer": "Andrew Shouldice",
       "publisher": "Finji",
-      "status": "playing"
+      "status": "playing",
+      "cover_sha256": null,
+      "cover_url": null,
+      "cover_source": null
     }
   ],
   "runs": [
