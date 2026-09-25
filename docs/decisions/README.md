@@ -164,6 +164,7 @@ Links to specs, code and other records.
 | [0109](0109-run-prose-reaches-the-derived-artifacts.md) | A run's note and verdict reach the derived artifacts as columns on `runs` | Build and targets | Accepted | 2026-09-24 |
 | [0110](0110-diary-is-not-the-feed.md) | The diary is not the "feed" the non-goals rule out; a verdict gets a synthetic end-of-day sort key, and the front page a count rather than a window | Site and comments | Accepted | 2026-09-24 |
 | [0111](0111-localized-surface-english-schema.md) | The vault's surface is localized; its schema, its queries and its seeds' filenames are not | Build and targets | Accepted | 2026-09-24 |
+| [0112](0112-a-photo-is-removed-by-where-it-lives.md) | A photo is removed according to where it lives, and the card says what its paths resolve against | Agent prompt | Accepted | 2026-09-25 |
 
 ## By area
 
@@ -289,6 +290,7 @@ Links to specs, code and other records.
 - [0018](0018-telegram-buttons-use-raw-value.md) Telegram buttons use a raw value, never the callback action
 - [0044](0044-reactions-are-a-second-call.md) A reaction is a second tool call, mapped in a per-installation workspace file
 - [0080](0080-telegram-pairing-reveals-the-sender-id.md) Telegram senders learn their numeric id through pairing
+- [0112](0112-a-photo-is-removed-by-where-it-lives.md) A photo is removed according to where it lives, and the card says what its paths resolve against
 
 ### Container deployment
 

@@ -255,6 +255,17 @@ file.
 
 **Agent and check-ins**
 
+- The card says what its `reference/…` paths resolve against — the `gamereg`
+  skill directory, not the workspace the card itself sits in. A `read` of
+  `reference/corrections.md` was a file-not-found, and `exec` cannot go looking
+  because it runs `gamereg` and nothing else, so a correction flow spent four
+  calls guessing.
+- Removing a photo is documented, as two flows chosen by the `attachments`
+  table's `target`: a photo filed by `attach` has an event of its own and is
+  revoked, while an inline one is an item in a `session.open`/`session.close`/
+  `run.close` payload and is removed by amending that event's `attachments` to
+  the rows that survive — revoking it would revoke the session or the close too
+  ([ADR 0112](docs/decisions/0112-a-photo-is-removed-by-where-it-lives.md)).
 - `TOOLS.md`'s notes reach the model again. OpenClaw injected the file on
   2026.7.1-2 and stopped on 2026.9.4, so the tool-surface notes were absent from
   every turn between the upgrade and this change, with nothing failing — a file

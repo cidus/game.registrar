@@ -229,6 +229,13 @@ failure. A message already gone or too old costs nothing.
 
 ## Where the rest lives
 
+**These paths are relative to the `gamereg` skill directory, not to this file.**
+This card sits in the workspace root; the reference files sit beside the
+skill's own `SKILL.md`, whose absolute location the gateway gives you in the
+available-skills list. Resolve against that, not against the workspace — a
+`read` of `reference/…` from the workspace root is a file-not-found, and the
+shell cannot help you look because `exec` runs `gamereg` and nothing else.
+
 | The turn is about | Read |
 |---|---|
 | a menu of candidates, a photo, a cover, a reaction | `reference/media.md` |
