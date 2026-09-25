@@ -42,6 +42,13 @@ file.
 
 ### Fixed
 
+- The diary dropped every photo attached to a *game* rather than to a session
+  or a run — which is what `gamereg attach <game>` files, so a game
+  photographed through that path showed none of its pictures on the site while
+  its game note's gallery showed them all. Those photos now get their own
+  entry, grouped per game per day and dated by `captured_at` falling back to
+  the filing date.
+
 - The `html` target's table no longer prints raw enum tokens (`hard`,
   `true_ending`) or the hardcoded English literal `"playing"` for an open run,
   while its column headers were already localized. The embedded row data
@@ -227,13 +234,6 @@ file.
   ([ADR 0106](docs/decisions/0106-only-the-injected-set-is-shipped.md)).
 
 ### Fixed
-
-- The diary dropped every photo attached to a *game* rather than to a session
-  or a run — which is what `gamereg attach <game>` files, so a game
-  photographed through that path showed none of its pictures on the site while
-  its game note's gallery showed them all. Those photos now get their own
-  entry, grouped per game per day and dated by `captured_at` falling back to
-  the filing date.
 
 - Fresh Quartz sites keep the npm plugin configuration and install their
   configured theme before building. The publishing guide no longer selects
