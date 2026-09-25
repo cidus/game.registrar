@@ -20,6 +20,7 @@ import { assetPath } from './assets.ts'
 import { atPrecision } from './dates.ts'
 import { noteRef, type Flavour } from './flavour.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
+import { timePlayed } from './played.ts'
 
 export const RUN_BLOCK_ORDER = ['header', 'verdict', 'sessions'] as const
 
@@ -152,18 +153,7 @@ function runHeaderParts(game: GameState, run: RunState, bundle: Translator): str
   const ended = run.ended_on === null ? null : atPrecision(run.ended_on, run.ended_precision)
   parts.push(ended === null ? started : `${started} → ${ended}`)
 
-  // Nothing measured yet says nothing about duration: an open session is never
-  // estimated, and "0m" would read as a claim.
-  if (run.minutes > 0) {
-    parts.push(
-      run.sessions.length === 1
-        ? bundle.t('note.header.total_one', { duration: formatHm(run.minutes) })
-        : bundle.t('note.header.total', {
-            duration: formatHm(run.minutes),
-            sessions: run.sessions.length,
-          }),
-    )
-  }
+  parts.push(...timePlayed(run.minutes, run.sessions.length, run.stated_minutes, bundle))
 
   return parts
 }

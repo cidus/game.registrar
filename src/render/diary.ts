@@ -28,6 +28,7 @@ import type { Translator } from '../i18n/index.ts'
 import { assetEmbed, assetThumb } from './assets.ts'
 import { noteRef, type Flavour } from './flavour.ts'
 import { wrapBlock, type BlockContent } from './markers.ts'
+import { timePlayed } from './played.ts'
 
 export function diaryNoteName(year: number): string {
   return String(year)
@@ -235,15 +236,7 @@ function sessionMeta(session: SessionState, bundle: Translator): string {
 function verdictMeta(run: RunState, bundle: Translator): string {
   const parts = [bundle.t('diary.kind.verdict')]
   if (run.platform !== null) parts.push(run.platform)
-  // Nothing measured yet says nothing about duration, the same rule the game
-  // note's header follows.
-  if (run.minutes > 0) {
-    parts.push(
-      run.sessions.length === 1
-        ? bundle.t('note.header.total_one', { duration: formatHm(run.minutes) })
-        : bundle.t('note.header.total', { duration: formatHm(run.minutes), sessions: run.sessions.length }),
-    )
-  }
+  parts.push(...timePlayed(run.minutes, run.sessions.length, run.stated_minutes, bundle))
   if (run.rating !== null) parts.push(String(run.rating))
   return parts.join(' · ')
 }

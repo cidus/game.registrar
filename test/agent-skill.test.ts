@@ -658,3 +658,96 @@ test('the never-invent rule covers a media path, not only ids and hashes', () =>
   assert.ok(rule, 'AGENTS.md no longer has a "never invent" rule at all')
   assert.match(rule, /\bpath\b/, 'the never-invent rule no longer names a file path')
 })
+
+/**
+ * A relative `reference/…` path in the card is not resolvable from where the
+ * card sits. The gateway tells the agent to resolve a skill file's relative
+ * paths against the skill directory and gives it that absolute location — but
+ * `AGENTS.md` is a workspace bootstrap file, not a skill file, so the routing
+ * table it carries has no such base. The agent resolved against the workspace
+ * root, got `File not found: /config/workspace/reference/corrections.md`, and
+ * burned four calls (two denied by the allowlist) before guessing
+ * `skills/gamereg/reference/`.
+ *
+ * The routing table moved into the card when the card became the index, and the
+ * base came along in nothing. So the card has to name it.
+ */
+test('the card says what its reference paths resolve against', () => {
+  const card = readFileSync(join(WORKSPACE, 'AGENTS.md'), 'utf8')
+  const section = card.slice(card.indexOf('## Where the rest lives'))
+  assert.ok(section.length > 0, 'AGENTS.md no longer has a "Where the rest lives" section')
+
+  assert.match(
+    section.slice(0, 900),
+    /relative to the `gamereg` skill directory, not to this file/,
+    'the routing table no longer says what its relative paths resolve against',
+  )
+  // And why guessing is expensive here: exec cannot look for the file.
+  assert.match(section.slice(0, 900), /file-not-found|not-found|not found/i)
+})
+
+/**
+ * Removing a photo has two shapes and picking the wrong one destroys something
+ * else: an inline photo lives inside a `session.open`/`session.close`/
+ * `run.close`/`run.import` payload, so revoking "the photo" revokes the session
+ * or the close with it. The `attachments` table's `target` is what tells them
+ * apart — an event id for inline, the game's own id for a photo filed by
+ * `attach`.
+ */
+test('the photo-removal flow distinguishes inline from attach-filed', () => {
+  const corrections = readFileSync(join(SKILL, 'reference', 'corrections.md'), 'utf8')
+  const section = corrections.slice(corrections.indexOf('## Removing a photo'))
+  assert.ok(section.indexOf('## Removing a photo') === 0, 'corrections.md has no photo-removal section')
+
+  // Both routes, and the reason the inline one cannot be a revoke.
+  assert.match(section, /There is no event of its own to\s*\n?\s*revoke/)
+  assert.match(section, /gamereg amend "<target>" --set attachments=/)
+  assert.match(section, /gamereg revoke "<event_id>"/)
+
+  // The array is replaced, not merged — the property the whole flow rests on.
+  assert.match(section, /\breplaces\b.*\bmerging\b/s)
+
+  // The surviving set is built by SQL, not assembled by the model: `NOT IN`
+  // excludes, `json_group_array` emits the string the amend takes verbatim.
+  // Retyping the survivors is the same two calls with a silent failure mode,
+  // and `captured_at` — metadata nobody typed — is what it loses.
+  assert.match(section, /Let the database build the array\. Do not assemble it\s*\n?\s*yourself/)
+  assert.match(section, /json_group_array\(json_object\(/)
+  assert.match(section, /NOT IN \('<sha to remove>'\)/)
+  assert.match(section, /captured_at/)
+
+  // A hash that matches nothing writes the array back unchanged and reports
+  // success, so the surviving count is checked against the total. `count` in the
+  // envelope cannot serve: the aggregate returns one row whatever it aggregates,
+  // so the query carries `kept` and `total` of its own.
+  assert.match(section, /`kept` = `total` minus the number of hashes you listed/)
+  assert.match(section, /count\(\*\) FILTER \(WHERE sha256 NOT IN/)
+  assert.match(section, /count\(\*\) AS total/)
+
+  // And an empty array is a legitimate outcome, not an error: removing the only
+  // photo on an event leaves none.
+  assert.match(section, /`kept: 0` is a correct answer/)
+
+  // And ext must not be written: the fold ignores the payload's value (ADR 0108).
+  assert.match(section, /Do not write an `ext`/)
+})
+
+/**
+ * `query.md` forbids querying for an event id, and that rule is right wherever a
+ * row carries one. A photo filed by `attach` is the one case where none does, so
+ * the exception has to be stated in both files or the next session reads the
+ * prohibition and stops.
+ */
+test('the one event-id query is named as an exception in both files', () => {
+  const query = readFileSync(join(SKILL, 'reference', 'query.md'), 'utf8')
+  assert.match(query, /There is no query here for an event id/, 'the prohibition is gone')
+  assert.match(query, /One exception/, 'query.md does not acknowledge the photo exception')
+  assert.match(query, /corrections\.md/, 'query.md does not say where the exception is written out')
+
+  const corrections = readFileSync(join(SKILL, 'reference', 'corrections.md'), 'utf8')
+  assert.match(
+    corrections,
+    /only\*\* case in this file where you query for an event id|the exception that proves it/,
+    'corrections.md does not mark the query as the exception it is',
+  )
+})

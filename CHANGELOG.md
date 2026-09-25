@@ -40,7 +40,51 @@ file.
   [ADR 0110](docs/decisions/0110-diary-is-not-the-feed.md).
 - `quartz/content/all-games.md`: the consolidated table, under its own name.
 
+### Fixed
+
+- The `html` target's table no longer prints raw enum tokens (`hard`,
+  `true_ending`) or the hardcoded English literal `"playing"` for an open run,
+  while its column headers were already localized. The embedded row data
+  still stays in schema tokens, same as `csv` and `sqlite`; a separate
+  token → label map travels alongside it in the page, and the client-side
+  script looks labels up at render time instead of translating the data.
+- The header line of the game note, the run note and the diary no longer
+  renders a stated portion as if it were measured, which
+  [01-model.md](docs/spec/01-model.md) forbids of any report. A run with
+  stated hours and no sessions read `30h00 across 0 sessions`, and a `mixed`
+  run — a baseline plus sessions recorded after it — spent the whole total on
+  a sentence about its sessions, crediting them with hours that predate the
+  register. Each number now carries its own provenance: `30h00 (stated)`
+  alone, or `20h00 (stated) · 3h42 across 2 sessions`. The total is left to
+  frontmatter and the consolidated table, where a sum of two kinds of number
+  belongs. The rule moved into `render/played.ts`, shared by the three
+  renderers that had a copy of it each, and `example-vault` gained a mixed run
+  so the golden files cover every `hours_source`.
+
 ### Changed
+
+**Localization**
+
+- Generated notes now localize the **Difficulty** and **Criteria** cells, not
+  just the headers above them: a pt-BR vault reads `difícil` and
+  `final verdadeiro` where it used to read `hard` and `true_ending`. The
+  frontmatter keeps the English token, because that is what the Bases view
+  filters on and what `gamereg query` mirrors. In English two labels move too,
+  to `true ending` and `full completion`.
+- `obsidian/Game List.md` and `obsidian/Stats.md` follow the vault's `locale`
+  (`Lista de Jogos.md`, `Estatísticas.md` under pt-BR), and `Game List`'s own
+  `H1` is now the same string as its filename — it used to read `Games`.
+  **Changing `locale` renames these two on the next build, which discards
+  anything written outside their markers.** Nothing under `quartz/content/`
+  moves, and no seeded file is ever renamed.
+- The two seeded files are localized when first written: `Game Database.base`
+  gets its view and column names, and `quartz.config.yaml` gets `pageTitle`
+  and `locale` — the latter was pinned to `en-US`, which left Quartz's own
+  interface in English on a Portuguese site. Seeds are written once, so an
+  existing vault refreshes them by deleting them and rebuilding.
+- Shipped templates now carry named holes (`{{base.view.finished}}`) filled
+  from `i18n/` at plan time, rather than there being a per-locale copy of each
+  template. See [ADR 0111](docs/decisions/0111-localized-surface-english-schema.md).
 
 **Derived artifacts**
 
@@ -218,6 +262,20 @@ file.
 
 **Agent and check-ins**
 
+- The card says what its `reference/…` paths resolve against — the `gamereg`
+  skill directory, not the workspace the card itself sits in. A `read` of
+  `reference/corrections.md` was a file-not-found, and `exec` cannot go looking
+  because it runs `gamereg` and nothing else, so a correction flow spent four
+  calls guessing.
+- Removing a photo is documented, as two flows chosen by the `attachments`
+  table's `target`: a photo filed by `attach` has an event of its own and is
+  revoked, while an inline one is an item in a `session.open`/`session.close`/
+  `run.close` payload and is removed by amending that event's `attachments` to
+  the rows that survive — revoking it would revoke the session or the close too.
+  The surviving array is built by the query itself (`NOT IN` plus
+  `json_group_array`) and passed through verbatim, so the subtraction happens in
+  SQL rather than in a retyped record
+  ([ADR 0112](docs/decisions/0112-a-photo-is-removed-by-where-it-lives.md)).
 - `TOOLS.md`'s notes reach the model again. OpenClaw injected the file on
   2026.7.1-2 and stopped on 2026.9.4, so the tool-surface notes were absent from
   every turn between the upgrade and this change, with nothing failing — a file

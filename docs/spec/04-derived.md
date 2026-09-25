@@ -99,7 +99,7 @@ Started as a curiosity and turned into the best thing I played this year...
 <!-- gamereg:begin block=runs -->
 | Run | Platform | Started | Ended | Hours | Rating | Criteria |
 |---|---|---|---|---|---|---|
-| [[2026-05-03-hollow-knight\|2026]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | true_ending |
+| [[2026-05-03-hollow-knight\|2026]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | true ending |
 <!-- gamereg:end block=runs -->
 
 ## Gallery
@@ -121,6 +121,44 @@ ingestion pipeline. The embed is content-addressed —
 `assets/<sha[0:2]>/<sha>.webp`, the path *Image ingestion* below writes — and it
 is the same path the run note's `cover` property and the consolidated table's
 `Cover` column point at. There is no `covers/` folder.
+
+The header line ends with **how long, and where the time came from** — clauses
+rendered by `render/played.ts` and shared with the run note and the diary, so
+the three cannot disagree about a run.
+
+**A stated portion is never rendered as if it were measured.** That is
+[01-model](01-model.md)'s rule for `hours_source`, written there as a
+requirement on reports, and this is where the notes keep it. `run.minutes` is a
+baseline plus the minutes its sessions measured, so a header that spends the
+sum on a sentence about sessions credits sittings that never happened. Each
+number is therefore written with its own provenance:
+
+| Run | Header ends with |
+|---|---|
+| measured only | `8h58 across 3 sessions` |
+| stated only | `30h00 (stated)` |
+| mixed | `20h00 (stated) · 3h42 across 2 sessions` |
+| nothing measured, nothing stated | nothing at all |
+
+The total is deliberately absent: it sums two numbers of different kinds, and
+it is already carried where a sum belongs — `hours` in frontmatter, the `Hours`
+column of the consolidated table, and the `runs` and `games` tables of the
+derived layer.
+
+Two further rules hold across all four rows:
+
+- **Nothing measured says nothing about duration.** The clause is omitted
+  rather than written as `0m`, which would read as a claim that no time
+  passed. An open session is never estimated.
+- **The marker is the consolidated table's own** (`table.stated_marker`),
+  not a phrase of the renderer's. Two spellings of one idea is how a
+  vocabulary drifts, and a parenthetical does not inflect — a key like
+  `"{duration} declaradas"` agrees with *horas* and then reads wrong the first
+  time a baseline is filed in minutes.
+
+The bare durations go through no translation key, for the same reason the
+release year and the platform beside them do not: a duration is data that
+`core/duration.ts` formats, not a sentence (00-architecture D7).
 
 The `gallery` block holds every photo on the game's timeline, oldest first,
 de-duplicated by hash — the same image attached to a session and promoted to the
@@ -281,9 +319,17 @@ the user should hear it before the build does it.
 <!-- gamereg:begin block=table -->
 | Cover | Game | Platform | Started | Ended | Hours | Rating | Difficulty | Criteria |
 |---|---|---|---|---|---|---|---|---|
-| ![[assets/e3/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.webp\|128]] | [[hollow-knight\|Hollow Knight]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | hard | true_ending |
+| ![[assets/e3/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.webp\|128]] | [[hollow-knight\|Hollow Knight]] | Switch | 2026-05-03 | 2026-08-12 | 42.3 | 9 | hard | true ending |
 <!-- gamereg:end block=table -->
 ```
+
+**`Difficulty` and `Criteria` hold labels, not tokens.** The cell says what the
+header above it is written in — `true ending` in English, `final verdadeiro` in
+pt-BR — while the run note's frontmatter keeps `completion_criteria:
+true_ending`, because that is what the Bases view filters on and what
+`gamereg query` mirrors. A token is localized when it is prose in a cell and
+never when something queries it
+([ADR 0111](../decisions/0111-localized-surface-english-schema.md)).
 
 `Cover` is empty for a game whose cover is not locally ingested yet — the same
 rule the game note's header embed and the run note's `cover` property both
@@ -628,8 +674,12 @@ to every target, not only to Markdown.
 - Stable sort keys everywhere, ties broken by ULID
 - Fixed decimal precision for hours (one place)
 - LF endings, no trailing whitespace, single trailing newline
-- Locale-independent formatting inside generated blocks — dates as ISO, numbers
-  with `.` — because the file is data, not presentation
+- Locale-independent *formatting* inside generated blocks — dates as ISO,
+  numbers with `.`, durations as `2h30` — because those are data, not
+  presentation. The locale still decides the *words* around them: headings,
+  column headers, and the labels in the Difficulty and Criteria columns. It
+  is an input to the build, not a source of drift — for a fixed locale the
+  bytes are fixed ([ADR 0111](../decisions/0111-localized-surface-english-schema.md))
 - Binary targets included: SQLite is built with a fixed page size, a fixed
   insertion order and no timestamps
 

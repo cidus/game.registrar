@@ -51,8 +51,13 @@ Rules, in force for every target ever added:
    what keeps the build a projection instead of a migration.
 2. **A target performs no network I/O**, ever. Enrichment is a separate command
    and has already written its results into the log by the time `build` runs.
-3. **A target is deterministic.** Same state in, same bytes out, in any locale,
-   at any time of day, on any machine. There is **no exemption** — not for
+3. **A target is deterministic.** The locale is an *input*, like the state and
+   the config: for a fixed locale, same state in, same bytes **and same set of
+   paths** out, at any time of day, on any machine. Two locales legitimately
+   differ — a heading is translated, and two of the vault's note names are too
+   ([ADR 0111](../decisions/0111-localized-surface-english-schema.md)) — but
+   neither the clock nor the machine may show through. There is **no
+   exemption** — not for
    `sqlite`, not for a future target that wraps an external encoder. What varies
    between machines is how an artifact is *compared*, never whether it has to be
    reproducible: `data/log.db` is compared logically because SQLite's on-disk
@@ -76,7 +81,7 @@ exactly three because there are exactly three kinds of file in the vault.
 | Policy | Meaning | Used by |
 |---|---|---|
 | `replace` | The file is generated in full. Deleting it costs nothing, and editing it loses the edit on the next build. | `obsidian/runs/*.md`, `obsidian/reviews/heatmap-<year>.svg`, every note and SVG under `quartz/content/`, CSV, SQLite, JSON, HTML |
-| `splice` | Only the regions between `gamereg` markers are written. Everything else is preserved byte-identical. | `obsidian/games/*.md`, `obsidian/Game List.md`, `obsidian/Stats.md`, `obsidian/reviews/<year>.md` |
+| `splice` | Only the regions between `gamereg` markers are written. Everything else is preserved byte-identical. | `obsidian/games/*.md`, `obsidian/<Game List>.md`, `obsidian/<Stats>.md`, `obsidian/reviews/<year>.md` |
 | `seed` | Written if absent. Never overwritten, never removed. | `obsidian/Game Database.base`, `quartz/content/Game Database.base`, `quartz/quartz.config.yaml` |
 
 Two lines of that table are worth reading twice. The `stats` target **splices**
@@ -299,7 +304,10 @@ a single page is a snapshot rather than an archive.
 
 This overlaps the Quartz site and does not replace it: the site is a
 vault-wide, linked, publishable thing; this is one page that answers questions
-about runs. Labels come from `i18n/`; the embedded data stays in schema tokens.
+about runs. Headers and rendered cell values are both localized: the embedded
+row data stays in schema tokens (same rule as `csv` and `sqlite`), and a
+separate token → label map is embedded alongside it, so the client-side
+script renders labels without the page ever translating the data itself.
 
 ### `stats`
 

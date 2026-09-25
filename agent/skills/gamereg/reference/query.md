@@ -168,9 +168,16 @@ build having to be current. Prefer the command.
 **There is no query here for an event id, and you should not write one.**
 `amend` and `revoke` take event ids, and `gamereg open` and `gamereg status`
 now carry them directly — `run_open_event_id`, `session_open_event_id`,
-`last_checkin_id`. Reading a field costs nothing; reaching for the `events`
-table costs a `--schema` call, a guessed column and a retry, and that is
-exactly how it went every time it was tried.
+`run_close_event_id`, `last_checkin_id`. Reading a field costs nothing; reaching
+for the `events` table costs a `--schema` call, a guessed column and a retry,
+and that is exactly how it went every time it was tried.
+
+One exception, and it is written out for you in `corrections.md` (*Removing a
+photo*): a photo filed by `attach` is its own `attachment.add` event, and no row
+anywhere carries that event's id. That query matches on `sha256`, which is unique
+per stored image and came from a row you already read, so it resolves to one
+event rather than to a guess. It is the exception because no row carries the id —
+not because event ids are fair game when a row is inconvenient.
 
 ## A year in review
 

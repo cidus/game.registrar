@@ -78,8 +78,16 @@ export function tableBlock(state: VaultState, bundle: Translator, flavour: Flavo
       date(run.ended_on, run.ended_precision),
       hours,
       cell(run.rating),
-      cell(run.difficulty),
-      cell(run.completion_criteria),
+      // The label, not the token. The header above this cell is already
+      // localized, and the token stays in frontmatter, where the Bases
+      // view and `query` read it (ADR 0111). `cell` stays outermost so a
+      // label carrying a pipe is still escaped.
+      cell(run.difficulty === null ? null : bundle.label('difficulty', run.difficulty)),
+      cell(
+        run.completion_criteria === null
+          ? null
+          : bundle.label('completion_criteria', run.completion_criteria),
+      ),
     ]
   })
 

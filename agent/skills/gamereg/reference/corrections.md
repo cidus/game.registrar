@@ -171,6 +171,93 @@ success, so a run silently kept the rating the user thought they had given it.
 If a value you filed earlier is not showing in `status`, this is why, and the
 fix is the same call against the other id.
 
+## Removing a photo
+
+> "remove the last photo I sent, it was already there"
+
+**The `attachments` table is the only route.** `status` does not list photos,
+and it carries what identifies the photo to the user as well as what to correct:
+
+```
+gamereg query "SELECT sha256, caption, captured_at, kind, target, filed_at FROM attachments WHERE game_id = '<game_id>' ORDER BY filed_at" --json
+```
+
+Two photos the user calls identical often have different `sha256` — a re-sent
+image is recompressed in transit, so content addressing sees two files. Trust
+`filed_at` and the caption over "it is the same picture", and name both in the
+confirmation so they can tell you which one they meant.
+
+`target` decides which correction applies. The two are not interchangeable.
+
+### `target` is an event id — the photo arrived inline
+
+It came with a `session.open`, `session.close`, `run.close` or `run.import`, and
+it is one item inside that event's payload. **There is no event of its own to
+revoke**: revoking that event would revoke the session or the close along with
+the photo. The correction is an `amend` on that event, replacing `attachments`
+with the photos that stay.
+
+**Let the database build the array. Do not assemble it yourself.** One query
+returns the string the `amend` takes and the two numbers that prove it is right:
+
+```
+gamereg query "SELECT json_group_array(json_object('sha256',sha256,'caption',caption,'captured_at',captured_at,'kind',kind)) FILTER (WHERE sha256 NOT IN ('<sha to remove>')) AS attachments, count(*) FILTER (WHERE sha256 NOT IN ('<sha to remove>')) AS kept, count(*) AS total FROM attachments WHERE target = '<target>'" --json
+gamereg amend "<target>" --set attachments='<the attachments string, verbatim>' --reason "duplicate photo removed at the user's request" --json
+```
+
+This is the same two calls as reading the rows and retyping the survivors, and it
+removes the step where a mistake is invisible. The subtraction happens in SQL,
+where it either matched or it did not, and every value is carried by the database
+rather than through you. **`captured_at` is the reason this matters** — camera
+metadata the user never typed, which would vanish silently from any record you
+retyped without it while everything still looked right.
+
+`NOT IN` takes a list, so several photos go in one call — the same list in both
+clauses: `NOT IN ('<sha>', '<sha>')`.
+
+**The check is `kept` = `total` minus the number of hashes you listed.** Anything
+else and the `amend` would write something you did not mean:
+
+- `kept` equal to `total` — a hash matched nothing. The array came back whole, so
+  the `amend` would write it back unchanged and report success. Read the hashes
+  off the rows again rather than retyping them from the conversation.
+- `kept` lower than expected — a hash you did not intend is in the list, or the
+  same photo is filed twice on this event.
+
+**`kept: 0` is a correct answer**, not a guard to trip over: one photo on the
+event and one hash listed leaves `[]`, which empties that event's attachments and
+is exactly what "remove the photo I sent" means when it was the only one. The
+event itself is untouched — the session, the close, the note all stand.
+
+**Do not write an `ext`.** The query does not return one and the register does
+not read one: an attachment is stored as WebP by construction, so the hash and
+the extension are one fact. Older events still carry the field and it is ignored
+where it sits.
+
+The patch **replaces** the array rather than merging into it, which is what makes
+a subtraction expressible at all — and also why an empty array empties the event.
+
+### `target` is the game's own id — the photo came from `attach`
+
+`attach` filed an event of its own, so `revoke` removes the photo and touches
+nothing else. Its id is the one thing no row carries, and this is the **only**
+case in this file where you query for an event id:
+
+```
+gamereg query "SELECT event_id FROM events WHERE type = 'attachment.add' AND payload LIKE '%<sha256>%'" --json
+gamereg revoke "<event_id>" --reason "duplicate photo removed at the user's request" --json
+```
+
+The `sha256` makes it exact — it is unique per stored image, and the row you
+matched it from came out of the query above, so nothing here is guessed. One
+row back means one event. **More than one row, or none, means stop and say so**:
+that is a question for the user, not a thing to pick from.
+
+`query.md` tells you not to look for an event id in the `events` table, and it
+is right everywhere else, because everywhere else a row already carries it. Here
+no row does, and this query is the exception that proves it rather than a licence
+to go hunting.
+
 ## Adding a stated baseline to a run already in progress
 
 `--past-hours` is only valid on the call that opens a run. For one already

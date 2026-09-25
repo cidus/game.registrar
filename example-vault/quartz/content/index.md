@@ -7,6 +7,20 @@ draft: false
 [[all-games|All games]]
 
 <!-- gamereg:begin block=entries -->
+## 2026-09-12
+
+**[[games/stardew-valley|Stardew Valley]]**
+*Session · 1h30*
+
+Community centre done. Stopped to look at the fireworks.
+
+## 2026-09-05
+
+**[[games/stardew-valley|Stardew Valley]]**
+*Session · 2h12*
+
+Year three, and the greenhouse finally pays for itself.
+
 ## 2026-08-16
 
 **[[games/tunic|Tunic]]**
@@ -78,7 +92,7 @@ First hours. Combat feels tight.
 ## 2011-07-01
 
 **[[games/chrono-trigger|Chrono Trigger]]**
-*Verdict · Super Nintendo · 30h00 across 0 sessions · 10*
+*Verdict · Super Nintendo · 30h00 (stated) · 10*
 
 > Replayed it over one long week, and the memory held up better than memories usually do.
 >

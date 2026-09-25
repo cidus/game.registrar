@@ -5,12 +5,12 @@
 <!-- gamereg:begin block=totals -->
 | Measure | Value |
 |---|---|
-| Games | 5 |
-| Runs | 5 |
+| Games | 6 |
+| Runs | 6 |
 | Finished | 2 |
-| Hours | 43.0 |
-| Sessions | 6 |
-| Days played | 6 |
+| Hours | 66.7 |
+| Sessions | 8 |
+| Days played | 8 |
 <!-- gamereg:end block=totals -->
 
 ## By year
@@ -18,7 +18,7 @@
 <!-- gamereg:begin block=years -->
 | Year | Hours | Sessions | Days played | Games played | Runs finished | Rating |
 |---|---|---|---|---|---|---|
-| [[2026]] | 13.0 | 6 | 6 | 4 | 1 | 9.00 |
+| [[2026]] | 16.7 | 8 | 8 | 5 | 1 | 9.00 |
 <!-- gamereg:end block=years -->
 
 ## By genre

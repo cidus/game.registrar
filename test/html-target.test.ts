@@ -56,6 +56,23 @@ test('two builds from the same state are byte-identical', () => {
   assert.equal(plan(), plan())
 })
 
+test('rendered labels follow the locale while the embedded data stays in schema tokens', () => {
+  const document = plan('pt-BR')
+  const runsMatch = document.match(/window\.__GAMEREG_RUNS__ = (\[.*?\]);/s)
+  assert.ok(runsMatch)
+  const rows = JSON.parse(runsMatch![1]!) as Record<string, unknown>[]
+  assert.ok(rows.some((row) => row['difficulty'] === 'hard'))
+  assert.ok(rows.some((row) => row['completion_criteria'] === 'true_ending'))
+
+  const labelsMatch = document.match(/window\.__GAMEREG_LABELS__ = (\{.*?\});/s)
+  assert.ok(labelsMatch)
+  const labels = JSON.parse(labelsMatch![1]!) as Record<string, Record<string, string>>
+  assert.equal(labels['difficulty']!['hard'], 'difícil')
+  assert.equal(labels['completion_criteria']!['true_ending'], 'final verdadeiro')
+  assert.equal(labels['status']!['playing'], 'em andamento')
+  assert.notEqual(labels['difficulty']!['hard'], 'hard')
+})
+
 test('the embedded JSON has every "<" escaped, so a title cannot close the script tag early', () => {
   const document = plan()
   const start = document.indexOf('window.__GAMEREG_RUNS__ = ') + 'window.__GAMEREG_RUNS__ = '.length

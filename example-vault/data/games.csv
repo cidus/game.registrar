@@ -3,4 +3,5 @@ game_id,slug,title,release_year,developer,publisher,status,cover_sha256,cover_ur
 01K5A00000000000000000GAM2,chrono-trigger,Chrono Trigger,1995,Square,,finished,,https://images.example/covers/chrono-trigger.jpg,provider
 01K5A00000000000000000GAM1,hollow-knight,Hollow Knight,2017,Team Cherry,Team Cherry,finished,bb00bde27859e8916627ad3d9d9f4c037556f9df44958db277801d28e24761a9,,user
 01K5A00000000000000000GAM3,outer-wilds,Outer Wilds,2019,Mobius Digital,,abandoned,f04ac466a0d7824a8bfb26ae9f50a960b3cdf2bf3dab07596ddeba13f62d54e2,https://images.example/covers/outer-wilds.webp,provider
+01K5A00000000000000000GAM6,stardew-valley,Stardew Valley,2016,ConcernedApe,ConcernedApe,playing,,,
 01K5A00000000000000000GAM5,tunic,Tunic,2022,Andrew Shouldice,Finji,playing,,,

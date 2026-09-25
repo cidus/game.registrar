@@ -266,7 +266,8 @@
     "photo_ingest_failed": "{count} foto(s) não puderam ser processadas, e nenhuma foi anexada: {files}.",
     "cover_needs_source": "Informe a capa com --photo <arquivo>, --from <hash>, ou --reset.",
     "cover_too_many_sources": "Apenas um entre --photo, --from ou --reset é permitido.",
-    "unknown_attachment": "Nenhum anexo em {title} tem o hash \"{value}\"."
+    "unknown_attachment": "Nenhum anexo em {title} tem o hash \"{value}\".",
+    "template_placeholder": "O modelo \"{name}\" tem um espaço \"{key}\" que esta versão não sabe preencher."
   },
   "doctor": {
     "unparseable_line": "A linha {line} não é JSON válido.",
@@ -522,6 +523,27 @@
     "criteria": "Critério",
     "empty": "Nada no acervo ainda.",
     "stated_marker": "declarada"
+  },
+  "base": {
+    "view": {
+      "finished": "Finalizados",
+      "playing": "Em andamento",
+      "by_genre": "Por gênero",
+      "dropped": "Abandonados",
+      "shelf": "Estante"
+    },
+    "column": {
+      "game": "Título",
+      "criteria": "Critério",
+      "hours_source": "Horas de"
+    }
+  },
+  "site": {
+    "title": "Registro de Jogos",
+    "locale_tag": "pt-BR"
+  },
+  "file": {
+    "game_list": "Lista de Jogos"
   },
   "stats": {
     "title": "Estatísticas",
