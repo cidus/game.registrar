@@ -194,16 +194,33 @@ confirmation so they can tell you which one they meant.
 It came with a `session.open`, `session.close`, `run.close` or `run.import`, and
 it is one item inside that event's payload. **There is no event of its own to
 revoke**: revoking that event would revoke the session or the close along with
-the photo. Amend it, setting `attachments` to the rows that survive:
+the photo. The correction is an `amend` on that event, replacing `attachments`
+with the photos that stay.
+
+**Let the database build the array. Do not assemble it yourself.** One query
+returns the exact string the `amend` takes, with the photo to drop excluded by
+`sha256`:
 
 ```
-gamereg amend "<target>" --set attachments='[{"sha256":"<sha>","caption":"<caption>","captured_at":"<captured_at>","kind":"<kind>"}]' --reason "duplicate photo removed at the user's request" --json
+gamereg query "SELECT json_group_array(json_object('sha256',sha256,'caption',caption,'captured_at',captured_at,'kind',kind)) AS attachments FROM attachments WHERE target = '<target>' AND sha256 NOT IN ('<sha to remove>')" --json
+gamereg amend "<target>" --set attachments='<that string, verbatim>' --reason "duplicate photo removed at the user's request" --json
 ```
 
-**Transcribe the surviving rows; do not compose records.** Every value comes
-from the query above, field for field. `captured_at` is the one that punishes
-carelessness — camera metadata the user never typed, which the table has and
-which vanishes silently if you leave it out while everything still looks right.
+This is the same two calls as reading the rows and retyping the survivors, and
+it removes the step where a mistake is invisible. Subtraction happens in SQL,
+where it either matched or it did not; the values are carried by the database
+rather than through you. **`captured_at` is the reason this matters** — camera
+metadata the user never typed, which would vanish silently from any record you
+retyped without it while everything still looked right.
+
+`NOT IN` takes a list, so several photos go in one call:
+`NOT IN ('<sha>', '<sha>')`.
+
+**Check the count before you amend.** The query reports `count`; it must be
+exactly one lower than the same query without the `NOT IN` clause. Equal means
+the `sha256` matched nothing and the `amend` would write the array back
+unchanged — a no-op that reads as success. Zero rows means you are about to
+strip every photo from that event, so stop.
 
 **Do not write an `ext`.** The query does not return one and the register does
 not read one: an attachment is stored as WebP by construction, so the hash and
@@ -211,8 +228,7 @@ the extension are one fact. Older events still carry the field and it is ignored
 where it sits.
 
 The patch **replaces** the array rather than merging into it, which is what makes
-this work: list every photo that stays and the one you left out is gone. List
-none and the event keeps no photos, so read your own JSON back before sending.
+a subtraction expressible at all — and also why an empty array empties the event.
 
 ### `target` is the game's own id — the photo came from `attach`
 

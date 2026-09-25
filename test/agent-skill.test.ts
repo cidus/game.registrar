@@ -707,8 +707,19 @@ test('the photo-removal flow distinguishes inline from attach-filed', () => {
   // The array is replaced, not merged — the property the whole flow rests on.
   assert.match(section, /\breplaces\b.*\bmerging\b/s)
 
-  // captured_at is the field whose omission loses real data silently.
+  // The surviving set is built by SQL, not assembled by the model: `NOT IN`
+  // excludes, `json_group_array` emits the string the amend takes verbatim.
+  // Retyping the survivors is the same two calls with a silent failure mode,
+  // and `captured_at` — metadata nobody typed — is what it loses.
+  assert.match(section, /Let the database build the array\. Do not assemble it\s*\n?\s*yourself/)
+  assert.match(section, /json_group_array\(json_object\(/)
+  assert.match(section, /NOT IN \('<sha to remove>'\)/)
   assert.match(section, /captured_at/)
+
+  // A sha that matches nothing writes the array back unchanged and reports
+  // success, so the count is checked before the write.
+  assert.match(section, /Check the count before you amend/)
+
   // And ext must not be written: the fold ignores the payload's value (ADR 0108).
   assert.match(section, /Do not write an `ext`/)
 })

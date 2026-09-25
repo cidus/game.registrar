@@ -264,7 +264,10 @@ file.
   table's `target`: a photo filed by `attach` has an event of its own and is
   revoked, while an inline one is an item in a `session.open`/`session.close`/
   `run.close` payload and is removed by amending that event's `attachments` to
-  the rows that survive — revoking it would revoke the session or the close too
+  the rows that survive — revoking it would revoke the session or the close too.
+  The surviving array is built by the query itself (`NOT IN` plus
+  `json_group_array`) and passed through verbatim, so the subtraction happens in
+  SQL rather than in a retyped record
   ([ADR 0112](docs/decisions/0112-a-photo-is-removed-by-where-it-lives.md)).
 - `TOOLS.md`'s notes reach the model again. OpenClaw injected the file on
   2026.7.1-2 and stopped on 2026.9.4, so the tool-surface notes were absent from

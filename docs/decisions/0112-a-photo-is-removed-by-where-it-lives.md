@@ -54,10 +54,25 @@ the gateway supplies that location — with the cost of guessing stated, because
 
 - `target` is an event id: the photo is one item in that event's payload and has
   no event of its own. Revoking it would revoke the session or the close along
-  with the photo. The correction is `amend` on that event with `attachments` set
-  to the surviving rows, transcribed field for field from the query. The patch
-  replaces the array rather than merging, which is what makes a subtraction
-  expressible at all.
+  with the photo. The correction is `amend` on that event, replacing
+  `attachments`. The patch replaces rather than merges, which is what makes a
+  subtraction expressible at all.
+
+  **The surviving array is built by SQL, not assembled by the agent.** One query
+  excludes the photo by `sha256` with `NOT IN` and emits the array with
+  `json_group_array(json_object(…))`, and its output goes into `--set
+  attachments=` verbatim. The first draft of this had the agent read the rows and
+  retype the survivors, which is the same two calls with one extra place to be
+  wrong: the subtraction happens in a model's head rather than in a `WHERE`
+  clause, and every field is copied by hand. `captured_at` is what that costs —
+  camera metadata nobody typed, which disappears from a retyped record in
+  silence while the result still looks complete. Verified to round-trip: a
+  photo carrying `captured_at` keeps it exactly through the query and the amend.
+
+  The `sha256` that matches nothing is the failure mode left, and it is quiet:
+  the array comes back whole and the `amend` writes it back unchanged, reporting
+  success. So the instruction has the agent check `count` against the same query
+  without the exclusion — one lower, or stop.
 - `target` is the game's id: `attach` filed an event of its own, so `revoke`
   removes the photo and touches nothing else.
 
@@ -76,12 +91,16 @@ the fold reading the payload's value and removed it from the table.
 
 ## Consequences
 
-The inline flow has the agent assembling an attachment array, which is close to
-the line the never-invent rule draws. The instruction is written as transcription
-— every value from the query, field for field — and the distinction is real: the
-agent copies rows it read rather than composing records. It is still the riskiest
-thing in `corrections.md`, and the confirmation `amend` already requires is what
-stands between a wrong array and the log.
+The inline flow is the riskiest thing in `corrections.md`, and building the array
+in SQL is what keeps it on the safe side of the never-invent rule: the agent
+names one hash to exclude and passes a string through, rather than composing
+attachment records. The confirmation `amend` already requires still stands
+between a wrong target and the log.
+
+What no test reaches is whether the agent follows the count check. The suite
+asserts the instruction is present; a model that skips it turns a mismatched hash
+into a silent no-op, which is the same shape as the amend that reported success
+while writing nothing ([0094](0094-amend-refuses-foreign-keys.md)).
 
 Verified end to end against the current build, not reasoned about: a session with
 two inline photos, amended to one, leaves one row in `attachments`, an asset path
