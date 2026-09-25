@@ -71,8 +71,15 @@ the gateway supplies that location — with the cost of guessing stated, because
 
   The `sha256` that matches nothing is the failure mode left, and it is quiet:
   the array comes back whole and the `amend` writes it back unchanged, reporting
-  success. So the instruction has the agent check `count` against the same query
-  without the exclusion — one lower, or stop.
+  success. The query therefore carries its own `kept` and `total`, and the check
+  is `kept = total - (hashes listed)`. The envelope's `count` cannot serve —
+  an aggregate returns one row whatever it aggregates, so `count` is always `1`
+  and a check against it would have proved nothing.
+
+  **An empty array is a correct outcome, not a guard.** Removing the only photo
+  on an event leaves `[]`, which is what the request means; the first draft
+  treated zero surviving rows as a condition to stop on, which would have refused
+  the plainest case of all. The event itself is untouched either way.
 - `target` is the game's id: `attach` filed an event of its own, so `revoke`
   removes the photo and touches nothing else.
 

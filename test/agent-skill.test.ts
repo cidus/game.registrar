@@ -716,9 +716,17 @@ test('the photo-removal flow distinguishes inline from attach-filed', () => {
   assert.match(section, /NOT IN \('<sha to remove>'\)/)
   assert.match(section, /captured_at/)
 
-  // A sha that matches nothing writes the array back unchanged and reports
-  // success, so the count is checked before the write.
-  assert.match(section, /Check the count before you amend/)
+  // A hash that matches nothing writes the array back unchanged and reports
+  // success, so the surviving count is checked against the total. `count` in the
+  // envelope cannot serve: the aggregate returns one row whatever it aggregates,
+  // so the query carries `kept` and `total` of its own.
+  assert.match(section, /`kept` = `total` minus the number of hashes you listed/)
+  assert.match(section, /count\(\*\) FILTER \(WHERE sha256 NOT IN/)
+  assert.match(section, /count\(\*\) AS total/)
+
+  // And an empty array is a legitimate outcome, not an error: removing the only
+  // photo on an event leaves none.
+  assert.match(section, /`kept: 0` is a correct answer/)
 
   // And ext must not be written: the fold ignores the payload's value (ADR 0108).
   assert.match(section, /Do not write an `ext`/)

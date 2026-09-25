@@ -198,29 +198,36 @@ the photo. The correction is an `amend` on that event, replacing `attachments`
 with the photos that stay.
 
 **Let the database build the array. Do not assemble it yourself.** One query
-returns the exact string the `amend` takes, with the photo to drop excluded by
-`sha256`:
+returns the string the `amend` takes and the two numbers that prove it is right:
 
 ```
-gamereg query "SELECT json_group_array(json_object('sha256',sha256,'caption',caption,'captured_at',captured_at,'kind',kind)) AS attachments FROM attachments WHERE target = '<target>' AND sha256 NOT IN ('<sha to remove>')" --json
-gamereg amend "<target>" --set attachments='<that string, verbatim>' --reason "duplicate photo removed at the user's request" --json
+gamereg query "SELECT json_group_array(json_object('sha256',sha256,'caption',caption,'captured_at',captured_at,'kind',kind)) FILTER (WHERE sha256 NOT IN ('<sha to remove>')) AS attachments, count(*) FILTER (WHERE sha256 NOT IN ('<sha to remove>')) AS kept, count(*) AS total FROM attachments WHERE target = '<target>'" --json
+gamereg amend "<target>" --set attachments='<the attachments string, verbatim>' --reason "duplicate photo removed at the user's request" --json
 ```
 
-This is the same two calls as reading the rows and retyping the survivors, and
-it removes the step where a mistake is invisible. Subtraction happens in SQL,
-where it either matched or it did not; the values are carried by the database
+This is the same two calls as reading the rows and retyping the survivors, and it
+removes the step where a mistake is invisible. The subtraction happens in SQL,
+where it either matched or it did not, and every value is carried by the database
 rather than through you. **`captured_at` is the reason this matters** — camera
 metadata the user never typed, which would vanish silently from any record you
 retyped without it while everything still looked right.
 
-`NOT IN` takes a list, so several photos go in one call:
-`NOT IN ('<sha>', '<sha>')`.
+`NOT IN` takes a list, so several photos go in one call — the same list in both
+clauses: `NOT IN ('<sha>', '<sha>')`.
 
-**Check the count before you amend.** The query reports `count`; it must be
-exactly one lower than the same query without the `NOT IN` clause. Equal means
-the `sha256` matched nothing and the `amend` would write the array back
-unchanged — a no-op that reads as success. Zero rows means you are about to
-strip every photo from that event, so stop.
+**The check is `kept` = `total` minus the number of hashes you listed.** Anything
+else and the `amend` would write something you did not mean:
+
+- `kept` equal to `total` — a hash matched nothing. The array came back whole, so
+  the `amend` would write it back unchanged and report success. Read the hashes
+  off the rows again rather than retyping them from the conversation.
+- `kept` lower than expected — a hash you did not intend is in the list, or the
+  same photo is filed twice on this event.
+
+**`kept: 0` is a correct answer**, not a guard to trip over: one photo on the
+event and one hash listed leaves `[]`, which empties that event's attachments and
+is exactly what "remove the photo I sent" means when it was the only one. The
+event itself is untouched — the session, the close, the note all stand.
 
 **Do not write an `ext`.** The query does not return one and the register does
 not read one: an attachment is stored as WebP by construction, so the hash and
