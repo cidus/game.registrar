@@ -69,7 +69,27 @@ type VerdictEntry = {
   photos: AttachmentRow[]
 }
 
-export type DiaryEntry = SessionEntry | VerdictEntry
+type PhotoEntry = {
+  kind: 'photos'
+  sortKey: string
+  tie: string
+  displayDate: string
+  game: GameState
+  photos: AttachmentRow[]
+}
+
+export type DiaryEntry = SessionEntry | VerdictEntry | PhotoEntry
+
+/**
+ * When a photo happened: the moment the camera recorded, falling back to the
+ * moment it was filed. The same order the gallery's caption line uses, and the
+ * truthful one for a timeline — a photo taken in May belongs in May even if it
+ * reached the register in August. Absent EXIF it is the filing, which is all
+ * the register knows.
+ */
+function photoAt(row: AttachmentRow): string {
+  return row.captured_at ?? row.filed_at
+}
 
 /** One line, no markup: a caption is prose, not a table cell. */
 function cell(value: string | null): string {
@@ -89,15 +109,33 @@ function cell(value: string | null): string {
  * A run's end is a *date*, not a timestamp, so it sorts on a synthetic
  * `${ended_on}T23:59:59` — which puts a closure after the last session of the
  * day it closed on, the real order of events (ADR 0110).
+ *
+ * **A photo filed against the game itself is its own entry.** `gamereg attach`
+ * accepts a game and not only an event, and such a photo resolves to a game, a
+ * date, and nothing narrower — so it belongs to no session and no run. The
+ * first version of this function had a branch for each of those two and none
+ * for this, and silently dropped every game-level photo in the register. They
+ * are grouped per game per day, because the alternative is one entry per
+ * `attach` command and a game photographed three times in an evening should
+ * not appear three times in a row.
+ *
+ * They are *not* attached to a session that happens to share the day. The log
+ * does not say they belong together, and guessing it is the lossy date-match
+ * this page was built to replace.
  */
 export function diaryEntries(state: VaultState): DiaryEntry[] {
   const bySession = new Map<string, AttachmentRow[]>()
   const byRun = new Map<string, AttachmentRow[]>()
+  /** Keyed `<game_id> <day>`: a photo with no narrower owner than its game. */
+  const byGameDay = new Map<string, AttachmentRow[]>()
   for (const row of attachmentRows(state)) {
     if (row.session_id !== null) {
       bySession.set(row.session_id, [...(bySession.get(row.session_id) ?? []), row])
     } else if (row.run_id !== null) {
       byRun.set(row.run_id, [...(byRun.get(row.run_id) ?? []), row])
+    } else {
+      const key = `${row.game_id} ${photoAt(row).slice(0, 10)}`
+      byGameDay.set(key, [...(byGameDay.get(key) ?? []), row])
     }
   }
 
@@ -129,6 +167,28 @@ export function diaryEntries(state: VaultState): DiaryEntry[] {
         displayDate: run.ended_on,
         game,
         run,
+        photos,
+      })
+    }
+
+    // Ordered among themselves, and placed by the earliest of them — the
+    // moment the day's photographing began, which is what puts the group among
+    // that day's sessions. Taken explicitly rather than relying on the order
+    // `attachmentRows` returns, which is by `filed_at` and not by `photoAt`.
+    for (const [key, group] of byGameDay) {
+      if (!key.startsWith(`${game.game_id} `)) continue
+      const photos = [...group].sort((left, right) => {
+        const first = `${photoAt(left)}|${left.sha256}`
+        const second = `${photoAt(right)}|${right.sha256}`
+        return first < second ? -1 : first > second ? 1 : 0
+      })
+      const earliest = photos[0]!
+      entries.push({
+        kind: 'photos',
+        sortKey: photoAt(earliest),
+        tie: `${game.game_id} ${earliest.sha256}`,
+        displayDate: photoAt(earliest).slice(0, 10),
+        game,
         photos,
       })
     }
@@ -186,6 +246,16 @@ function verdictMeta(run: RunState, bundle: Translator): string {
   }
   if (run.rating !== null) parts.push(String(run.rating))
   return parts.join(' · ')
+}
+
+/**
+ * A photo entry has no duration and no platform to report — the log knows only
+ * that these arrived, for this game, on this day. So the count is the whole of
+ * it, and a single photo says so rather than reading `Photos · 1`.
+ */
+function photosMeta(count: number, bundle: Translator): string {
+  if (count === 1) return bundle.t('diary.kind.photo')
+  return `${bundle.t('diary.kind.photos')} · ${count}`
 }
 
 /** A verdict is the register's opinion of a whole playthrough; a blockquote says so. */
@@ -255,10 +325,12 @@ function entryBody(entry: DiaryEntry, bundle: Translator, flavour: Flavour): str
     sections.push(entryHead(entry.game, sessionMeta(entry.session, bundle), flavour))
     const note = (entry.session.note ?? '').trim()
     if (note !== '') sections.push(note)
-  } else {
+  } else if (entry.kind === 'verdict') {
     sections.push(entryHead(entry.game, verdictMeta(entry.run, bundle), flavour))
     const verdict = (entry.run.verdict ?? '').trim()
     if (verdict !== '') sections.push(blockquote(verdict))
+  } else {
+    sections.push(entryHead(entry.game, photosMeta(entry.photos.length, bundle), flavour))
   }
 
   const photos = photosBlock(entry.photos, flavour, bundle)

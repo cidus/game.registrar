@@ -71,6 +71,15 @@ table that grows without bound. The vault is untouched — `Game List.md` is
 still Obsidian's front page and still has no diary
 ([ADR 0053](0053-front-page-names.md)).
 
+**A photo whose narrowest owner is the game is its own entry.** `attach` takes
+a game as readily as an event, and such a photo has a date and a game and
+nothing narrower. The first implementation had a branch for a session photo and
+one for a run photo and none for this, which silently dropped every game-level
+photo in the register — the entry model was stated as two kinds and the code
+matched the statement, so neither caught it. Grouped per game per day, dated by
+`captured_at` falling back to `filed_at`, and never folded into a session that
+merely shares the day.
+
 ## Consequences
 
 The diary is Quartz-only for now (the vault already has the Bases view for

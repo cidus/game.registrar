@@ -423,7 +423,9 @@
     "home_title": "Diary",
     "kind": {
       "session": "Session",
-      "verdict": "Verdict"
+      "verdict": "Verdict",
+      "photo": "Photo",
+      "photos": "Photos"
     },
     "empty": "Nothing was written down this year."
   },

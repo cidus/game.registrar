@@ -32,6 +32,15 @@ function plan(events: EventEnvelope[], publish = false): PlannedFile[] {
   return quartz.plan(fold(events, context), { config, bundle: translator('en') })
 }
 
+/** A photo whose hash is one repeated character, so the folder is readable. */
+const photo = (char: string): Record<string, unknown> => ({
+  sha256: char.repeat(64),
+  ext: 'webp',
+  caption: null,
+  captured_at: null,
+  kind: 'screenshot',
+})
+
 const text = (files: PlannedFile[], path: string): string => {
   const found = files.find((file) => file.path === path)
   assert.notEqual(found, undefined, `${path} was not planned`)
@@ -106,6 +115,68 @@ test('the cover rides with the title, and goes quiet when the tree has no assets
   assert.equal(withheld.includes('![[assets/'), false)
   assert.equal(withheld.includes('<div'), false)
   assert.match(withheld, /^\*\*\[\[games\/tunic\|Tunic\]\]\*\*$/m)
+})
+
+test('a photo filed against the game itself still reaches the diary', () => {
+  // The regression this covers: `gamereg attach <game>` resolves to a game and
+  // to no session and no run, and the first version of diaryEntries had a
+  // branch for each of those two and none for this — so every game-level photo
+  // in the register was silently dropped from the page.
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'toem', title: 'Toem' }),
+    event('run.open', { run_id: 'R1', game_id: 'G1', started_on: '2025-03-01', replay: false }),
+    event('session.open', { session_id: 'S1', run_id: 'R1', at: '2025-03-01T20:00:00-03:00' }),
+    event('session.close', { session_id: 'S1', at: '2025-03-01T21:00:00-03:00', note: 'Fotografei tudo.' }),
+    event('attachment.add', { target: 'G1', attachments: [photo('a')] }, '2025-03-02T09:00:00-03:00'),
+  ]
+
+  const diary = text(plan(events, true), 'quartz/content/diary/2025.md')
+  assert.match(diary, /## 2025-03-02/)
+  assert.match(diary, /\*Photo\*/)
+  assert.match(diary, new RegExp(`!\\[\\[assets/aa/${'a'.repeat(64)}\\.webp\\]\\]`))
+})
+
+test("a day's photos of one game are one entry, however many attach commands filed them", () => {
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'toem', title: 'Toem' }),
+    event('run.open', { run_id: 'R1', game_id: 'G1', started_on: '2025-03-01', replay: false }),
+    event('session.open', { session_id: 'S1', run_id: 'R1', at: '2025-03-01T20:00:00-03:00' }),
+    event('session.close', { session_id: 'S1', at: '2025-03-01T21:00:00-03:00', note: 'Joguei.' }),
+    // Three separate commands, same game, same day.
+    event('attachment.add', { target: 'G1', attachments: [photo('a')] }, '2025-03-02T09:00:00-03:00'),
+    event('attachment.add', { target: 'G1', attachments: [photo('b')] }, '2025-03-02T10:00:00-03:00'),
+    event('attachment.add', { target: 'G1', attachments: [photo('c')] }, '2025-03-02T11:00:00-03:00'),
+    // And one the next day, which is its own entry.
+    event('attachment.add', { target: 'G1', attachments: [photo('d')] }, '2025-03-03T09:00:00-03:00'),
+  ]
+
+  const diary = text(plan(events, true), 'quartz/content/diary/2025.md')
+  // One heading per day, one Toem entry under each.
+  assert.equal(diary.match(/\*Photos · 3\*/g)?.length, 1)
+  assert.equal(diary.match(/\*Photo\*/g)?.length, 1)
+  for (const hex of ['aa', 'bb', 'cc', 'dd']) {
+    assert.match(diary, new RegExp(`assets/${hex}/`), `foto ${hex} ausente`)
+  }
+})
+
+test('a photo is dated by its capture, not by the day it was filed', () => {
+  // Filed in March, taken in January: a timeline says January. Absent EXIF it
+  // falls back to the filing, which is all the register knows.
+  const events = [
+    event('game.create', { game_id: 'G1', slug: 'toem', title: 'Toem' }),
+    event('run.open', { run_id: 'R1', game_id: 'G1', started_on: '2025-01-05', replay: false }),
+    event('session.open', { session_id: 'S1', run_id: 'R1', at: '2025-01-05T20:00:00-03:00' }),
+    event('session.close', { session_id: 'S1', at: '2025-01-05T21:00:00-03:00', note: 'Joguei.' }),
+    event(
+      'attachment.add',
+      { target: 'G1', attachments: [{ ...photo('a'), captured_at: '2025-01-05T20:30:00-03:00' }] },
+      '2025-03-02T09:00:00-03:00',
+    ),
+  ]
+
+  const diary = text(plan(events, true), 'quartz/content/diary/2025.md')
+  assert.match(diary, /## 2025-01-05/)
+  assert.equal(diary.includes('## 2025-03-02'), false)
 })
 
 test('a session with neither a note nor an attachment produces no entry', () => {

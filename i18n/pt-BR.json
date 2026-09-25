@@ -502,7 +502,9 @@
     "home_title": "Diário",
     "kind": {
       "session": "Sessão",
-      "verdict": "Parecer"
+      "verdict": "Parecer",
+      "photo": "Foto",
+      "photos": "Fotos"
     },
     "empty": "Nada foi registrado neste ano."
   },

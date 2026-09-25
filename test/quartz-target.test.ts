@@ -182,8 +182,9 @@ test('the front page carries the most recent entries and stops there', () => {
 
   const home = newDiaryHome(state, bundle, quartzFlavour(false), 'all-games', 2)
   // Exactly the two newest, and the third is not on the page.
+  assert.match(home, /## 2026-08-16/)
   assert.match(home, /## 2026-08-15/)
-  assert.match(home, /## 2026-08-12/)
+  assert.equal(home.includes('## 2026-08-12'), false)
   assert.equal(home.includes('## 2026-05-03'), false)
   assert.ok(all.length > 2, 'the fixture needs more entries than the limit for this to mean anything')
 })

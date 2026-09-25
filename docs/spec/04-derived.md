@@ -522,9 +522,20 @@ by `run_id` — a synthetic end-of-day key that puts a closure after the last
 session of the day it closed on, which is the real order of events. See
 [ADR 0110](../decisions/0110-diary-is-not-the-feed.md).
 
+**Photo entry.** Emitted for a photo whose narrowest owner is the *game* —
+`gamereg attach` takes a game as readily as an event, and such a photo belongs
+to no session and no run. Grouped **per game per day**, so a game
+photographed three times in an evening is one entry and not three. Sorted and
+displayed by `captured_at` falling back to `filed_at`: a photo taken in May
+belongs in May even if it reached the register in August, and absent EXIF the
+filing is all the register knows. Such photos are **not** folded into a
+session that happens to share the day — the log does not say they belong
+together, and guessing it is the lossy date-match this page exists to replace.
+
 **Year assignment happens after resolution**, not by filtering sessions before
 they are placed: an entry belongs to year *Y* when its *displayed* date —
-`logical_day` for a session, `ended_on` for a verdict — starts with *Y*. A run
+`logical_day` for a session, `ended_on` for a verdict, the capture or filing
+date for a photo — starts with *Y*. A run
 that started in one year and ended in the next files its verdict in the year it
 closed, where it belongs. One consequence follows from reusing `yearsPlayed`
 rather than inventing a second year source: a verdict closing in a year with no
