@@ -175,8 +175,17 @@ test(
     const workspace = workspaceOf(vault)
     const provider = createIgdbProvider(vault.root)
 
-    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'hollow-knight'), [provider], false, false)
+    const game = gameNamed(workspace, 'hollow-knight')
+    const outcome = await enrichGame(cli, workspace, game, [provider], false, false)
     assert.equal(outcome.kind, 'enriched', `hollow-knight: ${JSON.stringify(outcome)} — did IGDB's catalog change?`)
+
+    // Same reason Chrono Trigger checks the year below: narrowing to *a*
+    // candidate is worth nothing if it is the wrong one, and `enriched`
+    // alone cannot tell the Switch entry from the Vita one. This assertion
+    // is the difference between a test and a test-shaped call — without it
+    // this one stayed green for a week while matching nothing at all.
+    const enriched = workspace.state.gamesById.get(game.game_id)!
+    assert.equal(enriched.release_year, 2017, `landed on the wrong release: ${enriched.release_year}`)
   },
 )
 
