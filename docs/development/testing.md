@@ -199,8 +199,14 @@ an edition as its own entry with its own id. Its name does not end in
   Without credentials every test skips and says so.
 - **Isolation.** It runs against a throwaway copy of `example-vault/` and never
   writes to the fixture.
+- **It folds the fixture's log without its `game.enrich` events.** `findDetail`
+  returns a straight `fetch` for a game that already carries a provider id, so
+  a fixture enrichment would skip the matching these tests exist to exercise.
+  The illustrative IGDB ids the fixture gained once did exactly that: two tests
+  failed against ids no catalog has, and a third passed having matched nothing.
 - **Failures.** A failure is not necessarily a regression: a catalog entry can
-  be renamed, re-released or delisted. Read the failure before changing code.
+  be renamed, re-released or delisted — and a fixture change can hollow a test
+  out without touching a line of `src/`. Read the failure before changing code.
 - **CI.** It runs weekly; see [CI](#ci).
 
 ## Shell script tests
