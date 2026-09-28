@@ -31,6 +31,17 @@
  * regression in this codebase — a provider's catalog can change (a game
  * gets renamed, re-released, delisted). Read the failure before assuming
  * the fix broke; it might be the world that changed instead.
+ *
+ * THE THIRD POSSIBILITY, which has already happened once: neither the code
+ * nor the catalog moved — the fixture did. Every test here that calls
+ * `enrichGame` is exercising *matching*, and `findDetail` skips matching
+ * entirely for a game that already carries a provider id: it fetches that
+ * id and returns. The committed example-vault gained `game.enrich` events
+ * with illustrative IGDB ids, and that alone broke two tests and quietly
+ * hollowed out a third. So these workspaces are folded from the log with
+ * enrichment stripped (`unenrichedEvents`), and `gameNamed` refuses a game
+ * that still carries an id — a fixture that grows one is a loud failure
+ * here, not a silent one.
  */
 import assert from 'node:assert/strict'
 import { cpSync, rmSync } from 'node:fs'
@@ -40,7 +51,7 @@ import { test } from 'node:test'
 import { applyDetail, enrichGame } from '../../src/cli/commands/enrich.ts'
 import type { Cli } from '../../src/cli/context.ts'
 import type { Workspace } from '../../src/cli/workspace.ts'
-import { readEvents } from '../../src/core/events.ts'
+import { type EventEnvelope, readEvents } from '../../src/core/events.ts'
 import { fold, type GameState } from '../../src/core/fold.ts'
 import { PROVIDER_CREDENTIAL_FIELDS, resolveProviderCredentials } from '../../src/core/secrets.ts'
 import { platformSpellings, platformTable, samePlatform } from '../../src/core/platforms.ts'
@@ -82,14 +93,32 @@ function fakeCli(vault: Vault): Cli {
   }
 }
 
+/**
+ * The fixture's log with every `game.enrich` dropped, which is the state
+ * `enrich` actually faces: a local game the catalog has not been consulted
+ * about yet. Folding the committed enrich events in instead would hand
+ * `findDetail` a provider id and short-circuit the search these tests exist
+ * to exercise (see the file comment).
+ */
+function unenrichedEvents(vault: Vault): EventEnvelope[] {
+  return readEvents(vault.eventsFile).filter((entry) => entry.type !== 'game.enrich')
+}
+
 function workspaceOf(vault: Vault): Workspace {
-  const events = readEvents(vault.eventsFile)
+  const events = unenrichedEvents(vault)
   return { events, state: fold(events, timeContext(vault)), pending: [] }
 }
 
 function gameNamed(workspace: Workspace, slug: string): GameState {
   const game = workspace.state.games.find((candidate) => candidate.slug === slug)
   assert.ok(game, `example-vault fixture is missing the "${slug}" game — did it get renamed?`)
+  // A `game.create` may carry a provider id too, which `unenrichedEvents`
+  // cannot strip and `findDetail` honours just the same.
+  assert.equal(
+    game!.providers['igdb'],
+    undefined,
+    `"${slug}" carries an IGDB id before enrichment runs — findDetail would fetch it and never search`,
+  )
   return game!
 }
 
@@ -120,7 +149,7 @@ test(
     // ambiguity (see 03-resolution.md, "Rule 6 does not apply...").
     const cli = fakeCli(vault)
     const events = [
-      ...readEvents(vault.eventsFile),
+      ...unenrichedEvents(vault),
       event('game.create', { game_id: 'LIVE-FF7R', slug: 'ff7r-live', title: 'Final Fantasy VII Remake' }),
     ]
     const workspace: Workspace = { events, state: fold(events, timeContext(vault)), pending: [] }
@@ -146,8 +175,17 @@ test(
     const workspace = workspaceOf(vault)
     const provider = createIgdbProvider(vault.root)
 
-    const outcome = await enrichGame(cli, workspace, gameNamed(workspace, 'hollow-knight'), [provider], false, false)
+    const game = gameNamed(workspace, 'hollow-knight')
+    const outcome = await enrichGame(cli, workspace, game, [provider], false, false)
     assert.equal(outcome.kind, 'enriched', `hollow-knight: ${JSON.stringify(outcome)} — did IGDB's catalog change?`)
+
+    // Same reason Chrono Trigger checks the year below: narrowing to *a*
+    // candidate is worth nothing if it is the wrong one, and `enriched`
+    // alone cannot tell the Switch entry from the Vita one. This assertion
+    // is the difference between a test and a test-shaped call — without it
+    // this one stayed green for a week while matching nothing at all.
+    const enriched = workspace.state.gamesById.get(game.game_id)!
+    assert.equal(enriched.release_year, 2017, `landed on the wrong release: ${enriched.release_year}`)
   },
 )
 
@@ -204,7 +242,7 @@ test(
 function pacManWorkspace(platform: string): Workspace {
   const slug = `pac-man-live-${platform.toLowerCase().replace(/\s+/g, '-')}`
   const events = [
-    ...readEvents(vault.eventsFile),
+    ...unenrichedEvents(vault),
     event('game.create', { game_id: `LIVE-PACMAN-${platform}`, slug, title: 'Pac-Man' }),
     event('run.import', {
       run_id: `LIVE-PACMAN-R1-${platform}`,
